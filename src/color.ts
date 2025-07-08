@@ -2,8 +2,8 @@
 # 5.1 color
 
 `xinjs` includes a lightweight, powerful `Color` class for manipulating colors.
-I hope at some point CSS will provide sufficiently capable native color calculations 
-so that this will no longer be needed. Some of these methods have begun to appear, 
+I hope at some point CSS will provide sufficiently capable native color calculations
+so that this will no longer be needed. Some of these methods have begun to appear,
 and are approaching wide implementation.
 
 ## Color
@@ -40,12 +40,12 @@ function makeSwatch(text) {
   swatches.style.setProperty('--original', color)
   swatches.append(
     div(
-      text, 
+      text,
       {
         class: 'swatch',
         title: `${adjustedColor.html} ${adjustedColor.hsla}`,
-        style: { 
-          _adjusted: adjustedColor, 
+        style: {
+          _adjusted: adjustedColor,
           _text: adjustedColor.contrasting()
         }
       }
@@ -54,7 +54,7 @@ function makeSwatch(text) {
 }
 
 const colorInput = input({
-  type: 'color', 
+  type: 'color',
   value: '#000',
   onInput: update
 })
@@ -138,7 +138,7 @@ preview.append(
 }
 .preview .swatch {
   display: inline-block;
-  padding: 2px 6px; 
+  padding: 2px 6px;
   color: var(--text);
   background: var(--adjusted);
   border: 2px solid var(--original);
@@ -161,12 +161,15 @@ In each case `amount` is from 0 to 1, and `degrees` is an angle in degrees.
 - `contrasting(amount = 1)` — produces a **contrasting color** by blending the color with black (if its
   `brightness` is > 0.5) or white by `amount`. The new color will always have opacity 1.
   `contrasting()` produce nearly identical results to `contrast-color()`.
-  
+
 > **Note** the captions in the example above are colored using `contrasting()` and thus
 > should always be readable. In general, a base color will produce the worst results when
 > its `brightness` is around 0.5, much as is the case with the new and experimental CSS
 > [contrast-color()](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color)
-> function. 
+> function.
+>
+> **Also note** that highly translucent colors might produce disappointing `.contrasting()`
+> results since it's the blended color you need to worry about.
 
 Where-ever possible, unless otherwise indicated, all of these operations are performed in HSL-space.
 HSL space is not great! For example, `desaturate` essentially blends you with medium gray (`#888`)
