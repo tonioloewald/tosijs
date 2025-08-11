@@ -2,7 +2,8 @@
 
 <!--{ "pin": "top" }-->
 
-> `xinjs` has been renamed `tosijs`. This is a work-in-progress.
+> `xinjs` has been renamed `tosijs`. Updating the documentation and links is a
+> work in progress. The goal is for the API to remain stable during the transition.
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme) | [discord](https://discord.gg/ramJ9rgky5)
 
@@ -38,7 +39,7 @@ const todo = {
     if (reminder.trim()) {
       todo.list.push(reminder)
     }
-  }
+  },
 }
 
 const { readmeTodoDemo } = tosi({ readmeTodoDemo: todo })
@@ -49,14 +50,14 @@ preview.append(
   ul(
     {
       bindList: {
-        value: readmeTodoDemo.list
-      }
+        value: readmeTodoDemo.list,
+      },
     },
     template(li({ bindText: '^' }))
   ),
   label(
     'Reminder',
-    input({ 
+    input({
       placeholder: 'enter a reminder',
       onKeydown(event) {
         if (event.key === 'Enter') {
@@ -65,7 +66,7 @@ preview.append(
           event.target.value = ''
           touch(readmeTodoDemo)
         }
-      }
+      },
     })
   )
 )

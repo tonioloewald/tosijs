@@ -128,15 +128,15 @@ bind(document.body, 'prefs.theme', {
   },
 })
 
-bind(document.body, 'prefs.highContrast', {
+bind(document.body, prefs.highContrast, {
   toDOM(element, highContrast) {
-    element.classList.toggle('high-contrast', highContrast)
+    element.classList.toggle('high-contrast', highContrast.valueOf())
   },
 })
 
-bind(document.body, 'prefs.monochrome', {
+bind(document.body, prefs.monochrome, {
   toDOM(element, monochrome) {
-    element.classList.toggle('monochrome', monochrome)
+    element.classList.toggle('monochrome', monochrome.valueOf())
   },
 })
 
@@ -180,9 +180,9 @@ if (main)
             alignItems: 'center',
             borderBottom: 'none',
           },
-          title: `xinjs ${version}, xinjs-ui ${uiVersion}`,
+          title: `tosijs ${version}, tosijs-ui ${uiVersion}`,
         },
-        img({src: 'favicon.svg', style: {height: 40, marginRight: 10}}),
+        img({ src: 'favicon.svg', style: { height: 40, marginRight: 10 } }),
         h2({ bindText: 'app.title' })
       ),
       span({ class: 'elastic' }),
@@ -280,19 +280,19 @@ if (main)
                     {
                       caption: 'High Contrast',
                       checked() {
-                        return prefs.highContrast
+                        return prefs.highContrast.valueOf()
                       },
                       action() {
-                        prefs.highContrast = !prefs.highContrast
+                        prefs.highContrast = !prefs.highContrast.valueOf()
                       },
                     },
                     {
                       caption: 'Monochrome',
                       checked() {
-                        return prefs.monochrome
+                        return prefs.monochrome.valueOf()
                       },
                       action() {
-                        prefs.monochrome = !prefs.monochrome
+                        prefs.monochrome = !prefs.monochrome.valueOf()
                       },
                     },
                   ],
