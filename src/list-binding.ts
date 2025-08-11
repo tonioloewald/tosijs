@@ -194,25 +194,15 @@ preview.append(
         value: bigBindTest.list,
         idPath: 'id',
         virtual: {
-          height: 44,
-          visibleColumns: 7
+          height: 40,
+          visibleColumns: 7,
+          rowChunkSize: 2,
         }
       },
-      style: {
-        height: '100%',
-        width: '100%',
-        overflowY: 'auto',
-        display: 'grid',
-        gridTemplateColumns: '14% 14% 14% 14% 14% 14% 14%'
-      }
     },
     template(
       div({
-        style: {
-          display: 'inline-block',
-          height: 44,
-          width: 100
-        },
+        class: 'cell',
         bindText: '^.id'
       })
     )
@@ -220,8 +210,32 @@ preview.append(
 )
 ```
 ```css
+.virtual-grid-example {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 14% 14% 14% 14% 14% 14% 14%;
+}
+
 .virtual-grid-example .virtual-list-padding {
   grid-column: 1 / 8;
+}
+
+.virtual-grid-example .cell {
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+}
+
+.virtual-grid-example .cell:nth-child(14n+2),
+.virtual-grid-example .cell:nth-child(14n+3),
+.virtual-grid-example .cell:nth-child(14n+4),
+.virtual-grid-example .cell:nth-child(14n+5),
+.virtual-grid-example .cell:nth-child(14n+6),
+.virtual-grid-example .cell:nth-child(14n+7),
+.virtual-grid-example .cell:nth-child(14n+8) {
+  background: #0001;
 }
 ```
 
@@ -517,7 +531,7 @@ export class ListBinding {
 
       topBuffer = topRow * virtual.height
       bottomBuffer = Math.max(
-        totalRows * virtual.height - height - topBuffer,
+        (totalRows - visibleRows) * virtual.height - topBuffer,
         0
       )
     }
