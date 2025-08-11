@@ -7,6 +7,8 @@ interface ListBindingOptions {
     virtual?: {
         height: number;
         width?: number;
+        visibleColumns?: number;
+        rowChunkSize?: number;
     };
     hiddenProp?: symbol | string;
     visibleProp?: symbol | string;

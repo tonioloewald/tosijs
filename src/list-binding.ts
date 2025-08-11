@@ -83,6 +83,7 @@ The real power of `bindList` comes from its support for virtualizing lists.
       idPath: 'name',
       virtual: {
         height: 30,
+        rowChunkSize: 3,
       },
     }
 
@@ -90,15 +91,18 @@ Simply add a `virtual` property to the list-binding specifying a *minimum* `heig
 `height`) and the list will be `virtualized` (meaning that only visible elements will be rendered,
 missing elements being replaced by a single padding element above and below the list).
 
+You can (optionally) specify `rowChunkSize` to virtualize the list in chunks of rows to allow
+consistent `:nth-child()` styling.
+
 Now you can trivially bind an array of a million objects to the DOM and have it scroll at
 120fps.
 
 ```js
-const { elements, boxedProxy } = tosijs
+const { elements, boxedProxy, tosi } = tosijs
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )
-const { emojiListExample } = boxedProxy({
+const { emojiListExample } = tosi({
   emojiListExample: {
     array: await request.json()
   }
@@ -115,6 +119,7 @@ preview.append(
         idPath: 'name',
         virtual: {
           height: 30,
+          rowChunkSize: 3
         },
       }
     },
@@ -143,6 +148,13 @@ preview.append(
   grid-template-columns: 50px 300px 200px 200px;
   align-items: center;
   height: 30px;
+  overflow-x: hidden;
+}
+.emoji-row:nth-child(3n) {
+  background: #f002;
+}
+.emoji-row:nth-child(3n+2) {
+  background: #00f2;
 }
 
 .emoji-row > .graphic {
@@ -154,6 +166,62 @@ preview.append(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+```
+
+### Virtualized Grids
+
+You can virtualize a grid by styling the padding elements (with class `.virtual-list-padding`)
+to have the correct column span. (You can also just specify a fixed `width` for your list.)
+
+```js
+const { elements, tosi } = tosijs
+const { div, template } = elements
+const list = []
+for (let i = 0; i < 2000; i++) {
+  list.push({id: i})
+}
+
+const { bigBindTest } = tosi({
+  bigBindTest: { list }
+})
+
+preview.append(
+  div(
+    {
+      class: 'virtual-grid-example',
+      bindList: {
+        value: bigBindTest.list,
+        idPath: 'id',
+        virtual: {
+          height: 44,
+          visibleColumns: 7
+        }
+      },
+      style: {
+        height: '100%',
+        width: '100%',
+        overflowY: 'auto',
+        display: 'grid',
+        gridTemplateColumns: '14% 14% 14% 14% 14% 14% 14%'
+      }
+    },
+    template(
+      div({
+        style: {
+          display: 'inline-block',
+          height: 44,
+          width: 100
+        },
+        bindText: '^.id'
+      })
+    )
+  )
+)
+```
+```css
+.virtual-grid-example .virtual-list-padding {
+  grid-column: 1 / 8;
 }
 ```
 
@@ -259,6 +327,7 @@ preview.append(
         idPath: 'name',
         virtual: {
           height: 30,
+          rowChunkSize: 3,
         },
         filter: (emojis, config) => {
           let { needle, sort } = config
@@ -282,52 +351,6 @@ preview.append(
         span({ bindText: '^.category', class: 'no-overflow' }),
         span({ bindText: '^.subcategory', class: 'no-overflow' })
       )
-    )
-  )
-)
-```
-
-## Virtualized Grid
-
-```js
-const { elements, tosi } = tosijs
-const { div, template } = elements
-const list = []
-for (let i = 0; i < 2000; i++) {
-  list.push({id: i})
-}
-
-const { bigBindTest } = tosi({
-  bigBindTest: { list }
-})
-
-preview.append(
-  div(
-    {
-      bindList: {
-        value: bigBindTest.list,
-        idPath: 'id',
-        virtual: {
-          height: 44,
-          visibleColumns: 7
-        }
-      },
-      style: {
-        height: '100%',
-        overflowY: 'auto',
-        display: 'grid',
-        gridTemplateColumns: 'auto auto auto auto auto auto auto'
-      }
-    },
-    template(
-      div({
-        style: {
-          display: 'inline-block',
-          height: 44,
-          width: 100
-        },
-        bindText: '^.id'
-      })
     )
   )
 )
@@ -357,7 +380,12 @@ type ListFilter = (array: any[], needle: any) => any[]
 
 interface ListBindingOptions {
   idPath?: string
-  virtual?: { height: number; width?: number; visibleColumns?: number }
+  virtual?: {
+    height: number
+    width?: number
+    visibleColumns?: number
+    rowChunkSize?: number
+  }
   hiddenProp?: symbol | string
   visibleProp?: symbol | string
   filter?: ListFilter
@@ -431,10 +459,8 @@ export class ListBinding {
     this.options = options
     this.listTop = document.createElement('div')
     this.listBottom = document.createElement('div')
-    if (this.options.virtual?.visibleColumns) {
-      this.listTop.style.gridColumn =
-        this.listBottom.style.gridColumn = `1 / ${this.options.virtual?.visibleColumns}`
-    }
+    this.listTop.classList.add('virtual-list-padding')
+    this.listBottom.classList.add('virtual-list-padding')
     this.boundElement.append(this.listTop)
     this.boundElement.append(this.listBottom)
     if (options.virtual != null) {
@@ -474,13 +500,18 @@ export class ListBinding {
             ? Math.max(1, Math.floor(width / virtual.width))
             : 1
       }
-      const visibleRows = Math.ceil(height / virtual.height) + 1
+      const visibleRows =
+        Math.ceil(height / virtual.height) + (virtual.rowChunkSize || 1)
       const totalRows = Math.ceil(visibleArray.length / virtual.visibleColumns)
       const visibleItems = virtual.visibleColumns * visibleRows
       let topRow = Math.floor(this.boundElement.scrollTop / virtual.height)
       if (topRow > totalRows - visibleRows + 1) {
         topRow = Math.max(0, totalRows - visibleRows + 1)
       }
+      if (virtual.rowChunkSize) {
+        topRow -= topRow % virtual.rowChunkSize
+      }
+
       firstItem = topRow * virtual.visibleColumns
       lastItem = firstItem + visibleItems - 1
 
