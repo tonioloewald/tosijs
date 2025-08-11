@@ -286,6 +286,52 @@ preview.append(
   )
 )
 ```
+
+## Virtualized Grid
+
+```js
+const { elements, tosi } = tosijs
+const { div, template } = elements
+const list = []
+for (let i = 0; i < 2000; i++) {
+  list.push({id: i})
+}
+
+const { bigBindTest } = tosi({
+  bigBindTest: { list }
+})
+
+preview.append(
+  div(
+    {
+      bindList: {
+        value: bigBindTest.list,
+        idPath: 'id',
+        virtual: {
+          height: 44,
+          visibleColumns: 7
+        }
+      },
+      style: {
+        height: '100%',
+        overflowY: 'auto',
+        display: 'grid',
+        gridTemplateColumns: 'auto auto auto auto auto auto auto'
+      }
+    },
+    template(
+      div({
+        style: {
+          display: 'inline-block',
+          height: 44,
+          width: 100
+        },
+        bindText: '^.id'
+      })
+    )
+  )
+)
+```
 */
 import { settings } from './settings'
 import { resizeObserver } from './dom'
@@ -311,7 +357,7 @@ type ListFilter = (array: any[], needle: any) => any[]
 
 interface ListBindingOptions {
   idPath?: string
-  virtual?: { height: number; width?: number }
+  virtual?: { height: number; width?: number; visibleColumns?: number }
   hiddenProp?: symbol | string
   visibleProp?: symbol | string
   filter?: ListFilter
@@ -382,11 +428,15 @@ export class ListBinding {
       this.template = boundElement.children[0] as HTMLElement
       this.template.remove()
     }
+    this.options = options
     this.listTop = document.createElement('div')
     this.listBottom = document.createElement('div')
+    if (this.options.virtual?.visibleColumns) {
+      this.listTop.style.gridColumn =
+        this.listBottom.style.gridColumn = `1 / ${this.options.virtual?.visibleColumns}`
+    }
     this.boundElement.append(this.listTop)
     this.boundElement.append(this.listBottom)
-    this.options = options
     if (options.virtual != null) {
       resizeObserver.observe(this.boundElement)
       this._update = throttle(() => {
@@ -418,18 +468,20 @@ export class ListBinding {
       const width = this.boundElement.offsetWidth
       const height = this.boundElement.offsetHeight
 
-      const visibleColumns =
-        virtual.width != null
-          ? Math.max(1, Math.floor(width / virtual.width))
-          : 1
+      if (virtual.visibleColumns == null) {
+        virtual.visibleColumns =
+          virtual.width != null
+            ? Math.max(1, Math.floor(width / virtual.width))
+            : 1
+      }
       const visibleRows = Math.ceil(height / virtual.height) + 1
-      const totalRows = Math.ceil(visibleArray.length / visibleColumns)
-      const visibleItems = visibleColumns * visibleRows
+      const totalRows = Math.ceil(visibleArray.length / virtual.visibleColumns)
+      const visibleItems = virtual.visibleColumns * visibleRows
       let topRow = Math.floor(this.boundElement.scrollTop / virtual.height)
       if (topRow > totalRows - visibleRows + 1) {
         topRow = Math.max(0, totalRows - visibleRows + 1)
       }
-      firstItem = topRow * visibleColumns
+      firstItem = topRow * virtual.visibleColumns
       lastItem = firstItem + visibleItems - 1
 
       topBuffer = topRow * virtual.height
