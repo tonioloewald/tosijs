@@ -1,14 +1,7 @@
-/*
-FIXME component-ize the doc system from xinjs-ui
-copied from xinjs-ui demo/src/index.ts
-*/
-
 import {
   elements,
-  xinProxy,
+  tosi,
   vars,
-  xin,
-  boxed,
   bindings,
   touch,
   getListItem,
@@ -18,7 +11,7 @@ import {
   hotReload,
   debounce,
   Color,
-} from 'xinjs'
+} from 'tosijs'
 
 import {
   icons,
@@ -30,17 +23,17 @@ import {
   sizeBreak,
   popMenu,
   version as uiVersion,
-} from 'xinjs-ui'
+} from 'tosijs-ui'
 
 import { styleSpec } from './style'
 StyleSheet('demo-style', styleSpec)
 
-import * as xinjs from 'xinjs'
-import * as xinjsui from 'xinjs-ui'
+import * as tosijs from 'tosijs'
+import * as tosijsui from 'tosijs-ui'
 
 import docs from './docs.json'
 
-const PROJECT = 'xinjs'
+const PROJECT = 'tosijs'
 
 setTimeout(() => {
   const brandColor = Color.fromVar(vars.brandColor)
@@ -58,7 +51,7 @@ const docName =
     : 'README.md'
 const currentDoc = docs.find((doc) => doc.filename === docName) || docs[0]
 
-const { app, prefs } = xinProxy({
+const { app, prefs } = tosi({
   app: {
     title: PROJECT,
     blogUrl: `https://loewald.com`,
@@ -108,12 +101,12 @@ setTimeout(() => {
   // provide globals for experimentation, but prevent them from masking compile bugs
   Object.assign(globalThis, {
     app,
-    xin,
+    tosi,
+    img,
     bindings,
     elements,
     vars,
     touch,
-    boxed,
     Color,
   })
 }, 1000)
@@ -189,9 +182,7 @@ if (main)
           },
           title: `xinjs ${version}, xinjs-ui ${uiVersion}`,
         },
-        icons.xinColor({
-          style: { _fontSize: 40, marginRight: 10 },
-        }),
+        img({src: 'favicon.svg', style: {height: 40, marginRight: 10}}),
         h2({ bindText: 'app.title' })
       ),
       span({ class: 'elastic' }),
@@ -399,7 +390,7 @@ if (main)
           },
           bindValue: 'app.currentDoc.text',
           didRender(this: MarkdownViewer) {
-            LiveExample.insertExamples(this, { xinjs, xinjsui })
+            LiveExample.insertExamples(this, { tosijs, tosijsui })
           },
         })
       )
