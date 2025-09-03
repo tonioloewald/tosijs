@@ -1,9 +1,9 @@
 /*#
 # 1.2 path-listener
 
-`path-listener` implements the `xin` observer model. Although these events
-are exported from `xinjs` they shouldn't need to be used very often. Mostly
-they're used by `bind` and `xin` to manage state.
+`path-listener` implements the `tosijs` observer model. Although these events
+are exported from `tosijs` they shouldn't need to be used very often. Mostly
+they're used to manage state.
 
 ## `touch(path: string)`
 

@@ -1,21 +1,127 @@
 /*#
-# 1. xin
+# 1. tosi
 
-> In Mandarin, 信 ("xin") has several meanings including "letter", "true" and "message".
-> As conceived, `xin` is intended to be the "single source of truth" for application
-> state, or data.
+`tosi()` assigns an object passed to it to a global state object,
+and returns an observer proxy (`BoxedProxy`) wrapped around the global state object.
+
+BoxedProxy wraps any object you pull out of it in an observer
+ptoxy. It boxes booleans, numbers, and strings in objects and wraps
+those objects in an observer proxy.
+
+In rough terms:
+
+```
+const state = {}
+const boxed = new Proxy(state, ...)
+tosi = (obj<T>): BoxedProxy<T> => {
+  Object.assign(state, obj)
+  return state
+}
+```
+
+This allows the following pattern, which gives Typescript a lot of useful
+information for free, allowing autocomplete, etc. with a minimumn of
+boilerplate.
+
+```
+import { tosi, elements, bind } from 'tosijs'
+
+const { prefs } = tosi({
+  prefs: {
+    theme: 'system',
+    highcontrast: false
+  }
+})
+
+// this example continues…
+```
+
+So `{ prefs: ... }` is assigned to the state object, and now `prefs`
+holds the same stuff except it's wrapped in a `BoxedProxy`.
+
+The `BoxedProxy` behaves just like the original object, except
+that it:
+
+- knows where it came from, so `prefs.xinPath === 'prefs'`
+- will automatically trigger updates if its properties are changed through it
+- can return the underlying value:
+  `prefs.xinValue === prefs.valueOf() === the prefs property of the object passed to `tosi()`
+- it will wrap its non-object properties in objects and wrap those objects
+  in a BoxedProxy, so `prefs.theme.xinPath === 'prefs.theme'`
+
+```
+prefs.theme instaceof String            // true
+prefs.theme.valueOf() === 'system'      // true
+prefs.theme.xinValue === 'system'       // true
+prefs.theme.xinPath === 'prefs.theme'   // true
+```
+
+The `BoxedProxy` observes changes made through it and updates bound elements
+accordingly:
+
+```
+bind(document.body, prefs.theme, {
+  toDOM(element, value) {
+    element.classList.toggle('dark-mode', value === 'dark')
+  }
+}
+
+const { select, option } = elements
+
+document.body.append(
+  select(
+    { bindValue: prefs.theme },
+    option('system'),
+    option('dark'),
+    option('light')
+  )
+)
+```
+
+Setting up the binding to `document.body` will set the `class`
+appropriately, and modifying `prefs.theme` will update the
+bound element automatically.
+
+```
+proxy.theme.xinSet('dark')
+```
+
+> In javascript you can juset write `proxy.theme = 'dark'`.
+
+This, in a nutshell, explains exactly what `tosijs` is designed to do.
+
+`tosi` tracks state and allows you to bind data to your user interface
+directly and with almost no code, with clean separation between business
+logic and presentation.
+
+The [`elements` proxy](/?elements.ts) lets you build HTML elements with
+data and event bindings more compactly and efficiently than you can using
+JSX/TSX, and it deals in regular `HTMLElement`—no virtual DOM, tranpilation
+magic, spooky action at a distance, or any similar nonsense.
+
+If you need to do complex bindings, the `bind` method lets you directly
+link data to the DOM and automatically sets up observers for you.
+
+`Component` lets you create reusable web-components.
+
+`css` lets you write CSS economically and makes it easy to leverage the power
+of CSS variables, while `Color` allows you to do color math quickly and
+easily until similar functionality is added to CSS.
+
+> In Finnish, *tosi* means true or really.
 >
-> In [b8rjs](https://b8rjs.com)—`xinjs`'s predecessor—it was called
-> `registry`. But registry has some bad connotations (Windows "registry") and it's
-> harder to type and search for.
+> As conceived, `tosi()` is an observer `Proxy` wrapped around your application's
+> state. It's the **single source of truth for application state**.
+>
+> Note that the interactive examples on the xinjs.net website only support Javascript.
+> If you want to play with `xinjs` using Typescript, try the [sandbox example](https://codesandbox.io/s/xintro-mh4rbj?file=/src/index.ts)
+
+## xin
 
 `xin` is a path-based implementation of the **observer** or **pub/sub**
 pattern designed to be very simple and straightforward to use, leverage
 Typescript type-checking and autocompletion, and let you get more done with
 less code and no weird build magic (such as special decorators or "execution zones").
-
-> Note that the interactive examples on the xinjs.net website only support Javascript.
-> If you want to play with xinjs using Typescript, try the [sandbox example](https://codesandbox.io/s/xintro-mh4rbj?file=/src/index.ts)
 
 ## In a nutshell
 
@@ -412,9 +518,9 @@ the chance of making costly errors.
 This example puts all of this together.
 
 ```js
-const { elements, boxedProxy } = tosijs
+const { elements, tosi } = tosijs
 
-const { todos } = boxedProxy({
+const { todos } = tosi({
   todos: {
     list: [],
     newItem: ''
@@ -487,6 +593,7 @@ import { bind, on } from './bind'
 import {
   xinValue,
   XIN_VALUE,
+  XIN_SET,
   XIN_PATH,
   XIN_OBSERVE,
   XIN_BIND,
@@ -521,6 +628,8 @@ const ARRAY_MUTATIONS = [
 
 const registry: XinObject = {}
 const debugPaths = true
+
+// in essence this very liberally matches foo ( .bar | [17] | [id=123] ) *
 const validPath =
   /^\.?([^.[\](),])+(\.[^.[\](),]+|\[\d+\]|\[[^=[\](),]*=[^[\]()]+\])*$/
 
@@ -578,6 +687,8 @@ const regHandler = (
         return path
       case XIN_VALUE:
         return target.valueOf ? target.valueOf() : target
+      case XIN_SET:
+        return (newValue: any) => (xin[path] = newValue)
       case XIN_OBSERVE:
         return (callback: ObserverCallbackFunction) => {
           const listener = _observe(path, callback)
@@ -629,6 +740,7 @@ const regHandler = (
             `${getByPath(candidate, idPath) as string}` === needle
         )
       } else {
+        // we're working around Typescript's incorrect understanding of arrays
         value = (target as XinArray)[prop as unknown as number]
       }
       if (value instanceof Object) {

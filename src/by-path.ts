@@ -13,8 +13,9 @@ const seq = (): string =>
   (parseInt('10000', 36) + ++_seq).toString(36).slice(-5)
 const id = (): string => now36() + seq()
 
-const _delete_ = {}
-const _newObject_ = {}
+const _delete_ = Symbol('delete')
+const _newObject_ = Symbol('new-object')
+const _auto_ = Symbol('automatic-index')
 
 type Part = string | string[]
 type PartArray = Part[]
@@ -69,8 +70,8 @@ function buildIdPathValueMap(array: XinObject[], idPath: string): IdPathMap {
 
   if (idPath === '_auto_') {
     array.forEach((item, idx) => {
-      if (item._auto_ === undefined) item._auto_ = id()
-      map[(item._auto_ as string) + ''] = idx
+      if (item[_auto_] === undefined) item[_auto_] = id()
+      map[(item[_auto_] as string) + ''] = idx
     })
   } else {
     array.forEach((item, idx) => {
@@ -188,6 +189,8 @@ function setByPath(
   val: any
 ): boolean {
   let obj: XinObject | XinArray | XinScalar = orig
+  if (path === '')
+    throw new Error('setByPath cannot be used to set the root object')
   const parts = pathParts(path)
 
   while (obj != null && parts.length > 0) {

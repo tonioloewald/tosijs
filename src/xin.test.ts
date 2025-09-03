@@ -10,7 +10,7 @@ import {
   isValidPath,
 } from './xin'
 import { elements } from './elements'
-import { XIN_VALUE, XIN_PATH, xinPath } from './metadata'
+import { XIN_VALUE, xinPath } from './metadata'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []

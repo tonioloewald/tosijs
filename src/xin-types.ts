@@ -1,4 +1,4 @@
-import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND } from './metadata'
+import { XIN_PATH, XIN_VALUE, XIN_SET, XIN_OBSERVE, XIN_BIND } from './metadata'
 import { XinStyleRule } from './css-types'
 
 export type AnyFunction = (...args: any[]) => any | Promise<any>
@@ -21,31 +21,25 @@ type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBindi
 export interface XinProps<T = any> {
   [XIN_PATH]: string
   [XIN_VALUE]: T
+  [XIN_SET]: (value: T) => T
   [XIN_OBSERVE]: ProxyObserveFunc
   [XIN_BIND]: ProxyBindFunc
-}
-
-export interface OptionalXinProps<T = any> {
-  [XIN_PATH]?: string
-  [XIN_VALUE]?: T
-  [XIN_OBSERVE]?: ProxyObserveFunc
-  [XIN_BIND]?: ProxyBindFunc
 }
 
 export type BoxedProxy<T = any> = T extends Array<infer U>
   ? Array<BoxedProxy<U>>
   : T extends Function
-  ? T & OptionalXinProps<Function>
+  ? T & XinProps<Function>
   : T extends object
   ? {
     [K in keyof T]: BoxedProxy<T[K]>
   }
   : T extends string
-  ? String & OptionalXinProps<string>
+  ? String & XinProps<string>
   : T extends number
-  ? Number & OptionalXinProps<number>
+  ? Number & XinProps<number>
   : T extends boolean
-  ? Boolean & OptionalXinProps<boolean>
+  ? Boolean & XinProps<boolean>
   : T
 
 export type Unboxed<T = any> = T extends String
