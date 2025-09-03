@@ -195,6 +195,10 @@ when converting HSL to RGB and back. It's nowhere near as sophisticated as
 the models used by (say) Adobe or Apple, but it's less bad than doing all
 computations in rgb.
 
+## Static Properties
+
+- `black`, `white` — handy constants
+
 ## Properties
 
 - `r`, `g`, `b` are numbers from 0 to 255.
@@ -202,9 +206,9 @@ computations in rgb.
 
 ## Properties (read-only)
 
-- `black`, `white` — handy constants
 - `html` — the color in HTML `#rrggbb[aa]` format
 - `inverse` — the photonegative of the color (light is dark, orange is blue)
+- `opaque` - the color, but guaranteed opaque
 - `inverseLuminance` — inverts luminance but keeps hue, great for "dark mode"
 - `rgb` and `rgba` — the color in `rgb(...)` and `rgba(...)` formats.
 - `hsl` and `hsla` — the color in `hsl(...)` and `hsla(...)` formats.
@@ -280,7 +284,12 @@ export class Color {
       converted = getComputedStyle(span).color
       span.remove()
     }
-    const [r, g, b, a] = converted.match(/[\d.]+/g) as string[]
+    const [r, g, b, a] = (converted.match(/[\d.]+/g) as string[]) || [
+      '0',
+      '0',
+      '0',
+      '0',
+    ]
     const scale = converted.startsWith('color(srgb') ? 255 : 1
     return new Color(
       Number(r) * scale,
@@ -291,11 +300,32 @@ export class Color {
   }
 
   static fromHsl(h: number, s: number, l: number, a = 1): Color {
-    return Color.fromCss(
-      `hsl(${h.toFixed(0)}deg ${(s * 100).toFixed(0)}% ${(l * 100).toFixed(
-        0
-      )}% / ${(a * 100).toFixed(0)}%)`
-    )
+    let r: number, g: number, b: number
+
+    if (s === 0) {
+      r = g = b = l // achromatic
+    } else {
+      const hue2rgb = (p: number, q: number, t: number): number => {
+        if (t < 0) t += 1
+        if (t > 1) t -= 1
+        if (t < 1 / 6) return p + (q - p) * 6 * t
+        if (t < 1 / 2) return q
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+        return p
+      }
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+      const p = 2 * l - q
+      const hNormalized = (((h % 360) + 360) % 360) / 360
+      r = hue2rgb(p, q, hNormalized + 1 / 3)
+      g = hue2rgb(p, q, hNormalized)
+      b = hue2rgb(p, q, hNormalized - 1 / 3)
+    }
+
+    const color = new Color(r * 255, g * 255, b * 255, a)
+    // Cache the HSL value to avoid re-calculating it later
+    color.hslCached = { h: ((h % 360) + 360) % 360, s, l }
+    return color
   }
 
   static black = new Color(0, 0, 0)
@@ -305,7 +335,7 @@ export class Color {
     this.r = clamp(0, r, 255)
     this.g = clamp(0, g, 255)
     this.b = clamp(0, b, 255)
-    this.a = a !== undefined ? clamp(0, a, 1) : (a = 1)
+    this.a = clamp(0, a, 1)
   }
 
   get inverse(): Color {
@@ -317,9 +347,15 @@ export class Color {
     return Color.fromHsl(h, s, 1 - l, this.a)
   }
 
+  get opaque(): Color {
+    return this.a === 1 ? this : new Color(this.r, this.g, this.b, 1)
+  }
+
   contrasting(amount = 1): Color {
-    const { h, s, l } = this._hsl
-    return this.blend(this.brightness > 0.5 ? Color.black : Color.white, amount)
+    return this.opaque.blend(
+      this.brightness > 0.5 ? Color.black : Color.white,
+      amount
+    )
   }
 
   get rgb(): string {
