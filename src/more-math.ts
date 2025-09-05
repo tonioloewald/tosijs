@@ -9,6 +9,8 @@ object. They are exported from `xinjs` as the `MoreMath` object.
 `clamp(min, v, max)` will return `v` if it's between `min` and `max`
 and the `min` or `max` otherwise.
 
+If min > max, the function will return NaN.
+
 ```
 clamp(0, 0.5, 1)        // produces 0.5
 clamp(0, -0.5, 1)       // produces 0
