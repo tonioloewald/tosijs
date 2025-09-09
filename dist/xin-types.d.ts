@@ -1,4 +1,4 @@
-import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND } from './metadata';
+import { XIN_PATH, XIN_VALUE, XIN_SET, XIN_OBSERVE, XIN_BIND } from './metadata';
 import { XinStyleRule } from './css-types';
 export type AnyFunction = (...args: any[]) => any | Promise<any>;
 export type XinScalar = string | boolean | number | symbol | AnyFunction;
@@ -13,18 +13,13 @@ type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBindi
 export interface XinProps<T = any> {
     [XIN_PATH]: string;
     [XIN_VALUE]: T;
+    [XIN_SET]: (value: T) => T;
     [XIN_OBSERVE]: ProxyObserveFunc;
     [XIN_BIND]: ProxyBindFunc;
 }
-export interface OptionalXinProps<T = any> {
-    [XIN_PATH]?: string;
-    [XIN_VALUE]?: T;
-    [XIN_OBSERVE]?: ProxyObserveFunc;
-    [XIN_BIND]?: ProxyBindFunc;
-}
-export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> : T extends Function ? T & OptionalXinProps<Function> : T extends object ? {
+export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
-} : T extends string ? String & OptionalXinProps<string> : T extends number ? Number & OptionalXinProps<number> : T extends boolean ? Boolean & OptionalXinProps<boolean> : T;
+} : T extends string ? String & XinProps<string> : T extends number ? Number & XinProps<number> : T extends boolean ? Boolean & XinProps<boolean> : T;
 export type Unboxed<T = any> = T extends String ? string : T extends Number ? number : T extends Boolean ? boolean : T;
 export type XinProxy<T = any> = T extends Array<infer U> ? Array<XinProxy<U>> : T extends Function ? T : T extends object ? {
     [K in keyof T]: T[K] extends object ? XinProxy<T[K]> : T[K];

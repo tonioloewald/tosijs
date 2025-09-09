@@ -89,7 +89,7 @@ export const throttle = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
   let inFlight = false
   return (...args: any[]) => {
     clearTimeout(debounceId)
-    debounceId = setTimeout(async () => {
+    debounceId = setTimeout(() => {
       origFn(...args)
       previousCall = Date.now()
     }, minInterval) as unknown as number

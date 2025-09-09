@@ -15,7 +15,7 @@
   <img style="width: 250px; max-width: 80%" class="logo" alt="tosijs logo" src="https://xinjs.net/favicon.svg">
 </div>
 
-> For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-tosijs-).
+> For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-xinjs-).
 > To understand the thinking behind tosijs, there's [What should a front-end framework do?](https://loewald.com/blog/2025/6/4/what-should-a-front-end-framework-do).
 
 ### Build UIs with less code

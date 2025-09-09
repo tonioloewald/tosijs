@@ -142,7 +142,7 @@ const visibility = {
     if (element.dataset.origDisplay === undefined && element.style.display !== 'none') {
       element.dataset.origDisplay = element.style.display
     }
-    element.style.display = (value != null && element.length > 0) ? element.dataset.origDisplay : 'none'
+    element.style.display = (value != null && value.length > 0) ? element.dataset.origDisplay : 'none'
   }
 }
 bind(listElement, 'app.bigList', visibility)

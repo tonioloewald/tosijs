@@ -1,10 +1,15 @@
 /*#
-# 1.1 xin proxy
+# 1.1 tosi, boxedProxy, and xinProxy
+
+> This documentation is mainly here for explanatory purposes. Just use `tosi()`
+> as described in section 1.
 
 The key to managing application state with `xinjs` is the `xin` proxy object
 (and `boxed`). These are documented [here](/?xin.ts).
 
-## `xinProxy()` and `boxedProxy()`
+## `xinProxy()` and `tosi()`
+
+> `tosi()` was formerly called `boxedProxy()`.
 
 After coding with `xin` for a while, it became apparent that a common pattern
 was something like this:
@@ -97,9 +102,7 @@ export function boxedProxy<T extends object>(obj: T): BoxedProxy<T> {
 
 export function xinProxy<T extends object>(obj: T, boxed = false): XinProxy<T> {
   if (boxed) {
-    console.warn(
-      `xinProxy(..., true) is deprecated; use tosi(...) instead`
-    )
+    console.warn(`xinProxy(..., true) is deprecated; use tosi(...) instead`)
     // @ts-expect-error deprecated
     return boxedProxy(obj)
   }

@@ -2,6 +2,8 @@ import { test, expect } from 'bun:test'
 import { boxedProxy } from './xin-proxy'
 import { elements } from './elements'
 import { updates } from './path-listener'
+import { on, bind } from './bind'
+import { bindings } from './bindings'
 
 test('element binding works', async () => {
   const { div, input } = elements
@@ -78,4 +80,42 @@ test('custom bindings work', async () => {
   boundInput.dispatchEvent(new Event('change'))
   await updates()
   expect(test.color.valueOf()).toBe('blue')
+})
+
+test('event binding with on() works', async () => {
+  const button = elements.button('foo')
+  document.body.append(button)
+  let counter = 0
+  on(button, 'click', () => {
+    counter++
+  })
+  button.click()
+  expect(counter).toBe(1)
+  button.dispatchEvent(new Event('click'))
+  expect(counter).toBe(2)
+})
+
+test('bind works', async () => {
+  const { bindTest } = boxedProxy({
+    bindTest: {
+      value: 'test',
+    },
+  })
+  const input = elements.input()
+  document.body.append(input)
+
+  // bound elements are queued for update
+  bind(input, bindTest.value, bindings.value)
+  await updates()
+  expect(input.value).toBe('test')
+
+  // updating the proxy queues an update
+  bindTest.value.xinSet('hello update')
+  await updates()
+  expect(input.value).toBe('hello update')
+  input.value = 'changed'
+  input.dispatchEvent(new Event('change'))
+
+  // changing the input updates the bound value
+  expect(bindTest.value.valueOf()).toBe('changed')
 })

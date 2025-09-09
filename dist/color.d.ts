@@ -18,6 +18,7 @@ export declare class Color {
     constructor(r: number, g: number, b: number, a?: number);
     get inverse(): Color;
     get inverseLuminance(): Color;
+    get opaque(): Color;
     contrasting(amount?: number): Color;
     get rgb(): string;
     get rgba(): string;
