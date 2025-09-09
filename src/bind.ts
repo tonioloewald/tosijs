@@ -36,7 +36,7 @@ bind<T = Element>(
 `bind()` binds a `path` to an element, syncing the value at the path to and/or from the DOM.
 
 ```js
-const { bind, boxedProxy } = tosijs
+import { bind, boxedProxy } from 'tosijs'
 
 const { simpleBindExample } = boxedProxy({
   simpleBindExample: {
@@ -160,8 +160,8 @@ export type XinEventHandler<T extends Event = Event, E extends Element = Element
 ```
 
 ```js
-const { elements, on, boxedProxy } = tosijs
-const { postNotification } = tosijsui
+import { elements, on, boxedProxy } from 'tosijs'
+import { postNotification } from 'tosijs-ui'
 
 const makeHandler = (message) => () => {
   postNotification({ message, duration: 2 })
