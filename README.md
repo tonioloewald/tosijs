@@ -15,7 +15,7 @@
   <img style="width: 250px; max-width: 80%" class="logo" alt="tosijs logo" src="https://xinjs.net/favicon.svg">
 </div>
 
-> For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-xinjs-).
+> For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-tosijs-).
 > To understand the thinking behind tosijs, there's [What should a front-end framework do?](https://loewald.com/blog/2025/6/4/what-should-a-front-end-framework-do).
 
 ### Build UIs with less code
@@ -31,7 +31,7 @@ If you want to build a web-application that's performant, robust, and maintainab
 - leverage existing business logic and libraries without complex wrappers
 
 ```js
-const { elements, tosi, touch } = tosijs
+import { elements, tosi, touch } from 'tosijs'
 
 const todo = {
   list: [],

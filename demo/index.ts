@@ -58,7 +58,7 @@ const { app, prefs } = tosi({
     discordUrl: `https://discord.com/invite/ramJ9rgky5`,
     githubUrl: `https://github.com/tonioloewald/${PROJECT}#readme`,
     npmUrl: `https://www.npmjs.com/package/${PROJECT}`,
-    xinjsuiUrl: 'https://ui.xinjs.net',
+    tosijsuiUrl: 'https://ui.xinjs.net',
     bundleBadgeUrl: `https://deno.bundlejs.com/?q=${PROJECT}&badge=`,
     bundleUrl: `https://bundlejs.com/?q=${PROJECT}`,
     cdnBadgeUrl: `https://data.jsdelivr.com/v1/package/npm/${PROJECT}/badge`,
@@ -222,22 +222,22 @@ if (main)
                 {
                   icon: 'github',
                   caption: 'github',
-                  action: app.githubUrl,
+                  action: app.githubUrl.xinValue,
                 },
                 {
                   icon: 'npm',
                   caption: 'npm',
-                  action: app.npmUrl,
+                  action: app.npmUrl.xinValue,
                 },
                 {
                   icon: 'discord',
                   caption: 'discord',
-                  action: app.discordUrl,
+                  action: app.discordUrl.xinValue,
                 },
                 {
-                  icon: 'xinjsUiColor',
-                  caption: 'xinjs-ui',
-                  action: app.xinjsuiUrl,
+                  icon: 'tosiUi',
+                  caption: 'tosijs-ui',
+                  action: app.tosijsuiUrl.xinValue,
                 },
                 {
                   icon: 'blog',
