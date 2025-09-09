@@ -28,7 +28,7 @@ The basic structure of a **list-binding** is:
     )
 
 ```js
-const { elements, boxedProxy } = tosijs
+import { elements, boxedProxy } from 'tosijs'
 const { listBindingExample } = boxedProxy({
   listBindingExample: {
     array: ['this', 'is', 'an', 'example']
@@ -98,7 +98,7 @@ Now you can trivially bind an array of a million objects to the DOM and have it 
 120fps.
 
 ```js
-const { elements, boxedProxy, tosi } = tosijs
+import { elements, boxedProxy, tosi } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )
@@ -175,7 +175,7 @@ You can virtualize a grid by styling the padding elements (with class `.virtual-
 to have the correct column span. (You can also just specify a fixed `width` for your list.)
 
 ```js
-const { elements, tosi } = tosijs
+import { elements, tosi } from 'tosijs'
 const { div, template } = elements
 const list = []
 for (let i = 0; i < 2000; i++) {
@@ -282,7 +282,7 @@ is used to `touch` the object and trigger updates.
 ```js
 // note that this example is styled by the earlier example
 
-const { elements, boxedProxy } = tosijs
+import { elements, boxedProxy } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )

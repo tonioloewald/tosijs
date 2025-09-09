@@ -56,7 +56,7 @@ elements, or property-maps, which are converted into attributes or properties
 E.g.
 
 ```js
-const { elements, tosi } = tosijs
+import { elements, tosi } from 'tosijs'
 
 const { elementCreatorDemo } = tosi({
   elementCreatorDemo: {
@@ -498,7 +498,7 @@ const create = (tagType: string, ...contents: ElementPart[]): HTMLElement => {
       } else {
         elt.append(item as Node)
       }
-    } else if (item.xinPath) {
+    } else if (xinPath(item)) {
       elt.append(elements.span({ bindText: item }))
     } else {
       Object.assign(elementProps, item)

@@ -105,7 +105,7 @@ Will produce:
 </style>
 ```
 ```js
-const { elements, vars } = tosijs
+import { elements, vars } from 'tosijs'
 const { div } = elements
 
 window.CSS.registerProperty({

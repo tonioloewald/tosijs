@@ -390,7 +390,7 @@ if (main)
           },
           bindValue: 'app.currentDoc.text',
           didRender(this: MarkdownViewer) {
-            LiveExample.insertExamples(this, { tosijs, tosijsui })
+            LiveExample.insertExamples(this, { tosijs, 'tosijs-ui': tosijsui })
           },
         })
       )
