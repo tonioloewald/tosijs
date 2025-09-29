@@ -35,18 +35,18 @@
   "devDependencies": {
     "@happy-dom/global-registrator": "^18.0.1",
     "@types/jsdom": "^21.1.7",
-    "@types/node": "^20.19.12",
-    "@types/react": "^19.1.12",
+    "@types/node": "^20.19.17",
+    "@types/react": "^19.1.15",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "bun-types": "^1.2.21",
-    "caniuse-lite": "^1.0.30001739",
+    "bun-types": "^1.2.23",
+    "caniuse-lite": "^1.0.30001745",
     "chokidar": "^4.0.3",
     "eslint": "^8.57.1",
     "marked": "^5.1.2",
     "prettier": "^2.8.8",
     "typescript": "^5.9.2",
     "tosijs": "file:.",
-    "tosijs-ui": "^1.0.3"
+    "tosijs-ui": "^1.0.4"
   },
   "files": [
     "/dist",
