@@ -7,13 +7,13 @@
         "@happy-dom/global-registrator": "^18.0.1",
         "@types/jsdom": "^21.1.7",
         "@types/node": "^20.19.17",
-        "@types/react": "^19.1.13",
+        "@types/react": "^19.1.15",
         "@typescript-eslint/eslint-plugin": "^6.21.0",
-        "bun-types": "^1.2.22",
-        "caniuse-lite": "^1.0.30001743",
+        "bun-types": "^1.2.23",
+        "caniuse-lite": "^1.0.30001745",
         "chokidar": "^4.0.3",
         "eslint": "^8.57.1",
-        "marked": "^5.1.2",
+        "marked": "^16.0.0",
         "prettier": "^2.8.8",
         "tosijs": "file:.",
         "tosijs-ui": "^1.0.4",
@@ -216,7 +216,7 @@
 
     "lodash.merge": ["lodash.merge@4.6.2", "", {}, "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ=="],
 
-    "marked": ["marked@5.1.2", "", { "bin": "bin/marked.js" }, "sha512-ahRPGXJpjMjwSOlBoTMZAK7ATXkli5qCPxZ21TG44rx1KEo44bii4ekgTDQPNRQ4Kh7JMb9Ub1PVk1NxRSsorg=="],
+    "marked": ["marked@16.3.0", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-K3UxuKu6l6bmA5FUwYho8CfJBlsUWAooKtdGgMcERSpF7gcBUrCGsLH7wDaaNOzwq18JzSUDyoEb/YsrqMac3w=="],
 
     "merge2": ["merge2@1.4.1", "", {}, "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="],
 
@@ -286,7 +286,7 @@
 
     "to-regex-range": ["to-regex-range@5.0.1", "", { "dependencies": { "is-number": "^7.0.0" } }, "sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ=="],
 
-    "tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.13", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.22", "caniuse-lite": "^1.0.30001743", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^5.1.2", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
+    "tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.15", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.23", "caniuse-lite": "^1.0.30001745", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^16.0.0", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
 
     "tosijs-ui": ["tosijs-ui@1.0.4", "", { "peerDependencies": { "marked": "^16.0.0", "tosijs": "^1.0.3" } }, "sha512-0CT8wjcA0ZDuflLII+vIsPZBa3irAA+G7k46gPLKLE8CQPHxWdllFbn8+NlKMWs+Dawq6F52yyMIW0PJvuCZEw=="],
 
@@ -324,7 +324,7 @@
 
     "tosijs/tosijs": ["tosijs@file:.", {}],
 
-    "tosijs-ui/tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.13", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.22", "caniuse-lite": "^1.0.30001743", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^5.1.2", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
+    "tosijs-ui/tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.15", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.23", "caniuse-lite": "^1.0.30001745", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^16.0.0", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
 
     "@happy-dom/global-registrator/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
 

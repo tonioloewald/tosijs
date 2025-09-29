@@ -42,7 +42,7 @@
     "caniuse-lite": "^1.0.30001745",
     "chokidar": "^4.0.3",
     "eslint": "^8.57.1",
-    "marked": "^5.1.2",
+    "marked": "^16.3.0",
     "prettier": "^2.8.8",
     "typescript": "^5.9.2",
     "tosijs": "file:.",
