@@ -6,17 +6,25 @@
       "devDependencies": {
         "@happy-dom/global-registrator": "^18.0.1",
         "@types/jsdom": "^21.1.7",
+<<<<<<< HEAD
         "@types/node": "^20.19.12",
         "@types/react": "^19.1.12",
         "@typescript-eslint/eslint-plugin": "^6.21.0",
         "bun-types": "^1.2.21",
         "caniuse-lite": "^1.0.30001739",
+=======
+        "@types/node": "^20.19.17",
+        "@types/react": "^19.1.15",
+        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "bun-types": "^1.2.23",
+        "caniuse-lite": "^1.0.30001745",
+>>>>>>> main
         "chokidar": "^4.0.3",
         "eslint": "^8.57.1",
-        "marked": "^5.1.2",
+        "marked": "^16.0.0",
         "prettier": "^2.8.8",
         "tosijs": "file:.",
-        "tosijs-ui": "^1.0.3",
+        "tosijs-ui": "^1.0.4",
         "typescript": "^5.9.2",
       },
     },
@@ -48,9 +56,13 @@
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
+<<<<<<< HEAD
     "@types/node": ["@types/node@20.19.13", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-yCAeZl7a0DxgNVteXFHt9+uyFbqXGy/ShC4BlcHkoE0AfGXYv/BUiplV72DjMYXHDBXFjhvr6DD1NiRVfB4j8g=="],
+=======
+    "@types/node": ["@types/node@20.19.17", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-gfehUI8N1z92kygssiuWvLiwcbOB3IRktR6hTDgJlXMYh5OvkPSRmgfoBUmfZt+vhwJtX7v1Yw4KvvAf7c5QKQ=="],
+>>>>>>> main
 
-    "@types/react": ["@types/react@19.1.12", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-cMoR+FoAf/Jyq6+Df2/Z41jISvGZZ2eTlnsaJRptmZ76Caldwy1odD4xTr/gNV9VLj0AWgg/nmkevIyUfIIq5w=="],
+    "@types/react": ["@types/react@19.1.15", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-+kLxJpaJzXybyDyFXYADyP1cznTO8HSuBpenGlnKOAkH4hyNINiywvXS/tGJhsrGGP/gM185RA3xpjY0Yg4erA=="],
 
     "@types/semver": ["@types/semver@7.7.0", "", {}, "sha512-k107IF4+Xr7UHjwDc7Cfd6PRQfbdkiRabXGRjo07b4WyPahFBZCZ1sE+BNxYIJPPg73UkfOsVOLwqVc/6ETrIA=="],
 
@@ -96,11 +108,15 @@
 
     "braces": ["braces@3.0.3", "", { "dependencies": { "fill-range": "^7.1.1" } }, "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA=="],
 
-    "bun-types": ["bun-types@1.2.21", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-sa2Tj77Ijc/NTLS0/Odjq/qngmEPZfbfnOERi0KRUYhT9R8M4VBioWVmMWE5GrYbKMc+5lVybXygLdibHaqVqw=="],
+    "bun-types": ["bun-types@1.2.23", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-R9f0hKAZXgFU3mlrA0YpE/fiDvwV0FT9rORApt2aQVWSuJDzZOyB5QLc0N/4HF57CS8IXJ6+L5E4W1bW6NS2Aw=="],
 
     "callsites": ["callsites@3.1.0", "", {}, "sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ=="],
 
+<<<<<<< HEAD
     "caniuse-lite": ["caniuse-lite@1.0.30001741", "", {}, "sha512-QGUGitqsc8ARjLdgAfxETDhRbJ0REsP6O3I96TAth/mVjh2cYzN2u+3AzPP3aVSm2FehEItaJw1xd+IGBXWeSw=="],
+=======
+    "caniuse-lite": ["caniuse-lite@1.0.30001745", "", {}, "sha512-ywt6i8FzvdgrrrGbr1jZVObnVv6adj+0if2/omv9cmR2oiZs30zL4DIyaptKcbOrBdOIc74QTMoJvSE2QHh5UQ=="],
+>>>>>>> main
 
     "chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 
@@ -216,7 +232,7 @@
 
     "lodash.merge": ["lodash.merge@4.6.2", "", {}, "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ=="],
 
-    "marked": ["marked@5.1.2", "", { "bin": "bin/marked.js" }, "sha512-ahRPGXJpjMjwSOlBoTMZAK7ATXkli5qCPxZ21TG44rx1KEo44bii4ekgTDQPNRQ4Kh7JMb9Ub1PVk1NxRSsorg=="],
+    "marked": ["marked@16.3.0", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-K3UxuKu6l6bmA5FUwYho8CfJBlsUWAooKtdGgMcERSpF7gcBUrCGsLH7wDaaNOzwq18JzSUDyoEb/YsrqMac3w=="],
 
     "merge2": ["merge2@1.4.1", "", {}, "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="],
 
@@ -286,7 +302,11 @@
 
     "to-regex-range": ["to-regex-range@5.0.1", "", { "dependencies": { "is-number": "^7.0.0" } }, "sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ=="],
 
+<<<<<<< HEAD
     "tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.12", "@types/react": "^19.1.12", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.21", "caniuse-lite": "^1.0.30001739", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^5.1.2", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.3", "typescript": "^5.9.2" } }],
+=======
+    "tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.15", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.23", "caniuse-lite": "^1.0.30001745", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^16.0.0", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
+>>>>>>> main
 
     "tosijs-ui": ["tosijs-ui@1.0.4", "", { "peerDependencies": { "marked": "^16.0.0", "tosijs": "^1.0.3" } }, "sha512-0CT8wjcA0ZDuflLII+vIsPZBa3irAA+G7k46gPLKLE8CQPHxWdllFbn8+NlKMWs+Dawq6F52yyMIW0PJvuCZEw=="],
 
@@ -326,6 +346,11 @@
 
     "tosijs/tosijs": ["tosijs@file:.", {}],
 
+<<<<<<< HEAD
+=======
+    "tosijs-ui/tosijs": ["tosijs@file:", { "devDependencies": { "@happy-dom/global-registrator": "^18.0.1", "@types/jsdom": "^21.1.7", "@types/node": "^20.19.17", "@types/react": "^19.1.15", "@typescript-eslint/eslint-plugin": "^6.21.0", "bun-types": "^1.2.23", "caniuse-lite": "^1.0.30001745", "chokidar": "^4.0.3", "eslint": "^8.57.1", "marked": "^16.0.0", "prettier": "^2.8.8", "tosijs": "file:.", "tosijs-ui": "^1.0.4", "typescript": "^5.9.2" } }],
+
+>>>>>>> main
     "@happy-dom/global-registrator/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
 
     "@types/jsdom/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],

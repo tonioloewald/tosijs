@@ -5,7 +5,7 @@
 without using `innerHTML` or other unsafe methods.
 
 ```js
-const { elements } =  xinjs
+import { elements } from 'tosijs'
 
 const { div, input, label, span } = elements
 
@@ -45,7 +45,7 @@ preview.append(
 
 `elements` is a proxy whose properties are element factory functions,
 referred to throughout this documentation as `elementCreator`s, functions
-of type `ElementCreator`. So `elements.div` is a function that returns a `<div>` 
+of type `ElementCreator`. So `elements.div` is a function that returns a `<div>`
 element, `elements.foo` creates <foo> elements, and elements.fooBar creates
 `<foo-bar>` elements.
 
@@ -133,13 +133,13 @@ turned into a `mouseup` listener.
 You can [bind](/?bind.ts) an element to state using [bindings](/?bindings.ts)
 using convenient properties, e.g.
 
-    import { elements } from 'xinjs'
+    import { elements } from 'tosijs'
     const {div} = elements
     div({ bindValue: 'app.title' })
 
 …is syntax sugar for:
 
-    import { elements, bind, bindings } from 'xinjs'
+    import { elements, bind, bindings } from 'tosijs'
     const { div } = elements
     bind( div(), 'app.title', bindings.value )
 
@@ -160,7 +160,7 @@ If you want to use your own bindings, you can use `apply`:
 You can attach event handlers to elements using `on<EventType>`
 as syntax sugar, e.g.
 
-    import { elements } from 'xinjs'
+    import { elements } from 'tosijs'
     const { button } = elements
     document.body.append(
       button('click me', {onClick() {
@@ -170,7 +170,7 @@ as syntax sugar, e.g.
 
 …is syntax sugar for:
 
-    import { elements, on } from 'xinjs'
+    import { elements, on } from 'tosijs'
     const { button } = elements
     const aButton = button('click me')
     on(aButton, 'click', () => {
