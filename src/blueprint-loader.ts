@@ -239,8 +239,9 @@ import {
 
 const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
 
-// @ts-ignore TS1323
-const loadModule = (src: string): Promise<any> => import(`${src}`)
+// unfortunately this is needed to avoid webpack and similar bundlers from
+// rewriting the import call or getting confused by it.
+const loadModule = (src: string): Promise<any> => eval(`import('${src}')`)
 
 export class Blueprint extends Component {
   tag = 'anon-elt'
@@ -259,7 +260,7 @@ export class Blueprint extends Component {
           return makeComponent(tag, blueprint)
         })
       } else {
-        console.log(`using cached ${tag}`)
+        console.log(`using cached ${tag} with signature ${signature}`)
       }
       this.loaded = await loadedBlueprints[signature]
       this.blueprintLoaded(this.loaded)
