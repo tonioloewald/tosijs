@@ -4,6 +4,7 @@
 
 > `xinjs` has been renamed `tosijs`. Updating the documentation and links is a
 > work in progress. The goal is for the API to remain stable during the transition.
+> If/when you want to migrate from `xinjs` to `tosijs`, here's a [guide for migrating to tosijs](/?Migration.md)
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme) | [discord](https://discord.gg/ramJ9rgky5)
 
