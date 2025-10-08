@@ -22,8 +22,14 @@ test('boxedProxy works', () => {
       nullity: null,
     },
   })
+
   expect(xin.box.foo).toBe('bar')
   expect(box.foo.valueOf()).toBe('bar')
+
+  box.foo = 'hello'
+  expect(xin.box.foo).toBe('hello')
+  expect(box.foo.valueOf()).toBe('hello')
+
   expect(xinPath(box.foo)).toBe('box.foo')
   // @ts-expect-error it's a test ffs
   expect(box.deep['id=thought'].answer.valueOf()).toBe(42)
