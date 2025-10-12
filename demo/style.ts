@@ -278,6 +278,7 @@ export const styleSpec: XinStyleSheet = {
     position: 'relative',
   },
   svg: {
+    fill: 'currentcolor',
     pointerEvents: 'none',
   },
   'svg text': {
@@ -413,9 +414,6 @@ export const styleSpec: XinStyleSheet = {
     color: 'currentcolor',
     background: 'transparent',
     gap: '2px',
-  },
-  svg: {
-    fill: 'currentcolor',
   },
   'img.logo, xin-icon.logo': {
     animation: '2s ease-in-out 0s infinite alternate logo-swing',

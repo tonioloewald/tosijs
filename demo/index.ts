@@ -58,7 +58,7 @@ const { app, prefs } = tosi({
     discordUrl: `https://discord.com/invite/ramJ9rgky5`,
     githubUrl: `https://github.com/tonioloewald/${PROJECT}#readme`,
     npmUrl: `https://www.npmjs.com/package/${PROJECT}`,
-    tosijsuiUrl: 'https://ui.xinjs.net',
+    tosijsuiUrl: 'https://ui.tosijs.net',
     bundleBadgeUrl: `https://deno.bundlejs.com/?q=${PROJECT}&badge=`,
     bundleUrl: `https://bundlejs.com/?q=${PROJECT}`,
     cdnBadgeUrl: `https://data.jsdelivr.com/v1/package/npm/${PROJECT}/badge`,
@@ -68,6 +68,7 @@ const { app, prefs } = tosi({
     lottieData: '',
     docs,
     currentDoc,
+    compact: false,
   },
   prefs: {
     theme: 'system',
@@ -143,7 +144,7 @@ bind(document.body, prefs.monochrome, {
 window.addEventListener('popstate', () => {
   const filename = window.location.search.substring(1)
   app.currentDoc =
-    app.docs.find((doc) => doc.filename === filename) || app.docs[0]
+    app.docs.find((doc) => doc.filename.xinValue === filename) || app.docs[0]
 })
 
 const filterDocs = debounce(() => {
@@ -172,6 +173,30 @@ const searchField = input({
 if (main)
   main.append(
     header(
+      button(
+        {
+          class: 'iconic',
+          style: { color: vars.linkColor },
+          title: 'navigation',
+          bind: {
+            value: app.compact,
+            binding: {
+              toDOM(element, compact) {
+                element.style.display = compact ? '' : 'none'
+                ;(element.nextSibling as HTMLElement).style.display = compact
+                  ? ''
+                  : 'none'
+              },
+            },
+          },
+          onClick() {
+            const nav = document.querySelector(SideNav.tagName!) as SideNav
+            nav.contentVisible = !nav.contentVisible
+          },
+        },
+        icons.menu()
+      ),
+      span({ style: { flex: '0 0 10px' } }),
       a(
         {
           href: '/',
@@ -217,7 +242,7 @@ if (main)
           class: 'iconic',
           onClick(event) {
             popMenu({
-              target: event.target as HTMLButtonElement,
+              target: event.target.closest('button') as HTMLButtonElement,
               menuItems: [
                 {
                   icon: 'github',
@@ -252,47 +277,47 @@ if (main)
                     {
                       caption: 'System',
                       checked() {
-                        return prefs.theme === 'system'
+                        return prefs.theme.xinValue === 'system'
                       },
                       action() {
-                        prefs.theme = 'system'
+                        prefs.theme.xinSet('system')
                       },
                     },
                     {
                       caption: 'Dark',
                       checked() {
-                        return prefs.theme === 'dark'
+                        return prefs.theme.xinValue === 'dark'
                       },
                       action() {
-                        prefs.theme = 'dark'
+                        prefs.theme.xinSet('dark')
                       },
                     },
                     {
                       caption: 'Light',
                       checked() {
-                        return prefs.theme === 'light'
+                        return prefs.theme.xinValue === 'light'
                       },
                       action() {
-                        prefs.theme = 'light'
+                        prefs.theme.xinSet('light')
                       },
                     },
                     null,
                     {
                       caption: 'High Contrast',
                       checked() {
-                        return prefs.highContrast.valueOf()
+                        return prefs.highContrast.xinValue
                       },
                       action() {
-                        prefs.highContrast = !prefs.highContrast.valueOf()
+                        prefs.highContrast.xinSet(!prefs.highContrast.valueOf())
                       },
                     },
                     {
                       caption: 'Monochrome',
                       checked() {
-                        return prefs.monochrome.valueOf()
+                        return prefs.monochrome.xinValue
                       },
                       action() {
-                        prefs.monochrome = !prefs.monochrome.valueOf()
+                        prefs.monochrome.xinSet(!prefs.monochrome.valueOf())
                       },
                     },
                   ],
@@ -312,6 +337,10 @@ if (main)
         style: {
           flex: '1 1 auto',
           overflow: 'hidden',
+        },
+        onChange(event) {
+          const nav = document.querySelector(SideNav.tagName!) as SideNav
+          app.compact.xinSet(nav.compact)
         },
       },
       searchField,
@@ -364,22 +393,6 @@ if (main)
             height: '100%',
           },
         },
-        button(
-          {
-            title: 'show navigation',
-            class: 'transparent close-nav show-within-compact',
-            style: {
-              marginTop: '2px',
-              position: 'fixed',
-            },
-            onClick(event: Event) {
-              ;(
-                (event.target as HTMLElement).closest('xin-sidenav') as SideNav
-              ).contentVisible = false
-            },
-          },
-          icons.chevronLeft()
-        ),
         markdownViewer({
           style: {
             display: 'block',
