@@ -103,7 +103,7 @@
     "path": "src/hot-reload.ts"
   },
   {
-    "text": "# Migrating from `xinjs` to `tosijs`\n\n<!--{ \"pin\": \"bottom\" }-->\n\nIn a nutshell:\n\n1. Update to `xinjs` (and `xinjs-ui`) 1.0.6\n2. Fix any issues\n3. Replace all references to \"xinjs\" with \"tosijs\"\n\n`xinjs` and `tosijs` 1.0.6 should be identical, so the only issue should be the name.\n\n> Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.\n",
+    "text": "# Migrating from `xinjs` to `tosijs`\n\n<!--{ \"pin\": \"bottom\" }-->\n\nIn a nutshell:\n\n1. Update to `xinjs` (and `xinjs-ui`) 1.0.6\n2. Fix any issues\n3. Replace all references to \"xinjs\" with \"tosijs\"\n\n`xinjs` and `tosijs` 1.0.6 should be identical (likewise `xinjs-ui` and `tosijs-ui`), so the only thing you need to change\nshould be the module names.\n\n> Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.\n",
     "title": "Migrating from xinjs to tosijs",
     "filename": "Migration.md",
     "path": "Migration.md",
