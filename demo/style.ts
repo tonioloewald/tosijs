@@ -17,6 +17,7 @@ const colors = {
   _navBg: brandColor.rotate(30).desaturate(0.5).brighten(0.9),
   _barColor: brandColor.opacity(0.4),
   _focusColor: brandColor.opacity(0.7),
+  _placeholderColor: brandColor.opacity(0.4),
   _brandTextColor: brandColor.rotate(30).brighten(0.9),
   _insetBg: brandColor.rotate(45).brighten(0.8),
   _codeBg: brandColor.rotate(-15).desaturate(0.5).brighten(0.9),
@@ -255,7 +256,7 @@ export const styleSpec: XinStyleSheet = {
     maxWidth: vars.lineHeight,
   },
   '::placeholder': {
-    color: vars.focusColor,
+    color: vars.placeholderColor,
   },
   img: {
     verticalAlign: 'middle',
