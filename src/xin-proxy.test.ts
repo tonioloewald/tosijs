@@ -26,14 +26,17 @@ test('boxedProxy works', () => {
   expect(xin.box.foo).toBe('bar')
   expect(box.foo.valueOf()).toBe('bar')
 
+  // @ts-expect-error it's a test ffs
   box.foo = 'hello'
   expect(xin.box.foo).toBe('hello')
   expect(box.foo.valueOf()).toBe('hello')
 
+  box.foo.xinValue = 'using xinValue'
+  expect(xin.box.foo).toBe('using xinValue')
+  expect(box.foo.valueOf()).toBe('using xinValue')
+
   expect(xinPath(box.foo)).toBe('box.foo')
-  // @ts-expect-error it's a test ffs
   expect(box.deep['id=thought'].answer.valueOf()).toBe(42)
-  // @ts-expect-error it's a test ffs
   expect(xinPath(box.deep['id=thought'].answer)).toBe(
     'box.deep[id=thought].answer'
   )

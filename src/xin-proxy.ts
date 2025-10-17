@@ -1,5 +1,5 @@
 /*#
-# 1.1 tosi, boxedProxy, and xinProxy
+# 1.1 tosi, xin, and xinProxy
 
 > This documentation is mainly here for explanatory purposes. Just use `tosi()`
 > as described in section 1.
