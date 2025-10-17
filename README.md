@@ -13,7 +13,9 @@
 [![tosijs on jsdelivr](https://data.jsdelivr.com/v1/package/npm/tosijs/badge)](https://www.jsdelivr.com/package/npm/tosijs)
 
 <div style="text-align: center; margin: 20px">
-  <img style="width: 300px; max-width: 80%" class="logo" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
+  <xin-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
+    <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
+  </xin-lottie>
 </div>
 
 > For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-tosijs).
