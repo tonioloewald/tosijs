@@ -387,3 +387,5 @@ DOM APIs.
 `tosijs` is being developed using [bun](https://bun.sh/).
 `bun` is crazy fast (based on Webkit's JS engine, vs. V8), does a lot of stuff
 natively, and runs TypeScript (with import and require) directly.
+
+Logo animation by [@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).
