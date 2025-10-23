@@ -239,9 +239,7 @@ import {
 
 const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
 
-// unfortunately this is needed to avoid webpack and similar bundlers from
-// rewriting the import call or getting confused by it.
-const loadModule = (src: string): Promise<any> => eval(`import('${src}')`)
+const loadModule = (src: string): Promise<any> => import(src)
 
 export class Blueprint extends Component {
   tag = 'anon-elt'
