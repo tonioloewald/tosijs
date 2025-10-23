@@ -428,7 +428,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   static elementCreator(
     options: ElementCreatorOptions = {}
-  ): ElementCreator<Component> {
+  ): ElementCreator<this> {
     if (this._elementCreator == null) {
       const { tag, styleSpec } = options
       let tagName = options != null ? tag : null
