@@ -2,7 +2,7 @@
 # 4.2 makeComponent
 
 `makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
-hydrates [blueprints](/?blueprint-loader.ts) into usable [web-component](./?component.ts)s.
+hydrates [blueprints](/?blueprint-loader.ts) into usable [web-components](./?component.ts).
 
 Here are the relevant interfaces:
 

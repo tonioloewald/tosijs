@@ -67,7 +67,7 @@
     "path": "src/blueprint-loader.ts"
   },
   {
-    "text": "# 4.2 makeComponent\n\n`makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`\nhydrates [blueprints](/?blueprint-loader.ts) into usable [web-component](./?component.ts)s.\n\nHere are the relevant interfaces:\n\n```\nexport interface PartsMap<T = Element> {\n  [key: string]: T\n}\n\nexport type XinBlueprint<T = PartsMap> = (\n  tag: string,\n  module: XinFactory\n) => XinComponentSpec<T> | Promise<XinComponentSpec<T>>\n\nexport interface XinComponentSpec<T = PartsMap> {\n  type: Component<T>\n  styleSpec?: XinStyleSheet\n}\n```\n\nNote that a crucial benefit of blueprints is that the **consumer** of the blueprint gets\nto choose the `tagName` of the custom-element.",
+    "text": "# 4.2 makeComponent\n\n`makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`\nhydrates [blueprints](/?blueprint-loader.ts) into usable [web-components](./?component.ts).\n\nHere are the relevant interfaces:\n\n```\nexport interface PartsMap<T = Element> {\n  [key: string]: T\n}\n\nexport type XinBlueprint<T = PartsMap> = (\n  tag: string,\n  module: XinFactory\n) => XinComponentSpec<T> | Promise<XinComponentSpec<T>>\n\nexport interface XinComponentSpec<T = PartsMap> {\n  type: Component<T>\n  styleSpec?: XinStyleSheet\n}\n```\n\nNote that a crucial benefit of blueprints is that the **consumer** of the blueprint gets\nto choose the `tagName` of the custom-element.",
     "title": "4.2 makeComponent",
     "filename": "make-component.ts",
     "path": "src/make-component.ts"
