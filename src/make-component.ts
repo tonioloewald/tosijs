@@ -23,9 +23,7 @@ export interface XinComponentSpec<T = PartsMap> {
 ```
 
 Note that a crucial benefit of blueprints is that the **consumer** of the blueprint gets
-to choose the `tagName` of the custom-element. (Of course with react you can choose
-the virtualDOM representation, but this often doesn't give you much of a clue where
-the corresponding code is by looking at the DOM or even the React component panel.
+to choose the `tagName` of the custom-element.
 */
 
 import { Color } from './color'
