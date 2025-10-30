@@ -18,7 +18,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static get tagName(): null | string;
     [key: string]: any;
     static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement;
-    static elementCreator<C = Component>(this: C, options?: ElementCreatorOptions): ElementCreator<C>;
+    static elementCreator<C = Component>(this: new () => C, options?: ElementCreatorOptions): ElementCreator<C>;
     initAttributes(...attributeNames: string[]): void;
     private initValue;
     private _parts?;
@@ -42,5 +42,5 @@ declare class XinSlot extends Component<SlotParts> {
     static replaceSlot(slot: HTMLSlotElement): void;
     constructor();
 }
-export declare const xinSlot: ElementCreator<typeof XinSlot>;
+export declare const xinSlot: ElementCreator<XinSlot>;
 export {};
