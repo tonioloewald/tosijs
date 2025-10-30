@@ -32,7 +32,7 @@ export type XinProxyArray = XinProps<[]> & {
 } & (XinProxyObject[] | XinScalar[]);
 export type XinTouchableType = string | XinProxy | BoxedProxy | String | Number | Boolean;
 export type EventType = keyof HTMLElementEventMap;
-export type XinEventHandler<T extends Event = Event, E extends Element = Element> = ((evt: T & {
+export type XinEventHandler<T extends Event = Event, E = Element> = ((evt: T & {
     target: E;
 }) => void) | ((evt: T & {
     target: E;
@@ -49,17 +49,17 @@ export interface XinBindingSpec {
     value: XinTouchableType | any;
     [key: string]: any;
 }
-export type XinBindingSetter<T extends Element = Element> = (element: T, value: any, options?: XinObject) => void;
-export type XinBindingGetter<T extends Element = Element> = (element: T, options?: XinObject) => any;
-export interface XinBinding<T extends Element = Element> {
+export type XinBindingSetter<T = Element> = (element: T, value: any, options?: XinObject) => void;
+export type XinBindingGetter<T = Element> = (element: T, options?: XinObject) => any;
+export interface XinBinding<T = Element> {
     toDOM?: XinBindingSetter<T>;
     fromDOM?: XinBindingGetter<T>;
 }
-export interface XinInlineBinding<T extends Element = Element> {
+export interface XinInlineBinding<T = Element> {
     value: XinTouchableType;
     binding: XinBinding<T> | XinBindingSetter<T> | string;
 }
-export interface ElementProps<T extends Element = Element> {
+export interface ElementProps<T = Element> {
     onClick?: XinEventHandler<MouseEvent, T>;
     onMousedown?: XinEventHandler<MouseEvent, T>;
     onMouseenter?: XinEventHandler<MouseEvent, T>;
@@ -97,10 +97,10 @@ export interface PartsMap {
     [key: string]: Element;
 }
 export type ValueElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-export type ElementPart<T extends Element = Element> = Element | DocumentFragment | ElementProps<T> | string | number;
-export type HTMLElementCreator<T extends Element = Element> = (...contents: ElementPart<T>[]) => T;
+export type ElementPart<T = Element> = Element | DocumentFragment | ElementProps<T> | string | number;
+export type HTMLElementCreator<T = HTMLElement> = (...contents: ElementPart<T>[]) => T;
 export type FragmentCreator = (...contents: ElementPart<Element>[]) => DocumentFragment;
-export type ElementCreator<T extends Element = Element> = (...contents: ElementPart<T>[]) => T;
+export type ElementCreator<T = Element> = (...contents: ElementPart<T>[]) => T;
 export type ContentPart = Element | DocumentFragment | string;
 export type ContentType = ContentPart | ContentPart[];
 export {};

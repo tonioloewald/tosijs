@@ -426,15 +426,20 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     return elements.style(css(styleSpec))
   }
 
-  static elementCreator(
+  static elementCreator<C = Component>(
+    this: C,
     options: ElementCreatorOptions = {}
-  ): ElementCreator<this> {
-    if (this._elementCreator == null) {
+  ): ElementCreator<C> {
+    const componentClass = this as Component
+    if (componentClass._elementCreator == null) {
       const { tag, styleSpec } = options
       let tagName = options != null ? tag : null
       if (tagName == null) {
-        if (typeof this.name === 'string' && this.name !== '') {
-          tagName = camelToKabob(this.name)
+        if (
+          typeof componentClass.name === 'string' &&
+          componentClass.name !== ''
+        ) {
+          tagName = camelToKabob(componentClass.name)
           if (tagName.startsWith('-')) {
             tagName = tagName.slice(1)
           }
@@ -452,7 +457,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       while (customElements.get(tagName) !== undefined) {
         tagName = anonElementTag()
       }
-      this._tagName = tagName
+      componentClass._tagName = tagName
       if (styleSpec !== undefined) {
         setGlobalStyle(tagName, styleSpec)
       }
@@ -461,9 +466,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         this as unknown as CustomElementConstructor,
         options
       )
-      this._elementCreator = elements[tagName]
+      componentClass._elementCreator = elements[tagName]
     }
-    return this._elementCreator
+    return componentClass._elementCreator
   }
 
   initAttributes(...attributeNames: string[]): void {
@@ -694,7 +699,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   render(): void {}
 }
 
-class XinSlot extends Component {
+interface SlotParts extends PartsMap {
+  slotty: HTMLSlotElement
+}
+
+class XinSlot extends Component<SlotParts> {
   name = ''
   content = null
 
