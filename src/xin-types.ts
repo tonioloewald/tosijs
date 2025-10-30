@@ -27,13 +27,13 @@ export interface XinProps<T = any> {
 }
 
 export type BoxedProxy<T = any> = T extends Array<infer U>
-  ? Array<BoxedProxy<U>>
+  ? Array<BoxedProxy<U>> & XinProps<T>
   : T extends Function
   ? T & XinProps<Function>
   : T extends object
   ? {
     [K in keyof T]: BoxedProxy<T[K]>
-  }
+  } & XinProps<T>
   : T extends string
   ? String & XinProps<string>
   : T extends number

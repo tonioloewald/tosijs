@@ -17,9 +17,9 @@ export interface XinProps<T = any> {
     [XIN_OBSERVE]: ProxyObserveFunc;
     [XIN_BIND]: ProxyBindFunc;
 }
-export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> : T extends Function ? T & XinProps<Function> : T extends object ? {
+export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
-} : T extends string ? String & XinProps<string> : T extends number ? Number & XinProps<number> : T extends boolean ? Boolean & XinProps<boolean> : T;
+} & XinProps<T> : T extends string ? String & XinProps<string> : T extends number ? Number & XinProps<number> : T extends boolean ? Boolean & XinProps<boolean> : T;
 export type Unboxed<T = any> = T extends String ? string : T extends Number ? number : T extends Boolean ? boolean : T;
 export type XinProxy<T = any> = T extends Array<infer U> ? Array<XinProxy<U>> : T extends Function ? T : T extends object ? {
     [K in keyof T]: T[K] extends object ? XinProxy<T[K]> : T[K];
