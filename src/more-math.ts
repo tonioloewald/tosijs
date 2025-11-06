@@ -2,7 +2,7 @@
 # A.1 more-math
 
 Some simple functions egregiously missing from the Javascript `Math`
-object. They are exported from `xinjs` as the `MoreMath` object.
+object. They are exported from `tosijs` as the `MoreMath` object.
 
 ## Functions
 

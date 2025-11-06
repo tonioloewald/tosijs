@@ -1,7 +1,7 @@
 /*#
 # 5.1 color
 
-`xinjs` includes a lightweight, powerful `Color` class for manipulating colors.
+`tosijs` includes a lightweight, powerful `Color` class for manipulating colors.
 I hope at some point CSS will provide sufficiently capable native color calculations
 so that this will no longer be needed. Some of these methods have begun to appear,
 and are approaching wide implementation.

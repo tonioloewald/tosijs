@@ -1,7 +1,7 @@
 /*#
 # 5. css
 
-`xinjs` provides a collection of utilities for working with CSS rules that
+`tosijs` provides a collection of utilities for working with CSS rules that
 help leverage CSS variables to produce highly maintainable and lightweight
 code that is nonetheless easy to customize.
 
@@ -147,16 +147,16 @@ preview.append(
 
 > ### @property and CSS.registerProperty() considered harmful
 >
-> This [new CSS feature}(https://developer.mozilla.org/en-US/docs/Web/CSS/@property) 
+> This [new CSS feature}(https://developer.mozilla.org/en-US/docs/Web/CSS/@property)
 > is well-intentioned but ill-considered. I advise
 > against using it yourself until its serious flaws are addressed. The problem
 > is that if someone registers a variable you're using or you register
 > a variable someone else is using then your CSS may be broken. And
-> you can't re-register a variable either. 
+> you can't re-register a variable either.
 
 > This is a bit like the problem
 > that xinjs Component works around with tagNames, but in practice far more
-> difficult to solve. It is impossible to tell if a given instance of 
+> difficult to solve. It is impossible to tell if a given instance of
 > a given variable name is an intentional reuse or a new separate variable.
 > No-one intentionally defines two different components with the same tag.
 
@@ -188,10 +188,10 @@ a camelCase property, e.g.
 with a default, e.g
 
     varDefault.borderColor('red') // `var(--border-color, red)`
-    
+
 ## `getCssVar(variable: string, atElement = document.body): string`
 
-`getCssVar()` obtains the css variable evaluated at the specified element 
+`getCssVar()` obtains the css variable evaluated at the specified element
 (an element defined at `:root` can be evaluated at `document.body`). You
 can provide the name, e.g. `--foo-bar`, or "wrapped", e.g. `var(--foo-bar)`.
 
@@ -211,12 +211,12 @@ on css (dimensional) variables by a percentage:
 > See [color-mix()](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/color-mix) documentation.
 > Where they meet your needs, I'd suggest using them.
 >
-> [contrast-color()](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color) is coming in Safari 26, 
+> [contrast-color()](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color) is coming in Safari 26,
 > but [currently enjoys 0% upport](https://caniuse.com/?search=contrast-color).
 >
 > **Caution** although these look superficially like the `vars` syntax
 > sugar for `calc()` performed on dimensional variables, they are in fact
-> color calculations are performed on colors *evaluated* on `document.body` at 
+> color calculations are performed on colors *evaluated* on `document.body` at
 > execution time. (So they won'b automatically be recomputed on theme change.)
 
 You can write:
@@ -296,7 +296,7 @@ resulting color to the value provided.
 
 The more I use the `css` module, the more I like it and the more ideas I have
 to make it even better, but I have a very tight size/complexity target
-for `xinjs` so these new ideas really have to earn a spot. Perhaps the
+for `tosijs` so these new ideas really have to earn a spot. Perhaps the
 feature I have come closest to adding and then decided against was providing
 syntax-sugar for classs so that:
 
@@ -319,7 +319,7 @@ look different which violates the "principle of least surprise". So, no.
 
 ### Something to Declare
 
-Where I am always looking to improve this module (and all of `xinjs`) is to
+Where I am always looking to improve this module (and all of `tosijs`) is to
 do a better job of **declaring** things to improve autocomplete behavior and
 minimize casting and other Typescript antipatterns. E.g. adding a ton of
 declarations to `elements` and `css` has done wonders to reduce the need for

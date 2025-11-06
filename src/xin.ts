@@ -113,8 +113,8 @@ easily until similar functionality is added to CSS.
 > As conceived, `tosi()` is an observer `Proxy` wrapped around your application's
 > state. It's the **single source of truth for application state**.
 >
-> Note that the interactive examples on the xinjs.net website only support Javascript.
-> If you want to play with `xinjs` using Typescript, try the [sandbox example](https://codesandbox.io/s/xintro-mh4rbj?file=/src/index.ts)
+> Note that the interactive examples on the tosijs.net website allow TypeScript
+> but the Typescript is simply stripped to javascript using [sucrase](https://sucrase.io/).
 
 ## xin
 

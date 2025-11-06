@@ -4,7 +4,7 @@
 > This documentation is mainly here for explanatory purposes. Just use `tosi()`
 > as described in section 1.
 
-The key to managing application state with `xinjs` is the `xin` proxy object
+The key to managing application state with `tosijs` is the `xin` proxy object
 (and `boxed`). These are documented [here](/?xin.ts).
 
 ## `xinProxy()` and `tosi()`

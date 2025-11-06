@@ -2,7 +2,7 @@
 # 4.1 blueprints
 
 One issue with standard web-components built with xinjs is that building them
-"sucks in" the version of `xinjs` you're working with. This isn't a huge problem
+"sucks in" the version of `tosijs` you're working with. This isn't a huge problem
 with monolithic code-bases, but it does prevent components from being loaded
 "on-the-fly" from CDNs and composed on the spot and it does make it hard to
 "tree shake" component libraries.
@@ -31,13 +31,13 @@ With blueprints, the *consumer* of the component chooses the `tag`, reducing the
 chance of name-collision. (You can consume the same blueprint multiple times,
 giving each one its own tag.)
 
-To address these issues, `xinjs` provides a `<xin-loader>` loader component and
+To address these issues, `tosijs` provides a `<xin-loader>` loader component and
 a function `makeComponent` that can define a component given a blueprint
 function.
 
 ## `<xin-loader>`—the blueprint loader
 
-`<xin-loader>` is a simple custom-element provided by `xinjs` for the dynamic loading
+`<xin-loader>` is a simple custom-element provided by `tosijs` for the dynamic loading
 of component **blueprints**. It will load its `<xin-blueprint>`s in parallel.
 
 ```

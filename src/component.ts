@@ -183,7 +183,7 @@ preview.append(
 > `<slot>` elements do not work as expected in shadowDOM-less components. This is
 > hugely annoying since it prevents components from composing nicely unless they
 > have a shadowDOM, and while the shadowDOM is great for small widgets, it's
-> terrible for composite views and breaks `xinjs`'s bindings (inside the shadow
+> terrible for composite views and breaks `tosijs`'s bindings (inside the shadow
 > DOM you need to do data- and event- binding manually).
 
 #### styleNode: HTMLStyleElement

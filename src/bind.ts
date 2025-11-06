@@ -11,16 +11,16 @@ state synchronized with the user-interface. One approach to this problem
 is [Reactive Programming](https://en.wikipedia.org/wiki/Reactive_programming)
 as exemplified by [React](https://reactjs.org) and its many imitators.
 
-`xinjs` works very well with React via the [useXin](https://github.com/tonioloewald/react-xinjs) React "hook".
-But `xinjs` is not designed for "reactive programming" and in fact "hooks" aren't
+`tosijs` works very well with React via the [useTosi](https://github.com/tonioloewald/react-tosijs) React "hook".
+But `tosijs` is not designed for "reactive programming" and in fact "hooks" aren't
 "reactive" at all, so much as an example of the "observer" or "pub/sub" pattern.
 
-`xinjs` is a "path-observer" in that it's an implementation of the
+`tosijs` is a "path-observer" in that it's an implementation of the
 [Observer Pattern](https://en.wikipedia.org/wiki/Observer_pattern)
 where **path strings** serve as a level of *indirection* to the things observed.
 This allows data to be "observed" before it exists, which in particular *decouples* the setup
 of the user interface from the initialization of data and allows user interfaces
-built with `xinjs` to be *deeply asynchronous*.
+built with `tosijs` to be *deeply asynchronous*.
 
 ## `bind()`
 

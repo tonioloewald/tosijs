@@ -2,7 +2,7 @@
 # 2.1 binding arrays
 
 The most likely source of complexity and performance issues in applications is
-displaying large lists or grids of objects. `xinjs` provides robust support
+displaying large lists or grids of objects. `tosijs` provides robust support
 for handling this efficiently.
 
 ## `bindList` and `bindings.list`
@@ -241,7 +241,7 @@ preview.append(
 
 ## Filtered Lists
 
-It's also extremely common to want to filter a rendered list, and `xinjs`
+It's also extremely common to want to filter a rendered list, and `tosijs`
 provides both simple and powerful methods for doing this.
 
 ## `hiddenProp` and `visibleProp`
