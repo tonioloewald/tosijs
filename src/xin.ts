@@ -50,7 +50,7 @@ that it:
   in a BoxedProxy, so `prefs.theme.xinPath === 'prefs.theme'`
 
 ```
-prefs.theme instaceof String            // true
+prefs.theme instanceof String           // true
 prefs.theme.valueOf() === 'system'      // true
 prefs.theme.xinValue === 'system'       // true
 prefs.theme.xinPath === 'prefs.theme'   // true
@@ -83,10 +83,10 @@ appropriately, and modifying `prefs.theme` will update the
 bound element automatically.
 
 ```
-proxy.theme.xinSet('dark')
+proxy.theme.xinValue = 'dark'
 ```
 
-> In javascript you can juset write `proxy.theme = 'dark'`.
+> In javascript you can just write `proxy.theme = 'dark'`.
 
 This, in a nutshell, explains exactly what `tosijs` is designed to do.
 
@@ -590,15 +590,16 @@ import {
 } from './path-listener'
 import { getByPath, setByPath } from './by-path'
 import { bind, on } from './bind'
+import { elements, ElementsProxy } from './elements'
 import {
   xinValue,
   XIN_VALUE,
-  XIN_SET,
   XIN_PATH,
   XIN_OBSERVE,
   XIN_BIND,
   XIN_ON,
 } from './metadata'
+import { console } from 'node:inspector/promises'
 
 interface ProxyConstructor {
   revocable: <T extends object, P extends object>(
@@ -665,9 +666,17 @@ const boxes: { [key: string]: (x: any) => any } = {
   },
 }
 
+const ACTUAL = Symbol('undefined')
+
 function box<T>(x: T, path: string): T {
+  if (x === undefined || x === null) {
+    return new Proxy<XinProxyTarget, XinObject>(
+      { [ACTUAL]: x === null ? 'null' : 'undefined' },
+      regHandler(path, true)
+    ) as T
+  }
   const t = typeof x
-  if (x === undefined || t === 'object' || t === 'function') {
+  if (t === 'object' || t === 'function') {
     return x
   } else {
     return new Proxy<XinProxyTarget, XinObject>(
@@ -677,6 +686,8 @@ function box<T>(x: T, path: string): T {
   }
 }
 
+const listElement = () => new Proxy({}, regHandler('^', true))
+
 const regHandler = (
   path: string,
   boxScalars: boolean
@@ -684,26 +695,57 @@ const regHandler = (
   get(target: XinObject | XinArray, _prop: string | symbol): XinValue {
     switch (_prop) {
       case XIN_PATH:
+      case 'tosiPath':
         return path
       case XIN_VALUE:
-        return target.valueOf ? target.valueOf() : target
-      case XIN_SET:
-        return (newValue: any) => (xin[path] = newValue)
+      case 'tosiValue':
+        return (target as any)[ACTUAL]
+          ? (target as any)[ACTUAL] === 'null'
+            ? null
+            : undefined
+          : target.valueOf
+          ? target.valueOf()
+          : target
       case XIN_OBSERVE:
+      case 'tosiObserve':
         return (callback: ObserverCallbackFunction) => {
           const listener = _observe(path, callback)
           return () => unobserve(listener)
         }
       case XIN_ON:
+      case 'tosiOn':
         return (
           element: HTMLElement,
           eventType: keyof HTMLElementEventMap
         ): VoidFunction =>
           on(element, eventType, xinValue(target) as XinEventHandler)
       case XIN_BIND:
+      case 'tosiBind':
         return (element: Element, binding: XinBinding, options?: XinObject) => {
           bind(element, path, binding, options)
         }
+      case 'tosiBinding':
+        return (binding: XinBinding) => ({
+          bind: {
+            value: path,
+            binding,
+          },
+        })
+      case 'tosiListBinding':
+        return (
+          content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
+            span,
+          }) => span({ bindText: '^' }),
+          options: XinObject = {}
+        ) => [
+          {
+            bindList: {
+              value: path,
+              ...options,
+            },
+          },
+          elements.template(content(elements, listElement())),
+        ]
     }
     if (typeof _prop === 'symbol') {
       return (target as XinObject)[_prop]

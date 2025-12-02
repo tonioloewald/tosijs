@@ -48,8 +48,6 @@ it works internally.
 ```js
 import { Component, elements } from 'tosijs'
 
-const {label, span, input} = elements
-
 class LabeledInput extends Component {
   caption = 'untitled'
   value = ''
@@ -59,7 +57,7 @@ class LabeledInput extends Component {
     this.initAttributes('caption')
   }
 
-  content = label(span(), input())
+  content = ({label, span, input}) => label(span(), input())
 
   connectedCallback() {
     super.connectedCallback()
@@ -104,7 +102,6 @@ If you'd like to see a more complex example along the same lines, look at
 ##### <slot> names and the `slot` attribute
 
 ```
-const {slot} = Component.elements
 class MenuBar extends Component {
   static styleSpec = {
     ':host, :host > slot': {
@@ -115,7 +112,7 @@ class MenuBar extends Component {
     },
   }
 
-  content = [slot(), slot({name: 'gadgets'})]
+  content = ({slot}) => [slot(), slot({name: 'gadgets'})]
 }
 
 export menuBar = MenuBar.elementCreator()
@@ -148,13 +145,14 @@ Here's a very simple example:
 ```js
 import { Component, elements } from 'tosijs'
 
-const { xinSlot, div } = elements
-
 class FauxSlotExample extends Component {
-  content = [
-    div('This is a web-component with no shadow DOM and working slots!'),
+  content = ({h4, h5, xinSlot}) => [
+    h4('This is a web-component with no shadow DOM and working slots!'),
+    h5('top slot'),
     xinSlot({name: 'top'}),
+    h5('middle slot'),
     xinSlot(),
+    h5('bottom slot'),
     xinSlot({name: 'bottom'}),
   ]
 }
@@ -166,8 +164,16 @@ const fauxSlotExample = FauxSlotExample.elementCreator({
       display: 'flex',
       flexDirection: 'column'
     },
+    ':host h4, :host h5': {
+      margin: 0,
+    },
+    ':host xin-slot': {
+      border: '2px solid grey'
+    }
   }
 })
+
+const { div } = elements
 
 preview.append(
   fauxSlotExample(
@@ -235,6 +241,26 @@ a content element with `class="foo"` while `this.parts.h1` will find an `<h1>`.
 `this.parts` will also remove a `data-ref` attribute once it has been used to find
 the element. This means that if you use all your refs in `render` or `connectedCallback`
 then no trace will remain in the DOM for a mounted element.
+
+### Component properties
+
+#### content: ((elements: ElementsProxy) => ContentType) | null | ContentType = slot()
+
+A component's content `property` can either be static content (it defaults to being a `<slot>` element) or an arrow function
+that creates the basic content of the element on hydration. Static content will be deep-cloned.
+
+By using an arrow function the content created can refer to the custom-element's properties and attributes (and this occurs post-initialization). This also means you can bind event-handlers in the component (which should also be arrow functions unless they don't need to refer to the element)
+
+Because a `content` function is passed the `elements` proxy, you can easily destructure any element creators you need:
+
+```
+content = ({div}) => div('hello world')
+```
+
+`ContentType` can be an HTMLElement or an array of elements.
+
+> Note that if a component does not use the shadowDOM, its `<slot>` elements will be replaced with `<xin-slot>` elements.
+> This allows composition to work as expected without requiring the shadow DOM.
 
 ### Component methods
 
@@ -411,7 +437,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   styleNode?: HTMLStyleElement
   static styleSpec?: XinStyleSheet
   static styleNode?: HTMLStyleElement
-  content: ContentType | (() => ContentType) | null = elements.slot()
+  content: ContentType | ((e: typeof elements) => ContentType) | null =
+    elements.slot()
   isSlotted?: boolean
   private static _tagName: null | string = null
   static get tagName(): null | string {
@@ -651,7 +678,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       this.initValue()
       const cloneElements = typeof this.content !== 'function'
       const _content: ContentType | null =
-        typeof this.content === 'function' ? this.content() : this.content
+        typeof this.content === 'function'
+          ? this.content(elements)
+          : this.content
 
       const { styleSpec } = this.constructor as unknown as Component
       let { styleNode } = this.constructor as unknown as Component

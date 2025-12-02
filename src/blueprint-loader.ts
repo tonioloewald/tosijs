@@ -141,7 +141,8 @@ preview.append(
       xin: typeof xin
       boxed: typeof boxed
       xinProxy: typeof xinProxy
-      boxedProxy: typeof boxedProxy
+      boxedProxy: typeof boxedProxy // deprecated
+      tosi: typeof tosi
       makeComponent: typeof makeComponent
       bind: typeof bind
       on: typeof on

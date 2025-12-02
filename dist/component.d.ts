@@ -1,5 +1,5 @@
 import { XinStyleSheet } from './css-types';
-import { ElementsProxy } from './elements';
+import { elements, ElementsProxy } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
 interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
@@ -12,7 +12,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     styleNode?: HTMLStyleElement;
     static styleSpec?: XinStyleSheet;
     static styleNode?: HTMLStyleElement;
-    content: ContentType | (() => ContentType) | null;
+    content: ContentType | ((e: typeof elements) => ContentType) | null;
     isSlotted?: boolean;
     private static _tagName;
     static get tagName(): null | string;

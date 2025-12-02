@@ -36,9 +36,9 @@ bind<T = Element>(
 `bind()` binds a `path` to an element, syncing the value at the path to and/or from the DOM.
 
 ```js
-import { bind, boxedProxy } from 'tosijs'
+import { bind, tosi } from 'tosijs'
 
-const { simpleBindExample } = boxedProxy({
+const { simpleBindExample } = tosi({
   simpleBindExample: {
     showThing: true
   }
@@ -56,7 +56,7 @@ bind(
 
 bind(
   preview.querySelector('input[type=checkbox]'),
-  // the boxedProxy can be used instead of a string path
+  // the tosi can be used instead of a string path
   simpleBindExample.showThing,
   // we could just use bindings.value here
   {
@@ -160,14 +160,14 @@ export type XinEventHandler<T extends Event = Event, E extends Element = Element
 ```
 
 ```js
-import { elements, on, boxedProxy } from 'tosijs'
+import { elements, on, tosi } from 'tosijs'
 import { postNotification } from 'tosijs-ui'
 
 const makeHandler = (message) => () => {
   postNotification({ message, duration: 2 })
 }
 
-const { onExample } = boxedProxy({
+const { onExample } = tosi({
   onExample: {
     clickHandler: makeHandler('Hello from onExample proxy')
   }

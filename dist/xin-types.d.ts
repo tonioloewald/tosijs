@@ -1,5 +1,6 @@
-import { XIN_PATH, XIN_VALUE, XIN_SET, XIN_OBSERVE, XIN_BIND } from './metadata';
+import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND } from './metadata';
 import { XinStyleRule } from './css-types';
+import { ElementsProxy } from './elements-types';
 export type AnyFunction = (...args: any[]) => any | Promise<any>;
 export type XinScalar = string | boolean | number | symbol | AnyFunction;
 export type XinArray = any[];
@@ -12,14 +13,22 @@ type ProxyObserveFunc = ((path: string) => void);
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBinding<T>, options?: XinObject) => VoidFunction;
 export interface XinProps<T = any> {
     [XIN_PATH]: string;
+    tosiPath: string;
     [XIN_VALUE]: T;
-    [XIN_SET]: (value: T) => T;
+    tosiValue: T;
     [XIN_OBSERVE]: ProxyObserveFunc;
+    tosiObserve: ProxyObserveFunc;
     [XIN_BIND]: ProxyBindFunc;
+    tosiBind: ProxyBindFunc;
 }
-export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> : T extends Function ? T & XinProps<Function> : T extends object ? {
+type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement;
+type ListBinding = [ElementProps, HTMLTemplateElement];
+export interface BoxedArrayProps<U = any> {
+    tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding;
+}
+export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
-} & XinProps<T> : T extends string ? String & XinProps<string> : T extends number ? Number & XinProps<number> : T extends boolean ? Boolean & XinProps<boolean> : T;
+} & XinProps<T> : T extends string ? String & XinProps<string> : T extends number ? Number & XinProps<number> : T extends boolean ? Boolean & XinProps<boolean> : T extends undefined | null ? {} & XinProps<T> : T;
 export type Unboxed<T = any> = T extends String ? string : T extends Number ? number : T extends Boolean ? boolean : T;
 export type XinProxy<T = any> = T extends Array<infer U> ? Array<XinProxy<U>> : T extends Function ? T : T extends object ? {
     [K in keyof T]: T[K] extends object ? XinProxy<T[K]> : T[K];
@@ -103,4 +112,18 @@ export type FragmentCreator = (...contents: ElementPart<Element>[]) => DocumentF
 export type ElementCreator<T = Element> = (...contents: ElementPart<T>[]) => T;
 export type ContentPart = Element | DocumentFragment | string;
 export type ContentType = ContentPart | ContentPart[];
+export type ListFilter = (array: any[], needle: any) => any[];
+export interface ListBindingOptions {
+    idPath?: string;
+    virtual?: {
+        height: number;
+        width?: number;
+        visibleColumns?: number;
+        rowChunkSize?: number;
+    };
+    hiddenProp?: symbol | string;
+    visibleProp?: symbol | string;
+    filter?: ListFilter;
+    needle?: XinTouchableType;
+}
 export {};

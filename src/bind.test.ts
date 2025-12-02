@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { boxedProxy } from './xin-proxy'
+import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { updates } from './path-listener'
 import { on, bind } from './bind'
@@ -7,7 +7,7 @@ import { bindings } from './bindings'
 
 test('element binding works', async () => {
   const { div, input } = elements
-  const { test } = boxedProxy({
+  const { test } = tosi({
     test: {
       value: 17,
       string: 'foobar',
@@ -32,7 +32,7 @@ test('element binding works', async () => {
 
 test('custom bindings work', async () => {
   const { div, input } = elements
-  const { test } = boxedProxy({
+  const { test } = tosi({
     test: {
       value: 87,
       string: 'foobar',
@@ -96,7 +96,7 @@ test('event binding with on() works', async () => {
 })
 
 test('bind works', async () => {
-  const { bindTest } = boxedProxy({
+  const { bindTest } = tosi({
     bindTest: {
       value: 'test',
     },
@@ -110,7 +110,7 @@ test('bind works', async () => {
   expect(input.value).toBe('test')
 
   // updating the proxy queues an update
-  bindTest.value.xinSet('hello update')
+  bindTest.value.xinValue = 'hello update'
   await updates()
   expect(input.value).toBe('hello update')
   input.value = 'changed'

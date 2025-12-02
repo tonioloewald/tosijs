@@ -50,14 +50,7 @@ const { readmeTodoDemo } = tosi({ readmeTodoDemo: todo })
 const { h4, ul, template, li, label, input } = elements
 preview.append(
   h4('To Do List'),
-  ul(
-    {
-      bindList: {
-        value: readmeTodoDemo.list,
-      },
-    },
-    template(li({ bindText: '^' }))
-  ),
+  ul(...readmeTodoDemo.list.tosiListBinding(({ li }, item) => li(item))),
   label(
     'Reminder',
     input({

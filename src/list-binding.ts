@@ -28,33 +28,42 @@ The basic structure of a **list-binding** is:
     )
 
 ```js
-import { elements, boxedProxy } from 'tosijs'
-const { listBindingExample } = boxedProxy({
-  listBindingExample: {
-    array: ['this', 'is', 'an', 'example']
-  }
-})
+  import { elements, boxedProxy } from 'tosijs'
+  const { listBindingExample } = boxedProxy({
+    listBindingExample: {
+      array: ['this', 'is', 'an', 'example']
+    }
+  })
 
-const { h3, ul, li, template } = elements
+  const { h3, ul, li, template } = elements
 
-preview.append(
-  h3('binding an array of strings'),
-  ul(
-    {
-      bindList: {
-        value: listBindingExample.array
-      },
-    },
-    template(
-      li({ bindText: '^' })
+  preview.append(
+    h3('binding an array of strings'),
+    ul(
+      ...listBindingExample.array.tosiListBinding(({li}, item) => li(item))
     )
   )
-)
 ```
+
+### tosiListBinding(templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => [ElementProps, HTMLTemplateElement]
+
+    type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
+    type ListBinding = [ElementProps, HTMLTemplateElement]
+
+The example leverages new syntax sugar that makes list-binding simpler
+and more intuitive. (It's intended to be as convenient as mapping an array to elements,
+except that you get dynamic binding, virtualized lists, versus a static list.)
+
+If you have a BoxedProxy<T[]>, you can use `tosiListBinding()`
+to create the binding inline (see the example above). Under the hood, the template
+gets created and an object with the necessary specifications is produced.
+
+Even better, `templateBuilder()` is passed the `elements` proxy and a placeholder `BoxedProxy` of
+the array's type, supporting autocompletion of property names within the template.
 
 ### id-paths
 
-**id-paths** are a wrinkle in `xin`'s paths specifically there to make list-bindign more efficient.
+**id-paths** are a wrinkle in `xin`'s paths specifically there to make list-binding more efficient.
 This is because in many cases you will encounter large arrays of objects, each with a unique id somewhere, e.g. it might be `id` or `uid`
 or even buried deeper…
 
@@ -71,7 +80,7 @@ Instead of referring to the first item in `messages` as `messages[0]` it can be 
 as `messages[id=1234abcd]`, and this will retrieve the item regardless of its position in messages.
 
 Specifying an `idPath` in a list-binding will allow the list to be more efficiently updated.
-It's the equivalent of a `key` in React, the difference being that its optional and
+It's the equivalent of a `key` in React, the difference being that it's optional and
 specifically intended to leverage pre-existing keys where available.
 
 ## Virtualized Lists
@@ -98,7 +107,7 @@ Now you can trivially bind an array of a million objects to the DOM and have it 
 120fps.
 
 ```js
-import { elements, boxedProxy, tosi } from 'tosijs'
+import { elements, tosi } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )
@@ -108,13 +117,25 @@ const { emojiListExample } = tosi({
   }
 })
 
-const { div, span, template } = elements
+const { div } = elements
 
 preview.append(
   div(
     {
-      class: 'emoji-table',
-      bindList: {
+      class: 'emoji-table'
+    },
+    ...emojiListExample.array.tosiListBinding(({div, span}, item) =>
+      div(
+        {
+          class: 'emoji-row',
+          tabindex: 0,
+        },
+        span({ bindText: item.chars, class: 'graphic' }),
+        span({ bindText: item.name, class: 'no-overflow' }),
+        span({ bindText: item.category, class: 'no-overflow' }),
+        span({ bindText: item.subcategory, class: 'no-overflow' })
+      ),
+      {
         value: emojiListExample.array,
         idPath: 'name',
         virtual: {
@@ -122,18 +143,6 @@ preview.append(
           rowChunkSize: 3
         },
       }
-    },
-    template(
-      div(
-        {
-          class: 'emoji-row',
-          tabindex: 0,
-        },
-        span({ bindText: '^.chars', class: 'graphic' }),
-        span({ bindText: '^.name', class: 'no-overflow' }),
-        span({ bindText: '^.category', class: 'no-overflow' }),
-        span({ bindText: '^.subcategory', class: 'no-overflow' })
-      )
     )
   )
 )
@@ -183,28 +192,27 @@ for (let i = 0; i < 2000; i++) {
 }
 
 const { bigBindTest } = tosi({
-  bigBindTest: { list }
+  bigBindTest: list
 })
 
 preview.append(
   div(
     {
       class: 'virtual-grid-example',
-      bindList: {
-        value: bigBindTest.list,
+    },
+    ...bigBindTest.tosiListBinding(
+      ({div}, item) => div({
+        class: 'cell',
+        bindText: item.id
+      }),
+      {
         idPath: 'id',
         virtual: {
           height: 40,
           visibleColumns: 7,
           rowChunkSize: 2,
         }
-      },
-    },
-    template(
-      div({
-        class: 'cell',
-        bindText: '^.id'
-      })
+      }
     )
   )
 )
@@ -282,11 +290,11 @@ is used to `touch` the object and trigger updates.
 ```js
 // note that this example is styled by the earlier example
 
-import { elements, boxedProxy } from 'tosijs'
+import { elements, tosi } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )
-const { filterListExample } = boxedProxy({
+const { filterListExample } = tosi({
   filterListExample: {
     config: {
       needle: '',
@@ -336,8 +344,19 @@ preview.append(
     {
       class: 'emoji-table',
       style: 'height: calc(100% - 60px)',
-      bindList: {
-        value: filterListExample.array,
+    },
+    ...filterListExample.array.tosiListBinding(
+      ({div, span}, item) => div(
+        {
+          class: 'emoji-row',
+          tabindex: 0,
+        },
+        span({ bindText: item.chars, class: 'graphic' }),
+        span({ bindText: item.name, class: 'no-overflow' }),
+        span({ bindText: item.category, class: 'no-overflow' }),
+        span({ bindText: item.subcategory, class: 'no-overflow' })
+      ),
+      {
         idPath: 'name',
         virtual: {
           height: 30,
@@ -353,18 +372,6 @@ preview.append(
         },
         needle: filterListExample.config
       }
-    },
-    template(
-      div(
-        {
-          class: 'emoji-row',
-          tabindex: 0,
-        },
-        span({ bindText: '^.chars', class: 'graphic' }),
-        span({ bindText: '^.name', class: 'no-overflow' }),
-        span({ bindText: '^.category', class: 'no-overflow' }),
-        span({ bindText: '^.subcategory', class: 'no-overflow' })
-      )
     )
   )
 )
@@ -383,28 +390,12 @@ import {
   xinValue,
   xinPath,
 } from './metadata'
-import { XinObject, XinTouchableType } from './xin-types'
+import { XinObject, XinTouchableType, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
 
 export const listBindingRef = Symbol('list-binding')
 const SLICE_INTERVAL_MS = 16 // 60fps
 const FILTER_INTERVAL_MS = 100 // 10fps
-
-type ListFilter = (array: any[], needle: any) => any[]
-
-interface ListBindingOptions {
-  idPath?: string
-  virtual?: {
-    height: number
-    width?: number
-    visibleColumns?: number
-    rowChunkSize?: number
-  }
-  hiddenProp?: symbol | string
-  visibleProp?: symbol | string
-  filter?: ListFilter
-  needle?: XinTouchableType
-}
 
 interface VirtualListSlice {
   items: any[]

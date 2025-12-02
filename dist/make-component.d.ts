@@ -6,7 +6,7 @@ import { bind, on } from './bind';
 import { elements, svgElements, mathML } from './elements';
 import { ElementCreator, PartsMap } from './xin-types';
 import { xin, boxed } from './xin';
-import { xinProxy, boxedProxy } from './xin-proxy';
+import { xinProxy, tosi, boxedProxy } from './xin-proxy';
 export interface XinFactory {
     Color: typeof Color;
     Component: typeof Component;
@@ -19,6 +19,7 @@ export interface XinFactory {
     boxed: typeof boxed;
     xinProxy: typeof xinProxy;
     boxedProxy: typeof boxedProxy;
+    tosi: typeof tosi;
     makeComponent: typeof makeComponent;
     bind: typeof bind;
     on: typeof on;

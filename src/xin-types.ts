@@ -1,5 +1,6 @@
-import { XIN_PATH, XIN_VALUE, XIN_SET, XIN_OBSERVE, XIN_BIND } from './metadata'
+import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND } from './metadata'
 import { XinStyleRule } from './css-types'
+import { ElementsProxy } from './elements-types'
 
 export type AnyFunction = (...args: any[]) => any | Promise<any>
 
@@ -20,14 +21,24 @@ type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBindi
 
 export interface XinProps<T = any> {
   [XIN_PATH]: string
+  tosiPath: string
   [XIN_VALUE]: T
-  [XIN_SET]: (value: T) => T
+  tosiValue: T
   [XIN_OBSERVE]: ProxyObserveFunc
+  tosiObserve: ProxyObserveFunc
   [XIN_BIND]: ProxyBindFunc
+  tosiBind: ProxyBindFunc
+}
+
+type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
+type ListBinding = [ElementProps, HTMLTemplateElement]
+
+export interface BoxedArrayProps<U = any> {
+  tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding
 }
 
 export type BoxedProxy<T = any> = T extends Array<infer U>
-  ? Array<BoxedProxy<U>> & XinProps<T>
+  ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U>
   : T extends Function
   ? T & XinProps<Function>
   : T extends object
@@ -40,6 +51,8 @@ export type BoxedProxy<T = any> = T extends Array<infer U>
   ? Number & XinProps<number>
   : T extends boolean
   ? Boolean & XinProps<boolean>
+  : T extends undefined | null
+  ? {} & XinProps<T>
   : T
 
 export type Unboxed<T = any> = T extends String
@@ -177,3 +190,18 @@ export type FragmentCreator = (
 export type ElementCreator<T = Element> = (...contents: ElementPart<T>[]) => T
 export type ContentPart = Element | DocumentFragment | string
 export type ContentType = ContentPart | ContentPart[]
+
+export type ListFilter = (array: any[], needle: any) => any[]
+export interface ListBindingOptions {
+  idPath?: string
+  virtual?: {
+    height: number
+    width?: number
+    visibleColumns?: number
+    rowChunkSize?: number
+  }
+  hiddenProp?: symbol | string
+  visibleProp?: symbol | string
+  filter?: ListFilter
+  needle?: XinTouchableType
+}

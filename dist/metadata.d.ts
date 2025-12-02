@@ -5,7 +5,6 @@ export declare const EVENT_CLASS = "-xin-event";
 export declare const EVENT_SELECTOR = ".-xin-event";
 export declare const XIN_PATH = "xinPath";
 export declare const XIN_VALUE = "xinValue";
-export declare const XIN_SET = "xinSet";
 export declare const XIN_OBSERVE = "xinObserve";
 export declare const XIN_BIND = "xinBind";
 export declare const XIN_ON = "xinOn";

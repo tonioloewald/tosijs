@@ -9,8 +9,10 @@ import {
   updates,
   isValidPath,
 } from './xin'
+import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { XIN_VALUE, xinPath } from './metadata'
+import { text } from 'node:stream/consumers'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []
@@ -444,6 +446,50 @@ test('xinOn works', async () => {
   await updates()
   expect(count).toBe(2)
   button.remove()
+})
+
+test('tosiListBinding works', async () => {
+  document.body.textContent = ''
+
+  const { tosiListBindingTest } = tosi({
+    tosiListBindingTest: {
+      array: ['this', 'that', 'the other', 'and one more'],
+      objects: [
+        {
+          name: 'Enterprise',
+          faction: 'Federation',
+        },
+        {
+          name: 'No More Mr Nice Guy',
+          faction: 'Culture',
+        },
+        {
+          name: 'Heart of Gold',
+          faction: 'Zaphod Beeblebrox',
+        },
+      ],
+    },
+  })
+
+  const { ul, div } = elements
+  document.body.append(
+    ul(
+      { id: 'simple-array-binding' },
+      ...tosiListBindingTest.array.tosiListBinding(({ li }, item) => li(item))
+    ),
+    div(
+      { id: 'array-binding' },
+      ...tosiListBindingTest.objects.tosiListBinding(({ div, h4, p }, item) =>
+        div(h4(item.name), p(item.faction))
+      )
+    )
+  )
+  await updates()
+  expect(document.querySelectorAll('#simple-array-binding li').length).toBe(4)
+  expect(document.querySelectorAll('#array-binding h4').length).toBe(3)
+  expect(document.querySelector('#array-binding h4')?.textContent).toBe(
+    'Enterprise'
+  )
 })
 
 test('instance properties, computed properties', () => {

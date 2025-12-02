@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { boxedProxy } from './xin-proxy'
+import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { updates } from './path-listener'
 
@@ -16,7 +16,7 @@ test('element attributes work', () => {
 })
 
 test('data binding works', async () => {
-  const { test } = boxedProxy({
+  const { test } = tosi({
     test: {
       value: 'hello world',
     },
@@ -32,7 +32,7 @@ test('data binding works', async () => {
 })
 
 test('event binding works', async () => {
-  const { test } = boxedProxy({
+  const { test } = tosi({
     test: {
       count: 0,
       handler() {

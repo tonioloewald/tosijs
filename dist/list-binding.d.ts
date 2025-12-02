@@ -1,20 +1,6 @@
-import { XinObject, XinTouchableType } from './xin-types';
+import { XinObject, ListBindingOptions } from './xin-types';
 import { Listener } from './path-listener';
 export declare const listBindingRef: unique symbol;
-type ListFilter = (array: any[], needle: any) => any[];
-interface ListBindingOptions {
-    idPath?: string;
-    virtual?: {
-        height: number;
-        width?: number;
-        visibleColumns?: number;
-        rowChunkSize?: number;
-    };
-    hiddenProp?: symbol | string;
-    visibleProp?: symbol | string;
-    filter?: ListFilter;
-    needle?: XinTouchableType;
-}
 export declare class ListBinding {
     boundElement: Element;
     listTop: HTMLElement;

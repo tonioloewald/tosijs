@@ -35,7 +35,7 @@ import { elements, svgElements, mathML } from './elements'
 import { ElementCreator, PartsMap } from './xin-types'
 import { version } from './version'
 import { xin, boxed } from './xin'
-import { xinProxy, boxedProxy } from './xin-proxy'
+import { xinProxy, tosi, boxedProxy } from './xin-proxy'
 
 export interface XinFactory {
   Color: typeof Color
@@ -49,6 +49,7 @@ export interface XinFactory {
   boxed: typeof boxed
   xinProxy: typeof xinProxy
   boxedProxy: typeof boxedProxy
+  tosi: typeof tosi
   makeComponent: typeof makeComponent
   bind: typeof bind
   on: typeof on
@@ -88,6 +89,7 @@ export async function makeComponent<T = PartsMap>(
     boxed,
     xinProxy,
     boxedProxy,
+    tosi,
     makeComponent,
     bind,
     on,

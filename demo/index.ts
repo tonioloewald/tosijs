@@ -280,7 +280,7 @@ if (main)
                         return prefs.theme.xinValue === 'system'
                       },
                       action() {
-                        prefs.theme.xinSet('system')
+                        prefs.theme.xinValue = 'system'
                       },
                     },
                     {
@@ -289,7 +289,7 @@ if (main)
                         return prefs.theme.xinValue === 'dark'
                       },
                       action() {
-                        prefs.theme.xinSet('dark')
+                        prefs.theme.xinValue = 'dark'
                       },
                     },
                     {
@@ -298,7 +298,7 @@ if (main)
                         return prefs.theme.xinValue === 'light'
                       },
                       action() {
-                        prefs.theme.xinSet('light')
+                        prefs.theme.xinValue = 'light'
                       },
                     },
                     null,
@@ -308,7 +308,8 @@ if (main)
                         return prefs.highContrast.xinValue
                       },
                       action() {
-                        prefs.highContrast.xinSet(!prefs.highContrast.valueOf())
+                        prefs.highContrast.xinValue =
+                          !prefs.highContrast.xinValue
                       },
                     },
                     {
@@ -317,7 +318,7 @@ if (main)
                         return prefs.monochrome.xinValue
                       },
                       action() {
-                        prefs.monochrome.xinSet(!prefs.monochrome.valueOf())
+                        prefs.monochrome.xinValue = !prefs.monochrome.xinValue
                       },
                     },
                   ],
@@ -340,7 +341,7 @@ if (main)
         },
         onChange(event) {
           const nav = document.querySelector(SideNav.tagName!) as SideNav
-          app.compact.xinSet(nav.compact)
+          app.compact.xinValue = nav.compact
         },
       },
       searchField,

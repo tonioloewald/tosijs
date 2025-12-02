@@ -1,21 +1,20 @@
 import { test, expect } from 'bun:test'
 import { xin } from './xin'
 import { xinPath } from './metadata'
-import { xinProxy, boxedProxy } from './xin-proxy'
+import { xinProxy, tosi } from './xin-proxy'
+import { console } from 'node:inspector'
 
-test('xinProxy works', () => {
-  const { test } = xinProxy({
+test('tosi works', () => {
+  const { test } = tosi({
     test: {
       foo: 'bar',
     },
   })
   expect(test.foo.valueOf()).toBe('bar')
-  test.foo = 'baz'
+  test.foo.xinValue = 'baz'
   expect(test.foo.valueOf()).toBe('baz')
-})
 
-test('boxedProxy works', () => {
-  const { box } = boxedProxy({
+  const { box } = tosi({
     box: {
       foo: 'bar',
       deep: [{ id: 'thought', answer: 42 }],
@@ -41,6 +40,15 @@ test('boxedProxy works', () => {
     'box.deep[id=thought].answer'
   )
   // @ts-expect-error it's a test ffs
-  expect(box.whatevs).toBe(undefined)
-  expect(box.nullity).toBe(null)
+  expect(box.whatevs.xinPath).toBe('box.whatevs')
+  // @ts-expect-error it's a test ffs
+  expect(box.whatevs.xinValue).toBe(undefined)
+  expect(box.nullity.xinValue).toBe(null)
+
+  // @ts-expect-error it's a test ffs
+  box.whatevs.sub = 17
+  // @ts-expect-error it's a test ffs
+  expect(typeof box.whatevs.xinValue).toBe('object')
+  // @ts-expect-error it's a test ffs
+  expect(box.whatevs.sub.xinValue).toBe(17)
 })
