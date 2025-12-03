@@ -1,6 +1,6 @@
+import { LIST_BINDING_REF } from './metadata';
 import { XinObject, ListBindingOptions } from './xin-types';
 import { Listener } from './path-listener';
-export declare const listBindingRef: unique symbol;
 export declare class ListBinding {
     boundElement: Element;
     listTop: HTMLElement;
@@ -8,7 +8,7 @@ export declare class ListBinding {
     template: Element;
     options: ListBindingOptions;
     itemToElement: WeakMap<XinObject, Element>;
-    private _array;
+    array: any[];
     private readonly _update?;
     private _previousSlice?;
     static filterBoundObservers: WeakMap<Element, Listener>;
@@ -19,7 +19,13 @@ export declare class ListBinding {
     update(array?: any[], isSlice?: boolean): void;
 }
 interface ListBoundElement extends Element {
-    [listBindingRef]?: ListBinding;
+    [LIST_BINDING_REF]?: ListBinding;
 }
-export declare const getListBinding: (boundElement: ListBoundElement, value: any[], options?: ListBindingOptions) => ListBinding;
+export declare const getListBinding: (boundElement: ListBoundElement, value?: any[], options?: ListBindingOptions) => ListBinding | undefined;
+export declare const getListInstance: (element: Element) => {
+    element: Element;
+    item: any;
+} | undefined;
+export declare const getListItem: (element: Element) => any;
+export declare const deleteListItem: (element: Element) => boolean;
 export {};

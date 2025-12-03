@@ -600,7 +600,6 @@ import {
   XIN_BIND,
   XIN_ON,
 } from './metadata'
-import { console } from 'node:inspector/promises'
 
 interface ProxyConstructor {
   revocable: <T extends object, P extends object>(

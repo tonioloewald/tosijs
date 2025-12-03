@@ -34,23 +34,42 @@ If you want to build a web-application that's performant, robust, and maintainab
 - leverage existing business logic and libraries without complex wrappers
 
 ```js
-import { elements, tosi, touch } from 'tosijs'
+import { elements, tosi, touch, deleteListItem } from 'tosijs'
 
 const todo = {
   list: [],
   addItem(reminder) {
     if (reminder.trim()) {
-      todo.list.push(reminder)
+      todo.list.push({ id: Math.random(), reminder })
     }
   },
 }
+
+todo.addItem('wash the cat')
+todo.addItem('buy milk')
 
 const { readmeTodoDemo } = tosi({ readmeTodoDemo: todo })
 
 const { h4, ul, template, li, label, input } = elements
 preview.append(
   h4('To Do List'),
-  ul(...readmeTodoDemo.list.tosiListBinding(({ li }, item) => li(item))),
+  ul(
+    ...readmeTodoDemo.list.tosiListBinding(
+      ({ li, button }, item) =>
+        li(
+          item.reminder,
+          button('Done!', {
+            style: {
+              marginLeft: 10,
+            },
+            onClick(event) {
+              deleteListItem(event.target)
+            },
+          })
+        ),
+      { idPath: 'id' }
+    )
+  ),
   label(
     'Reminder',
     input({
@@ -58,7 +77,7 @@ preview.append(
       onKeydown(event) {
         if (event.key === 'Enter') {
           event.preventDefault()
-          readmeTodoDemo.addItem(event.target.value.trim())
+          readmeTodoDemo.addItem(event.target.value)
           event.target.value = ''
           touch(readmeTodoDemo)
         }

@@ -1,8 +1,6 @@
 /*#
 # 1.3 metadata
 
-## `getListItem(element: Element): any`
-
 ## `xinValue(x: any): any`
 
 `xinValue` is helpful when you want to strip the `xin` or `boxed` proxy off of a
@@ -119,42 +117,4 @@ export const cloneWithBindings = (element: Node): Node => {
     }
   }
   return cloned
-}
-
-export const deleteListItem = (element: Element): boolean => {
-  const instance = getListBinding(element)
-  if (instance) {
-    const index = instance.array!.indexOf(instance.item)
-    console.log(index, instance, instance.item)
-    if (index > -1) {
-      instance.array?.splice(index, 1)
-    }
-
-    return true
-  }
-  return false
-}
-
-export const getListBinding = (
-  element: Element
-): { element: Element; array: any[]; item: any } | undefined => {
-  const html = document.body.parentElement
-  while (element.parentElement != null && element.parentElement !== html) {
-    // @ts-ignore-error if it's there it's there
-    if (element[LIST_INSTANCE_REF]) {
-      return {
-        element,
-        // @ts-ignore-error if it's there it's there
-        item: element[LIST_INSTANCE_REF],
-        // @ts-ignore-error if it's there it's there
-        array: element.parentElement[LIST_BINDING_REF]?.array,
-      }
-    }
-    element = element.parentElement
-  }
-  return undefined
-}
-
-export const getListItem = (element: Element): any => {
-  getListBinding(element)?.item
 }
