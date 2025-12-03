@@ -170,7 +170,7 @@ export const bindings: { [key: string | symbol]: XinBinding<Element> } = {
 
   list: {
     toDOM(element: Element, value: any[], options?: XinObject) {
-      const listBinding = getListBinding(element, value, options)
+      const listBinding = getListBinding(element, value, options)!
       listBinding.update(value)
     },
   },

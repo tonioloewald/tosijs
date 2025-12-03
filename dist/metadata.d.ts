@@ -8,6 +8,8 @@ export declare const XIN_VALUE = "xinValue";
 export declare const XIN_OBSERVE = "xinObserve";
 export declare const XIN_BIND = "xinBind";
 export declare const XIN_ON = "xinOn";
+export declare const LIST_BINDING_REF: unique symbol;
+export declare const LIST_INSTANCE_REF: unique symbol;
 export declare const xinPath: (x: any) => string | undefined;
 export declare function xinValue<T>(x: T): Unboxed<T>;
 export interface DataBinding<T extends Element = Element> {
@@ -27,6 +29,4 @@ interface ElementMetadata {
 }
 export declare const getElementBindings: (element: Element) => ElementMetadata;
 export declare const cloneWithBindings: (element: Node) => Node;
-export declare const elementToItem: WeakMap<Element, XinObject>;
-export declare const getListItem: (element: Element) => any;
 export {};

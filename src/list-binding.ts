@@ -376,6 +376,56 @@ preview.append(
   )
 )
 ```
+
+## List Utilities
+
+Suppose you have used the a list binding to bind an array of objects
+to a `<ul>`. So the DOM hierarchy looks something like this:
+
+    <ul>  <-- array is bound to this element
+      <template>
+        <li>
+          <span>...</span>
+        </li>
+      </template>
+      <li>  <-- bound to array[0]
+        <span>...</span>
+      </li>
+      <li>  <-- bound to array[1]
+        <span>...</span>
+      </li>
+      ...
+    </ul>
+
+### `getListBinding(element: Element): ListBinding | undefined`
+
+This gets the ListBinding object managing the bound list contained on the provided
+element (if any). In the example above, you could call it on the `<ul>` and you'd
+get back a `ListBinding` instance that contains all kinds of juicy information.
+
+### `getListItem(element: Element): any`
+
+Gets you the array item bound to the list instance containing the element (if any).
+
+You could call this on an `<li>` element or a any element inside it and get back
+the array item bound to the `<li>`.
+
+### `getListInstance(element: Element): { element: Element, item: any } | undefined`
+
+This returns both the root element bound to the array item, and the array item itself.
+
+Again, you could call this on an `<li>` or its contents.
+
+### `deleteListItem(element: Element): boolean`
+
+If the element is part of a list instance bound to an array, this splices bound item out of the array
+(and updates the rendered list).
+
+If you call this on an `<li>` or something inside it, this will splice the bound
+array item out of the array and then triggers an update the bound list.
+
+> `deleteListItem()` requires that the list binding specifies
+> a valid `idPath`, or it will throw an error (and fail).
 */
 import { settings } from './settings'
 import { resizeObserver } from './dom'
@@ -656,13 +706,63 @@ interface ListBoundElement extends Element {
 
 export const getListBinding = (
   boundElement: ListBoundElement,
-  value: any[],
+  value?: any[],
   options?: ListBindingOptions
-): ListBinding => {
+): ListBinding | undefined => {
   let listBinding = boundElement[LIST_BINDING_REF]
-  if (listBinding === undefined) {
+  if (value && listBinding === undefined) {
     listBinding = new ListBinding(boundElement, value, options)
     boundElement[LIST_BINDING_REF] = listBinding
   }
   return listBinding
+}
+
+type PossiblyBoundElement = Element & {
+  [LIST_BINDING_REF]?: ListBinding
+  [LIST_INSTANCE_REF]?: ListBinding
+}
+
+export const getListInstance = (
+  element: Element
+): { element: Element; item: any } | undefined => {
+  let item: any
+  while (
+    !(item = (element as PossiblyBoundElement)[LIST_INSTANCE_REF]) &&
+    element &&
+    element.parentElement
+  ) {
+    element = element.parentElement
+  }
+  return item ? { element, item } : undefined
+}
+
+export const getListItem = (element: Element): any => {
+  const instance = getListInstance(element)
+  return instance ? instance.item : undefined
+}
+
+export const deleteListItem = (element: Element): boolean => {
+  const instance = getListInstance(element)
+  if (!instance) {
+    console.error(
+      'deleteListItem failed, element is not part of a list instance',
+      element
+    )
+    return false
+  }
+  const binding = getListBinding(instance.element.parentElement!)!
+  if (!binding.options.idPath) {
+    console.error(
+      'deleteListItem failed, list binding has no idPath',
+      element.parentElement,
+      binding
+    )
+    return false
+  }
+  const index = binding.array.indexOf(instance.item)
+  if (index > -1) {
+    binding.array.splice(index, 1)
+    return true
+  }
+  return false
 }

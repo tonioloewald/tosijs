@@ -1,5 +1,6 @@
 import { XinStyleSheet } from './css-types';
-import { elements, ElementsProxy } from './elements';
+import { ElementsProxy } from './elements-types';
+import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
 interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;

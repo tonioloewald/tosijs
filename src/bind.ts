@@ -226,7 +226,6 @@ to paths staring with the provided path.
 
 import { xin, touch, observe } from './xin'
 import {
-  getListItem,
   elementToBindings,
   elementToHandlers,
   DataBindings,
@@ -248,7 +247,7 @@ import {
   XinBindingSpec,
   EventType,
 } from './xin-types'
-import { ListBinding } from './list-binding'
+import { ListBinding, getListItem } from './list-binding'
 
 const { document, MutationObserver } = globalThis
 

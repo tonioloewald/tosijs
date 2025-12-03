@@ -2,7 +2,6 @@ import { test, expect } from 'bun:test'
 import { xin } from './xin'
 import { xinPath } from './metadata'
 import { xinProxy, tosi } from './xin-proxy'
-import { console } from 'node:inspector'
 
 test('tosi works', () => {
   const { test } = tosi({
