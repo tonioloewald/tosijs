@@ -230,6 +230,7 @@ import {
   elementToBindings,
   elementToHandlers,
   DataBindings,
+  LIST_BINDING_REF,
   BOUND_CLASS,
   BOUND_SELECTOR,
   EVENT_CLASS,
@@ -247,7 +248,7 @@ import {
   XinBindingSpec,
   EventType,
 } from './xin-types'
-import { ListBinding, listBindingRef } from './list-binding'
+import { ListBinding } from './list-binding'
 
 const { document, MutationObserver } = globalThis
 
@@ -405,8 +406,8 @@ export function bind<T extends Element = Element>(
     bind(element, options.needle, {
       toDOM(element, value) {
         console.log({ needle: value })
-        ;(element as { [listBindingRef]?: ListBinding })[
-          listBindingRef
+        ;(element as { [LIST_BINDING_REF]?: ListBinding })[
+          LIST_BINDING_REF
         ]?.filter(value)
       },
     })

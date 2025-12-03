@@ -28,8 +28,8 @@ The basic structure of a **list-binding** is:
     )
 
 ```js
-  import { elements, boxedProxy } from 'tosijs'
-  const { listBindingExample } = boxedProxy({
+  import { elements, tosi } from 'tosijs'
+  const { listBindingExample } = tosi({
     listBindingExample: {
       array: ['this', 'is', 'an', 'example']
     }
@@ -383,17 +383,17 @@ import { throttle } from './throttle'
 import { xin } from './xin'
 import {
   cloneWithBindings,
-  elementToItem,
   elementToBindings,
   BOUND_SELECTOR,
   DataBinding,
   xinValue,
   xinPath,
+  LIST_BINDING_REF,
+  LIST_INSTANCE_REF,
 } from './metadata'
 import { XinObject, XinTouchableType, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
 
-export const listBindingRef = Symbol('list-binding')
 const SLICE_INTERVAL_MS = 16 // 60fps
 const FILTER_INTERVAL_MS = 100 // 10fps
 
@@ -430,7 +430,7 @@ export class ListBinding {
   template: Element
   options: ListBindingOptions
   itemToElement: WeakMap<XinObject, Element>
-  private _array: any[] = []
+  array: any[] = []
   private readonly _update?: VoidFunction
   private _previousSlice?: VirtualListSlice
   static filterBoundObservers = new WeakMap<Element, Listener>()
@@ -471,7 +471,7 @@ export class ListBinding {
     if (options.virtual != null) {
       resizeObserver.observe(this.boundElement)
       this._update = throttle(() => {
-        this.update(this._array, true)
+        this.update(this.array, true)
       }, SLICE_INTERVAL_MS)
       this.boundElement.addEventListener('scroll', this._update)
       this.boundElement.addEventListener('resize', this._update)
@@ -480,7 +480,7 @@ export class ListBinding {
 
   private visibleSlice(): VirtualListSlice {
     const { virtual, hiddenProp, visibleProp } = this.options
-    let visibleArray = this._array
+    let visibleArray = this.array
     if (hiddenProp !== undefined) {
       visibleArray = visibleArray.filter((item) => item[hiddenProp] !== true)
     }
@@ -540,7 +540,7 @@ export class ListBinding {
   filter = throttle((needle: any) => {
     if (this.needle !== needle) {
       this.needle = needle
-      this.update(this._array)
+      this.update(this.array)
     }
   }, FILTER_INTERVAL_MS)
 
@@ -548,7 +548,7 @@ export class ListBinding {
     if (array == null) {
       array = []
     }
-    this._array = array
+    this.array = array
 
     const { hiddenProp, visibleProp } = this.options
     const arrayPath: string = xinPath(array) as string
@@ -580,7 +580,8 @@ export class ListBinding {
       if (element === this.listTop || element === this.listBottom) {
         continue
       }
-      const proxy = elementToItem.get(element as HTMLElement)
+      // @ts-ignore-error if it's there it's there
+      const proxy = element[LIST_INSTANCE_REF]
       if (proxy == null) {
         element.remove()
       } else {
@@ -588,7 +589,6 @@ export class ListBinding {
         if (idx < firstItem || idx > lastItem) {
           element.remove()
           this.itemToElement.delete(proxy)
-          elementToItem.delete(element as HTMLElement)
           removed++
         }
       }
@@ -611,7 +611,8 @@ export class ListBinding {
         element = cloneWithBindings(this.template) as HTMLElement
         if (typeof item === 'object') {
           this.itemToElement.set(xinValue(item), element)
-          elementToItem.set(element, xinValue(item))
+          // @ts-ignore-error if it's there it's there
+          element[LIST_INSTANCE_REF] = xinValue(item)
         }
         this.boundElement.insertBefore(element, this.listBottom)
         if (idPath != null) {
@@ -650,7 +651,7 @@ export class ListBinding {
 }
 
 interface ListBoundElement extends Element {
-  [listBindingRef]?: ListBinding
+  [LIST_BINDING_REF]?: ListBinding
 }
 
 export const getListBinding = (
@@ -658,10 +659,10 @@ export const getListBinding = (
   value: any[],
   options?: ListBindingOptions
 ): ListBinding => {
-  let listBinding = boundElement[listBindingRef]
+  let listBinding = boundElement[LIST_BINDING_REF]
   if (listBinding === undefined) {
     listBinding = new ListBinding(boundElement, value, options)
-    boundElement[listBindingRef] = listBinding
+    boundElement[LIST_BINDING_REF] = listBinding
   }
   return listBinding
 }

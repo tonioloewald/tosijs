@@ -590,7 +590,8 @@ import {
 } from './path-listener'
 import { getByPath, setByPath } from './by-path'
 import { bind, on } from './bind'
-import { elements, ElementsProxy } from './elements'
+import { ElementsProxy } from './elements-types'
+import { elements } from './elements'
 import {
   xinValue,
   XIN_VALUE,

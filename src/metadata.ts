@@ -50,6 +50,9 @@ export const XIN_OBSERVE = 'xinObserve'
 export const XIN_BIND = 'xinBind'
 export const XIN_ON = 'xinOn'
 
+export const LIST_BINDING_REF = Symbol('list-binding')
+export const LIST_INSTANCE_REF = Symbol('list-instance')
+
 export const xinPath = (x: any): string | undefined => {
   return (x && x[XIN_PATH]) || undefined
 }
@@ -118,16 +121,40 @@ export const cloneWithBindings = (element: Node): Node => {
   return cloned
 }
 
-export const elementToItem: WeakMap<Element, XinObject> = new WeakMap()
+export const deleteListItem = (element: Element): boolean => {
+  const instance = getListBinding(element)
+  if (instance) {
+    const index = instance.array!.indexOf(instance.item)
+    console.log(index, instance, instance.item)
+    if (index > -1) {
+      instance.array?.splice(index, 1)
+    }
 
-export const getListItem = (element: Element): any => {
+    return true
+  }
+  return false
+}
+
+export const getListBinding = (
+  element: Element
+): { element: Element; array: any[]; item: any } | undefined => {
   const html = document.body.parentElement
   while (element.parentElement != null && element.parentElement !== html) {
-    const item = elementToItem.get(element)
-    if (item != null) {
-      return item
+    // @ts-ignore-error if it's there it's there
+    if (element[LIST_INSTANCE_REF]) {
+      return {
+        element,
+        // @ts-ignore-error if it's there it's there
+        item: element[LIST_INSTANCE_REF],
+        // @ts-ignore-error if it's there it's there
+        array: element.parentElement[LIST_BINDING_REF]?.array,
+      }
     }
     element = element.parentElement
   }
-  return false
+  return undefined
+}
+
+export const getListItem = (element: Element): any => {
+  getListBinding(element)?.item
 }
