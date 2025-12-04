@@ -47,7 +47,7 @@ async function build() {
   let result: any
 
   await $`bun test`
-  await $`cp demo/static/* ${PUBLIC}`
+  await $`mkdir -p ${PUBLIC} && cp demo/static/* ${PUBLIC}`
 
   try {
     await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
