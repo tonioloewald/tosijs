@@ -441,7 +441,7 @@ import {
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
 } from './metadata'
-import { XinObject, XinTouchableType, ListBindingOptions } from './xin-types'
+import { XinObject, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
 
 const SLICE_INTERVAL_MS = 16 // 60fps
