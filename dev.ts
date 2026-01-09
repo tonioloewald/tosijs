@@ -6,6 +6,7 @@ import { gzippedSize } from './gzipped-size'
 
 declare const Bun: any
 
+const buildOnly = process.argv.includes('--build')
 const PORT = 8018
 const PROJECT_ROOT = import.meta.dir
 const PUBLIC = path.resolve(PROJECT_ROOT, 'docs')
@@ -25,10 +26,8 @@ async function writeVersion() {
 }
 
 async function prebuild() {
-  await $`rm -rf ${DIST}`
-  await $`rm -rf ${PUBLIC}`
-  await $`mkdir ${DIST}`
-  await $`mkdir ${PUBLIC}`
+  await $`rm -rf ${DIST} ${PUBLIC}`
+  await $`mkdir -p ${DIST} ${PUBLIC}`
 
   await $`bun docs.js`
 }
@@ -93,15 +92,22 @@ async function build() {
   console.log('module.js size ', size)
 }
 
-watch('package.json').on('change', writeVersion)
-watch(['README.md', 'package.json', './src']).on('change', () =>
-  prebuild().then(build)
-)
-watch('./demo').on('change', build)
+// Set up watchers BEFORE initial build to avoid race condition (double build)
+if (!buildOnly) {
+  watch('package.json').on('change', writeVersion)
+  watch(['README.md', 'package.json', './src']).on('change', () =>
+    prebuild().then(build)
+  )
+  watch('./demo').on('change', build)
+}
 
 await writeVersion()
 await prebuild()
 await build()
+
+if (buildOnly) {
+  process.exit(0)
+}
 
 function serveFromDir(config: {
   directory: string
