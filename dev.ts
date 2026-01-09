@@ -13,15 +13,6 @@ const DIST = path.resolve(PROJECT_ROOT, 'dist')
 const isSPA = true
 const MINIFY = true
 
-function loadJsonSync<T>(filePath: string): T {
-  try {
-    const data = Bun.file(filePath).textSync()
-    return JSON.parse(data) as T
-  } catch (error) {
-    throw new Error(`Failed to load JSON file: ${filePath}\n${error}`)
-  }
-}
-
 async function writeVersion() {
   const config = JSON.parse(
     await Bun.file(path.resolve(PROJECT_ROOT, 'package.json')).text()
