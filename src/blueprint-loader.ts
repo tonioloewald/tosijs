@@ -247,7 +247,7 @@ export class Blueprint extends Component {
   src = ''
   property = 'default'
   loaded?: XinPackagedComponent
-  blueprintLoaded = (_package: XinPackagedComponent) => {}
+  blueprintLoaded = (_pkg: XinPackagedComponent) => {}
 
   async packaged(): Promise<XinPackagedComponent> {
     const { tag, src, property } = this

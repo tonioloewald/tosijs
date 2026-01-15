@@ -339,7 +339,7 @@ if (main)
           flex: '1 1 auto',
           overflow: 'hidden',
         },
-        onChange(event) {
+        onChange() {
           const nav = document.querySelector(SideNav.tagName!) as SideNav
           app.compact.xinValue = nav.compact
         },

@@ -630,7 +630,7 @@ export class ListBinding {
       if (element === this.listTop || element === this.listBottom) {
         continue
       }
-      // @ts-ignore-error if it's there it's there
+      // @ts-expect-error if it's there it's there
       const proxy = element[LIST_INSTANCE_REF]
       if (proxy == null) {
         element.remove()
@@ -661,7 +661,7 @@ export class ListBinding {
         element = cloneWithBindings(this.template) as HTMLElement
         if (typeof item === 'object') {
           this.itemToElement.set(xinValue(item), element)
-          // @ts-ignore-error if it's there it's there
+          // @ts-expect-error if it's there it's there
           element[LIST_INSTANCE_REF] = xinValue(item)
         }
         this.boundElement.insertBefore(element, this.listBottom)

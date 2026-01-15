@@ -10,7 +10,6 @@
 
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
-import { BoxedProxy } from './xin-types'
 
 // Create a test proxy with various types
 const { testState } = tosi({
@@ -20,15 +19,15 @@ const { testState } = tosi({
     bool: true,
     nested: {
       deep: {
-        value: 100
-      }
+        value: 100,
+      },
     },
     arr: [1, 2, 3],
     objArr: [
       { id: 'a', name: 'Alice' },
-      { id: 'b', name: 'Bob' }
-    ]
-  }
+      { id: 'b', name: 'Bob' },
+    ],
+  },
 })
 
 test('type inference - BoxedScalar properties exist', () => {
@@ -90,13 +89,13 @@ test('type inference - direct comparison is type error (comparison trap)', () =>
   // This catches the common mistake of writing proxy.x === 3 instead of proxy.x.value === 3
 
   // @ts-expect-error - BoxedScalar<number> cannot be compared to number
-  const _badCompare1 = testState.num === 42
+  testState.num === 42
 
   // @ts-expect-error - BoxedScalar<string> cannot be compared to string
-  const _badCompare2 = testState.str === 'hello'
+  testState.str === 'hello'
 
   // @ts-expect-error - BoxedScalar<boolean> cannot be compared to boolean
-  const _badCompare3 = testState.bool === true
+  testState.bool === true
 
   // This test passes if the file compiles (the @ts-expect-error comments are satisfied)
   expect(true).toBe(true)
@@ -119,16 +118,19 @@ test('type inference - direct assignment is type error', () => {
 })
 
 test('type inference - wrong type assignment to .value is type error', () => {
-  // Assigning wrong type should be caught
+  // These @ts-expect-error comments verify that TypeScript catches type errors.
+  // We wrap them in a never-executed block so they don't pollute test state at runtime.
 
-  // @ts-expect-error - cannot assign string to number
-  testState.num.value = 'wrong'
+  if (false as boolean) {
+    // @ts-expect-error - cannot assign string to number
+    testState.num.value = 'wrong'
 
-  // @ts-expect-error - cannot assign number to string
-  testState.str.value = 123
+    // @ts-expect-error - cannot assign number to string
+    testState.str.value = 123
 
-  // @ts-expect-error - cannot assign string to boolean
-  testState.bool.value = 'yes'
+    // @ts-expect-error - cannot assign string to boolean
+    testState.bool.value = 'yes'
+  }
 
   expect(true).toBe(true)
 })

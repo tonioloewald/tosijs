@@ -688,11 +688,155 @@ function box<T>(x: T, path: string): T {
 
 const listElement = () => new Proxy({}, regHandler('^', true))
 
+// Single deprecation warning for all legacy property names
+let deprecationWarned = false
+function warnDeprecation() {
+  if (!deprecationWarned) {
+    console.warn(
+      'xinValue, tosiValue, xinPath, tosiPath, etc. are deprecated. Use value, path, observe, bind, on, binding, listBinding instead.'
+    )
+    deprecationWarned = true
+  }
+}
+
+// Check if target is a boxed scalar (Number, String, Boolean, or null/undefined wrapper)
+const isBoxedScalar = (target: any): boolean => {
+  return (
+    target instanceof Number ||
+    target instanceof String ||
+    target instanceof Boolean ||
+    ACTUAL in target
+  )
+}
+
 const regHandler = (
   path: string,
   boxScalars: boolean
 ): ProxyHandler<XinObject> => ({
   get(target: XinObject | XinArray, _prop: string | symbol): XinValue {
+    // Only intercept short names for boxed scalars to avoid conflicts with object properties
+    if (isBoxedScalar(target)) {
+      switch (_prop) {
+        // New short names (primary API) - only for boxed scalars
+        case 'path':
+          return path
+        case 'value':
+          return (target as any)[ACTUAL]
+            ? (target as any)[ACTUAL] === 'null'
+              ? null
+              : undefined
+            : target.valueOf
+            ? target.valueOf()
+            : target
+        case 'observe':
+          return (callback: ObserverCallbackFunction) => {
+            const listener = _observe(path, callback)
+            return () => unobserve(listener)
+          }
+        case 'on':
+          return (
+            element: HTMLElement,
+            eventType: keyof HTMLElementEventMap
+          ): VoidFunction =>
+            on(element, eventType, xinValue(target) as XinEventHandler)
+        case 'bind':
+          return (
+            element: Element,
+            binding: XinBinding,
+            options?: XinObject
+          ) => {
+            bind(element, path, binding, options)
+          }
+        case 'binding':
+          return (binding: XinBinding) => ({
+            bind: {
+              value: path,
+              binding,
+            },
+          })
+        case 'listBinding':
+          return (
+            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
+              span,
+            }) => span({ bindText: '^' }),
+            options: XinObject = {}
+          ) => [
+            {
+              bindList: {
+                value: path,
+                ...options,
+              },
+            },
+            elements.template(content(elements, listElement())),
+          ]
+        // Deprecated names for boxed scalars
+        case XIN_VALUE:
+        case 'tosiValue':
+          warnDeprecation()
+          return (target as any)[ACTUAL]
+            ? (target as any)[ACTUAL] === 'null'
+              ? null
+              : undefined
+            : target.valueOf
+            ? target.valueOf()
+            : target
+        case XIN_PATH:
+        case 'tosiPath':
+          warnDeprecation()
+          return path
+        case XIN_OBSERVE:
+        case 'tosiObserve':
+          warnDeprecation()
+          return (callback: ObserverCallbackFunction) => {
+            const listener = _observe(path, callback)
+            return () => unobserve(listener)
+          }
+        case XIN_ON:
+        case 'tosiOn':
+          warnDeprecation()
+          return (
+            element: HTMLElement,
+            eventType: keyof HTMLElementEventMap
+          ): VoidFunction =>
+            on(element, eventType, xinValue(target) as XinEventHandler)
+        case XIN_BIND:
+        case 'tosiBind':
+          warnDeprecation()
+          return (
+            element: Element,
+            binding: XinBinding,
+            options?: XinObject
+          ) => {
+            bind(element, path, binding, options)
+          }
+        case 'tosiBinding':
+          warnDeprecation()
+          return (binding: XinBinding) => ({
+            bind: {
+              value: path,
+              binding,
+            },
+          })
+        case 'tosiListBinding':
+          warnDeprecation()
+          return (
+            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
+              span,
+            }) => span({ bindText: '^' }),
+            options: XinObject = {}
+          ) => [
+            {
+              bindList: {
+                value: path,
+                ...options,
+              },
+            },
+            elements.template(content(elements, listElement())),
+          ]
+      }
+    }
+
+    // For non-boxed-scalar objects, handle the xin/tosi prefixed names (no deprecation warning)
     switch (_prop) {
       case XIN_PATH:
       case 'tosiPath':
@@ -818,9 +962,12 @@ const regHandler = (
         : target[prop]
     }
   },
-  set(_, prop: string, value: any) {
+  set(target, prop: string, value: any) {
     value = xinValue(value)
-    const fullPath = prop !== XIN_VALUE ? extendPath(path, prop) : path
+    // Only treat 'value' as a path setter for boxed scalars
+    const isValueProp =
+      prop === XIN_VALUE || (prop === 'value' && isBoxedScalar(target))
+    const fullPath = isValueProp ? path : extendPath(path, prop)
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
     }

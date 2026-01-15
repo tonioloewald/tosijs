@@ -12,7 +12,6 @@ import {
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { XIN_VALUE, xinPath } from './metadata'
-import { text } from 'node:stream/consumers'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []
@@ -388,7 +387,6 @@ test('unobserve works', async () => {
 
 test('xinPath() works', () => {
   const _test = xin.test as XinProxyObject
-  const things = _test.things as XinProxyArray
   const people = _test.people as XinProxyArray
   expect(_test.xinPath).toBe('test')
   expect(people.xinPath).toBe('test.people')

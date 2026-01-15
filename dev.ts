@@ -26,7 +26,7 @@ async function writeVersion() {
 }
 
 async function prebuild() {
-  await $`rm -rf ${DIST} ${PUBLIC}`
+  await $`rm -rf ${DIST} ${PUBLIC} || true`
   await $`mkdir -p ${DIST} ${PUBLIC}`
 
   await $`bun docs.js`
