@@ -224,7 +224,8 @@ want to force a render of an element (versus anything bound to a path), simply c
 to paths staring with the provided path.
 */
 
-import { xin, touch, observe } from './xin'
+import { touch, observe } from './path-listener'
+import { getXinProxy, setBindFunctions } from './registry'
 import {
   elementToBindings,
   elementToHandlers,
@@ -277,7 +278,7 @@ export const touchElement = (element: Element, changedPath?: string): void => {
         }
       }
       if (changedPath == null || path.startsWith(changedPath)) {
-        toDOM(element, xin[path], options)
+        toDOM(element, getXinProxy()[path], options)
       }
     }
   }
@@ -311,8 +312,8 @@ observe(
 )
 
 const handleChange = (event: Event): void => {
-  // @ts-expect-error-error
-  let target = event.target.closest(BOUND_SELECTOR)
+  // @ts-expect-error event.target may be null but closest handles it
+  let target = event.target?.closest(BOUND_SELECTOR)
   while (target != null) {
     const dataBindings = elementToBindings.get(target) as DataBindings
     for (const dataBinding of dataBindings) {
@@ -327,6 +328,7 @@ const handleChange = (event: Event): void => {
           throw new Error('Cannot obtain value fromDOM')
         }
         if (value != null) {
+          const xin = getXinProxy()
           const existing = xin[path]
           if (existing == null) {
             xin[path] = value
@@ -418,8 +420,8 @@ export function bind<T extends Element = Element>(
 const handledEventTypes: Set<string> = new Set()
 
 const handleBoundEvent = (event: Event): void => {
-  // @ts-expect-error-error
-  let target = event?.target.closest(EVENT_SELECTOR)
+  // @ts-expect-error event.target may be null but closest handles it
+  let target = event?.target?.closest(EVENT_SELECTOR)
   let propagationStopped = false
 
   const wrappedEvent = new Proxy(event, {
@@ -443,7 +445,7 @@ const handleBoundEvent = (event: Event): void => {
       if (typeof handler === 'function') {
         handler(wrappedEvent as Event & { target: Element })
       } else {
-        const func = xin[handler]
+        const func = getXinProxy()[handler]
         if (typeof func === 'function') {
           func(wrappedEvent)
         } else {
@@ -486,3 +488,6 @@ export function on<E extends HTMLElement, K extends EventType>(
     eventBindings[eventType].delete(eventHandler as XinEventHandler)
   }
 }
+
+// Register bind and on functions for lazy access (breaks circular dependency with xin.ts)
+setBindFunctions(bind, on)

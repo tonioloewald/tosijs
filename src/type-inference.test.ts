@@ -160,3 +160,98 @@ test('type inference - destructuring works', () => {
   const { nested } = testState
   expect(typeof nested.deep.value.value).toBe('number')
 })
+
+// ============================================================
+// NULL AND UNDEFINED ADDRESSABILITY TESTS
+// These verify that null/undefined values can be accessed via proxy
+// for binding to yet-to-be-initialized values
+// ============================================================
+
+// Create a test proxy with null and undefined values
+const { nullableState } = tosi({
+  nullableState: {
+    nullValue: null as string | null,
+    undefinedValue: undefined as string | undefined,
+    nested: {
+      maybeNull: null as number | null,
+      maybeUndefined: undefined as boolean | undefined,
+    },
+    initializedLater: undefined as { name: string } | undefined,
+  },
+})
+
+test('null values are addressable via proxy', () => {
+  // Should be able to get .value and .path from null values
+  expect(nullableState.nullValue.value).toBe(null)
+  expect(nullableState.nullValue.path).toBe('nullableState.nullValue')
+})
+
+test('undefined values are addressable via proxy', () => {
+  // Should be able to get .value and .path from undefined values
+  expect(nullableState.undefinedValue.value).toBe(undefined)
+  expect(nullableState.undefinedValue.path).toBe('nullableState.undefinedValue')
+})
+
+test('nested null values are addressable', () => {
+  expect(nullableState.nested.maybeNull.value).toBe(null)
+  expect(nullableState.nested.maybeNull.path).toBe(
+    'nullableState.nested.maybeNull'
+  )
+})
+
+test('nested undefined values are addressable', () => {
+  expect(nullableState.nested.maybeUndefined.value).toBe(undefined)
+  expect(nullableState.nested.maybeUndefined.path).toBe(
+    'nullableState.nested.maybeUndefined'
+  )
+})
+
+test('null/undefined values can be assigned new values', () => {
+  // Initially null
+  expect(nullableState.nullValue.value).toBe(null)
+
+  // Assign a value
+  nullableState.nullValue.value = 'now has value'
+  expect(nullableState.nullValue.value).toBe('now has value')
+
+  // Reset to null
+  nullableState.nullValue.value = null
+  expect(nullableState.nullValue.value).toBe(null)
+})
+
+test('undefined values can be assigned new values', () => {
+  // Initially undefined
+  expect(nullableState.undefinedValue.value).toBe(undefined)
+
+  // Assign a value
+  nullableState.undefinedValue.value = 'initialized'
+  expect(nullableState.undefinedValue.value).toBe('initialized')
+
+  // Reset to undefined
+  nullableState.undefinedValue.value = undefined
+  expect(nullableState.undefinedValue.value).toBe(undefined)
+})
+
+test('null/undefined proxies have observe method', () => {
+  expect(typeof nullableState.nullValue.observe).toBe('function')
+  expect(typeof nullableState.undefinedValue.observe).toBe('function')
+})
+
+test('null/undefined proxies have bind method', () => {
+  expect(typeof nullableState.nullValue.bind).toBe('function')
+  expect(typeof nullableState.undefinedValue.bind).toBe('function')
+})
+
+test('null/undefined proxies have binding method', () => {
+  expect(typeof nullableState.nullValue.binding).toBe('function')
+  expect(typeof nullableState.undefinedValue.binding).toBe('function')
+
+  // binding() should return an object with bind property
+  const bindingResult = nullableState.nullValue.binding({
+    toDOM: (el, val) => {
+      el.textContent = String(val)
+    },
+  })
+  expect(bindingResult.bind).toBeDefined()
+  expect(bindingResult.bind.value).toBe('nullableState.nullValue')
+})

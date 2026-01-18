@@ -59,6 +59,7 @@ import {
   PathTestFunction,
   ObserverCallbackFunction,
   AnyFunction,
+  XinTouchableType,
 } from './xin-types'
 import { xinPath } from './metadata'
 import { settings } from './settings'
@@ -170,7 +171,7 @@ const update = (): void => {
   }
 }
 
-export const touch = (touchable: any): void => {
+export const touch = (touchable: XinTouchableType): void => {
   const path = typeof touchable === 'string' ? touchable : xinPath(touchable)
 
   if (path === undefined) {

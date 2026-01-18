@@ -37,13 +37,9 @@ async function build() {
   let result: any
 
   await $`bun test`
-  await $`mkdir -p ${PUBLIC} && cp -r demo/static/. ${PUBLIC}`
+  await $`mkdir -p ${PUBLIC} && rsync -a demo/static/ ${PUBLIC}/`
 
-  try {
-    await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
-  } catch (e) {
-    console.log('types created')
-  }
+  await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
 
   const targets = [
     { naming: 'index.js', format: 'iife' },

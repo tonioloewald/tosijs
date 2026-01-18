@@ -589,7 +589,7 @@ import {
   updates,
 } from './path-listener'
 import { getByPath, setByPath } from './by-path'
-import { bind, on } from './bind'
+import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
 import {
@@ -627,7 +627,8 @@ const ARRAY_MUTATIONS = [
   'unshift',
 ]
 
-const registry: XinObject = {}
+import { registry, setXinProxy } from './registry'
+
 const debugPaths = true
 
 // in essence this very liberally matches foo ( .bar | [17] | [id=123] ) *
@@ -738,14 +739,14 @@ const regHandler = (
             element: HTMLElement,
             eventType: keyof HTMLElementEventMap
           ): VoidFunction =>
-            on(element, eventType, xinValue(target) as XinEventHandler)
+            getOn()(element, eventType, xinValue(target) as XinEventHandler)
         case 'bind':
           return (
             element: Element,
             binding: XinBinding,
             options?: XinObject
           ) => {
-            bind(element, path, binding, options)
+            getBind()(element, path, binding, options)
           }
         case 'binding':
           return (binding: XinBinding) => ({
@@ -798,7 +799,7 @@ const regHandler = (
             element: HTMLElement,
             eventType: keyof HTMLElementEventMap
           ): VoidFunction =>
-            on(element, eventType, xinValue(target) as XinEventHandler)
+            getOn()(element, eventType, xinValue(target) as XinEventHandler)
         case XIN_BIND:
         case 'tosiBind':
           warnDeprecation()
@@ -807,7 +808,7 @@ const regHandler = (
             binding: XinBinding,
             options?: XinObject
           ) => {
-            bind(element, path, binding, options)
+            getBind()(element, path, binding, options)
           }
         case 'tosiBinding':
           warnDeprecation()
@@ -862,11 +863,11 @@ const regHandler = (
           element: HTMLElement,
           eventType: keyof HTMLElementEventMap
         ): VoidFunction =>
-          on(element, eventType, xinValue(target) as XinEventHandler)
+          getOn()(element, eventType, xinValue(target) as XinEventHandler)
       case XIN_BIND:
       case 'tosiBind':
         return (element: Element, binding: XinBinding, options?: XinObject) => {
-          bind(element, path, binding, options)
+          getBind()(element, path, binding, options)
         }
       case 'tosiBinding':
         return (binding: XinBinding) => ({
@@ -1000,6 +1001,9 @@ const xin = new Proxy<XinObject, XinProxy<XinObject>>(
   registry,
   regHandler('', false)
 )
+
+// Register xin proxy for use by bind.ts (breaks circular dependency)
+setXinProxy(xin)
 
 const boxed = new Proxy<XinObject, BoxedProxy<XinObject>>(
   registry,
