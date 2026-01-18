@@ -426,6 +426,35 @@ array item out of the array and then triggers an update the bound list.
 
 > `deleteListItem()` requires that the list binding specifies
 > a valid `idPath`, or it will throw an error (and fail).
+
+## Window Scroll Container (Experimental)
+
+By default, virtualized lists scroll within their container element. For infinite-scroll
+feeds or full-page lists, you can use the window as the scroll container instead by
+setting `scrollContainer: 'window'` in the virtual options:
+
+    bindList: {
+      value: feedItems,
+      idPath: 'id',
+      virtual: {
+        height: 120,
+        scrollContainer: 'window'
+      }
+    }
+
+With `scrollContainer: 'window'`, the list virtualizes based on the window's scroll
+position and viewport height, rather than the element's own scroll position. The list
+calculates which items are visible by comparing the element's position (via
+`getBoundingClientRect()`) against the window's scroll position and inner height.
+
+This is ideal for:
+- Social media-style feeds
+- Search results pages
+- Any full-page scrolling list where the list is part of the main document flow
+
+**Important**: The list element should not be inside a separately scrollable container
+when using window scroll. The element can be positioned anywhere on the page - the
+virtualization will correctly account for content above the list.
 */
 import { settings } from './settings'
 import { resizeObserver } from './dom'
@@ -523,8 +552,13 @@ export class ListBinding {
       this._update = throttle(() => {
         this.update(this.array, true)
       }, SLICE_INTERVAL_MS)
-      this.boundElement.addEventListener('scroll', this._update)
-      this.boundElement.addEventListener('resize', this._update)
+      if (options.virtual.scrollContainer === 'window') {
+        window.addEventListener('scroll', this._update)
+        window.addEventListener('resize', this._update)
+      } else {
+        this.boundElement.addEventListener('scroll', this._update)
+        this.boundElement.addEventListener('resize', this._update)
+      }
     }
   }
 
@@ -547,7 +581,22 @@ export class ListBinding {
 
     if (virtual != null && this.boundElement instanceof HTMLElement) {
       const width = this.boundElement.offsetWidth
-      const height = this.boundElement.offsetHeight
+      const useWindowScroll = virtual.scrollContainer === 'window'
+
+      // Viewport height and scroll position
+      let viewportHeight: number
+      let scrollTop: number
+
+      if (useWindowScroll) {
+        viewportHeight = window.innerHeight
+        const elementRect = this.boundElement.getBoundingClientRect()
+        // scrollTop is how far into the list we've scrolled
+        // negative elementRect.top means we've scrolled past the top of the element
+        scrollTop = Math.max(0, -elementRect.top)
+      } else {
+        viewportHeight = this.boundElement.offsetHeight
+        scrollTop = this.boundElement.scrollTop
+      }
 
       if (virtual.visibleColumns == null) {
         virtual.visibleColumns =
@@ -556,10 +605,10 @@ export class ListBinding {
             : 1
       }
       const visibleRows =
-        Math.ceil(height / virtual.height) + (virtual.rowChunkSize || 1)
+        Math.ceil(viewportHeight / virtual.height) + (virtual.rowChunkSize || 1)
       const totalRows = Math.ceil(visibleArray.length / virtual.visibleColumns)
       const visibleItems = virtual.visibleColumns * visibleRows
-      let topRow = Math.floor(this.boundElement.scrollTop / virtual.height)
+      let topRow = Math.floor(scrollTop / virtual.height)
       if (topRow > totalRows - visibleRows + 1) {
         topRow = Math.max(0, totalRows - visibleRows + 1)
       }

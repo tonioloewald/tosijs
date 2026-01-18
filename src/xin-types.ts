@@ -235,6 +235,8 @@ export interface ListBindingOptions {
     width?: number
     visibleColumns?: number
     rowChunkSize?: number
+    /** Use 'window' to virtualize based on window scroll position instead of element scroll */
+    scrollContainer?: 'window' | 'element'
   }
   hiddenProp?: symbol | string
   visibleProp?: symbol | string
