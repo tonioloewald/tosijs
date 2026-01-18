@@ -2,7 +2,7 @@
  * Central registry for xin state.
  * Extracted to break circular dependency between xin.ts and bind.ts.
  */
-import { XinObject, XinProxy, XinBinding, XinEventHandler } from './xin-types'
+import { XinObject, XinProxy, XinBinding } from './xin-types'
 
 export const registry: XinObject = {}
 

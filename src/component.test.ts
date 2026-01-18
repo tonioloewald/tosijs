@@ -38,7 +38,8 @@ class StyledComponent extends Component {
 class ValueComponent extends Component {
   value = ''
 
-  content = ({ input }: typeof elements) => input({ part: 'input', type: 'text' })
+  content = ({ input }: typeof elements) =>
+    input({ part: 'input', type: 'text' })
 
   connectedCallback() {
     super.connectedCallback()
@@ -91,7 +92,8 @@ class DynamicComponent extends Component {
     this.initAttributes('greeting')
   }
 
-  content = ({ div }: typeof elements) => div({ part: 'message' }, this.greeting)
+  content = ({ div }: typeof elements) =>
+    div({ part: 'message' }, this.greeting)
 }
 
 let testComponent: ReturnType<typeof TestComponent.elementCreator>
@@ -106,10 +108,16 @@ beforeAll(() => {
   testComponent = TestComponent.elementCreator({ tag: 'test-component' })
   styledComponent = StyledComponent.elementCreator({ tag: 'styled-component' })
   valueComponent = ValueComponent.elementCreator({ tag: 'value-component' })
-  resizableComponent = ResizableComponent.elementCreator({ tag: 'resizable-component' })
-  slottedComponent = SlottedComponent.elementCreator({ tag: 'slotted-component' })
+  resizableComponent = ResizableComponent.elementCreator({
+    tag: 'resizable-component',
+  })
+  slottedComponent = SlottedComponent.elementCreator({
+    tag: 'slotted-component',
+  })
   emptyComponent = EmptyComponent.elementCreator({ tag: 'empty-component' })
-  dynamicComponent = DynamicComponent.elementCreator({ tag: 'dynamic-component' })
+  dynamicComponent = DynamicComponent.elementCreator({
+    tag: 'dynamic-component',
+  })
 })
 
 describe('Component', () => {
@@ -342,9 +350,7 @@ describe('Component', () => {
 
     test('default slot receives unslotted content', () => {
       const { div } = elements
-      const el = slottedComponent(
-        div('Default Content')
-      )
+      const el = slottedComponent(div('Default Content'))
       document.body.appendChild(el)
 
       const defaultSlot = el.querySelector('xin-slot:not([name])')

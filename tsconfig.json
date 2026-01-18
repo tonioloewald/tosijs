@@ -8,18 +8,16 @@
     "allowImportingTsExtensions": true,
     "strict": true,
     "downlevelIteration": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "jsx": "preserve",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
+
     "types": [
-      "bun-types", // add Bun global
-      "@types/jsdom"
+      "bun-types"
     ]
   },
-  "files": ["./node_modules/@types/react/index.d.ts"],
-  "allowJs": true,
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "src/**/*.spec.ts", "src/**/*.test.ts"]
+  "exclude": ["node_modules", "src/**/*.test.ts"]
 }
