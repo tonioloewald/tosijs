@@ -552,12 +552,13 @@ export class ListBinding {
       this._update = throttle(() => {
         this.update(this.array, true)
       }, SLICE_INTERVAL_MS)
+      // Always listen to element resize (from ResizeObserver)
+      this.boundElement.addEventListener('resize', this._update)
       if (options.virtual.scrollContainer === 'window') {
         window.addEventListener('scroll', this._update)
         window.addEventListener('resize', this._update)
       } else {
         this.boundElement.addEventListener('scroll', this._update)
-        this.boundElement.addEventListener('resize', this._update)
       }
     }
   }
