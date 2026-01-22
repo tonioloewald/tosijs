@@ -1,6 +1,6 @@
 /*
-FIXME component-tize the doc system in xinjs-ui
-copied from xinjs-ui demo/src/style.ts
+FIXME component-tize the doc system in tosijs-ui
+copied from tosijs-ui demo/src/style.ts
 */
 
 import { XinStyleSheet, vars, Color, invertLuminance } from 'tosijs'

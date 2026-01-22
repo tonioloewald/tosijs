@@ -35,6 +35,42 @@ type ListBinding = [ElementProps, HTMLTemplateElement]
 
 export interface BoxedArrayProps<U = any> {
   tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding
+  listBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding
+}
+
+/**
+ * BoxedScalar represents a boxed primitive value (string, number, boolean, null, undefined).
+ * It provides a clean API for accessing the value and path, and catches the common
+ * comparison trap where users write `proxy.x === 3` instead of `proxy.x.value === 3`.
+ *
+ * Note: Direct assignment like `proxy.x = 3` is a TypeScript type error due to
+ * fundamental limitations in TypeScript's mapped types (no asymmetric get/set).
+ * Use `proxy.x.value = 3` instead.
+ */
+export interface BoxedScalar<T> {
+  // New primary API
+  value: T
+  path: string
+  observe: (callback: ObserverCallbackFunction) => VoidFunction
+  bind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
+  on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
+  binding: (binding: XinBinding) => { bind: { value: string; binding: XinBinding } }
+
+  // valueOf for == compatibility (but === will still fail as expected)
+  valueOf: () => T
+
+  // Deprecated aliases - will trigger console warning
+  xinValue: T
+  xinPath: string
+  tosiValue: T
+  tosiPath: string
+  xinObserve: (callback: ObserverCallbackFunction) => VoidFunction
+  tosiObserve: (callback: ObserverCallbackFunction) => VoidFunction
+  xinBind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
+  tosiBind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
+  xinOn: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
+  tosiOn: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
+  tosiBinding: (binding: XinBinding) => { bind: { value: string; binding: XinBinding } }
 }
 
 export type BoxedProxy<T = any> = T extends Array<infer U>
@@ -46,13 +82,13 @@ export type BoxedProxy<T = any> = T extends Array<infer U>
     [K in keyof T]: BoxedProxy<T[K]>
   } & XinProps<T>
   : T extends string
-  ? String & XinProps<string>
+  ? BoxedScalar<string>
   : T extends number
-  ? Number & XinProps<number>
+  ? BoxedScalar<number>
   : T extends boolean
-  ? Boolean & XinProps<boolean>
+  ? BoxedScalar<boolean>
   : T extends undefined | null
-  ? {} & XinProps<T>
+  ? BoxedScalar<T>
   : T
 
 export type Unboxed<T = any> = T extends String
@@ -199,6 +235,8 @@ export interface ListBindingOptions {
     width?: number
     visibleColumns?: number
     rowChunkSize?: number
+    /** Use 'window' to virtualize based on window scroll position instead of element scroll */
+    scrollContainer?: 'window' | 'element'
   }
   hiddenProp?: symbol | string
   visibleProp?: symbol | string

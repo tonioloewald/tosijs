@@ -6,21 +6,13 @@ import { gzippedSize } from './gzipped-size'
 
 declare const Bun: any
 
+const buildOnly = process.argv.includes('--build')
 const PORT = 8018
 const PROJECT_ROOT = import.meta.dir
 const PUBLIC = path.resolve(PROJECT_ROOT, 'docs')
 const DIST = path.resolve(PROJECT_ROOT, 'dist')
 const isSPA = true
 const MINIFY = true
-
-function loadJsonSync<T>(filePath: string): T {
-  try {
-    const data = Bun.file(filePath).textSync()
-    return JSON.parse(data) as T
-  } catch (error) {
-    throw new Error(`Failed to load JSON file: ${filePath}\n${error}`)
-  }
-}
 
 async function writeVersion() {
   const config = JSON.parse(
@@ -30,14 +22,12 @@ async function writeVersion() {
     'src/version.ts',
     `export const version = '${config.version}'`
   )
-  console.log('xinjs package version ', config.version)
+  console.log('tosijs package version ', config.version)
 }
 
 async function prebuild() {
-  await $`rm -rf ${DIST}`
-  await $`rm -rf ${PUBLIC}`
-  await $`mkdir ${DIST}`
-  await $`mkdir ${PUBLIC}`
+  await $`rm -rf ${DIST} ${PUBLIC} || true`
+  await $`mkdir -p ${DIST} ${PUBLIC}`
 
   await $`bun docs.js`
 }
@@ -47,13 +37,9 @@ async function build() {
   let result: any
 
   await $`bun test`
-  await $`mkdir -p ${PUBLIC} && cp -r demo/static/. ${PUBLIC}`
+  await $`mkdir -p ${PUBLIC} && rsync -a demo/static/ ${PUBLIC}/`
 
-  try {
-    await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
-  } catch (e) {
-    console.log('types created')
-  }
+  await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
 
   const targets = [
     { naming: 'index.js', format: 'iife' },
@@ -102,15 +88,22 @@ async function build() {
   console.log('module.js size ', size)
 }
 
-watch('package.json').on('change', writeVersion)
-watch(['README.md', 'package.json', './src']).on('change', () =>
-  prebuild().then(build)
-)
-watch('./demo').on('change', build)
+// Set up watchers BEFORE initial build to avoid race condition (double build)
+if (!buildOnly) {
+  watch('package.json').on('change', writeVersion)
+  watch(['README.md', 'package.json', './src']).on('change', () =>
+    prebuild().then(build)
+  )
+  watch('./demo').on('change', build)
+}
 
 await writeVersion()
 await prebuild()
 await build()
+
+if (buildOnly) {
+  process.exit(0)
+}
 
 function serveFromDir(config: {
   directory: string

@@ -7,7 +7,7 @@
 value. `xinValue` passes through normal values, so it's safe to use on anything.
 
 ```
-import { boxed } from 'xinjs'
+import { boxed } from 'tosijs'
 
 const foo = { bar: 'hello', baz: 17 }
 boxed.foo = foo
@@ -97,11 +97,11 @@ export const cloneWithBindings = (element: Node): Node => {
     const dataBindings = elementToBindings.get(element as Element)
     const eventHandlers = elementToHandlers.get(element as Element)
     if (dataBindings != null) {
-      // @ts-expect-error-error
+      // @ts-expect-error deepClone returns compatible type
       elementToBindings.set(cloned, deepClone(dataBindings))
     }
     if (eventHandlers != null) {
-      // @ts-expect-error-error
+      // @ts-expect-error deepClone returns compatible type
       elementToHandlers.set(cloned, deepClone(eventHandlers))
     }
   }

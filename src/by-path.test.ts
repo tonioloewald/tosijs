@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { getByPath, setByPath, deleteByPath } from './by-path'
+import { getByPath, setByPath, deleteByPath, pathParts } from './by-path'
 import { XinObject } from './xin-types'
 
 const obj = {
@@ -116,4 +116,79 @@ test('id-path edge cases, including deleteByPath', () => {
 
   setByPath(obj, 'movieObjs[id=777]', {})
   expect(getByPath(obj, 'movieObjs[id=777].name')).toBe(undefined)
+})
+
+test('pathParts handles various path formats', () => {
+  expect(pathParts('')).toEqual([])
+  expect(pathParts('foo')).toEqual([['foo']])
+  expect(pathParts('foo.bar')).toEqual([['foo', 'bar']])
+  expect(pathParts('arr[0]')).toEqual([['arr'], '0'])
+  expect(pathParts('arr[0].prop')).toEqual([['arr'], '0', ['prop']])
+  expect(pathParts('[id=123]')).toEqual(['id=123'])
+  expect(pathParts('list[id=abc].name')).toEqual([['list'], 'id=abc', ['name']])
+})
+
+test('pathParts handles already-parsed arrays', () => {
+  const parts = [['foo'], 'bar']
+  expect(pathParts(parts)).toBe(parts)
+})
+
+test('setByPath throws on empty path', () => {
+  expect(() => setByPath({}, '', 'value')).toThrow(
+    'setByPath cannot be used to set the root object'
+  )
+})
+
+test('setByPath with array index on existing array', () => {
+  const testObj = { foo: [{ bar: 'old' }] } as XinObject
+  setByPath(testObj, 'foo[0].bar', 'new')
+  expect(testObj.foo[0].bar).toBe('new')
+})
+
+test('setByPath handles =key syntax for object properties', () => {
+  const testObj = { prop: 'value' } as XinObject
+  setByPath(testObj, '[=prop]', 'newValue')
+  expect(testObj.prop).toBe('newValue')
+})
+
+test('getByPath handles empty array with = syntax', () => {
+  const testObj = { arr: [] as any[] } as XinObject
+  expect(getByPath(testObj, 'arr[=0]')).toBe(undefined)
+})
+
+test('getByPath returns undefined for non-existent nested paths', () => {
+  const testObj = { a: { b: 1 } } as XinObject
+  expect(getByPath(testObj, 'a.b.c.d')).toBe(undefined)
+  expect(getByPath(testObj, 'x.y.z')).toBe(undefined)
+})
+
+test('deleteByPath does nothing for non-existent paths', () => {
+  const testObj = { foo: 'bar' } as XinObject
+  // Should not throw
+  deleteByPath(testObj, 'nonexistent')
+  expect(testObj.foo).toBe('bar')
+})
+
+test('setByPath returns false when deleting non-existent property', () => {
+  const testObj = { foo: 'bar' } as XinObject
+  // Deleting non-existent key returns false
+  expect(setByPath(testObj, 'baz.qux', {})).toBe(true)
+  // Property should be created
+  expect(testObj.baz.qux).toEqual({})
+})
+
+test('setByPath with array index creates intermediate arrays', () => {
+  const testObj = {} as XinObject
+  setByPath(testObj, 'items[0]', 'first')
+  expect(testObj.items[0]).toBe('first')
+})
+
+test('getByPath with id path handles values with = in them', () => {
+  const testObj = {
+    items: [
+      { key: 'a=b', value: 1 },
+      { key: 'c=d', value: 2 },
+    ],
+  } as XinObject
+  expect(getByPath(testObj, 'items[key=a=b]')).toEqual({ key: 'a=b', value: 1 })
 })

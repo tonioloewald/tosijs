@@ -28,7 +28,7 @@ like autocompletion of CSS rules (rendered as camelcase) so that, unlike me, it
 can remind you that it's `whiteSpace` and not `whitespace`.
 
 ```
-import {elements, css} from 'xinjs'
+import {elements, css} from 'tosijs'
 const {style} = elements
 
 const myStyleMap = {
@@ -155,7 +155,7 @@ preview.append(
 > you can't re-register a variable either.
 
 > This is a bit like the problem
-> that xinjs Component works around with tagNames, but in practice far more
+> that tosijs Component works around with tagNames, but in practice far more
 > difficult to solve. It is impossible to tell if a given instance of
 > a given variable name is an intentional reuse or a new separate variable.
 > No-one intentionally defines two different components with the same tag.

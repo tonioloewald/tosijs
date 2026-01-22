@@ -34,7 +34,7 @@ The `enabled` and `disabled` bindings allow you to make a widget's enabled statu
 be determined by the truthiness of something in `xin`, e.g.
 
 ```
-import { xinProxy, elements } from 'xinjs'
+import { xinProxy, elements } from 'tosijs'
 
 const myDoc = xinProxy({
     myDoc: {

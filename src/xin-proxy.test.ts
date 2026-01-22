@@ -1,7 +1,7 @@
-import { test, expect } from 'bun:test'
+import { test, expect, spyOn } from 'bun:test'
 import { xin } from './xin'
 import { xinPath } from './metadata'
-import { xinProxy, tosi } from './xin-proxy'
+import { tosi, xinProxy, boxedProxy } from './xin-proxy'
 
 test('tosi works', () => {
   const { test } = tosi({
@@ -50,4 +50,60 @@ test('tosi works', () => {
   expect(typeof box.whatevs.xinValue).toBe('object')
   // @ts-expect-error it's a test ffs
   expect(box.whatevs.sub.xinValue).toBe(17)
+})
+
+test('xinProxy assigns to xin and returns XinProxy', () => {
+  const data = {
+    xinProxyTest: {
+      name: 'test',
+      count: 42,
+    },
+  }
+
+  const result = xinProxy(data)
+
+  // Values should be accessible via xin
+  expect(xin.xinProxyTest.name).toBe('test')
+  expect(xin.xinProxyTest.count).toBe(42)
+
+  // Result should reflect the same values
+  expect(result.xinProxyTest.name).toBe('test')
+  expect(result.xinProxyTest.count).toBe(42)
+})
+
+test('xinProxy with boxed=true warns and calls tosi', () => {
+  const warnSpy = spyOn(console, 'warn').mockImplementation(() => {})
+
+  const data = {
+    boxedTest: {
+      value: 'hello',
+    },
+  }
+
+  // @ts-expect-error testing deprecated parameter
+  const result = xinProxy(data, true)
+
+  expect(warnSpy).toHaveBeenCalled()
+  expect(result.boxedTest.value.valueOf()).toBe('hello')
+
+  warnSpy.mockRestore()
+})
+
+test('boxedProxy warns and delegates to tosi', () => {
+  const warnSpy = spyOn(console, 'warn').mockImplementation(() => {})
+
+  const data = {
+    boxedProxyTest: {
+      item: 'world',
+    },
+  }
+
+  const result = boxedProxy(data)
+
+  expect(warnSpy).toHaveBeenCalledWith(
+    'boxedProxy is deprecated, please use tosi() instead'
+  )
+  expect(result.boxedProxyTest.item.valueOf()).toBe('world')
+
+  warnSpy.mockRestore()
 })

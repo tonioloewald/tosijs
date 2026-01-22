@@ -1,6 +1,14 @@
 import { test, expect } from 'bun:test'
 import { camelToKabob, kabobToCamel } from './string-case'
-import { initVars, vars, css, varDefault } from './css'
+import {
+  initVars,
+  vars,
+  css,
+  varDefault,
+  invertLuminance,
+  processProp,
+} from './css'
+import { Color } from './color'
 
 test('camelToKabob works', () => {
   expect(camelToKabob('x')).toBe('x')
@@ -71,4 +79,137 @@ test('varDefault Works', () => {
 
 test('vars.default Works', () => {
   expect(vars.default.barBaz('#f00')).toBe('var(--bar-baz, #f00)')
+})
+
+test('vars color manipulation - brighten (b)', () => {
+  const result = vars.brandColor50b
+  expect(result).toContain('rgba(')
+})
+
+test('vars color manipulation - darken (negative b)', () => {
+  const result = vars.brandColor_50b
+  expect(result).toContain('rgba(')
+})
+
+test('vars color manipulation - saturate (s)', () => {
+  const result = vars.brandColor50s
+  expect(result).toContain('rgba(')
+})
+
+test('vars color manipulation - desaturate (negative s)', () => {
+  const result = vars.brandColor_50s
+  expect(result).toContain('rgba(')
+})
+
+test('vars color manipulation - hue rotation (h)', () => {
+  const result = vars.brandColor50h
+  expect(result).toContain('rgba(')
+})
+
+test('vars color manipulation - opacity (o)', () => {
+  const result = vars.brandColor50o
+  expect(result).toContain('rgba(')
+})
+
+test('vars throws for unrecognized method', () => {
+  expect(() => vars.brandColor50x).toThrow('Unrecognized method x')
+})
+
+test('processProp handles numeric values without px for special props', () => {
+  const result = processProp('z-index', 100)
+  expect(result.value).toBe('100')
+})
+
+test('processProp adds px to numeric values for regular props', () => {
+  const result = processProp('width', 100)
+  expect(result.value).toBe('100px')
+})
+
+test('processProp handles _ prefix for CSS variables', () => {
+  const result = processProp('_myVar', 'red')
+  expect(result.prop).toBe('--myVar')
+  expect(result.value).toBe('red')
+})
+
+test('processProp handles __ prefix for CSS variables with default', () => {
+  const result = processProp('__myVar', 'blue')
+  expect(result.prop).toBe('--myVar')
+  expect(result.value).toBe('var(--myVar-default, blue)')
+})
+
+test('css handles @import', () => {
+  const result = css({
+    '@import': 'https://example.com/styles.css',
+  })
+  expect(result).toBe("@import url('https://example.com/styles.css');")
+})
+
+test('css throws for non-@import string values', () => {
+  expect(() =>
+    css({
+      '.foo': 'invalid string' as any,
+    })
+  ).toThrow('top-level string value only allowed for `@import`')
+})
+
+test('css handles nested rules (media queries)', () => {
+  const result = css({
+    '@media (min-width: 768px)': {
+      '.container': {
+        width: 750,
+      },
+    },
+  })
+  expect(result).toContain('@media (min-width: 768px)')
+  expect(result).toContain('.container')
+  expect(result).toContain('width: 750px')
+})
+
+test('css handles Color values', () => {
+  const red = new Color(255, 0, 0)
+  const result = css({
+    '.red': {
+      color: red,
+    },
+  })
+  expect(result).toContain('color:')
+  expect(result).toContain('#ff0000')
+})
+
+test('invertLuminance inverts Color values', () => {
+  const red = new Color(255, 0, 0)
+  const result = invertLuminance({
+    primary: red,
+  })
+  expect(result.primary).toBeInstanceOf(Color)
+})
+
+test('invertLuminance inverts hex color strings', () => {
+  const result = invertLuminance({
+    primary: '#ff0000',
+  })
+  expect(result.primary).toBeInstanceOf(Color)
+})
+
+test('invertLuminance inverts rgb() color strings', () => {
+  const result = invertLuminance({
+    primary: 'rgb(255, 0, 0)',
+  })
+  expect(result.primary).toBeInstanceOf(Color)
+})
+
+test('invertLuminance inverts hsl() color strings', () => {
+  const result = invertLuminance({
+    primary: 'hsl(0, 100%, 50%)',
+  })
+  expect(result.primary).toBeInstanceOf(Color)
+})
+
+test('invertLuminance ignores non-color values', () => {
+  const result = invertLuminance({
+    width: '100px',
+    color: '#ff0000',
+  })
+  expect(result.width).toBeUndefined()
+  expect(result.color).toBeInstanceOf(Color)
 })

@@ -1,7 +1,7 @@
 /*#
 # 4.1 blueprints
 
-One issue with standard web-components built with xinjs is that building them
+One issue with standard web-components built with tosijs is that building them
 "sucks in" the version of `tosijs` you're working with. This isn't a huge problem
 with monolithic code-bases, but it does prevent components from being loaded
 "on-the-fly" from CDNs and composed on the spot and it does make it hard to
@@ -45,7 +45,7 @@ of component **blueprints**. It will load its `<xin-blueprint>`s in parallel.
   <xin-blueprint tag="swiss-clock" src="https://loewald.com/lib/swiss-clock"></xin-blueprint>
 </xin-loader>
 <swiss-clock>
-  <code style="color: var(--brand-color)">xinjs</code> rules!
+  <code style="color: var(--brand-color)">tosijs</code> rules!
 </swiss-clock>
 ```
 
@@ -79,7 +79,7 @@ So, instead of:
 
 You could write:
 
-    import { makeComponent } from 'xinjs'
+    import { makeComponent } from 'tosijs'
     import myThingBlueprint from './path/to/my-thing-blueprint'
 
     makeComponent('different-tag', myThingBlueprint).then((packaged) => {
@@ -165,7 +165,7 @@ unlike an actual component, the blueprint has no special dependencies.
 
 So instead of defining a component like this:
 
-    import { Component, elements, vars, varDefault } from 'xinjs'
+    import { Component, elements, vars, varDefault } from 'tosijs'
 
     const { h2, slot } = elements
 
@@ -192,7 +192,7 @@ So instead of defining a component like this:
 
 You can define a "blueprint" like this:
 
-    import { XinBlueprint } from 'xinjs'
+    import { XinBlueprint } from 'tosijs'
 
     const blueprint: XinBlueprint = (
       tag,
@@ -247,7 +247,7 @@ export class Blueprint extends Component {
   src = ''
   property = 'default'
   loaded?: XinPackagedComponent
-  blueprintLoaded = (_package: XinPackagedComponent) => {}
+  blueprintLoaded = (_pkg: XinPackagedComponent) => {}
 
   async packaged(): Promise<XinPackagedComponent> {
     const { tag, src, property } = this

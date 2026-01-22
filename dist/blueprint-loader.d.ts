@@ -5,7 +5,7 @@ export declare class Blueprint extends Component {
     src: string;
     property: string;
     loaded?: XinPackagedComponent;
-    blueprintLoaded: (_package: XinPackagedComponent) => void;
+    blueprintLoaded: (_pkg: XinPackagedComponent) => void;
     packaged(): Promise<XinPackagedComponent>;
     constructor();
 }

@@ -15,7 +15,7 @@ After coding with `xin` for a while, it became apparent that a common pattern
 was something like this:
 
     import myThing as _myThing from 'path/to/my-thing'
-    import { xin } from 'xinjs'
+    import { xin } from 'tosijs'
 
     xin.myThing = _myThing
     export const myThing = xin.myThing as typeof _myThing
@@ -54,7 +54,7 @@ practice it's really very nice.
 `xinProxy(foo)` is simply declared as a function that takes an object of type T and
 returns a BoxedProxy<T>.
 
-    import { xinProxy } from 'xinjs'
+    import { xinProxy } from 'tosijs'
 
     const { foo, bar } = boxedProxy({
       foo: 'bar',
@@ -65,7 +65,7 @@ returns a BoxedProxy<T>.
 
 This is syntax sugar for:
 
-    import { boxed } from 'xinjs'
+    import { boxed } from 'tosijs'
 
     const stuff = {
       foo: 'bar',

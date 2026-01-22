@@ -12,7 +12,6 @@ import {
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { XIN_VALUE, xinPath } from './metadata'
-import { text } from 'node:stream/consumers'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []
@@ -388,7 +387,6 @@ test('unobserve works', async () => {
 
 test('xinPath() works', () => {
   const _test = xin.test as XinProxyObject
-  const things = _test.things as XinProxyArray
   const people = _test.people as XinProxyArray
   expect(_test.xinPath).toBe('test')
   expect(people.xinPath).toBe('test.people')
@@ -550,4 +548,201 @@ test('no double wrapping', () => {
   expect(xin.fubar.barfu[XIN_VALUE]).toBe(fubar.barfu)
   delete xin.fubar
   expect(xin.fubar).toBe(undefined)
+})
+
+test('boxed scalar new API - path property', () => {
+  const { pathTest } = tosi({ pathTest: { str: 'hello', num: 42 } })
+  expect(pathTest.str.path).toBe('pathTest.str')
+  expect(pathTest.num.path).toBe('pathTest.num')
+})
+
+test('boxed scalar new API - value property', () => {
+  const { valueTest } = tosi({ valueTest: { str: 'hello', num: 42 } })
+  expect(valueTest.str.value).toBe('hello')
+  expect(valueTest.num.value).toBe(42)
+})
+
+test('boxed scalar new API - observe method', async () => {
+  const { observeTest } = tosi({ observeTest: { count: 0 } })
+  let observed = false
+  const unobserveFn = observeTest.count.observe(() => {
+    observed = true
+  })
+  observeTest.count.value = 1
+  await updates()
+  expect(observed).toBe(true)
+  unobserveFn()
+})
+
+test('boxed scalar new API - bind method', async () => {
+  const { bindMethodTest } = tosi({ bindMethodTest: { text: 'initial' } })
+  const div = elements.div()
+  document.body.append(div)
+  bindMethodTest.text.bind(div, {
+    toDOM(element, value) {
+      element.textContent = value
+    },
+  })
+  await updates()
+  expect(div.textContent).toBe('initial')
+  bindMethodTest.text.value = 'updated'
+  await updates()
+  expect(div.textContent).toBe('updated')
+  div.remove()
+})
+
+test('boxed scalar new API - binding method', () => {
+  const { bindingMethodTest } = tosi({ bindingMethodTest: { val: 'test' } })
+  const binding = bindingMethodTest.val.binding({
+    toDOM(element, value) {
+      element.textContent = value
+    },
+  })
+  expect(binding.bind.value).toBe('bindingMethodTest.val')
+  expect(binding.bind.binding).toBeDefined()
+})
+
+test('boxed null and undefined', () => {
+  const { nullTest } = tosi({
+    nullTest: { nullVal: null, undefVal: undefined },
+  })
+  expect(nullTest.nullVal.value).toBe(null)
+  expect(nullTest.nullVal.path).toBe('nullTest.nullVal')
+  expect(nullTest.undefVal.value).toBe(undefined)
+  expect(nullTest.undefVal.path).toBe('nullTest.undefVal')
+})
+
+test('observe with function test', async () => {
+  const changes: string[] = []
+  const listener = observe(
+    (path: string) => path.startsWith('funcTest'),
+    (path) => {
+      changes.push(path)
+    }
+  )
+  xin.funcTest = { a: 1 }
+  await updates()
+  xin.funcTest.a = 2
+  await updates()
+  xin.otherPath = { b: 3 }
+  await updates()
+  // funcTest creation and funcTest.a update
+  expect(changes.filter((p) => p.startsWith('funcTest')).length).toBe(2)
+  unobserve(listener)
+  delete xin.funcTest
+  delete xin.otherPath
+})
+
+test('observe throws for invalid callback', () => {
+  expect(() => {
+    observe('test', 'nonexistent.path')
+  }).toThrow()
+})
+
+test('compound path access', () => {
+  xin.compound = {
+    nested: {
+      deep: {
+        value: 'found',
+      },
+    },
+    arr: [{ id: 1, name: 'first' }],
+  }
+  // compound paths with dots
+  expect(xin['compound.nested.deep.value']).toBe('found')
+  // compound paths with brackets
+  expect(xin['compound.arr[id=1].name']).toBe('first')
+  delete xin.compound
+})
+
+test('symbol property access on proxy', () => {
+  const sym = Symbol('test')
+  xin.symbolTest = { [sym]: 'symbol value', normal: 'regular' }
+  expect(xin.symbolTest[sym]).toBe('symbol value')
+  expect(xin.symbolTest.normal).toBe('regular')
+  delete xin.symbolTest
+})
+
+test('tosiListBinding method on boxed arrays', async () => {
+  const { listBindTest2 } = tosi({
+    listBindTest2: {
+      items: ['a', 'b', 'c'],
+    },
+  })
+  // tosiListBinding is the array method (listBinding is only on scalars)
+  const [props, template] = listBindTest2.items.tosiListBinding(
+    ({ li }, item) => li(item)
+  )
+  expect(props.bindList).toBeDefined()
+  expect(props.bindList.value).toBe('listBindTest2.items')
+  expect(template).toBeInstanceOf(HTMLTemplateElement)
+})
+
+test('boxed scalar deprecated tosiBind method', async () => {
+  const { tosiBindTest } = tosi({ tosiBindTest: { text: 'start' } })
+  const div = elements.div()
+  document.body.append(div)
+  tosiBindTest.text.tosiBind(div, {
+    toDOM(element, value) {
+      element.textContent = value
+    },
+  })
+  await updates()
+  expect(div.textContent).toBe('start')
+  div.remove()
+})
+
+test('boxed scalar deprecated tosiBinding method', () => {
+  const { tosiBindingTest } = tosi({ tosiBindingTest: { val: 'test' } })
+  const binding = tosiBindingTest.val.tosiBinding({
+    toDOM(element, value) {
+      element.textContent = value
+    },
+  })
+  expect(binding.bind.value).toBe('tosiBindingTest.val')
+  expect(binding.bind.binding).toBeDefined()
+})
+
+test('non-boxed-scalar tosiPath and tosiValue', () => {
+  const { objTest } = tosi({ objTest: { nested: { deep: 'value' } } })
+  expect(objTest.nested.tosiPath).toBe('objTest.nested')
+  expect(objTest.nested.tosiValue).toEqual({ deep: 'value' })
+})
+
+test('non-boxed-scalar tosiObserve', async () => {
+  const { tosiObsTest } = tosi({ tosiObsTest: { obj: { a: 1 } } })
+  let observed = false
+  const unobserveFn = tosiObsTest.obj.tosiObserve(() => {
+    observed = true
+  })
+  tosiObsTest.obj.a = 2
+  await updates()
+  expect(observed).toBe(true)
+  unobserveFn()
+})
+
+test('non-boxed-scalar tosiBind', async () => {
+  const { objBindTest } = tosi({ objBindTest: { data: { text: 'hello' } } })
+  const div = elements.div()
+  document.body.append(div)
+  objBindTest.data.tosiBind(div, {
+    toDOM(element, value) {
+      element.textContent = JSON.stringify(value)
+    },
+  })
+  await updates()
+  expect(div.textContent).toContain('hello')
+  div.remove()
+})
+
+test('non-boxed-scalar tosiBinding', () => {
+  const { objBindingTest } = tosi({
+    objBindingTest: { data: { x: 1 } },
+  })
+  const binding = objBindingTest.data.tosiBinding({
+    toDOM(element, value) {
+      element.textContent = JSON.stringify(value)
+    },
+  })
+  expect(binding.bind.value).toBe('objBindingTest.data')
 })
