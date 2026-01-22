@@ -142,7 +142,7 @@ less code and no weird build magic (such as special decorators or "execution zon
 - if you change a property of something already in `xin` then this
   change will be `observed` and anything *listening* for changes to
   the value at that **path** will be notified.
-- xinjs's `bind` method leverages the proxy to keep the UI synced
+- tosijs's `bind` method leverages the proxy to keep the UI synced
   with application state.
 
 In the following example there's a `<div>` and an `<input>`. The
@@ -257,7 +257,7 @@ Important points:
     - `xin['foo.bar']` gets you the same thing `xin.foo.bar` gets you.
     - `xin.foo.bar = 17` tells `xin` that `foo.bar` changed, which triggers DOM updates.
 
-> If you're reading this on xinjs.net then this the demo app you're looking
+> If you're reading this on tosijs.net then this the demo app you're looking
 > works a bit like this and `xin` (and `boxed`) are exposed as globals so
 > you can play with them in the **debug console**.
 >
@@ -324,7 +324,7 @@ Then `xin` won't know and observers won't fire. So you can simply `touch` the pa
 impacted:
 
 ```
-import { touch } from 'xinjs'
+import { touch } from 'tosijs'
 touch('emails')
 ```
 

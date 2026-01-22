@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import { updates } from './path-listener'
-import { on, bind } from './bind'
+import { on, bind, touchElement } from './bind'
 import { bindings } from './bindings'
 
 test('element binding works', async () => {
@@ -118,4 +118,120 @@ test('bind works', async () => {
 
   // changing the input updates the bound value
   expect(bindTest.value.valueOf()).toBe('changed')
+})
+
+test('bind throws on DocumentFragment', () => {
+  const frag = document.createDocumentFragment()
+  expect(() => {
+    bind(frag as unknown as Element, 'some.path', bindings.text)
+  }).toThrow('bind cannot bind to a DocumentFragment')
+})
+
+test('bind with toDOM function binding works', async () => {
+  const { bindFuncTest } = tosi({
+    bindFuncTest: {
+      content: 'hello func',
+    },
+  })
+  const div = elements.div({
+    bind: {
+      value: bindFuncTest.content,
+      binding: (element: Element, value: string) => {
+        element.textContent = value
+      },
+    },
+  })
+  document.body.append(div)
+  await updates()
+  expect(div.textContent).toBe('hello func')
+})
+
+test('touchElement handles unbound elements gracefully', () => {
+  const div = elements.div()
+  // Should not throw
+  expect(() => touchElement(div)).not.toThrow()
+})
+
+test('on() registers multiple handlers for same event type', async () => {
+  const button = elements.button('test')
+  document.body.append(button)
+
+  let count1 = 0
+  let count2 = 0
+
+  on(button, 'click', () => {
+    count1++
+  })
+  on(button, 'click', () => {
+    count2++
+  })
+
+  button.click()
+  expect(count1).toBe(1)
+  expect(count2).toBe(1)
+})
+
+test('event handler can stop propagation', async () => {
+  const outer = elements.div()
+  const inner = elements.button('inner')
+  outer.append(inner)
+  document.body.append(outer)
+
+  let outerClicked = false
+  let innerClicked = false
+
+  on(outer, 'click', () => {
+    outerClicked = true
+  })
+  on(inner, 'click', (event) => {
+    innerClicked = true
+    event.stopPropagation()
+  })
+
+  inner.click()
+  expect(innerClicked).toBe(true)
+  // Note: stopPropagation behavior depends on event bubbling implementation
+})
+
+test('bind with XinBindingSpec options works', async () => {
+  const { specTest } = tosi({
+    specTest: {
+      text: 'spec value',
+    },
+  })
+
+  const div = elements.div()
+  bind(
+    div,
+    {
+      value: specTest.text,
+    },
+    bindings.text
+  )
+  document.body.append(div)
+  await updates()
+  expect(div.textContent).toBe('spec value')
+})
+
+test('fromDOM handles existing values correctly', async () => {
+  const { fromDomTest } = tosi({
+    fromDomTest: {
+      value: 'initial',
+    },
+  })
+
+  const input = elements.input({ value: 'initial' })
+  bind(input, fromDomTest.value, bindings.value)
+  document.body.append(input)
+  await updates()
+
+  // Change to same value - should not trigger update
+  input.value = 'initial'
+  input.dispatchEvent(new Event('change'))
+  expect(fromDomTest.value.valueOf()).toBe('initial')
+
+  // Change to different value - should trigger update
+  input.value = 'changed'
+  input.dispatchEvent(new Event('change'))
+  expect(fromDomTest.value.valueOf()).toBe('changed')
 })

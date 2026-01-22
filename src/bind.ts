@@ -81,7 +81,7 @@ The `bind` function is a simple way of tying an `HTMLElement`'s properties to
 state via `path` using [bindings](/?bindings.ts)
 
 ```
-import {bind, bindings, xin, elements, updates} from 'xinjs'
+import {bind, bindings, xin, elements, updates} from 'tosijs'
 const {div, input} = elements
 
 const divElt = div()

@@ -1,7 +1,7 @@
 /*
-FIXME -- export this from xinjs-ui
+FIXME -- export this from tosijs-ui
 
-copied from xinjs-ui
+copied from tosijs-ui
 */
 
 const fs = require('fs')

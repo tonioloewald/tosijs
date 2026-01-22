@@ -7,7 +7,7 @@
 value. `xinValue` passes through normal values, so it's safe to use on anything.
 
 ```
-import { boxed } from 'xinjs'
+import { boxed } from 'tosijs'
 
 const foo = { bar: 'hello', baz: 17 }
 boxed.foo = foo

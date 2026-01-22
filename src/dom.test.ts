@@ -1,5 +1,11 @@
 import { test, expect, describe } from 'bun:test'
-import { dispatch, setValue, getValue, appendContentToElement } from './dom'
+import {
+  dispatch,
+  setValue,
+  getValue,
+  appendContentToElement,
+  resizeObserver,
+} from './dom'
 
 describe('dispatch', () => {
   test('dispatches custom event to element', () => {
@@ -50,6 +56,14 @@ describe('setValue', () => {
     const textarea = document.createElement('textarea')
     setValue(textarea, 'multi\nline\ntext')
     expect(textarea.value).toBe('multi\nline\ntext')
+  })
+
+  test('sets valueAsDate on date input', () => {
+    const dateInput = document.createElement('input')
+    dateInput.type = 'date'
+    const testDate = '2024-01-15'
+    setValue(dateInput, testDate)
+    expect(dateInput.valueAsDate).toBeInstanceOf(Date)
   })
 
   test('sets selected options on multi-select', () => {
@@ -160,6 +174,14 @@ describe('getValue', () => {
 
     expect(getValue(select)).toBe('second')
   })
+
+  test('gets ISO string from date input', () => {
+    const dateInput = document.createElement('input')
+    dateInput.type = 'date'
+    dateInput.valueAsDate = new Date('2024-01-15T00:00:00.000Z')
+    const value = getValue(dateInput)
+    expect(value).toContain('2024-01-15')
+  })
 })
 
 describe('appendContentToElement', () => {
@@ -217,5 +239,31 @@ describe('appendContentToElement', () => {
     appendContentToElement(container, child, false)
 
     expect(container.children[0]).toBe(child)
+  })
+
+  test('throws for invalid content type', () => {
+    const container = document.createElement('div')
+    expect(() => {
+      // @ts-expect-error testing invalid input
+      appendContentToElement(container, { invalid: 'object' })
+    }).toThrow('expect text content or document node')
+  })
+})
+
+describe('resizeObserver', () => {
+  test('resizeObserver has observe and unobserve methods', () => {
+    expect(typeof resizeObserver.observe).toBe('function')
+    expect(typeof resizeObserver.unobserve).toBe('function')
+  })
+
+  test('resizeObserver can observe an element', () => {
+    const element = document.createElement('div')
+    document.body.append(element)
+
+    // Should not throw
+    expect(() => resizeObserver.observe(element)).not.toThrow()
+    expect(() => resizeObserver.unobserve(element)).not.toThrow()
+
+    element.remove()
   })
 })

@@ -22,7 +22,7 @@ async function writeVersion() {
     'src/version.ts',
     `export const version = '${config.version}'`
   )
-  console.log('xinjs package version ', config.version)
+  console.log('tosijs package version ', config.version)
 }
 
 async function prebuild() {

@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
-import { elements } from './elements'
+import { elements, svgElements, mathML } from './elements'
 import { updates } from './path-listener'
 
 test('element creation works', () => {
@@ -67,4 +67,93 @@ test('style binding works', async () => {
   expect(div.style.getPropertyValue('--bar-baz')).toBe(
     'var(--bar-baz-default, green)'
   )
+})
+
+test('svgElements creates SVG elements', () => {
+  const { circle, rect, svg } = svgElements
+  const svgEl = svg()
+  const circleEl = circle({ cx: '50', cy: '50', r: '40' })
+  const rectEl = rect({ width: '100', height: '100' })
+
+  expect(svgEl.namespaceURI).toBe('http://www.w3.org/2000/svg')
+  expect(circleEl.namespaceURI).toBe('http://www.w3.org/2000/svg')
+  expect(rectEl.namespaceURI).toBe('http://www.w3.org/2000/svg')
+  expect(circleEl.getAttribute('cx')).toBe('50')
+})
+
+test('mathML creates MathML elements', () => {
+  const { math, mi, mn } = mathML
+  const mathEl = math()
+  const miEl = mi('x')
+  const mnEl = mn('2')
+
+  expect(mathEl.namespaceURI).toBe('http://www.w3.org/1998/Math/MathML')
+  expect(miEl.namespaceURI).toBe('http://www.w3.org/1998/Math/MathML')
+  expect(mnEl.namespaceURI).toBe('http://www.w3.org/1998/Math/MathML')
+})
+
+test('class attribute handles space-separated classes', () => {
+  const div = elements.div({ class: 'foo bar baz' })
+  expect(div.classList.contains('foo')).toBe(true)
+  expect(div.classList.contains('bar')).toBe(true)
+  expect(div.classList.contains('baz')).toBe(true)
+})
+
+test('boolean attributes work correctly', () => {
+  const { input, button } = elements
+  const disabledInput = input({ disabled: true })
+  const enabledInput = input({ disabled: false })
+  const checkedInput = input({ type: 'checkbox', checked: true })
+
+  expect(disabledInput.hasAttribute('disabled')).toBe(true)
+  expect(enabledInput.hasAttribute('disabled')).toBe(false)
+  expect(checkedInput.checked).toBe(true)
+})
+
+test('elements proxy throws on set', () => {
+  expect(() => {
+    // @ts-expect-error testing runtime error
+    elements.custom = () => {}
+  }).toThrow('You may not add new properties to elements')
+})
+
+test('svgElements proxy throws on set', () => {
+  expect(() => {
+    // @ts-expect-error testing runtime error
+    svgElements.custom = () => {}
+  }).toThrow('You may not add new properties to elements')
+})
+
+test('mathML proxy throws on set', () => {
+  expect(() => {
+    // @ts-expect-error testing runtime error
+    mathML.custom = () => {}
+  }).toThrow('You may not add new properties to elements')
+})
+
+test('style as string attribute works', () => {
+  const div = elements.div({ style: 'color: red; font-size: 12px' })
+  expect(div.getAttribute('style')).toBe('color: red; font-size: 12px')
+})
+
+test('template element appends to content', () => {
+  const { template, div } = elements
+  const tmpl = template(div('inside template'))
+
+  expect(tmpl.content.children.length).toBe(1)
+  expect(tmpl.content.children[0].tagName).toBe('DIV')
+})
+
+test('fragment creates DocumentFragment', () => {
+  const { fragment, div, span } = elements
+  const frag = fragment(div('first'), span('second'))
+
+  expect(frag).toBeInstanceOf(DocumentFragment)
+  expect(frag.children.length).toBe(2)
+})
+
+test('camelCase tag names convert to kebab-case', () => {
+  const { myCustomElement } = elements
+  const el = myCustomElement()
+  expect(el.tagName.toLowerCase()).toBe('my-custom-element')
 })
