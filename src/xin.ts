@@ -895,6 +895,19 @@ const regHandler = (
     if (typeof _prop === 'symbol') {
       return (target as XinObject)[_prop]
     }
+
+    // Check for non-configurable, non-writable properties (e.g., String character indices)
+    // Proxy invariant: must return the exact target value for such properties
+    const descriptor = Object.getOwnPropertyDescriptor(target, _prop)
+    if (
+      descriptor &&
+      !descriptor.configurable &&
+      !descriptor.writable &&
+      'value' in descriptor
+    ) {
+      return descriptor.value
+    }
+
     let prop = _prop
     const compoundProp =
       prop.match(/^([^.[]+)\.(.+)$/) ?? // basePath.subPath (omit '.')
@@ -943,7 +956,10 @@ const regHandler = (
       const value = target[prop as unknown as number]
       return typeof value === 'function'
         ? (...items: any[]) => {
-            const result = value.apply(target, items)
+            // Unwrap any proxied/boxed values before passing to array methods
+            // to prevent proxy objects from leaking into the underlying data
+            const unwrappedItems = items.map((item) => xinValue(item))
+            const result = value.apply(target, unwrappedItems)
             if (ARRAY_MUTATIONS.includes(prop)) {
               touch(path)
             }

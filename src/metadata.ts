@@ -56,11 +56,12 @@ export const xinPath = (x: any): string | undefined => {
 }
 
 export function xinValue<T>(x: T): Unboxed<T> {
-  return (
-    typeof x === 'object' && x !== null
-      ? (x as unknown as XinProps)[XIN_VALUE] || x
-      : x
-  ) as Unboxed<T>
+  if (typeof x === 'object' && x !== null) {
+    const val = (x as unknown as XinProps)[XIN_VALUE]
+    // Use explicit undefined check instead of || to handle falsy values (0, false, '')
+    return (val !== undefined ? val : x) as Unboxed<T>
+  }
+  return x as Unboxed<T>
 }
 
 export interface DataBinding<T extends Element = Element> {

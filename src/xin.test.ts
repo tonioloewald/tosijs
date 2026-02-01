@@ -11,7 +11,7 @@ import {
 } from './xin'
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
-import { XIN_VALUE, xinPath } from './metadata'
+import { XIN_VALUE, xinPath, xinValue } from './metadata'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []
@@ -745,4 +745,77 @@ test('non-boxed-scalar tosiBinding', () => {
     },
   })
   expect(binding.bind.value).toBe('objBindingTest.data')
+})
+
+test('proxy invariant: JSON.stringify works on boxed proxies', () => {
+  const { jsonTest } = tosi({ jsonTest: { name: 'test', count: 42 } })
+  // Should not throw proxy invariant violation
+  const result = JSON.stringify(jsonTest)
+  expect(result).toContain('name')
+  expect(result).toContain('count')
+})
+
+test('proxy invariant: string character index access works', () => {
+  const { strIndexTest } = tosi({ strIndexTest: { str: 'abc' } })
+  // Accessing character indices on boxed String should return primitives
+  const char = (strIndexTest.str as any)[0]
+  expect(char).toBe('a')
+  expect(typeof char).toBe('string')
+})
+
+test('proxy invariant: boxed string JSON.stringify works', () => {
+  const { strJsonTest } = tosi({ strJsonTest: { str: 'hello' } })
+  // Should not throw proxy invariant violation
+  const result = JSON.stringify(strJsonTest.str)
+  expect(result).toContain('h')
+})
+
+test('array mutations unwrap boxed values', () => {
+  const { arrMutTest } = tosi({
+    arrMutTest: { items: ['a'], str: 'b', num: 42, bool: true },
+  })
+  arrMutTest.items.push(arrMutTest.str)
+  const raw = xinValue(arrMutTest.items)
+  expect(typeof raw[1]).toBe('string')
+  expect(raw[1]).toBe('b')
+})
+
+test('array mutations unwrap falsy boxed values', () => {
+  const { falsyTest } = tosi({
+    falsyTest: { items: [] as any[], zero: 0, empty: '', falseBool: false },
+  })
+  falsyTest.items.push(falsyTest.zero)
+  falsyTest.items.push(falsyTest.empty)
+  falsyTest.items.push(falsyTest.falseBool)
+  const raw = xinValue(falsyTest.items)
+  expect(raw[0]).toBe(0)
+  expect(typeof raw[0]).toBe('number')
+  expect(raw[1]).toBe('')
+  expect(typeof raw[1]).toBe('string')
+  expect(raw[2]).toBe(false)
+  expect(typeof raw[2]).toBe('boolean')
+})
+
+test('array fill unwraps boxed values', () => {
+  const { fillTest } = tosi({ fillTest: { items: [1, 2, 3], val: 99 } })
+  fillTest.items.fill(fillTest.val)
+  const raw = xinValue(fillTest.items)
+  expect(raw).toEqual([99, 99, 99])
+  expect(typeof raw[0]).toBe('number')
+})
+
+test('array splice unwraps boxed values', () => {
+  const { spliceTest } = tosi({ spliceTest: { items: [1, 3], val: 2 } })
+  spliceTest.items.splice(1, 0, spliceTest.val)
+  const raw = xinValue(spliceTest.items)
+  expect(raw).toEqual([1, 2, 3])
+  expect(typeof raw[1]).toBe('number')
+})
+
+test('array unshift unwraps boxed values', () => {
+  const { unshiftTest } = tosi({ unshiftTest: { items: ['b'], val: 'a' } })
+  unshiftTest.items.unshift(unshiftTest.val)
+  const raw = xinValue(unshiftTest.items)
+  expect(raw).toEqual(['a', 'b'])
+  expect(typeof raw[0]).toBe('string')
 })
