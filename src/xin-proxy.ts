@@ -89,6 +89,7 @@ This lets you write bindings that support autocomplete and lint. Yay!
 */
 import { XinProxy, BoxedProxy } from './xin-types'
 import { xin, boxed } from './xin'
+import { warnDeprecated } from './metadata'
 
 export function tosi<T extends object>(obj: T): BoxedProxy<T> {
   Object.assign(boxed, obj)
@@ -96,13 +97,19 @@ export function tosi<T extends object>(obj: T): BoxedProxy<T> {
 }
 
 export function boxedProxy<T extends object>(obj: T): BoxedProxy<T> {
-  console.warn('boxedProxy is deprecated, please use tosi() instead')
+  warnDeprecated(
+    'boxedProxy',
+    'boxedProxy is deprecated, please use tosi() instead'
+  )
   return tosi(obj)
 }
 
 export function xinProxy<T extends object>(obj: T, boxed = false): XinProxy<T> {
   if (boxed) {
-    console.warn(`xinProxy(..., true) is deprecated; use tosi(...) instead`)
+    warnDeprecated(
+      'xinProxy-boxed',
+      'xinProxy(..., true) is deprecated; use tosi(...) instead'
+    )
     // @ts-expect-error deprecated
     return boxedProxy(obj)
   }

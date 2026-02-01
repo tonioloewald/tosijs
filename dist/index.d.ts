@@ -8,7 +8,7 @@ export { elements, svgElements, mathML } from './elements';
 export type { ElementsProxy } from './elements-types';
 export { getCssVar } from './get-css-var';
 export { hotReload } from './hot-reload';
-export { xinPath, xinValue } from './metadata';
+export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, } from './list-binding';
 export { makeComponent } from './make-component';
 export type { XinBlueprint, XinFactory, XinPackagedComponent, XinComponentSpec, } from './make-component';

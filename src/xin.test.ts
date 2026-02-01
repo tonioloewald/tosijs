@@ -11,7 +11,15 @@ import {
 } from './xin'
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
-import { XIN_VALUE, xinPath, xinValue } from './metadata'
+import {
+  XIN_VALUE,
+  XIN_PATH,
+  xinPath,
+  xinValue,
+  tosiPath,
+  tosiValue,
+  tosiSetValue,
+} from './metadata'
 
 type Change = { path: string; value: any; observed?: any }
 const changes: Change[] = []
@@ -957,4 +965,161 @@ test('API consistency: scalar, object, and array all have same methods', () => {
   expect(typeof apiConsistencyTest.scalar.listBinding).toBe('function')
   expect(typeof apiConsistencyTest.obj.listBinding).toBe('function')
   expect(typeof apiConsistencyTest.arr.listBinding).toBe('function')
+})
+
+// Tests for new tosiPath, tosiValue, tosiSetValue utilities
+
+test('tosiPath returns path for scalars', () => {
+  const { tosiPathScalar } = tosi({ tosiPathScalar: { count: 42 } })
+  expect(tosiPath(tosiPathScalar.count)).toBe('tosiPathScalar.count')
+})
+
+test('tosiPath returns path for objects', () => {
+  const { tosiPathObj } = tosi({ tosiPathObj: { nested: { a: 1 } } })
+  expect(tosiPath(tosiPathObj.nested)).toBe('tosiPathObj.nested')
+})
+
+test('tosiPath returns path for arrays', () => {
+  const { tosiPathArr } = tosi({ tosiPathArr: { items: [1, 2, 3] } })
+  expect(tosiPath(tosiPathArr.items)).toBe('tosiPathArr.items')
+})
+
+test('tosiPath returns undefined for non-proxies', () => {
+  const plainObj = { a: 1 }
+  expect(tosiPath(plainObj)).toBeUndefined()
+  expect(tosiPath(42)).toBeUndefined()
+  expect(tosiPath('hello')).toBeUndefined()
+  expect(tosiPath(null)).toBeUndefined()
+  expect(tosiPath(undefined)).toBeUndefined()
+})
+
+test('tosiValue returns value for scalars', () => {
+  const { tosiValueScalar } = tosi({ tosiValueScalar: { count: 42 } })
+  expect(tosiValue(tosiValueScalar.count)).toBe(42)
+})
+
+test('tosiValue returns value for objects', () => {
+  const original = { a: 1, b: 2 }
+  const { tosiValueObj } = tosi({ tosiValueObj: { nested: original } })
+  expect(tosiValue(tosiValueObj.nested)).toBe(original)
+})
+
+test('tosiValue returns value for arrays', () => {
+  const original = [1, 2, 3]
+  const { tosiValueArr } = tosi({ tosiValueArr: { items: original } })
+  expect(tosiValue(tosiValueArr.items)).toBe(original)
+})
+
+test('tosiValue passes through non-proxies', () => {
+  const plainObj = { a: 1 }
+  expect(tosiValue(plainObj)).toBe(plainObj)
+  expect(tosiValue(42)).toBe(42)
+  expect(tosiValue('hello')).toBe('hello')
+  expect(tosiValue(null)).toBe(null)
+  expect(tosiValue(undefined)).toBe(undefined)
+})
+
+test('tosiValue handles falsy values correctly', () => {
+  const { tosiValueFalsy } = tosi({
+    tosiValueFalsy: { zero: 0, empty: '', bool: false },
+  })
+  expect(tosiValue(tosiValueFalsy.zero)).toBe(0)
+  expect(tosiValue(tosiValueFalsy.empty)).toBe('')
+  expect(tosiValue(tosiValueFalsy.bool)).toBe(false)
+})
+
+test('tosiSetValue replaces array value', async () => {
+  const { tosiSetArr } = tosi({ tosiSetArr: { items: [1, 2, 3] } })
+  const newArray = [4, 5, 6]
+  tosiSetValue(tosiSetArr.items, newArray)
+  await updates()
+  expect(tosiValue(tosiSetArr.items)).toEqual([4, 5, 6])
+})
+
+test('tosiSetValue replaces object value', async () => {
+  const { tosiSetObj } = tosi({ tosiSetObj: { data: { a: 1 } } })
+  const newObj = { b: 2 }
+  tosiSetValue(tosiSetObj.data, newObj)
+  await updates()
+  expect(tosiValue(tosiSetObj.data)).toEqual({ b: 2 })
+})
+
+test('tosiSetValue triggers observers', async () => {
+  const { tosiSetObs } = tosi({ tosiSetObs: { items: [1] } })
+  let observed = false
+  const unsub = tosiSetObs.items.observe(() => {
+    observed = true
+  })
+  tosiSetValue(tosiSetObs.items, [2, 3])
+  await updates()
+  expect(observed).toBe(true)
+  unsub()
+})
+
+test('tosiSetValue throws for non-proxies', () => {
+  const plainObj = { a: 1 }
+  expect(() => tosiSetValue(plainObj, { b: 2 })).toThrow(
+    'tosiSetValue requires a xin or boxed proxy'
+  )
+})
+
+// Tests for symbol-based API (XIN_VALUE and XIN_PATH are now symbols)
+
+test('XIN_VALUE symbol returns value for scalars', () => {
+  const { symScalar } = tosi({ symScalar: { count: 42 } })
+  expect(symScalar.count[XIN_VALUE]).toBe(42)
+})
+
+test('XIN_VALUE symbol returns value for objects', () => {
+  const original = { a: 1 }
+  const { symObj } = tosi({ symObj: { nested: original } })
+  expect(symObj.nested[XIN_VALUE]).toBe(original)
+})
+
+test('XIN_VALUE symbol returns value for arrays', () => {
+  const original = [1, 2, 3]
+  const { symArr } = tosi({ symArr: { items: original } })
+  expect(symArr.items[XIN_VALUE]).toBe(original)
+})
+
+test('XIN_PATH symbol returns path for scalars', () => {
+  const { symPathScalar } = tosi({ symPathScalar: { count: 42 } })
+  expect(symPathScalar.count[XIN_PATH]).toBe('symPathScalar.count')
+})
+
+test('XIN_PATH symbol returns path for objects', () => {
+  const { symPathObj } = tosi({ symPathObj: { nested: { a: 1 } } })
+  expect(symPathObj.nested[XIN_PATH]).toBe('symPathObj.nested')
+})
+
+test('XIN_PATH symbol returns path for arrays', () => {
+  const { symPathArr } = tosi({ symPathArr: { items: [1, 2, 3] } })
+  expect(symPathArr.items[XIN_PATH]).toBe('symPathArr.items')
+})
+
+test('XIN_VALUE symbol setter replaces value', async () => {
+  const { symSetArr } = tosi({ symSetArr: { items: [1, 2, 3] } })
+  symSetArr.items[XIN_VALUE] = [4, 5, 6]
+  await updates()
+  expect(tosiValue(symSetArr.items)).toEqual([4, 5, 6])
+})
+
+test('symbol API works on objects with value/path properties', () => {
+  // This is the key use case: objects that have 'value' or 'path' as actual properties
+  const { symShadow } = tosi({
+    symShadow: {
+      config: { value: 100, path: '/home/user' },
+    },
+  })
+
+  // String properties return the actual object properties
+  expect(symShadow.config.value.value).toBe(100)
+  expect(symShadow.config.path.value).toBe('/home/user')
+
+  // Symbol properties return the proxy metadata
+  expect(symShadow.config[XIN_PATH]).toBe('symShadow.config')
+  expect(symShadow.config[XIN_VALUE]).toEqual({
+    value: 100,
+    path: '/home/user',
+  })
 })

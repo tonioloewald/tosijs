@@ -331,6 +331,7 @@ import { Color } from './color'
 import { elements } from './elements'
 import { camelToKabob } from './string-case'
 import { XinStyleSheet, XinStyleRule } from './css-types'
+import { warnDeprecated } from './metadata'
 
 export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
   const element = elements.style(css(styleSpec))
@@ -426,7 +427,10 @@ export const css = (obj: XinStyleSheet, indentation = ''): string => {
 export const initVars = (obj: {
   [key: string]: string | number
 }): XinStyleRule => {
-  console.warn('initVars is deprecated. Just use _ and __ prefixes instead.')
+  warnDeprecated(
+    'initVars',
+    'initVars is deprecated. Just use _ and __ prefixes instead.'
+  )
   const rule: XinStyleRule = {}
   for (const key of Object.keys(obj)) {
     const value = obj[key]

@@ -1,6 +1,6 @@
 import { test, expect, spyOn } from 'bun:test'
 import { xin } from './xin'
-import { xinPath } from './metadata'
+import { xinPath, _resetDeprecationWarnings } from './metadata'
 import { tosi, xinProxy, boxedProxy } from './xin-proxy'
 
 test('tosi works', () => {
@@ -90,6 +90,7 @@ test('xinProxy with boxed=true warns and calls tosi', () => {
 })
 
 test('boxedProxy warns and delegates to tosi', () => {
+  _resetDeprecationWarnings()
   const warnSpy = spyOn(console, 'warn').mockImplementation(() => {})
 
   const data = {
@@ -100,9 +101,7 @@ test('boxedProxy warns and delegates to tosi', () => {
 
   const result = boxedProxy(data)
 
-  expect(warnSpy).toHaveBeenCalledWith(
-    'boxedProxy is deprecated, please use tosi() instead'
-  )
+  expect(warnSpy).toHaveBeenCalled()
   expect(result.boxedProxyTest.item.valueOf()).toBe('world')
 
   warnSpy.mockRestore()

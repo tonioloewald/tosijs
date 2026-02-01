@@ -769,10 +769,12 @@ const regHandler = (
           ]
         // Deprecated names for boxed scalars
         case XIN_VALUE:
+        case 'xinValue':
         case 'tosiValue':
           warnDeprecation()
           return getValue()
         case XIN_PATH:
+        case 'xinPath':
         case 'tosiPath':
           warnDeprecation()
           return path
@@ -904,20 +906,24 @@ const regHandler = (
     // Legacy API (xin/tosi prefixed) - works for both xin and boxed proxies
     switch (_prop) {
       case XIN_PATH:
+      case 'xinPath':
       case 'tosiPath':
         return path
       case XIN_VALUE:
+      case 'xinValue':
       case 'tosiValue':
         // For proxied objects, valueOf() returns the underlying object
         // because function values are bound to target in the get handler
         return target.valueOf ? target.valueOf() : target
       case XIN_OBSERVE:
+      case 'xinObserve':
       case 'tosiObserve':
         return (callback: ObserverCallbackFunction) => {
           const listener = _observe(path, callback)
           return () => unobserve(listener)
         }
       case XIN_ON:
+      case 'xinOn':
       case 'tosiOn':
         return (
           element: HTMLElement,
@@ -925,6 +931,7 @@ const regHandler = (
         ): VoidFunction =>
           getOn()(element, eventType, xinValue(target) as XinEventHandler)
       case XIN_BIND:
+      case 'xinBind':
       case 'tosiBind':
         return (element: Element, binding: XinBinding, options?: XinObject) => {
           getBind()(element, path, binding, options)
@@ -1039,14 +1046,16 @@ const regHandler = (
         : target[prop]
     }
   },
-  set(target, prop: string, value: any) {
+  set(target, prop: string | symbol, value: any) {
     value = xinValue(value)
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
     // (when boxScalars is true, .value should always set the underlying value)
     const isValueProp =
       prop === XIN_VALUE ||
+      prop === 'xinValue' ||
+      prop === 'tosiValue' ||
       (prop === 'value' && (isBoxedScalar(target) || boxScalars))
-    const fullPath = isValueProp ? path : extendPath(path, prop)
+    const fullPath = isValueProp ? path : extendPath(path, prop as string)
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
     }

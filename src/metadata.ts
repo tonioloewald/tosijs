@@ -46,8 +46,8 @@ export const BOUND_SELECTOR = `.${BOUND_CLASS}`
 export const EVENT_CLASS = '-xin-event'
 export const EVENT_SELECTOR = `.${EVENT_CLASS}`
 
-export const XIN_PATH = 'xinPath'
-export const XIN_VALUE = 'xinValue'
+export const XIN_PATH = Symbol.for('xin-path')
+export const XIN_VALUE = Symbol.for('xin-value')
 export const XIN_OBSERVE = 'xinObserve'
 export const XIN_BIND = 'xinBind'
 export const XIN_ON = 'xinOn'
@@ -55,18 +55,86 @@ export const XIN_ON = 'xinOn'
 export const LIST_BINDING_REF = Symbol('list-binding')
 export const LIST_INSTANCE_REF = Symbol('list-instance')
 
-export const xinPath = (x: any): string | undefined => {
+// Track which deprecation warnings have been shown
+const deprecationWarnings = new Set<string>()
+
+/**
+ * Emit a deprecation warning once per unique key.
+ */
+export function warnDeprecated(key: string, message: string): void {
+  if (!deprecationWarnings.has(key)) {
+    console.warn(message)
+    deprecationWarnings.add(key)
+  }
+}
+
+/**
+ * Reset deprecation warnings (for testing only).
+ */
+export function _resetDeprecationWarnings(): void {
+  deprecationWarnings.clear()
+}
+
+/**
+ * Wraps a function to emit a deprecation warning once on first call.
+ */
+export function deprecated<T extends (...args: any[]) => any>(
+  fn: T,
+  message: string
+): T {
+  let warned = false
+  return ((...args: Parameters<T>): ReturnType<T> => {
+    if (!warned) {
+      console.warn(message)
+      warned = true
+    }
+    return fn(...args)
+  }) as T
+}
+
+/**
+ * Get the path of a xin or boxed proxy.
+ * Returns undefined for non-proxy values.
+ */
+export const tosiPath = (x: any): string | undefined => {
   return (x && x[XIN_PATH]) || undefined
 }
 
-export function xinValue<T>(x: T): Unboxed<T> {
+/**
+ * Get the underlying value of a xin or boxed proxy.
+ * Passes through non-proxy values unchanged.
+ */
+export function tosiValue<T>(x: T): Unboxed<T> {
   if (typeof x === 'object' && x !== null) {
     const val = (x as unknown as XinProps)[XIN_VALUE]
-    // Use explicit undefined check instead of || to handle falsy values (0, false, '')
     return (val !== undefined ? val : x) as Unboxed<T>
   }
   return x as Unboxed<T>
 }
+
+/**
+ * Set the value of a boxed proxy (replaces the entire value at that path).
+ * Useful for replacing arrays or objects.
+ */
+export function tosiSetValue<T>(proxy: any, value: T): void {
+  const path = tosiPath(proxy)
+  if (path === undefined) {
+    throw new Error('tosiSetValue requires a xin or boxed proxy')
+  }
+  proxy[XIN_VALUE] = value
+}
+
+/** @deprecated Use tosiPath instead */
+export const xinPath = deprecated(
+  tosiPath,
+  'xinPath is deprecated. Use tosiPath instead.'
+)
+
+/** @deprecated Use tosiValue instead */
+export const xinValue = deprecated(
+  tosiValue,
+  'xinValue is deprecated. Use tosiValue instead.'
+)
 
 export interface DataBinding<T extends Element = Element> {
   path: string
