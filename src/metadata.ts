@@ -12,12 +12,13 @@ import { boxed } from 'tosijs'
 const foo = { bar: 'hello', baz: 17 }
 boxed.foo = foo
 
-boxed.foo.bar === foo.bar               // false, boxed.foo.bar is a String
-boxed.foo === foo                       // false, boxed.foo is a Proxy
-boxed.foo.baz === 17                    // false, boxed.foo.baz is a Number
+boxed.foo.bar === foo.bar               // false, boxed.foo.bar is a proxy
+boxed.foo === foo                       // false, boxed.foo is a proxy
+boxed.foo.baz === 17                    // false, boxed.foo.baz is a proxy
 xinValue(boxed.foo.bar) === 'hello'     // true
-boxed.foo.xinValue === foo              // true
-boxed.foo.baz.xinValue = 17             // true
+boxed.foo.bar.value === 'hello'         // true (preferred)
+boxed.foo.xinValue === foo              // true (deprecated)
+boxed.foo.baz.value === 17              // true
 xinValue(boxed.foo) === xinValue(foo)   // true
 foo.xinValue                            // undefined! foo isn't a proxy
 ```
@@ -27,6 +28,9 @@ foo.xinValue                            // undefined! foo isn't a proxy
 `xinPath` will get you the path of a `xin` or `boxed` proxy. `xinPath` will be
 undefined for anything that's isn't a `xin` or `boxed` proxy, so it can also
 be used to tell if a value is a (`xin` or `boxed`) proxy.
+
+> Note: For boxed scalars, prefer using `.value` and `.path` directly:
+> `boxed.foo.bar.value` and `boxed.foo.bar.path`
 */
 import {
   XinObject,

@@ -48,7 +48,10 @@ export interface BoxedScalar<T> {
             binding: XinBinding;
         };
     };
+    listBinding: (templateBuilder: ListTemplateBuilder<T>, options?: ListBindingOptions) => ListBinding;
     valueOf: () => T;
+    toString: () => string;
+    toJSON: () => T;
     xinValue: T;
     xinPath: string;
     tosiValue: T;
@@ -69,7 +72,7 @@ export interface BoxedScalar<T> {
 export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
 } & XinProps<T> : T extends string ? BoxedScalar<string> : T extends number ? BoxedScalar<number> : T extends boolean ? BoxedScalar<boolean> : T extends undefined | null ? BoxedScalar<T> : T;
-export type Unboxed<T = any> = T extends String ? string : T extends Number ? number : T extends Boolean ? boolean : T;
+export type Unboxed<T = any> = T extends BoxedScalar<infer U> ? U : T extends String ? string : T extends Number ? number : T extends Boolean ? boolean : T;
 export type XinProxy<T = any> = T extends Array<infer U> ? Array<XinProxy<U>> : T extends Function ? T : T extends object ? {
     [K in keyof T]: T[K] extends object ? XinProxy<T[K]> : T[K];
 } : T;

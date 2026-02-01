@@ -5,8 +5,8 @@
 and returns an observer proxy (`BoxedProxy`) wrapped around the global state object.
 
 BoxedProxy wraps any object you pull out of it in an observer
-ptoxy. It boxes booleans, numbers, and strings in objects and wraps
-those objects in an observer proxy.
+proxy. It boxes booleans, numbers, and strings in lightweight proxies
+that know their path and can access/modify the underlying value.
 
 In rough terms:
 
@@ -50,10 +50,10 @@ that it:
   in a BoxedProxy, so `prefs.theme.xinPath === 'prefs.theme'`
 
 ```
-prefs.theme instanceof String           // true
+prefs.theme.value === 'system'          // true
+prefs.theme.path === 'prefs.theme'      // true
 prefs.theme.valueOf() === 'system'      // true
-prefs.theme.xinValue === 'system'       // true
-prefs.theme.xinPath === 'prefs.theme'   // true
+String(prefs.theme) === 'system'        // true (via Symbol.toPrimitive)
 ```
 
 The `BoxedProxy` observes changes made through it and updates bound elements
@@ -83,10 +83,11 @@ appropriately, and modifying `prefs.theme` will update the
 bound element automatically.
 
 ```
-proxy.theme.xinValue = 'dark'
+proxy.theme.value = 'dark'
 ```
 
-> In javascript you can just write `proxy.theme = 'dark'`.
+> In javascript you can just write `proxy.theme = 'dark'` (TypeScript
+> doesn't allow this due to asymmetric get/set type limitations).
 
 This, in a nutshell, explains exactly what `tosijs` is designed to do.
 
@@ -373,7 +374,8 @@ or one of `lurman`'s properties is changed.
 ## The `boxed` proxy
 
 `boxed` is a sister to `xin` that wraps "scalar" values (`boolean`, `number`, `string`) in
-objects. E.g. if you write something like:
+lightweight proxies. These proxies know their path and provide convenient access to the
+underlying value. E.g. if you write something like:
 
 ```
 xin.test = { answer: 42 }
@@ -385,12 +387,14 @@ Then:
 ```
 xin.test.answer === 42
 xin.box.pie === 'apple'
-// box wraps "scalars" in objects
+// boxed scalars have .value and .path
+boxed.test.answer.value === 42
+boxed.box.pie.value === 'apple'
+boxed.test.answer.path === 'test.answer'
+boxed.box.pie.path === 'box.pie'
+// valueOf() works for coercion
 boxed.test.answer.valueOf() === 42
-boxed.box.pie.valueOf() === 'apple'
-// anything that comes out of boxed has a path!
-xinPath(boxed.test.answer) === 'test.answer'
-xinPath(boxed.box.pie) === 'box.pie'
+String(boxed.box.pie) === 'apple'
 ```
 
 Aside from always "boxing" scalar values, `boxed` works just like `xin`.
@@ -480,33 +484,36 @@ And the difference here is you can bind direct to the reference itself rather
 than a string. This leverages autocomplete, linting, and so on in a way that
 using string paths doesn't.
 
-It does have a downside! `boxedExample.string !== 'hello, boxed'` and in fact
-`boxedExample.string !== boxedExample.string` because they're two different
-`String` objects. This is critical for comparisons such as `===` and `!==`.
-Always use `boxed.foo.bar.xinValue`, `xinValue(boxed.foo.bar)` or `boxed.foo.bar.valueOf()`
-when performing comparisons like this.
+It does have a downside! `boxedExample.string !== 'hello, boxed'` and
+`boxedExample.string !== boxedExample.string` because they're proxies, not primitives.
+This is critical for comparisons such as `===` and `!==`.
+Always use `.value`, `xinValue()`, or `valueOf()` when comparing:
+`boxed.foo.bar.value === 'hello'` or `xinValue(boxed.foo.bar) === 'hello'`.
 
 ## Helper properties and functions
 
-`XinProxy` and `BoxedProxy` provide some helper properties and functions.
+`BoxedProxy` provides these helper properties and methods on boxed scalars:
 
-- `xinValue` gets you the underlying value
-- `xinPath` gets you the string path
-- `xinBind(element: Element, binding: [XinBinding](/?bindings.ts), options?: {[key: string]: any})` will
-  bind the `xinPath` the element with the specified binding.
-  ```
-  boxed.foo.color.bind(element, {
-    toDOM(element, color){
-      element.style.backgroundColor = color
-    }
-  })
-  ```
-- `xinOn(element: HTMLElement, eventType: keyof HTMLElementEventMap)` will
-  trigger the event handler when the specified element receives
-  an event of the specified type.
-- `xinObserve(callback: ObserverCallbackFunction): UnobserveFunction` will
-  trigger the provided callback when the value changes, and can be cancelled
-  using the returned function.
+- `.value` gets or sets the underlying value
+- `.path` gets the string path
+- `.observe(callback)` watches for changes, returns an unsubscribe function
+- `.bind(element, binding, options?)` binds the value to a DOM element
+- `.on(element, eventType)` binds an event handler
+- `.binding(binding)` returns an inline binding spec for use with elements
+- `.listBinding(templateBuilder, options?)` returns a list binding spec
+- `.valueOf()` / `.toJSON()` / `.toString()` for type coercion
+
+Example:
+```
+boxed.foo.color.bind(element, {
+  toDOM(element, color){
+    element.style.backgroundColor = color
+  }
+})
+```
+
+> Note: The `xinValue`, `xinPath`, `xinObserve`, `xinBind`, `xinOn` names
+> still work but are deprecated. Use the shorter names above.
 
 ### To Do List Example
 
