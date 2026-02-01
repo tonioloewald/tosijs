@@ -58,7 +58,11 @@ State (xin) ──────────────────────�
 
 **Key types (in `xin-types.ts`):**
 - `BoxedProxy<T>` - Type-safe proxy for state objects
-- `BoxedScalar<T>` - Boxed primitive values with `.value` and `.path` accessors
+- `BoxedScalar<T>` - Lightweight proxy for primitives (string/number/boolean) with:
+  - `.value` / `.path` - Get/set value and get path
+  - `.observe()`, `.bind()`, `.on()` - Reactive bindings
+  - `.valueOf()`, `.toString()`, `.toJSON()` - Type coercion
+  - Note: `xinValue`, `xinPath`, etc. are deprecated; use the above
 - `XinBinding<T>` - Binding specification with `toDOM` and `fromDOM` functions
 - `Component` - Abstract base class for web components
 
