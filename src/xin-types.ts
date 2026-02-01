@@ -55,9 +55,12 @@ export interface BoxedScalar<T> {
   bind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
   binding: (binding: XinBinding) => { bind: { value: string; binding: XinBinding } }
+  listBinding: (templateBuilder: ListTemplateBuilder<T>, options?: ListBindingOptions) => ListBinding
 
-  // valueOf for == compatibility (but === will still fail as expected)
+  // Type coercion methods
   valueOf: () => T
+  toString: () => string
+  toJSON: () => T
 
   // Deprecated aliases - will trigger console warning
   xinValue: T
@@ -91,7 +94,12 @@ export type BoxedProxy<T = any> = T extends Array<infer U>
   ? BoxedScalar<T>
   : T
 
-export type Unboxed<T = any> = T extends String
+// Unboxed extracts the primitive value from a BoxedScalar or returns T as-is
+// Since boxed scalars are proxies (not String/Number/Boolean objects),
+// we check for BoxedScalar interface
+export type Unboxed<T = any> = T extends BoxedScalar<infer U>
+  ? U
+  : T extends String
   ? string
   : T extends Number
   ? number

@@ -649,42 +649,22 @@ const extendPath = (path = '', prop = ''): string => {
   }
 }
 
-const boxes: { [key: string]: (x: any) => any } = {
-  string(s: string) {
-    return new String(s)
-  },
-  boolean(b: boolean) {
-    return new Boolean(b)
-  },
-  bigint(b: bigint) {
-    return b
-  },
-  symbol(s: symbol) {
-    return s
-  },
-  number(n: number) {
-    return new Number(n)
-  },
-}
-
-const ACTUAL = Symbol('undefined')
+// Single shared target for all boxed scalar proxies - the proxy handler
+// closure contains all the actual information (path), and values are
+// always read from/written to the registry
+const BOXED_SCALAR = Symbol('boxed-scalar')
+const boxedScalarTarget = { [BOXED_SCALAR]: true }
 
 function box<T>(x: T, path: string): T {
-  if (x === undefined || x === null) {
-    return new Proxy<XinProxyTarget, XinObject>(
-      { [ACTUAL]: x === null ? 'null' : 'undefined' },
-      regHandler(path, true)
-    ) as T
-  }
-  const t = typeof x
-  if (t === 'object' || t === 'function') {
+  // Objects and functions don't need boxing - they get proxied directly
+  if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
     return x
-  } else {
-    return new Proxy<XinProxyTarget, XinObject>(
-      boxes[typeof x](x),
-      regHandler(path, true)
-    ) as T
   }
+  // For scalars, use the shared target - path is captured in the handler closure
+  return new Proxy<XinProxyTarget, XinObject>(
+    boxedScalarTarget,
+    regHandler(path, true)
+  ) as T
 }
 
 const listElement = () => new Proxy({}, regHandler('^', true))
@@ -700,14 +680,9 @@ function warnDeprecation() {
   }
 }
 
-// Check if target is a boxed scalar (Number, String, Boolean, or null/undefined wrapper)
+// Check if target is a boxed scalar proxy
 const isBoxedScalar = (target: any): boolean => {
-  return (
-    target instanceof Number ||
-    target instanceof String ||
-    target instanceof Boolean ||
-    ACTUAL in target
-  )
+  return target != null && BOXED_SCALAR in target
 }
 
 const regHandler = (
@@ -715,20 +690,29 @@ const regHandler = (
   boxScalars: boolean
 ): ProxyHandler<XinObject> => ({
   get(target: XinObject | XinArray, _prop: string | symbol): XinValue {
-    // Only intercept short names for boxed scalars to avoid conflicts with object properties
+    // For boxed scalars, intercept property access - value always comes from registry
     if (isBoxedScalar(target)) {
+      // Helper to get the actual value from registry
+      const getValue = () => getByPath(registry, path)
+
       switch (_prop) {
-        // New short names (primary API) - only for boxed scalars
+        // Primary API for boxed scalars
         case 'path':
           return path
         case 'value':
-          return (target as any)[ACTUAL]
-            ? (target as any)[ACTUAL] === 'null'
-              ? null
-              : undefined
-            : target.valueOf
-            ? target.valueOf()
-            : target
+          return getValue()
+        case 'valueOf':
+        case 'toJSON':
+          return () => getValue()
+        case Symbol.toPrimitive:
+          return (hint: string) => {
+            const val = getValue()
+            if (hint === 'number') return Number(val)
+            if (hint === 'string') return String(val)
+            return val
+          }
+        case 'toString':
+          return () => String(getValue())
         case 'observe':
           return (callback: ObserverCallbackFunction) => {
             const listener = _observe(path, callback)
@@ -739,7 +723,7 @@ const regHandler = (
             element: HTMLElement,
             eventType: keyof HTMLElementEventMap
           ): VoidFunction =>
-            getOn()(element, eventType, xinValue(target) as XinEventHandler)
+            getOn()(element, eventType, getValue() as XinEventHandler)
         case 'bind':
           return (
             element: Element,
@@ -774,13 +758,7 @@ const regHandler = (
         case XIN_VALUE:
         case 'tosiValue':
           warnDeprecation()
-          return (target as any)[ACTUAL]
-            ? (target as any)[ACTUAL] === 'null'
-              ? null
-              : undefined
-            : target.valueOf
-            ? target.valueOf()
-            : target
+          return getValue()
         case XIN_PATH:
         case 'tosiPath':
           warnDeprecation()
@@ -799,7 +777,7 @@ const regHandler = (
             element: HTMLElement,
             eventType: keyof HTMLElementEventMap
           ): VoidFunction =>
-            getOn()(element, eventType, xinValue(target) as XinEventHandler)
+            getOn()(element, eventType, getValue() as XinEventHandler)
         case XIN_BIND:
         case 'tosiBind':
           warnDeprecation()
@@ -835,6 +813,24 @@ const regHandler = (
             elements.template(content(elements, listElement())),
           ]
       }
+
+      // String index access (e.g., boxedStr[0])
+      if (typeof _prop === 'string' && /^\d+$/.test(_prop)) {
+        const val = getValue()
+        if (typeof val === 'string') {
+          return val[parseInt(_prop, 10)]
+        }
+      }
+
+      // String length
+      if (_prop === 'length') {
+        const val = getValue()
+        if (typeof val === 'string') {
+          return val.length
+        }
+      }
+
+      return undefined
     }
 
     // For non-boxed-scalar objects, handle the xin/tosi prefixed names (no deprecation warning)
@@ -844,13 +840,9 @@ const regHandler = (
         return path
       case XIN_VALUE:
       case 'tosiValue':
-        return (target as any)[ACTUAL]
-          ? (target as any)[ACTUAL] === 'null'
-            ? null
-            : undefined
-          : target.valueOf
-          ? target.valueOf()
-          : target
+        // For proxied objects, valueOf() returns the underlying object
+        // because function values are bound to target in the get handler
+        return target.valueOf ? target.valueOf() : target
       case XIN_OBSERVE:
       case 'tosiObserve':
         return (callback: ObserverCallbackFunction) => {
