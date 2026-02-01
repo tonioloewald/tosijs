@@ -405,21 +405,21 @@ test('xinValue works, xin does not corrupt content', () => {
 })
 
 test('xinObserve works', async () => {
-  const { test } = boxed
-  let a: any = null
-  const unobserveValue = test.value.xinObserve((path: string) => {
-    a = xin[path]
+  const { xinObserveTest } = tosi({ xinObserveTest: { val: 'initial' } })
+  let observedValue: any = null
+  const unobserveValue = xinObserveTest.val.xinObserve(() => {
+    observedValue = xinObserveTest.val.value
   })
-  test.value = 'hello'
+  xinObserveTest.val.value = 'hello'
   await updates()
-  expect(a).toBe('hello')
-  test.value = 17
+  expect(observedValue).toBe('hello')
+  xinObserveTest.val.value = 17
   await updates()
-  expect(a).toBe(17)
+  expect(observedValue).toBe(17)
   unobserveValue()
-  test.value = 'goodbye'
+  xinObserveTest.val.value = 'goodbye'
   await updates()
-  expect(a).toBe(17)
+  expect(observedValue).toBe(17) // unchanged because unobserved
 })
 
 test('xinOn works', async () => {
@@ -818,4 +818,143 @@ test('array unshift unwraps boxed values', () => {
   const raw = xinValue(unshiftTest.items)
   expect(raw).toEqual(['a', 'b'])
   expect(typeof raw[0]).toBe('string')
+})
+
+// Tests for boxed object/array API parity with BoxedScalar
+test('boxed object new API - path property', () => {
+  const { objPathTest } = tosi({ objPathTest: { nested: { deep: 'value' } } })
+  expect(objPathTest.path).toBe('objPathTest')
+  expect(objPathTest.nested.path).toBe('objPathTest.nested')
+})
+
+test('boxed object new API - value property', () => {
+  const { objValueTest } = tosi({
+    objValueTest: { nested: { a: 1, b: 2 } },
+  })
+  expect(objValueTest.value).toEqual({ nested: { a: 1, b: 2 } })
+  expect(objValueTest.nested.value).toEqual({ a: 1, b: 2 })
+})
+
+test('boxed object new API - valueOf and toJSON methods', () => {
+  const { objMethodsTest } = tosi({
+    objMethodsTest: { data: { x: 10 } },
+  })
+  expect(objMethodsTest.valueOf()).toEqual({ data: { x: 10 } })
+  expect(objMethodsTest.toJSON()).toEqual({ data: { x: 10 } })
+  expect(objMethodsTest.data.valueOf()).toEqual({ x: 10 })
+})
+
+test('boxed object new API - observe method', async () => {
+  const { objObserveTest } = tosi({ objObserveTest: { count: 0 } })
+  let observed = false
+  const unobserveFn = objObserveTest.observe(() => {
+    observed = true
+  })
+  objObserveTest.count = 1
+  await updates()
+  expect(observed).toBe(true)
+  unobserveFn()
+})
+
+test('boxed object new API - bind method', async () => {
+  const { objBindTest2 } = tosi({ objBindTest2: { text: 'initial' } })
+  const div = elements.div()
+  document.body.append(div)
+  // Bind to the text property specifically (matching how bindings work)
+  objBindTest2.text.bind(div, {
+    toDOM(element, value) {
+      element.textContent = value
+    },
+  })
+  await updates()
+  expect(div.textContent).toBe('initial')
+  objBindTest2.text = 'updated'
+  await updates()
+  expect(div.textContent).toBe('updated')
+  div.remove()
+})
+
+test('boxed object new API - binding method', () => {
+  const { objBindingTest2 } = tosi({ objBindingTest2: { val: 'test' } })
+  const binding = objBindingTest2.binding({
+    toDOM(element, value) {
+      element.textContent = JSON.stringify(value)
+    },
+  })
+  expect(binding.bind.value).toBe('objBindingTest2')
+  expect(binding.bind.binding).toBeDefined()
+})
+
+test('boxed array new API - path property', () => {
+  const { arrPathTest } = tosi({ arrPathTest: { items: [1, 2, 3] } })
+  expect(arrPathTest.items.path).toBe('arrPathTest.items')
+})
+
+test('boxed array new API - value property', () => {
+  const { arrValueTest } = tosi({ arrValueTest: { items: ['a', 'b'] } })
+  expect(arrValueTest.items.value).toEqual(['a', 'b'])
+})
+
+test('boxed array new API - listBinding method', async () => {
+  const { arrListBindTest } = tosi({
+    arrListBindTest: { items: ['x', 'y', 'z'] },
+  })
+  const [props, template] = arrListBindTest.items.listBinding(({ li }, item) =>
+    li(item)
+  )
+  expect(props.bindList).toBeDefined()
+  expect(props.bindList.value).toBe('arrListBindTest.items')
+  expect(template).toBeInstanceOf(HTMLTemplateElement)
+})
+
+test('boxed array new API - observe method', async () => {
+  const { arrObserveTest } = tosi({ arrObserveTest: { items: [1] } })
+  let observed = false
+  const unobserveFn = arrObserveTest.items.observe(() => {
+    observed = true
+  })
+  arrObserveTest.items.push(2)
+  await updates()
+  expect(observed).toBe(true)
+  unobserveFn()
+})
+
+test('API consistency: scalar, object, and array all have same methods', () => {
+  const { apiConsistencyTest } = tosi({
+    apiConsistencyTest: {
+      scalar: 'hello',
+      obj: { a: 1 },
+      arr: [1, 2, 3],
+    },
+  })
+
+  // All should have path
+  expect(typeof apiConsistencyTest.scalar.path).toBe('string')
+  expect(typeof apiConsistencyTest.obj.path).toBe('string')
+  expect(typeof apiConsistencyTest.arr.path).toBe('string')
+
+  // All should have value
+  expect(apiConsistencyTest.scalar.value).toBe('hello')
+  expect(apiConsistencyTest.obj.value).toEqual({ a: 1 })
+  expect(apiConsistencyTest.arr.value).toEqual([1, 2, 3])
+
+  // All should have observe
+  expect(typeof apiConsistencyTest.scalar.observe).toBe('function')
+  expect(typeof apiConsistencyTest.obj.observe).toBe('function')
+  expect(typeof apiConsistencyTest.arr.observe).toBe('function')
+
+  // All should have bind
+  expect(typeof apiConsistencyTest.scalar.bind).toBe('function')
+  expect(typeof apiConsistencyTest.obj.bind).toBe('function')
+  expect(typeof apiConsistencyTest.arr.bind).toBe('function')
+
+  // All should have binding
+  expect(typeof apiConsistencyTest.scalar.binding).toBe('function')
+  expect(typeof apiConsistencyTest.obj.binding).toBe('function')
+  expect(typeof apiConsistencyTest.arr.binding).toBe('function')
+
+  // All should have listBinding
+  expect(typeof apiConsistencyTest.scalar.listBinding).toBe('function')
+  expect(typeof apiConsistencyTest.obj.listBinding).toBe('function')
+  expect(typeof apiConsistencyTest.arr.listBinding).toBe('function')
 })

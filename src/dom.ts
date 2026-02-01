@@ -22,14 +22,14 @@ const valueType = (element: Element): string => {
 export const setValue = (element: Element, newValue: any): void => {
   switch (valueType(element)) {
     case 'radio':
-      ;(element as HTMLInputElement).checked =
+      (element as HTMLInputElement).checked =
         (element as HTMLInputElement).value === newValue
       break
     case 'checkbox':
-      ;(element as HTMLInputElement).checked = !!newValue
+      (element as HTMLInputElement).checked = !!newValue
       break
     case 'date':
-      ;(element as HTMLInputElement).valueAsDate = new Date(newValue)
+      (element as HTMLInputElement).valueAsDate = new Date(newValue)
       break
     case 'multi-select':
       for (const option of Array.from(
@@ -39,7 +39,7 @@ export const setValue = (element: Element, newValue: any): void => {
       }
       break
     default:
-      ;(element as HTMLInputElement).value = newValue
+      (element as HTMLInputElement).value = newValue
   }
 }
 

@@ -158,13 +158,13 @@ export const bindings: { [key: string | symbol]: XinBinding<Element> } = {
 
   enabled: {
     toDOM(element: Element, value: any) {
-      ;(element as HTMLInputElement).disabled = !value
+      (element as HTMLInputElement).disabled = !value
     },
   },
 
   disabled: {
     toDOM(element: Element, value: any) {
-      ;(element as HTMLButtonElement).disabled = Boolean(value)
+      (element as HTMLButtonElement).disabled = Boolean(value)
     },
   },
 

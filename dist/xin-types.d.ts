@@ -11,7 +11,27 @@ export type XinProxyTarget = XinObject | XinArray;
 export type XinValue = XinObject | XinArray | XinScalar | null | undefined;
 type ProxyObserveFunc = ((path: string) => void);
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBinding<T>, options?: XinObject) => VoidFunction;
+/**
+ * XinProps provides the reactive API for boxed objects and arrays.
+ * As of 1.1.1, this matches the BoxedScalar API for consistency.
+ * As of 1.1.2, .value setter works correctly for arrays/objects.
+ * Note: These properties are only available when using `boxed`/`tosi()`,
+ * and only when the property name doesn't shadow an actual property on the object.
+ */
 export interface XinProps<T = any> {
+    path: string;
+    value: T;
+    observe: ProxyObserveFunc;
+    bind: ProxyBindFunc;
+    on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction;
+    binding: (binding: XinBinding) => {
+        bind: {
+            value: string;
+            binding: XinBinding;
+        };
+    };
+    valueOf: () => T;
+    toJSON: () => T;
     [XIN_PATH]: string;
     tosiPath: string;
     [XIN_VALUE]: T;
@@ -24,8 +44,8 @@ export interface XinProps<T = any> {
 type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement;
 type ListBinding = [ElementProps, HTMLTemplateElement];
 export interface BoxedArrayProps<U = any> {
-    tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding;
     listBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding;
+    tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding;
 }
 /**
  * BoxedScalar represents a boxed primitive value (string, number, boolean, null, undefined).

@@ -492,7 +492,8 @@ Always use `.value`, `xinValue()`, or `valueOf()` when comparing:
 
 ## Helper properties and functions
 
-`BoxedProxy` provides these helper properties and methods on boxed scalars:
+`BoxedProxy` provides these helper properties and methods on all boxed values
+(scalars, objects, and arrays):
 
 - `.value` gets or sets the underlying value
 - `.path` gets the string path
@@ -501,7 +502,7 @@ Always use `.value`, `xinValue()`, or `valueOf()` when comparing:
 - `.on(element, eventType)` binds an event handler
 - `.binding(binding)` returns an inline binding spec for use with elements
 - `.listBinding(templateBuilder, options?)` returns a list binding spec
-- `.valueOf()` / `.toJSON()` / `.toString()` for type coercion
+- `.valueOf()` / `.toJSON()` for type coercion (scalars also have `.toString()`)
 
 Example:
 ```
@@ -510,10 +511,16 @@ boxed.foo.color.bind(element, {
     element.style.backgroundColor = color
   }
 })
+
+// Works on objects too:
+boxed.app.user.path      // 'app.user'
+boxed.app.user.value     // { name: 'Alice', ... }
+boxed.app.items.observe(callback)  // observe array changes
 ```
 
-> Note: The `xinValue`, `xinPath`, `xinObserve`, `xinBind`, `xinOn` names
-> still work but are deprecated. Use the shorter names above.
+> Note: The `xinValue`, `xinPath`, `xinObserve`, `xinBind`, `xinOn`, and
+> `tosiValue`, `tosiPath`, etc. names still work but are deprecated.
+> Use the shorter names above.
 
 ### To Do List Example
 
@@ -659,8 +666,7 @@ const extendPath = (path = '', prop = ''): string => {
 // Single shared target for all boxed scalar proxies - the proxy handler
 // closure contains all the actual information (path), and values are
 // always read from/written to the registry
-const BOXED_SCALAR = Symbol('boxed-scalar')
-const boxedScalarTarget = { [BOXED_SCALAR]: true }
+const boxedScalarTarget = {}
 
 function box<T>(x: T, path: string): T {
   // Objects and functions don't need boxing - they get proxied directly
@@ -689,7 +695,7 @@ function warnDeprecation() {
 
 // Check if target is a boxed scalar proxy
 const isBoxedScalar = (target: any): boolean => {
-  return target != null && BOXED_SCALAR in target
+  return target === boxedScalarTarget
 }
 
 const regHandler = (
@@ -840,7 +846,62 @@ const regHandler = (
       return undefined
     }
 
-    // For non-boxed-scalar objects, handle the xin/tosi prefixed names (no deprecation warning)
+    // For non-boxed-scalar objects, handle property access
+    // Primary API (unprefixed) - only for boxed proxies to avoid conflicts with actual properties
+    // Only intercept if the property does NOT exist on the target (to avoid shadowing real properties)
+    if (boxScalars && !(_prop in target)) {
+      switch (_prop) {
+        case 'path':
+          return path
+        case 'value':
+          return target.valueOf ? target.valueOf() : target
+        case 'valueOf':
+        case 'toJSON':
+          return () => (target.valueOf ? target.valueOf() : target)
+        case 'observe':
+          return (callback: ObserverCallbackFunction) => {
+            const listener = _observe(path, callback)
+            return () => unobserve(listener)
+          }
+        case 'on':
+          return (
+            element: HTMLElement,
+            eventType: keyof HTMLElementEventMap
+          ): VoidFunction =>
+            getOn()(element, eventType, xinValue(target) as XinEventHandler)
+        case 'bind':
+          return (
+            element: Element,
+            binding: XinBinding,
+            options?: XinObject
+          ) => {
+            getBind()(element, path, binding, options)
+          }
+        case 'binding':
+          return (binding: XinBinding) => ({
+            bind: {
+              value: path,
+              binding,
+            },
+          })
+        case 'listBinding':
+          return (
+            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
+              span,
+            }) => span({ bindText: '^' }),
+            options: XinObject = {}
+          ) => [
+            {
+              bindList: {
+                value: path,
+                ...options,
+              },
+            },
+            elements.template(content(elements, listElement())),
+          ]
+      }
+    }
+    // Legacy API (xin/tosi prefixed) - works for both xin and boxed proxies
     switch (_prop) {
       case XIN_PATH:
       case 'tosiPath':
@@ -980,9 +1041,11 @@ const regHandler = (
   },
   set(target, prop: string, value: any) {
     value = xinValue(value)
-    // Only treat 'value' as a path setter for boxed scalars
+    // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
+    // (when boxScalars is true, .value should always set the underlying value)
     const isValueProp =
-      prop === XIN_VALUE || (prop === 'value' && isBoxedScalar(target))
+      prop === XIN_VALUE ||
+      (prop === 'value' && (isBoxedScalar(target) || boxScalars))
     const fullPath = isValueProp ? path : extendPath(path, prop)
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
