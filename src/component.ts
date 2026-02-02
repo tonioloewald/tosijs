@@ -377,84 +377,14 @@ Form-associated components are automatically made focusable (`tabindex="0"`) unl
 you explicitly set a different `tabindex`. This is required for form validation to
 work correctly (the browser needs to focus invalid elements).
 
-The following validation API is automatically available on form-associated components
-(delegated to `ElementInternals`):
+See [web-component-validation](/?web-component-validation) for the complete validation
+API documentation, including:
 
-- `validity` - the `ValidityState` of the element
-- `validationMessage` - the validation message
-- `willValidate` - whether the element will be validated
-- `checkValidity()` - returns `true` if valid, fires `invalid` event if not
-- `reportValidity()` - like `checkValidity()` but also shows validation UI
-- `setCustomValidity(message)` - set a custom error message (empty string clears)
-- `setValidity(flags, message?, anchor?)` - set validation state with optional focus anchor
-- `setFormValue(value, state?)` - update the form value
-- `validateValue()` - validates against required/minlength/maxlength/pattern attributes
-
-##### Automatic validation
-
-When a form-associated component's value changes, Component automatically validates
-against standard HTML validation attributes:
-
-- `required` - value cannot be empty
-- `minlength` / `maxlength` - string length constraints
-- `pattern` - regex pattern matching
-
-```html
-<my-input required minlength="3" maxlength="100" pattern="[a-z]+"></my-input>
-```
-
-Override `validateValue()` for custom validation logic (call `super.validateValue()`
-to include standard validation).
-
-##### Form lifecycle callbacks
-
-Component provides default implementations for form lifecycle callbacks:
-
-- `formResetCallback()` - resets value to `defaultValue` or empty string
-- `formDisabledCallback(disabled)` - syncs the `disabled` attribute
-- `formStateRestoreCallback(state)` - restores value on back/forward navigation
-
-Override these to customize behavior.
-
-##### Custom validation example
-
-All validation methods can be overridden in your subclass:
-
-```js
-class MyInput extends Component {
-  static formAssociated = true
-  value = ''
-
-  checkValidity() {
-    if (this.value.length < 3) {
-      this.setValidity({ tooShort: true }, 'Min 3 chars', this.parts.input)
-      return false
-    }
-    this.setValidity({})
-    return true
-  }
-}
-```
-
-##### With or without shadow DOM
-
-Components can work with or without a shadow DOM. By default, Component does NOT
-use shadow DOM - your content lives in the light DOM. Adding a `static styleSpec`
-triggers shadow DOM creation (for style encapsulation).
-
-The validation API works identically in both cases. The only difference is how you
-access internal elements for the validation anchor:
-
-```js
-// Light DOM (default) - use this.parts
-this.setValidity({ tooShort: true }, 'Min 3 chars', this.parts.input)
-
-// Shadow DOM (when using styleSpec) - use this.shadowRoot or this.parts
-this.setValidity({ tooShort: true }, 'Min 3 chars', this.shadowRoot.querySelector('input'))
-```
-
-> **Note**: `this.parts` works in both cases - it automatically searches the
-> `shadowRoot` when present, or the element itself when not.
+- Validation methods (`checkValidity()`, `reportValidity()`, `setValidity()`)
+- Automatic validation against HTML attributes (`required`, `minlength`, `maxlength`, `pattern`)
+- Form lifecycle callbacks (`formResetCallback`, `formDisabledCallback`, `formStateRestoreCallback`)
+- Custom states via `this.internals.states`
+- Complete examples
 
 #### value property
 
@@ -472,114 +402,6 @@ that can be *initialized* from an attribute. Here's what you need to know:
 
 **Do NOT put `value` in `static initAttributes`** - it will be rejected with a warning.
 The Component class handles `value` specially to provide form-like behavior automatically.
-
-##### Form Integration Example
-
-```js
-import { Component, elements } from 'tosijs'
-
-class FormInput extends Component {
-  static formAssociated = true
-  value = '' // property, not attribute!
-
-  content = ({input}) => input({part: 'input', placeholder: 'Type here...'})
-
-  connectedCallback() {
-    super.connectedCallback()
-    const input = this.parts.input
-    input.addEventListener('input', () => {
-      this.value = input.value
-      this.internals.setFormValue(this.value)
-      if (this.value.length < 3) {
-        this.internals.setValidity({tooShort: true}, 'Min 3 characters', input)
-        this.internals.states.add('invalid')
-      } else {
-        this.internals.setValidity({})
-        this.internals.states.delete('invalid')
-      }
-    })
-    input.addEventListener('focus', () => this.internals.states.add('focused'))
-    input.addEventListener('blur', () => this.internals.states.delete('focused'))
-  }
-
-  render() {
-    const input = this.parts.input
-    if (input.value !== this.value) input.value = this.value
-  }
-}
-
-const formInput = FormInput.elementCreator({tag: 'form-input'})
-const {form, div, button} = elements
-
-const output = div()
-const myForm = form(
-  formInput({name: 'username'}),
-  button({type: 'submit'}, 'Submit')
-)
-myForm.addEventListener('submit', (e) => {
-  e.preventDefault()
-  const fd = new FormData(e.target)
-  output.textContent = 'FormData: ' + [...fd.entries()].map(([k,v]) => `${k}=${v}`).join(', ')
-})
-
-preview.append(myForm, output)
-```
-```css
-.preview form { display: flex; gap: 8px; align-items: center; }
-.preview form-input { display: block; }
-.preview form-input input { padding: 8px; border: 2px solid var(--faint-text); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
-.preview form-input:state(focused) input { border-color: var(--brand-color); }
-.preview form-input:state(invalid) input { border-color: var(--error-color); }
-```
-
-##### Custom States Example
-
-Custom states let you expose internal component state to CSS via the `:state()` pseudo-class.
-
-```js
-import { Component, elements } from 'tosijs'
-
-class LoadingButton extends Component {
-  static formAssociated = true
-  loading = false
-
-  content = ({slot}) => slot()
-
-  async handleClick() {
-    this.internals.states.add('loading')
-    this.loading = true
-    await new Promise(r => setTimeout(r, 1500))
-    this.internals.states.delete('loading')
-    this.loading = false
-  }
-
-  connectedCallback() {
-    super.connectedCallback()
-    this.addEventListener('click', () => this.handleClick())
-  }
-}
-
-const loadingButton = LoadingButton.elementCreator({tag: 'loading-button'})
-
-preview.append(loadingButton('Click me to load'))
-```
-```css
-.preview loading-button {
-  display: inline-block;
-  padding: 10px 20px;
-  background: var(--brand-color);
-  color: var(--button-text);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.preview loading-button:state(loading) {
-  opacity: 0.6;
-  cursor: wait;
-}
-.preview loading-button:state(loading)::after {
-  content: '...';
-}
-```
 
 #### adoptedCallback
 
@@ -713,6 +535,7 @@ import { deepClone } from './deep-clone'
 import { appendContentToElement, dispatch, resizeObserver } from './dom'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
+import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated } from './metadata'
@@ -1217,9 +1040,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (this.value != null && this.getAttribute('value') != null) {
       this._value = this.getAttribute('value')
     }
-    // Sync initial form value for formAssociated components
+    // Sync initial form value and validate for formAssociated components
     if (this.internals && this.value !== undefined) {
       this.internals.setFormValue(this.value)
+      this.validateValue()
     }
     this.queueRender()
   }
@@ -1350,54 +1174,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * Validates the current value against standard constraints (required, minlength, maxlength, pattern).
    * Called automatically in render() when value changes. Override to add custom validation.
    * Call super.validateValue() to include standard validation.
+   *
+   * See [web-component-validation](/?web-component-validation) for details.
    */
   validateValue(): void {
     if (!this.internals || this.value === undefined) return
-
     const value =
       typeof this.value === 'string' ? this.value : String(this.value)
-    const flags: ValidityStateFlags = {}
-    let message = ''
-
-    // required
-    if (this.hasAttribute('required') && value === '') {
-      flags.valueMissing = true
-      message = 'Please fill out this field.'
-    }
-
-    // minlength
-    const minlength = this.getAttribute('minlength')
-    if (minlength && value.length < parseInt(minlength, 10)) {
-      flags.tooShort = true
-      message = `Please use at least ${minlength} characters.`
-    }
-
-    // maxlength
-    const maxlength = this.getAttribute('maxlength')
-    if (maxlength && value.length > parseInt(maxlength, 10)) {
-      flags.tooLong = true
-      message = `Please use no more than ${maxlength} characters.`
-    }
-
-    // pattern
-    const pattern = this.getAttribute('pattern')
-    if (pattern && value !== '') {
-      try {
-        const regex = new RegExp(`^(?:${pattern})$`)
-        if (!regex.test(value)) {
-          flags.patternMismatch = true
-          message = 'Please match the requested format.'
-        }
-      } catch {
-        // Invalid pattern, skip validation
-      }
-    }
-
-    if (Object.keys(flags).length > 0) {
-      this.internals.setValidity(flags, message, this)
-    } else {
-      this.internals.setValidity({})
-    }
+    validateAgainstConstraints(this, value)
   }
 }
 

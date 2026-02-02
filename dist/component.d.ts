@@ -88,6 +88,8 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Validates the current value against standard constraints (required, minlength, maxlength, pattern).
      * Called automatically in render() when value changes. Override to add custom validation.
      * Call super.validateValue() to include standard validation.
+     *
+     * See [web-component-validation](/?web-component-validation) for details.
      */
     validateValue(): void;
 }

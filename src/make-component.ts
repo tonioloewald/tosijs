@@ -1,5 +1,5 @@
 /*#
-# 4.2 makeComponent
+# 4.3 makeComponent
 
 `makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
 hydrates [blueprints](/?blueprint-loader.ts) into usable [web-components](./?component.ts).

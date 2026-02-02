@@ -11,6 +11,10 @@ export {
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 export { Color } from './color'
 export { Component } from './component'
+export {
+  validateAgainstConstraints,
+  type FormValidation,
+} from './form-validation'
 export { elements, svgElements, mathML } from './elements'
 export type { ElementsProxy } from './elements-types'
 export { getCssVar } from './get-css-var'
