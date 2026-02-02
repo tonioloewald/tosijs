@@ -144,7 +144,7 @@ bind(document.body, prefs.monochrome, {
 window.addEventListener('popstate', () => {
   const filename = window.location.search.substring(1)
   app.currentDoc =
-    app.docs.find((doc) => doc.filename.xinValue === filename) || app.docs[0]
+    app.docs.find((doc) => doc.filename === filename) || app.docs[0]
 })
 
 const filterDocs = debounce(() => {
@@ -247,22 +247,22 @@ if (main)
                 {
                   icon: 'github',
                   caption: 'github',
-                  action: app.githubUrl.xinValue,
+                  action: app.githubUrl.value,
                 },
                 {
                   icon: 'npm',
                   caption: 'npm',
-                  action: app.npmUrl.xinValue,
+                  action: app.npmUrl.value,
                 },
                 {
                   icon: 'discord',
                   caption: 'discord',
-                  action: app.discordUrl.xinValue,
+                  action: app.discordUrl.value,
                 },
                 {
                   icon: 'tosiUi',
                   caption: 'tosijs-ui',
-                  action: app.tosijsuiUrl.xinValue,
+                  action: app.tosijsuiUrl.value,
                 },
                 {
                   icon: 'blog',
@@ -277,48 +277,47 @@ if (main)
                     {
                       caption: 'System',
                       checked() {
-                        return prefs.theme.xinValue === 'system'
+                        return prefs.theme.value === 'system'
                       },
                       action() {
-                        prefs.theme.xinValue = 'system'
+                        prefs.theme.value = 'system'
                       },
                     },
                     {
                       caption: 'Dark',
                       checked() {
-                        return prefs.theme.xinValue === 'dark'
+                        return prefs.theme.value === 'dark'
                       },
                       action() {
-                        prefs.theme.xinValue = 'dark'
+                        prefs.theme.value = 'dark'
                       },
                     },
                     {
                       caption: 'Light',
                       checked() {
-                        return prefs.theme.xinValue === 'light'
+                        return prefs.theme.value === 'light'
                       },
                       action() {
-                        prefs.theme.xinValue = 'light'
+                        prefs.theme.value = 'light'
                       },
                     },
                     null,
                     {
                       caption: 'High Contrast',
                       checked() {
-                        return prefs.highContrast.xinValue
+                        return prefs.highContrast.value
                       },
                       action() {
-                        prefs.highContrast.xinValue =
-                          !prefs.highContrast.xinValue
+                        prefs.highContrast.value = !prefs.highContrast.value
                       },
                     },
                     {
                       caption: 'Monochrome',
                       checked() {
-                        return prefs.monochrome.xinValue
+                        return prefs.monochrome.value
                       },
                       action() {
-                        prefs.monochrome.xinValue = !prefs.monochrome.xinValue
+                        prefs.monochrome.value = !prefs.monochrome.value
                       },
                     },
                   ],
@@ -341,7 +340,7 @@ if (main)
         },
         onChange() {
           const nav = document.querySelector(SideNav.tagName!) as SideNav
-          app.compact.xinValue = nav.compact
+          app.compact.value = nav.compact
         },
       },
       searchField,

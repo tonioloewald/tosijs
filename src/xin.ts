@@ -545,9 +545,9 @@ const { h3, div, label, input, button, template } = elements
 
 const addItem = () => {
   todos.list.push({
-    description: todos.newItem
+    description: todos.newItem.value
   })
-  todos.newItem = ''
+  todos.newItem.value = ''
 }
 
 preview.append(
@@ -567,7 +567,7 @@ preview.append(
       placeholder: 'task',
       bindValue: todos.newItem,
       onKeyup(event) {
-        if(event.key === 'Enter' && todos.newItem != '') {
+        if(event.key === 'Enter' && todos.newItem.value !== '') {
           addItem()
         }
       }
