@@ -375,6 +375,18 @@ Form-associated components are automatically made focusable (`tabindex="0"`) unl
 you explicitly set a different `tabindex`. This is required for form validation to
 work correctly (the browser needs to focus invalid elements).
 
+The following validation API is automatically available on form-associated components
+(delegated to `ElementInternals`):
+
+- `validity` - the `ValidityState` of the element
+- `validationMessage` - the validation message
+- `willValidate` - whether the element will be validated
+- `checkValidity()` - returns `true` if valid, fires `invalid` event if not
+- `reportValidity()` - like `checkValidity()` but also shows validation UI
+- `setCustomValidity(message)` - set a custom error message (empty string clears)
+- `setValidity(flags, message?, anchor?)` - set validation state with optional focus anchor
+- `setFormValue(value, state?)` - update the form value
+
 This works without a shadow DOM.
 
 #### value property
@@ -704,6 +716,59 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   static initAttributes?: Record<string, any>
   static formAssociated?: boolean
   internals?: ElementInternals
+
+  // Form validation API - delegated to internals when formAssociated
+  get validity(): ValidityState | undefined {
+    return this.internals?.validity
+  }
+
+  get validationMessage(): string {
+    return this.internals?.validationMessage ?? ''
+  }
+
+  get willValidate(): boolean {
+    return this.internals?.willValidate ?? false
+  }
+
+  checkValidity(): boolean {
+    return this.internals?.checkValidity() ?? true
+  }
+
+  reportValidity(): boolean {
+    return this.internals?.reportValidity() ?? true
+  }
+
+  setCustomValidity(message: string): void {
+    if (this.internals) {
+      if (message) {
+        this.internals.setValidity({ customError: true }, message)
+      } else {
+        this.internals.setValidity({})
+      }
+    }
+  }
+
+  /**
+   * Set validation state. Pass empty flags {} to clear validity.
+   * The anchor element is used for focus when reportValidity() is called.
+   */
+  setValidity(
+    flags: ValidityStateFlags,
+    message?: string,
+    anchor?: HTMLElement
+  ): void {
+    this.internals?.setValidity(flags, message, anchor)
+  }
+
+  /**
+   * Set the form value. Call this when your component's value changes.
+   */
+  setFormValue(
+    value: File | string | FormData | null,
+    state?: File | string | FormData | null
+  ): void {
+    this.internals?.setFormValue(value, state)
+  }
 
   static get observedAttributes(): string[] {
     const initAttrs = this.initAttributes
