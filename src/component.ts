@@ -405,7 +405,25 @@ class MyInput extends Component {
 }
 ```
 
-This works without a shadow DOM.
+##### With or without shadow DOM
+
+Components can work with or without a shadow DOM. By default, Component does NOT
+use shadow DOM - your content lives in the light DOM. Adding a `static styleSpec`
+triggers shadow DOM creation (for style encapsulation).
+
+The validation API works identically in both cases. The only difference is how you
+access internal elements for the validation anchor:
+
+```js
+// Light DOM (default) - use this.parts
+this.setValidity({ tooShort: true }, 'Min 3 chars', this.parts.input)
+
+// Shadow DOM (when using styleSpec) - use this.shadowRoot or this.parts
+this.setValidity({ tooShort: true }, 'Min 3 chars', this.shadowRoot.querySelector('input'))
+```
+
+> **Note**: `this.parts` works in both cases - it automatically searches the
+> `shadowRoot` when present, or the element itself when not.
 
 #### value property
 
