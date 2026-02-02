@@ -366,6 +366,10 @@ Set `static formAssociated = true` in your subclass to enable form participation
 via `ElementInternals`. When true, the component will have `this.internals` available
 for form integration, validation, ARIA properties, and custom states.
 
+Form-associated components are automatically made focusable (`tabindex="0"`) unless
+you explicitly set a different `tabindex`. This is required for form validation to
+work correctly (the browser needs to focus invalid elements).
+
 This works without a shadow DOM.
 
 #### value property
@@ -1056,6 +1060,13 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this.hydrate()
     // super annoyingly, chrome loses its shit if you set *any* attributes in the constructor
     if (this.role != null) this.setAttribute('role', this.role)
+    // Form-associated components must be focusable for validation to work
+    if (
+      (this.constructor as typeof Component).formAssociated &&
+      !this.hasAttribute('tabindex')
+    ) {
+      this.setAttribute('tabindex', '0')
+    }
     if (this.onResize !== undefined) {
       resizeObserver.observe(this)
       if (this._onResize == null) {

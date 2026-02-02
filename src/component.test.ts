@@ -538,6 +538,20 @@ describe('formAssociated', () => {
     el.remove()
   })
 
+  test('formAssociated component is focusable by default', () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    expect(el.getAttribute('tabindex')).toBe('0')
+    el.remove()
+  })
+
+  test('formAssociated component respects explicit tabindex', () => {
+    const el = formComponent({ tabindex: '-1' })
+    document.body.appendChild(el)
+    expect(el.getAttribute('tabindex')).toBe('-1')
+    el.remove()
+  })
+
   test('component works even without internals support', () => {
     const el = formComponent()
     document.body.appendChild(el)
