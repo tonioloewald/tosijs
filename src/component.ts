@@ -49,13 +49,8 @@ it works internally.
 import { Component, elements } from 'tosijs'
 
 class LabeledInput extends Component {
-  caption = 'untitled'
+  static initAttributes = { caption: 'untitled' }
   value = ''
-
-  constructor() {
-    super()
-    this.initAttributes('caption')
-  }
 
   content = ({label, span, input}) => label(span(), input())
 
@@ -262,27 +257,66 @@ content = ({div}) => div('hello world')
 > Note that if a component does not use the shadowDOM, its `<slot>` elements will be replaced with `<xin-slot>` elements.
 > This allows composition to work as expected without requiring the shadow DOM.
 
-### Component methods
+### Component static properties
 
-#### initAttributes(...attributeNames: string[])
+#### static initAttributes: Record<string, any>
 
-    class LabeledInput extends Component {
-      caption: string = 'untitled'
-      value: string = ''
+Declares attributes that should be watched and synced with properties. The keys are
+property names (camelCase), and the values are the defaults which also determine the type.
+
+    import { Component } from 'tosijs'
+
+    class MyWidget extends Component {
+      static initAttributes = {
+        caption: '',      // string attribute
+        count: 0,         // number attribute (auto-parsed)
+        disabled: false,  // boolean attribute (presence/absence)
+      }
+
+      render() {
+        // this.caption, this.count, this.disabled are automatically available
+        // and synced with HTML attributes
+      }
+    }
+
+This replaces both the old `initAttributes()` method call AND the instance property
+declarations. A single static object now defines which properties are attributes,
+their default values, and their types:
+
+- **All-in-one**: Attributes, defaults, and types defined in one place
+- **Declarative**: No constructor needed
+- **Type inference**: Default values determine parsing (boolean attributes just work)
+
+##### Attribute Types
+
+- **string** (default `''`): Attribute value used as-is
+- **number** (default `0`): Attribute value parsed with `parseFloat()`
+- **boolean** (default `false`): Presence means `true`, absence means `false`
+
+For non-attribute properties (e.g. objects), just declare them as regular instance
+properties on your class.
+
+##### Migration from initAttributes()
+
+Old (deprecated):
+
+    class MyComponent extends Component {
+      caption = ''
+      count = 0
 
       constructor() {
         super()
-        this.initAttributes('caption')
+        this.initAttributes('caption', 'count')
       }
-
-      ...
     }
 
-Sets up basic behavior such as queueing a render if an attribute is changed, setting
-attributes based on the DOM source, updating them if they're changed, implementing
-boolean attributes in the expected manner, and so forth.
+New:
 
-Call `initAttributes` in your subclass's `constructor`, and make sure to call `super()`.
+    class MyComponent extends Component {
+      static initAttributes = { caption: '', count: 0 }
+    }
+
+### Component methods
 
 #### queueRender(triggerChangeEvent = false): void
 
@@ -341,8 +375,7 @@ import { Component, elements } from 'tosijs'
 
 class FormInput extends Component {
   static formAssociated = true
-  static observedAttributes = Component.attributes('value')
-  value = ''
+  static initAttributes = { value: '' }
 
   content = ({input}) => input({part: 'input', placeholder: 'Type here...'})
 
@@ -642,14 +675,17 @@ function insertGlobalStyles(tagName: string) {
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
-  /**
-   * Declare observed attributes for native attributeChangedCallback.
-   * Use Component.attributes() helper to include standard attributes.
-   * Example: static observedAttributes = Component.attributes('caption', 'value')
-   */
-  static observedAttributes?: readonly string[]
+  static initAttributes?: Record<string, any>
   static formAssociated?: boolean
   internals?: ElementInternals
+
+  static get observedAttributes(): string[] {
+    const initAttrs = this.initAttributes
+    if (initAttrs) {
+      return ['hidden', ...Object.keys(initAttrs).map(camelToKabob)]
+    }
+    return ['hidden']
+  }
   instanceId!: string
   styleNode?: HTMLStyleElement
   static styleSpec?: XinStyleSheet
@@ -663,19 +699,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
   [key: string]: any
 
-  // For legacy initAttributes - tracks which attrs this instance watches
+  // For legacy initAttributes method - tracks which attrs this instance watches
   _legacyTrackedAttrs?: Set<string>
-  // Tracks attribute default values and types for property accessors
-  private _attrDefaults?: Map<string, any>
+  // Tracks attribute values for property accessors
   private _attrValues?: Map<string, any>
-
-  /**
-   * Helper to declare observed attributes. Use in subclass:
-   * static observedAttributes = Component.attributes('caption', 'value')
-   */
-  static attributes(...attrs: string[]): string[] {
-    return ['hidden', ...attrs]
-  }
 
   static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement {
     console.warn(
@@ -730,14 +757,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   /**
-   * @deprecated Use static observedAttributes with Component.attributes() instead.
+   * @deprecated Use static initAttributes instead.
    * Example:
-   *   static observedAttributes = Component.attributes('caption', 'value')
+   *   static initAttributes = { caption: '', count: 0, disabled: false }
    */
   initAttributes(...attributeNames: string[]): void {
     warnDeprecated(
       'initAttributes',
-      'initAttributes() is deprecated. Use static observedAttributes = Component.attributes(...) instead.'
+      'initAttributes() is deprecated. Use static initAttributes = { ... } instead.'
     )
 
     // Track which attributes this instance is watching via legacy mechanism
@@ -892,11 +919,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       this.internals = this.attachInternals()
     }
 
-    // Set up property accessors for static observedAttributes
-    const observedAttrs = (this.constructor as typeof Component)
-      .observedAttributes
-    if (observedAttrs && observedAttrs.length > 0) {
-      this._setupAttributeAccessors(observedAttrs)
+    // Set up property accessors from static initAttributes
+    const initAttrs = (this.constructor as typeof Component).initAttributes
+    if (initAttrs) {
+      this._setupAttributeAccessors(initAttrs)
     }
 
     this.instanceId = `${this.tagName.toLocaleLowerCase()}-${instanceCount}`
@@ -904,19 +930,24 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   /**
-   * Sets up property accessors for attributes declared in static observedAttributes.
-   * This is the modern replacement for initAttributes().
+   * Sets up property accessors from static initAttributes.
    */
-  private _setupAttributeAccessors(attributeNames: readonly string[]): void {
-    if (!this._attrDefaults) {
-      this._attrDefaults = new Map()
-    }
+  private _setupAttributeAccessors(initAttrs: Record<string, any>): void {
     if (!this._attrValues) {
       this._attrValues = new Map()
     }
 
-    for (const attrKabob of attributeNames) {
-      const attrName = kabobToCamel(attrKabob)
+    for (const attrName of Object.keys(initAttrs)) {
+      const attrKabob = camelToKabob(attrName)
+      const defaultValue = initAttrs[attrName]
+
+      // Skip objects - attributes must be serializable (string, number, boolean)
+      if (typeof defaultValue === 'object' && defaultValue !== null) {
+        console.warn(
+          `${this.tagName}: initAttributes.${attrName} is an object. Use a regular property instead.`
+        )
+        continue
+      }
 
       // Skip if already set up (e.g., by legacy initAttributes) or not configurable
       // Check prototype chain for non-configurable properties (e.g., 'name' on Element)
@@ -936,10 +967,6 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       if (isNonConfigurable) {
         continue
       }
-
-      // Capture the default value and type from the instance
-      const defaultValue = deepClone(this[attrName])
-      this._attrDefaults.set(attrName, defaultValue)
 
       Object.defineProperty(this, attrName, {
         enumerable: false,
