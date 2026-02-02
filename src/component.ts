@@ -946,6 +946,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       const attrKabob = camelToKabob(attrName)
       const defaultValue = initAttrs[attrName]
 
+      // 'value' is a property, not an attribute - use Component's built-in value handling
+      if (attrName === 'value') {
+        console.warn(
+          `${this.tagName}: 'value' cannot be an attribute. Use the Component value property instead.`
+        )
+        continue
+      }
+
       // Skip objects - attributes must be serializable (string, number, boolean)
       if (typeof defaultValue === 'object' && defaultValue !== null) {
         console.warn(

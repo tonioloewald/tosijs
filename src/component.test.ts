@@ -491,13 +491,31 @@ describe('static initAttributes', () => {
     expect(el.hasAttribute('disabled')).toBe(false)
     el.remove()
   })
+
+  test('warns when value is used in initAttributes', () => {
+    const warnings: string[] = []
+    const originalWarn = console.warn
+    console.warn = (msg: string) => warnings.push(msg)
+
+    class BadValueComponent extends Component {
+      static initAttributes = { value: 'bad' }
+    }
+    BadValueComponent.elementCreator({ tag: 'bad-value-component' })()
+
+    console.warn = originalWarn
+    expect(
+      warnings.some(
+        (w) => w.includes('value') && w.includes('cannot be an attribute')
+      )
+    ).toBe(true)
+  })
 })
 
 // Tests for formAssociated / ElementInternals
 describe('formAssociated', () => {
   class FormComponent extends Component {
     static formAssociated = true
-    static initAttributes = { value: '' }
+    value = '' // value is a property, not an attribute
 
     content = ({ input }: typeof elements) => input({ part: 'input' })
   }
