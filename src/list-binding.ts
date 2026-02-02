@@ -83,6 +83,21 @@ Specifying an `idPath` in a list-binding will allow the list to be more efficien
 It's the equivalent of a `key` in React, the difference being that it's optional and
 specifically intended to leverage pre-existing keys where available.
 
+### When to use idPath
+
+**Always use `idPath` for arrays of objects** unless you have a very simple case.
+
+Without `idPath`:
+- Bindings use index-based paths like `list[0].name`
+- If items are reordered (sort, splice, etc.), bindings point to wrong items
+- Fine-grained property updates may not reach the correct DOM elements
+- The list binding will work, but inefficiently - often recreating elements
+
+Without `idPath` is fine for:
+- Simple arrays of scalars (`['apple', 'banana', 'cherry']`)
+- Static lists that never reorder
+- Lists where you always replace items wholesale, never update properties
+
 ### Surgical Updates with id-paths
 
 When you specify an `idPath`, something remarkable happens: changes to individual
