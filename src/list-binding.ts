@@ -465,8 +465,8 @@ import {
   elementToBindings,
   BOUND_SELECTOR,
   DataBinding,
-  xinValue,
-  xinPath,
+  tosiValue,
+  tosiPath,
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
 } from './metadata'
@@ -651,7 +651,7 @@ export class ListBinding {
     this.array = array
 
     const { hiddenProp, visibleProp } = this.options
-    const arrayPath: string = xinPath(array) as string
+    const arrayPath: string = tosiPath(array) as string
 
     const slice = this.visibleSlice()
     this.boundElement.classList.toggle(
@@ -705,14 +705,14 @@ export class ListBinding {
       if (item === undefined) {
         continue
       }
-      let element = this.itemToElement.get(xinValue(item))
+      let element = this.itemToElement.get(tosiValue(item))
       if (element == null) {
         created++
         element = cloneWithBindings(this.template) as HTMLElement
         if (typeof item === 'object') {
-          this.itemToElement.set(xinValue(item), element)
+          this.itemToElement.set(tosiValue(item), element)
           // @ts-expect-error if it's there it's there
-          element[LIST_INSTANCE_REF] = xinValue(item)
+          element[LIST_INSTANCE_REF] = tosiValue(item)
         }
         this.boundElement.insertBefore(element, this.listBottom)
         if (idPath != null) {

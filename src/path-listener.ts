@@ -61,7 +61,7 @@ import {
   AnyFunction,
   XinTouchableType,
 } from './xin-types'
-import { xinPath } from './metadata'
+import { tosiPath } from './metadata'
 import { settings } from './settings'
 
 export const observerShouldBeRemoved = Symbol('observer should be removed')
@@ -172,7 +172,7 @@ const update = (): void => {
 }
 
 export const touch = (touchable: XinTouchableType): void => {
-  const path = typeof touchable === 'string' ? touchable : xinPath(touchable)
+  const path = typeof touchable === 'string' ? touchable : tosiPath(touchable)
 
   if (path === undefined) {
     console.error('touch was called on an invalid target', touchable)

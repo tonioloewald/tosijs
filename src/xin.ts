@@ -42,12 +42,12 @@ holds the same stuff except it's wrapped in a `BoxedProxy`.
 The `BoxedProxy` behaves just like the original object, except
 that it:
 
-- knows where it came from, so `prefs.xinPath === 'prefs'`
+- knows where it came from, so `prefs.path === 'prefs'`
 - will automatically trigger updates if its properties are changed through it
 - can return the underlying value:
-  `prefs.xinValue === prefs.valueOf() === the prefs property of the object passed to `tosi()`
+  `prefs.value === prefs.valueOf() === the prefs property of the object passed to `tosi()`
 - it will wrap its non-object properties in objects and wrap those objects
-  in a BoxedProxy, so `prefs.theme.xinPath === 'prefs.theme'`
+  in a BoxedProxy, so `prefs.theme.path === 'prefs.theme'`
 
 ```
 prefs.theme.value === 'system'          // true
@@ -138,7 +138,7 @@ less code and no weird build magic (such as special decorators or "execution zon
   xin.foo.bar === foo.bar
   xin.foo.bar === 'baz'
   xin.foo !== foo            // xin.foo is a proxy
-  xin.foo.xinValue === foo   // foo is still there!
+  xin.foo.value === foo   // foo is still there!
   ```
 - if you change a property of something already in `xin` then this
   change will be `observed` and anything *listening* for changes to
@@ -424,15 +424,15 @@ some cases, you might even mangle the names of an object during minification and
 ### If you need the thing itself or the path to the thing…
 
 `proxy`s returned by `xin` are typically indistinguishable from the original object, but
-in a pinch `xinPath()` will give you the path (`string`) of a `XinProxy` while `xinValue`
-will give its "bare" value. `xinPath()` can also be used to test if something is actually
+in a pinch `tosiPath()` will give you the path (`string`) of a `XinProxy` while `tosiValue`
+will give its "bare" value. `tosiPath()` can also be used to test if something is actually
 a proxy, as it will return `undefined` for regular objects.
 
 E.g.
 
 ```
-xinPath(luhrman) === 'foo.luhrman'     // true
-const bareLurhman = xinValue(luhrman)  // not wrapped
+tosiPath(luhrman) === 'foo.luhrman'     // true
+const bareLurhman = tosiValue(luhrman)  // not wrapped
 ```
 
 You may want the thing itself to, for example, perform a large number of changes to an
@@ -440,7 +440,7 @@ object without firing observers. You can let `xin` know you've made changes behi
 `touch`, e.g.
 
 ```
-doTerribleThings(xinValue(luhrman))
+doTerribleThings(tosiValue(luhrman))
 // eslint-disable-next-line
 touch(luhrman)
 ```
@@ -487,8 +487,8 @@ using string paths doesn't.
 It does have a downside! `boxedExample.string !== 'hello, boxed'` and
 `boxedExample.string !== boxedExample.string` because they're proxies, not primitives.
 This is critical for comparisons such as `===` and `!==`.
-Always use `.value`, `xinValue()`, or `valueOf()` when comparing:
-`boxed.foo.bar.value === 'hello'` or `xinValue(boxed.foo.bar) === 'hello'`.
+Always use `.value`, `tosiValue()`, or `valueOf()` when comparing:
+`boxed.foo.bar.value === 'hello'` or `tosiValue(boxed.foo.bar) === 'hello'`.
 
 ## Helper properties and functions
 
@@ -607,7 +607,7 @@ import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
 import {
-  xinValue,
+  tosiValue,
   XIN_VALUE,
   XIN_PATH,
   XIN_OBSERVE,
@@ -870,7 +870,7 @@ const regHandler = (
             element: HTMLElement,
             eventType: keyof HTMLElementEventMap
           ): VoidFunction =>
-            getOn()(element, eventType, xinValue(target) as XinEventHandler)
+            getOn()(element, eventType, tosiValue(target) as XinEventHandler)
         case 'bind':
           return (
             element: Element,
@@ -929,7 +929,7 @@ const regHandler = (
           element: HTMLElement,
           eventType: keyof HTMLElementEventMap
         ): VoidFunction =>
-          getOn()(element, eventType, xinValue(target) as XinEventHandler)
+          getOn()(element, eventType, tosiValue(target) as XinEventHandler)
       case XIN_BIND:
       case 'xinBind':
       case 'tosiBind':
@@ -1025,7 +1025,7 @@ const regHandler = (
         ? (...items: any[]) => {
             // Unwrap any proxied/boxed values before passing to array methods
             // to prevent proxy objects from leaking into the underlying data
-            const unwrappedItems = items.map((item) => xinValue(item))
+            const unwrappedItems = items.map((item) => tosiValue(item))
             const result = value.apply(target, unwrappedItems)
             if (ARRAY_MUTATIONS.includes(prop)) {
               touch(path)
@@ -1047,7 +1047,7 @@ const regHandler = (
     }
   },
   set(target, prop: string | symbol, value: any) {
-    value = xinValue(value)
+    value = tosiValue(value)
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
     // (when boxScalars is true, .value should always set the underlying value)
     const isValueProp =
@@ -1059,7 +1059,7 @@ const regHandler = (
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
     }
-    const existing = xinValue(xin[fullPath])
+    const existing = tosiValue(xin[fullPath])
     if (existing !== value && setByPath(registry, fullPath, value)) {
       touch(fullPath)
     }

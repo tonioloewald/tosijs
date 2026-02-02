@@ -9,7 +9,7 @@ hotReload(test: PathTestFunction = () => true): void
 ```
 */
 import { xin, observe } from './xin'
-import { xinValue } from './metadata'
+import { tosiValue } from './metadata'
 import {
   XinObject,
   PathTestFunction,
@@ -34,7 +34,7 @@ export const hotReload = (test: PathTestFunction = () => true): void => {
 
   const saveState = debounce(() => {
     const obj: XinObject = {}
-    const state = xinValue(xin)
+    const state = tosiValue(xin)
     for (const key of Object.keys(state).filter(test)) {
       obj[key] = state[key]
     }
