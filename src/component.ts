@@ -368,6 +368,21 @@ for form integration, validation, ARIA properties, and custom states.
 
 This works without a shadow DOM.
 
+#### value property
+
+The `value` property is special in Component. It is NOT an attribute - it's a property
+that can be *initialized* from an attribute. Here's what you need to know:
+
+1. **Declare it with a default**: Simply assign a non-undefined default (e.g., `value = ''`)
+2. **Initialization**: If a `value` attribute is present, it initializes the property (as a string)
+3. **Setting value**: You can set it to any type directly (e.g., objects, arrays)
+4. **Change events**: When `value` changes, a `change` event is automatically dispatched
+5. **Auto-render**: When `value` changes, `render()` is automatically called
+6. **Computed values**: If your value is computed, call `queueRender(true)` to trigger change + render
+
+**Do NOT put `value` in `static initAttributes`** - it will be rejected with a warning.
+The Component class handles `value` specially to provide form-like behavior automatically.
+
 ##### Form Integration Example
 
 ```js
@@ -375,7 +390,7 @@ import { Component, elements } from 'tosijs'
 
 class FormInput extends Component {
   static formAssociated = true
-  static initAttributes = { value: '' }
+  value = '' // property, not attribute!
 
   content = ({input}) => input({part: 'input', placeholder: 'Type here...'})
 
