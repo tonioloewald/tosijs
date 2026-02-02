@@ -224,11 +224,13 @@ which will then penetrate the `shadowDOM`.
       }
     }
 
-> **Note**: the `render()` method of the base `Component` class doesn't currently
-> do anything, so calling it is optional (but a good practice in case one day…)
+> **Note**: For form-associated components, `super.render()` syncs the form value
+> automatically when the value changes. Always call `super.render()` if you override
+> `render()` in a form-associated component.
 >
-> It is *necessary* however to call `super.connectedCallback`, `super.disconnectedCallback`
-> and `super()` in the `constructor()` should you override them.
+> It is *necessary* to call `super.connectedCallback`, `super.disconnectedCallback`,
+> `super.render()` (for form-associated), and `super()` in the `constructor()`
+> should you override them.
 
 `this.parts` returns a proxy that provides elements conveniently and efficiently. It
 is intended to facilitate access to static elements (it memoizes its values the
@@ -830,6 +832,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   _legacyTrackedAttrs?: Set<string>
   // Tracks attribute values for property accessors
   private _attrValues?: Map<string, any>
+  // Tracks whether value changed (for form sync in render)
+  private _valueChanged = false
 
   static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement {
     console.warn(
@@ -988,6 +992,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       set(newValue: any) {
         if (value !== newValue) {
           value = newValue
+          this._valueChanged = true
           this.queueRender(true)
         }
       },
@@ -1200,7 +1205,13 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       requestAnimationFrame(() => {
         // TODO add mechanism to allow component developer to have more control over
         // whether input vs. change events are emitted
-        if (this._changeQueued) dispatch(this, 'change')
+        if (this._changeQueued) {
+          dispatch(this, 'change')
+          // Sync form value for formAssociated components
+          if (this.internals && this.value !== undefined) {
+            this.internals.setFormValue(this.value)
+          }
+        }
         this._changeQueued = false
         this._renderQueued = false
         this.render()
@@ -1261,7 +1272,13 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     }
   }
 
-  render(): void {}
+  render(): void {
+    // Sync form value only when value actually changed
+    if (this._valueChanged && this.internals && this.value !== undefined) {
+      this.internals.setFormValue(this.value)
+    }
+    this._valueChanged = false
+  }
 }
 
 interface SlotParts extends PartsMap {

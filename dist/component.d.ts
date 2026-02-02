@@ -39,6 +39,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     [key: string]: any;
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
+    private _valueChanged;
     static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement;
     static elementCreator<C = Component>(this: new () => C, options?: ElementCreatorOptions): ElementCreator<C>;
     /**
