@@ -1190,3 +1190,82 @@ test('id-path touch synthesis', async () => {
   // Clean up
   unregisterArrayIdPath('idPathTest.list', 'id')
 })
+
+test('array find/findLast/at return proxied objects', async () => {
+  // Array methods that return items by reference should return proxied objects
+  // so that mutations go through the correct path
+  const { proxyMethodTest } = tosi({
+    proxyMethodTest: {
+      items: [
+        { id: 'a', score: 10 },
+        { id: 'b', score: 20 },
+        { id: 'c', score: 30 },
+      ],
+    },
+  })
+
+  const changes: string[] = []
+  const listener = observe(
+    (path) => path.startsWith('proxyMethodTest.items'),
+    (path) => {
+      changes.push(path)
+    }
+  )
+  await updates()
+
+  // Test find() returns a proxied object
+  // With tosi(), scalar properties are boxed - use .value to get/set
+  const foundB = proxyMethodTest.items.find((item: any) => item.id === 'b')
+  expect(foundB).toBeDefined()
+  expect(foundB.id.value).toBe('b')
+  expect(foundB.score.value).toBe(20)
+
+  // Check that tosiPath works on the found item
+  expect(tosiPath(foundB)).toBe('proxyMethodTest.items[1]')
+
+  // Mutate via the found proxy's boxed scalar - this should trigger observers
+  foundB.score.value = 25
+  await updates()
+  expect(changes).toContain('proxyMethodTest.items[1].score')
+  expect(proxyMethodTest.items[1].score.value).toBe(25)
+  changes.length = 0
+
+  // Test findLast() returns a proxied object
+  const lastGreaterThan15 = proxyMethodTest.items.findLast(
+    (item: any) => item.score > 15
+  )
+  expect(lastGreaterThan15).toBeDefined()
+  expect(lastGreaterThan15.id.value).toBe('c')
+  expect(tosiPath(lastGreaterThan15)).toBe('proxyMethodTest.items[2]')
+
+  lastGreaterThan15.score.value = 35
+  await updates()
+  expect(changes).toContain('proxyMethodTest.items[2].score')
+  expect(proxyMethodTest.items[2].score.value).toBe(35)
+  changes.length = 0
+
+  // Test at() returns a proxied object
+  const first = proxyMethodTest.items.at(0)
+  expect(first).toBeDefined()
+  expect(first.id.value).toBe('a')
+  expect(tosiPath(first)).toBe('proxyMethodTest.items[0]')
+
+  first.score.value = 15
+  await updates()
+  expect(changes).toContain('proxyMethodTest.items[0].score')
+  expect(proxyMethodTest.items[0].score.value).toBe(15)
+  changes.length = 0
+
+  // Test at() with negative index
+  const last = proxyMethodTest.items.at(-1)
+  expect(last).toBeDefined()
+  expect(last.id.value).toBe('c')
+  expect(tosiPath(last)).toBe('proxyMethodTest.items[2]')
+
+  last.score.value = 40
+  await updates()
+  expect(changes).toContain('proxyMethodTest.items[2].score')
+  expect(proxyMethodTest.items[2].score.value).toBe(40)
+
+  unobserve(listener)
+})

@@ -1031,6 +1031,18 @@ const regHandler = (
             if (ARRAY_MUTATIONS.includes(prop)) {
               touch(path)
             }
+            // Wrap results from methods that return array items by reference
+            if (result != null && typeof result === 'object') {
+              if (prop === 'find' || prop === 'findLast' || prop === 'at') {
+                const index = target.indexOf(result)
+                if (index !== -1) {
+                  return new Proxy<XinProxyTarget, XinObject>(
+                    result,
+                    regHandler(extendPath(path, String(index)), boxScalars)
+                  )
+                }
+              }
+            }
             return result
           }
         : typeof value === 'object'

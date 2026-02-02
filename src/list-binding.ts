@@ -104,6 +104,65 @@ just direct, surgical updates.
 (in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
 virtualized grid example below. Only the cells whose values actually change will flash.
 
+## Iterating and Searching Arrays
+
+When working with proxied arrays, it's important to understand how different
+iteration patterns behave:
+
+### `for...of` loops yield proxied items
+
+```js
+for (const item of list) {
+  // item is a proxy - use .value for scalars
+  console.log(item.name.value)
+
+  // mutations trigger observers and surgical DOM updates
+  item.score.value = 100
+}
+```
+
+### `find()`, `findLast()`, and `at()` return proxied items
+
+```js
+// The predicate receives raw items - no .value needed for comparisons
+const found = list.find(item => item.id === 'abc')
+
+// The result is proxied - mutations work and trigger updates
+found.score.value = 100
+```
+
+This is the best of both worlds: clean predicate syntax without `.value`,
+and the returned item is fully reactive.
+
+### `forEach()`, `map()`, `filter()`, etc. pass raw items to callbacks
+
+```js
+// Callbacks receive raw items for clean predicate/transform syntax
+list.filter(item => item.score > 50)
+list.map(item => item.name)
+
+// But mutations in forEach won't trigger observers!
+list.forEach(item => {
+  item.score = 100  // Modifies raw object - NO observer triggered
+})
+```
+
+If you need to mutate items, use `for...of` instead, or call `touch()` on
+the array or individual items after your `forEach`:
+
+```js
+// Option 1: Use for...of
+for (const item of list) {
+  item.score.value = 100  // Triggers observers
+}
+
+// Option 2: Touch after forEach
+list.forEach(item => {
+  item.score = 100
+})
+touch('path.to.list')  // Manually notify observers
+```
+
 ## Virtualized Lists
 
 The real power of `bindList` comes from its support for virtualizing lists.
