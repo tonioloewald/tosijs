@@ -609,4 +609,33 @@ describe('formAssociated', () => {
 
     form1.remove()
   })
+
+  test('_valueChanged flag is set when value changes', () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    expect((el as any)._valueChanged).toBe(false)
+    el.value = 'new value'
+    expect((el as any)._valueChanged).toBe(true)
+    el.remove()
+  })
+
+  test('_valueChanged flag is cleared after render', async () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    el.value = 'trigger render'
+    expect((el as any)._valueChanged).toBe(true)
+    // Wait for rAF to fire
+    await new Promise((r) => requestAnimationFrame(r))
+    expect((el as any)._valueChanged).toBe(false)
+    el.remove()
+  })
+
+  test('_valueChanged flag not set on attribute-only changes', () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    expect((el as any)._valueChanged).toBe(false)
+    el.setAttribute('data-test', 'foo')
+    expect((el as any)._valueChanged).toBe(false)
+    el.remove()
+  })
 })
