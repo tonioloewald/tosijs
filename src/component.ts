@@ -97,7 +97,7 @@ because `xin` cannot "see" elements there. As a general rule, you need to take c
 of anything in the `shadowDOM` yourself.)
 
 If you'd like to see a more complex example along the same lines, look at
-[xin-form and xin-field](https://ui.tosijs.net/?form.ts).
+[form and field](https://ui.tosijs.net/?form.ts).
 
 ##### <slot> names and the `slot` attribute
 
@@ -374,19 +374,19 @@ ignored on all subsequent calls).
 that provides the essential additions to standard HTML elements needed to build many
 user-interfaces.
 
-- [xin-example](https://ui.tosijs.net/?live-example.ts) uses multiple named slots to implement
+- [live-example](https://ui.tosijs.net/?live-example.ts) uses multiple named slots to implement
   powers the interactive examples used for this site.
-- [xin-sidebar](https://ui.tosijs.net/?side-nav.ts) implements the sidebar navigation
+- [side-nav](https://ui.tosijs.net/?side-nav.ts) implements the sidebar navigation
   used on this site.
-- [xin-table](https://ui.tosijs.net/?data-table.ts) implements virtualized tables
+- [data-table](https://ui.tosijs.net/?data-table.ts) implements virtualized tables
   with resizable, reorderable, sortable columns that can handle more data
   than you're probably willing to load.
-- [xin-form and xin-field](https://ui.tosijs.net/?form.ts) allow you to
+- [form and field](https://ui.tosijs.net/?form.ts) allow you to
   quickly create forms that leverage all the built-in functionality of `<input>`
   elements (including powerful validation) even for custom-fields.
-- [xin-md](https://ui.tosijs.net/?markdown-viewer.ts) uses `marked` to render
+- [markdown-viewer](https://ui.tosijs.net/?markdown-viewer.ts) uses `marked` to render
   markdown.
-- [xin-3d](https://ui.tosijs.net/?babylon-3d.ts) lets you easily embed 3d scenes
+- [babylon-3d](https://ui.tosijs.net/?babylon-3d.ts) lets you easily embed 3d scenes
   in your application using [babylonjs](https://babylonjs.com/)
 */
 import { css } from './css'
