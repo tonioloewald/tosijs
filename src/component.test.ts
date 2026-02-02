@@ -528,4 +528,53 @@ describe('formAssociated', () => {
     expect(el.value).toBe('test')
     el.remove()
   })
+
+  test('form element survives being moved between forms', () => {
+    const { form } = elements
+    const form1 = form({ id: 'form1' })
+    const form2 = form({ id: 'form2' })
+    document.body.appendChild(form1)
+    document.body.appendChild(form2)
+
+    const el = formComponent()
+    form1.appendChild(el)
+    el.value = 'initial'
+    expect(el.value).toBe('initial')
+
+    // Move to second form
+    form2.appendChild(el)
+    expect(el.value).toBe('initial') // Value should persist
+    el.value = 'updated'
+    expect(el.value).toBe('updated')
+
+    // Move back to first form
+    form1.appendChild(el)
+    expect(el.value).toBe('updated')
+
+    // Clean up
+    form1.remove()
+    form2.remove()
+  })
+
+  test('form element survives removal and re-insertion', () => {
+    const { form } = elements
+    const form1 = form({ id: 'form-reinsert' })
+    document.body.appendChild(form1)
+
+    const el = formComponent()
+    form1.appendChild(el)
+    el.value = 'before-remove'
+
+    // Remove from DOM
+    el.remove()
+    expect(el.value).toBe('before-remove')
+
+    // Re-insert
+    form1.appendChild(el)
+    expect(el.value).toBe('before-remove')
+    el.value = 'after-reinsert'
+    expect(el.value).toBe('after-reinsert')
+
+    form1.remove()
+  })
 })
