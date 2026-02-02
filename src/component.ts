@@ -26,6 +26,11 @@ class ToolBar extends Component {
 export const toolBar = ToolBar.elementCreator({ tag: 'tool-bar' })
 ```
 
+> **Note**: Custom elements default to `display: inline`, which often causes them to
+> appear dimensionless. Unless you want this (e.g., for content-holder elements),
+> set an explicit `display` value (e.g., `block`, `inline-block`, `flex`) in your
+> `:host` styles.
+
 This component is just a structural element. By default a `Component` subclass will
 comprise itself and a `<slot>`. You can change this by giving your subclass its
 own `content` template.
