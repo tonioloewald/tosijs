@@ -12,6 +12,21 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static initAttributes?: Record<string, any>;
     static formAssociated?: boolean;
     internals?: ElementInternals;
+    get validity(): ValidityState | undefined;
+    get validationMessage(): string;
+    get willValidate(): boolean;
+    checkValidity(): boolean;
+    reportValidity(): boolean;
+    setCustomValidity(message: string): void;
+    /**
+     * Set validation state. Pass empty flags {} to clear validity.
+     * The anchor element is used for focus when reportValidity() is called.
+     */
+    setValidity(flags: ValidityStateFlags, message?: string, anchor?: HTMLElement): void;
+    /**
+     * Set the form value. Call this when your component's value changes.
+     */
+    setFormValue(value: File | string | FormData | null, state?: File | string | FormData | null): void;
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;
