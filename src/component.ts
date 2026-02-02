@@ -387,6 +387,24 @@ The following validation API is automatically available on form-associated compo
 - `setValidity(flags, message?, anchor?)` - set validation state with optional focus anchor
 - `setFormValue(value, state?)` - update the form value
 
+All of these can be overridden in your subclass for custom validation logic:
+
+```js
+class MyInput extends Component {
+  static formAssociated = true
+  value = ''
+
+  checkValidity() {
+    if (this.value.length < 3) {
+      this.setValidity({ tooShort: true }, 'Min 3 chars', this.parts.input)
+      return false
+    }
+    this.setValidity({})
+    return true
+  }
+}
+```
+
 This works without a shadow DOM.
 
 #### value property
