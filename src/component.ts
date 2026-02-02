@@ -370,6 +370,8 @@ This works without a shadow DOM.
 
 #### value property
 
+**If your component has a `value`, it should behave like an `<input>`.**
+
 The `value` property is special in Component. It is NOT an attribute - it's a property
 that can be *initialized* from an attribute. Here's what you need to know:
 
