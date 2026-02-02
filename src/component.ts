@@ -1125,9 +1125,7 @@ interface SlotParts extends PartsMap {
 }
 
 class XinSlot extends Component<SlotParts> {
-  // Note: 'name' is a native HTMLElement property, so we use the legacy
-  // initAttributes for it. Future components should avoid using 'name'.
-  name = ''
+  static initAttributes = { name: '' }
   content = null
 
   static replaceSlot(slot: HTMLSlotElement): void {
@@ -1136,12 +1134,6 @@ class XinSlot extends Component<SlotParts> {
       _slot.setAttribute('name', slot.name)
     }
     slot.replaceWith(_slot)
-  }
-
-  constructor() {
-    super()
-    // Use legacy method for 'name' since it's a native HTMLElement property
-    this.initAttributes('name')
   }
 }
 

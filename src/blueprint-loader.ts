@@ -243,9 +243,7 @@ const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
 const loadModule = (src: string): Promise<any> => import(src)
 
 export class Blueprint extends Component {
-  tag = 'anon-elt'
-  src = ''
-  property = 'default'
+  static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
   loaded?: XinPackagedComponent
   blueprintLoaded = (_pkg: XinPackagedComponent) => {}
 
@@ -265,12 +263,6 @@ export class Blueprint extends Component {
       this.blueprintLoaded(this.loaded)
     }
     return this.loaded!
-  }
-
-  constructor() {
-    super()
-
-    this.initAttributes('tag', 'src', 'property')
   }
 }
 

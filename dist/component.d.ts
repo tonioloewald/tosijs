@@ -58,10 +58,11 @@ interface SlotParts extends PartsMap {
     slotty: HTMLSlotElement;
 }
 declare class XinSlot extends Component<SlotParts> {
-    name: string;
+    static initAttributes: {
+        name: string;
+    };
     content: null;
     static replaceSlot(slot: HTMLSlotElement): void;
-    constructor();
 }
 export declare const xinSlot: ElementCreator<XinSlot>;
 export {};
