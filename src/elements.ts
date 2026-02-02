@@ -272,21 +272,34 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
     } else {
       elt.setAttribute('style', value)
     }
-  } else if ((elt as { [key: string]: any })[key] !== undefined) {
-    // MathML is only supported on 91% of browsers, and not on the Raspberry Pi Chromium
-    const { MathMLElement } = globalThis
-    if (
-      elt instanceof SVGElement ||
-      (MathMLElement !== undefined && elt instanceof MathMLElement)
-    ) {
-      elt.setAttribute(key, value)
-    } else {
-      ;(elt as { [key: string]: any })[key] = value
-    }
   } else {
     const attr = camelToKabob(key)
 
-    if (attr === 'class') {
+    // Check if declared in observedAttributes (works for third-party web components)
+    const observedAttrs = (elt.constructor as any).observedAttributes as
+      | string[]
+      | undefined
+    const isObservedAttr =
+      observedAttrs?.includes(key) || observedAttrs?.includes(attr)
+
+    if (isObservedAttr) {
+      if (typeof value === 'boolean') {
+        value ? elt.setAttribute(attr, '') : elt.removeAttribute(attr)
+      } else {
+        elt.setAttribute(attr, value)
+      }
+    } else if ((elt as { [key: string]: any })[key] !== undefined) {
+      // MathML is only supported on 91% of browsers, and not on the Raspberry Pi Chromium
+      const { MathMLElement } = globalThis
+      if (
+        elt instanceof SVGElement ||
+        (MathMLElement !== undefined && elt instanceof MathMLElement)
+      ) {
+        elt.setAttribute(key, value)
+      } else {
+        ;(elt as { [key: string]: any })[key] = value
+      }
+    } else if (attr === 'class') {
       value.split(' ').forEach((className: string) => {
         elt.classList.add(className)
       })

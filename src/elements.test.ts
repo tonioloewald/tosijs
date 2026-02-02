@@ -157,3 +157,73 @@ test('camelCase tag names convert to kebab-case', () => {
   const el = myCustomElement()
   expect(el.tagName.toLowerCase()).toBe('my-custom-element')
 })
+
+// Test for observedAttributes handling (third-party web component compatibility)
+test('respects observedAttributes for web components with undefined properties', () => {
+  // Pathological web component: declares observedAttributes but property is undefined
+  class PathologicalComponent extends HTMLElement {
+    static observedAttributes = ['my-attr', 'another-attr']
+
+    // Properties start undefined (bad practice, but common in the wild)
+    myAttr: string | undefined
+    anotherAttr: string | undefined
+
+    attributeChangedCallback(name: string, _old: string, value: string) {
+      if (name === 'my-attr') this.myAttr = value
+      if (name === 'another-attr') this.anotherAttr = value
+    }
+  }
+
+  customElements.define('pathological-component', PathologicalComponent)
+
+  const { pathologicalComponent } = elements
+  const el = pathologicalComponent({
+    myAttr: 'test-value',
+    anotherAttr: 'another-value',
+  }) as PathologicalComponent
+
+  // Should have set attributes, not tried to set undefined properties
+  expect(el.getAttribute('my-attr')).toBe('test-value')
+  expect(el.getAttribute('another-attr')).toBe('another-value')
+})
+
+test('respects observedAttributes with camelCase conversion', () => {
+  class CamelCaseAttrsComponent extends HTMLElement {
+    static observedAttributes = ['data-value', 'is-disabled']
+
+    dataValue: string | undefined
+    isDisabled: boolean | undefined
+
+    attributeChangedCallback(name: string, _old: string, value: string | null) {
+      if (name === 'data-value') this.dataValue = value ?? undefined
+      if (name === 'is-disabled') this.isDisabled = value !== null
+    }
+  }
+
+  customElements.define('camel-attrs-component', CamelCaseAttrsComponent)
+
+  const { camelAttrsComponent } = elements
+  const el = camelAttrsComponent({
+    dataValue: 'foo',
+    isDisabled: true,
+  }) as CamelCaseAttrsComponent
+
+  expect(el.getAttribute('data-value')).toBe('foo')
+  expect(el.hasAttribute('is-disabled')).toBe(true)
+})
+
+test('boolean observedAttributes handled correctly', () => {
+  class BooleanAttrComponent extends HTMLElement {
+    static observedAttributes = ['disabled', 'hidden']
+  }
+
+  customElements.define('boolean-attr-component', BooleanAttrComponent)
+
+  const { booleanAttrComponent } = elements
+
+  const elTrue = booleanAttrComponent({ disabled: true })
+  expect(elTrue.hasAttribute('disabled')).toBe(true)
+
+  const elFalse = booleanAttrComponent({ disabled: false })
+  expect(elFalse.hasAttribute('disabled')).toBe(false)
+})
