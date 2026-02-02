@@ -388,8 +388,37 @@ The following validation API is automatically available on form-associated compo
 - `setCustomValidity(message)` - set a custom error message (empty string clears)
 - `setValidity(flags, message?, anchor?)` - set validation state with optional focus anchor
 - `setFormValue(value, state?)` - update the form value
+- `validateValue()` - validates against required/minlength/maxlength/pattern attributes
 
-All of these can be overridden in your subclass for custom validation logic:
+##### Automatic validation
+
+When a form-associated component's value changes, Component automatically validates
+against standard HTML validation attributes:
+
+- `required` - value cannot be empty
+- `minlength` / `maxlength` - string length constraints
+- `pattern` - regex pattern matching
+
+```html
+<my-input required minlength="3" maxlength="100" pattern="[a-z]+"></my-input>
+```
+
+Override `validateValue()` for custom validation logic (call `super.validateValue()`
+to include standard validation).
+
+##### Form lifecycle callbacks
+
+Component provides default implementations for form lifecycle callbacks:
+
+- `formResetCallback()` - resets value to `defaultValue` or empty string
+- `formDisabledCallback(disabled)` - syncs the `disabled` attribute
+- `formStateRestoreCallback(state)` - restores value on back/forward navigation
+
+Override these to customize behavior.
+
+##### Custom validation example
+
+All validation methods can be overridden in your subclass:
 
 ```js
 class MyInput extends Component {
@@ -1188,11 +1217,47 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (this.value != null && this.getAttribute('value') != null) {
       this._value = this.getAttribute('value')
     }
+    // Sync initial form value for formAssociated components
+    if (this.internals && this.value !== undefined) {
+      this.internals.setFormValue(this.value)
+    }
     this.queueRender()
   }
 
   disconnectedCallback(): void {
     resizeObserver.unobserve(this)
+  }
+
+  /**
+   * Called when the form is reset. Override to customize reset behavior.
+   * Default: resets value to defaultValue or empty string.
+   */
+  formResetCallback(): void {
+    if (this.value !== undefined) {
+      this.value = this.defaultValue ?? ''
+    }
+  }
+
+  /**
+   * Called when the form or a parent fieldset is disabled/enabled.
+   * Default: syncs the disabled attribute.
+   */
+  formDisabledCallback(disabled: boolean): void {
+    if (disabled) {
+      this.setAttribute('disabled', '')
+    } else {
+      this.removeAttribute('disabled')
+    }
+  }
+
+  /**
+   * Called when browser restores form state (back/forward navigation).
+   * Default: restores the value.
+   */
+  formStateRestoreCallback(state: string | File | FormData | null): void {
+    if (this.value !== undefined && typeof state === 'string') {
+      this.value = state
+    }
   }
 
   private _changeQueued = false
@@ -1273,11 +1338,66 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   render(): void {
-    // Sync form value only when value actually changed
+    // Sync form value and validate when value actually changed
     if (this._valueChanged && this.internals && this.value !== undefined) {
       this.internals.setFormValue(this.value)
+      this.validateValue()
     }
     this._valueChanged = false
+  }
+
+  /**
+   * Validates the current value against standard constraints (required, minlength, maxlength, pattern).
+   * Called automatically in render() when value changes. Override to add custom validation.
+   * Call super.validateValue() to include standard validation.
+   */
+  validateValue(): void {
+    if (!this.internals || this.value === undefined) return
+
+    const value =
+      typeof this.value === 'string' ? this.value : String(this.value)
+    const flags: ValidityStateFlags = {}
+    let message = ''
+
+    // required
+    if (this.hasAttribute('required') && value === '') {
+      flags.valueMissing = true
+      message = 'Please fill out this field.'
+    }
+
+    // minlength
+    const minlength = this.getAttribute('minlength')
+    if (minlength && value.length < parseInt(minlength, 10)) {
+      flags.tooShort = true
+      message = `Please use at least ${minlength} characters.`
+    }
+
+    // maxlength
+    const maxlength = this.getAttribute('maxlength')
+    if (maxlength && value.length > parseInt(maxlength, 10)) {
+      flags.tooLong = true
+      message = `Please use no more than ${maxlength} characters.`
+    }
+
+    // pattern
+    const pattern = this.getAttribute('pattern')
+    if (pattern && value !== '') {
+      try {
+        const regex = new RegExp(`^(?:${pattern})$`)
+        if (!regex.test(value)) {
+          flags.patternMismatch = true
+          message = 'Please match the requested format.'
+        }
+      } catch {
+        // Invalid pattern, skip validation
+      }
+    }
+
+    if (Object.keys(flags).length > 0) {
+      this.internals.setValidity(flags, message, this)
+    } else {
+      this.internals.setValidity({})
+    }
   }
 }
 

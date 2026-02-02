@@ -63,12 +63,33 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private _setupAttributeAccessors;
     connectedCallback(): void;
     disconnectedCallback(): void;
+    /**
+     * Called when the form is reset. Override to customize reset behavior.
+     * Default: resets value to defaultValue or empty string.
+     */
+    formResetCallback(): void;
+    /**
+     * Called when the form or a parent fieldset is disabled/enabled.
+     * Default: syncs the disabled attribute.
+     */
+    formDisabledCallback(disabled: boolean): void;
+    /**
+     * Called when browser restores form state (back/forward navigation).
+     * Default: restores the value.
+     */
+    formStateRestoreCallback(state: string | File | FormData | null): void;
     private _changeQueued;
     private _renderQueued;
     queueRender(triggerChangeEvent?: boolean): void;
     private _hydrated;
     private hydrate;
     render(): void;
+    /**
+     * Validates the current value against standard constraints (required, minlength, maxlength, pattern).
+     * Called automatically in render() when value changes. Override to add custom validation.
+     * Call super.validateValue() to include standard validation.
+     */
+    validateValue(): void;
 }
 interface SlotParts extends PartsMap {
     slotty: HTMLSlotElement;
