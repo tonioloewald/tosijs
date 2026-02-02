@@ -61,8 +61,9 @@ import {
   AnyFunction,
   XinTouchableType,
 } from './xin-types'
-import { tosiPath } from './metadata'
+import { tosiPath, getArrayIdPaths } from './metadata'
 import { settings } from './settings'
+import { getByPath } from './by-path'
 
 export const observerShouldBeRemoved = Symbol('observer should be removed')
 export const listeners: Listener[] = [] // { path_string_or_test, callback }
@@ -70,6 +71,29 @@ const touchedPaths: string[] = []
 let updateTriggered: number | boolean = false
 let updatePromise: Promise<undefined>
 let resolveUpdate: AnyFunction
+
+/**
+ * Synthesize id-path touches for a given array path, item index, and property suffix.
+ * Called when we know we're touching something inside an array item.
+ */
+export function synthesizeIdPathTouches(
+  arrayPath: string,
+  index: number,
+  item: any,
+  suffix: string
+): string[] {
+  const idPaths = getArrayIdPaths(arrayPath)
+  if (idPaths === undefined) return []
+
+  const synthesized: string[] = []
+  for (const idPath of idPaths) {
+    const idValue = getByPath(item, idPath)
+    if (idValue !== undefined) {
+      synthesized.push(`${arrayPath}[${idPath}=${idValue}]${suffix}`)
+    }
+  }
+  return synthesized
+}
 
 export class Listener {
   description: string

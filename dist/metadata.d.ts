@@ -11,6 +11,23 @@ export declare const XIN_ON = "xinOn";
 export declare const LIST_BINDING_REF: unique symbol;
 export declare const LIST_INSTANCE_REF: unique symbol;
 /**
+ * Register an idPath for an array path. Called by ListBinding when a list
+ * binding with an idPath is created.
+ */
+export declare function registerArrayIdPath(arrayPath: string, idPath: string): void;
+/**
+ * Get all registered idPaths for an array path.
+ */
+export declare function getArrayIdPaths(arrayPath: string): Set<string> | undefined;
+/**
+ * Unregister an idPath for an array path. Called when a ListBinding is destroyed.
+ */
+export declare function unregisterArrayIdPath(arrayPath: string, idPath: string): void;
+/**
+ * Get all registered array paths (for debugging/testing).
+ */
+export declare function _getArrayIdPathRegistry(): Map<string, Set<string>>;
+/**
  * Emit a deprecation warning once per unique key.
  */
 export declare function warnDeprecated(key: string, message: string): void;

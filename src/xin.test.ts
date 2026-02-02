@@ -1123,3 +1123,70 @@ test('symbol API works on objects with value/path properties', () => {
     path: '/home/user',
   })
 })
+
+test('id-path touch synthesis', async () => {
+  // This tests that when an array has a registered idPath, touching via
+  // index also triggers observers on the id-path (used by list bindings)
+  const { idPathTest } = tosi({
+    idPathTest: {
+      list: [
+        { id: 1, name: 'foo', color: 'red' },
+        { id: 16, name: 'bar', color: 'green' },
+        { id: 65, name: 'baz', color: 'blue' },
+      ],
+    },
+  })
+
+  // Import and register the idPath (simulating what ListBinding does)
+  const { registerArrayIdPath, unregisterArrayIdPath } = await import(
+    './metadata'
+  )
+  registerArrayIdPath('idPathTest.list', 'id')
+
+  await resetChanges()
+
+  // Observer on id-path notation (like list bindings use)
+  const idPathChanges: string[] = []
+  const idPathListener = observe(
+    (path) => path.startsWith('idPathTest.list[id='),
+    (path) => {
+      idPathChanges.push(path)
+    }
+  )
+
+  // Observer on index notation
+  const indexChanges: string[] = []
+  const indexListener = observe(
+    (path) => /^idPathTest\.list\[\d+\]/.test(path),
+    (path) => {
+      indexChanges.push(path)
+    }
+  )
+
+  // Touch via index (this is how proxy setters work) - should also trigger id-path observer
+  idPathTest.list[0].color = 'orange'
+  await updates()
+
+  expect(indexChanges.length).toBe(1)
+  expect(indexChanges[0]).toBe('idPathTest.list[0].color')
+  expect(idPathChanges.length).toBe(1)
+  expect(idPathChanges[0]).toBe('idPathTest.list[id=1].color')
+
+  // Test second item
+  indexChanges.length = 0
+  idPathChanges.length = 0
+
+  idPathTest.list[1].name = 'updated bar'
+  await updates()
+
+  expect(indexChanges.length).toBe(1)
+  expect(indexChanges[0]).toBe('idPathTest.list[1].name')
+  expect(idPathChanges.length).toBe(1)
+  expect(idPathChanges[0]).toBe('idPathTest.list[id=16].name')
+
+  unobserve(idPathListener)
+  unobserve(indexListener)
+
+  // Clean up
+  unregisterArrayIdPath('idPathTest.list', 'id')
+})

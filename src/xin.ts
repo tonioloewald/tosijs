@@ -601,6 +601,7 @@ import {
   observe as _observe,
   unobserve,
   updates,
+  synthesizeIdPathTouches,
 } from './path-listener'
 import { getByPath, setByPath } from './by-path'
 import { getBind, getOn } from './registry'
@@ -1062,6 +1063,22 @@ const regHandler = (
     const existing = tosiValue(xin[fullPath])
     if (existing !== value && setByPath(registry, fullPath, value)) {
       touch(fullPath)
+      // Synthesize id-path touches if this is inside an array item
+      const indexMatch = path.match(/^(.+)\[(\d+)\]$/)
+      if (indexMatch !== null) {
+        const [, arrayPath, indexStr] = indexMatch
+        const index = parseInt(indexStr, 10)
+        const suffix = isValueProp ? '' : `.${prop as string}`
+        const idPathTouches = synthesizeIdPathTouches(
+          arrayPath,
+          index,
+          target,
+          suffix
+        )
+        for (const idPath of idPathTouches) {
+          touch(idPath)
+        }
+      }
     }
     return true
   },

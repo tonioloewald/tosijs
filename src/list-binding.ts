@@ -83,6 +83,27 @@ Specifying an `idPath` in a list-binding will allow the list to be more efficien
 It's the equivalent of a `key` in React, the difference being that it's optional and
 specifically intended to leverage pre-existing keys where available.
 
+### Surgical Updates with id-paths
+
+When you specify an `idPath`, something remarkable happens: changes to individual
+item properties trigger surgical DOM updates without re-rendering the entire list.
+
+Here's how it works:
+
+1. When a list binding is created with an `idPath`, tosijs registers that array path
+2. When you modify an item property (e.g., `list[0].color = 'red'`), tosijs detects
+   this is inside an array item
+3. It automatically synthesizes an equivalent id-path touch (e.g., `list[id=123].color`)
+4. Bindings registered with id-path notation receive the update
+
+This means you can update one property on one item in a list of millions, and only
+that single DOM element updates. No diffing, no virtual DOM, no reconciliation -
+just direct, surgical updates.
+
+**To see this in action:** Open your browser's DevTools, enable "Paint flashing"
+(in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
+virtualized grid example below. Only the cells whose values actually change will flash.
+
 ## Virtualized Lists
 
 The real power of `bindList` comes from its support for virtualizing lists.
@@ -183,17 +204,38 @@ preview.append(
 You can virtualize a grid by styling the padding elements (with class `.virtual-list-padding`)
 to have the correct column span. (You can also just specify a fixed `width` for your list.)
 
+This example creates 2000 cells with random text colors, then updates 10% of them
+randomly every 500ms. Enable paint flashing to see the surgical updates in action.
+Note how `rowChunkSize: 2` allows consistent row shading via `:nth-child()`.
+
 ```js
 import { elements, tosi } from 'tosijs'
-const { div, template } = elements
+
+// Generate random saturated colors
+const randomColor = () => {
+  const h = Math.floor(Math.random() * 360)
+  return `hsl(${h}, 80%, 45%)`
+}
+
 const list = []
 for (let i = 0; i < 2000; i++) {
-  list.push({id: i})
+  list.push({ id: i, color: randomColor() })
 }
 
 const { bigBindTest } = tosi({
   bigBindTest: list
 })
+
+// Update 10% of items randomly every 500ms
+setInterval(() => {
+  const count = Math.floor(list.length * 0.1)
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random() * list.length)
+    bigBindTest[idx].color = randomColor()
+  }
+}, 500)
+
+const { div } = elements
 
 preview.append(
   div(
@@ -203,7 +245,15 @@ preview.append(
     ...bigBindTest.tosiListBinding(
       ({div}, item) => div({
         class: 'cell',
-        bindText: item.id
+        bindText: item.id,
+        bind: {
+          value: item.color,
+          binding: {
+            toDOM(el, color) {
+              el.style.color = color
+            }
+          }
+        }
       }),
       {
         idPath: 'id',
@@ -234,6 +284,8 @@ preview.append(
   height: 40px;
   line-height: 40px;
   text-align: center;
+  font-weight: bold;
+  transition: color 0.3s ease;
 }
 
 .virtual-grid-example .cell:nth-child(14n+2),
@@ -469,6 +521,7 @@ import {
   tosiPath,
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
+  registerArrayIdPath,
 } from './metadata'
 import { XinObject, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
@@ -521,6 +574,15 @@ export class ListBinding {
   ) {
     this.boundElement = boundElement
     this.itemToElement = new WeakMap()
+
+    // Register idPath for this array to enable id-path touch synthesis
+    if (options.idPath != null) {
+      const arrayPath = tosiPath(value)
+      if (arrayPath != null) {
+        registerArrayIdPath(arrayPath, options.idPath)
+      }
+    }
+
     if (boundElement.children.length !== 1) {
       throw new Error(
         'ListBinding expects an element with exactly one child element'

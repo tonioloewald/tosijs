@@ -55,6 +55,52 @@ export const XIN_ON = 'xinOn'
 export const LIST_BINDING_REF = Symbol('list-binding')
 export const LIST_INSTANCE_REF = Symbol('list-instance')
 
+/**
+ * Registry mapping array paths to their registered idPaths.
+ * Used to synthesize id-path touch events when index-based paths are touched.
+ */
+const arrayIdPathRegistry = new Map<string, Set<string>>()
+
+/**
+ * Register an idPath for an array path. Called by ListBinding when a list
+ * binding with an idPath is created.
+ */
+export function registerArrayIdPath(arrayPath: string, idPath: string): void {
+  let idPaths = arrayIdPathRegistry.get(arrayPath)
+  if (idPaths === undefined) {
+    idPaths = new Set()
+    arrayIdPathRegistry.set(arrayPath, idPaths)
+  }
+  idPaths.add(idPath)
+}
+
+/**
+ * Get all registered idPaths for an array path.
+ */
+export function getArrayIdPaths(arrayPath: string): Set<string> | undefined {
+  return arrayIdPathRegistry.get(arrayPath)
+}
+
+/**
+ * Unregister an idPath for an array path. Called when a ListBinding is destroyed.
+ */
+export function unregisterArrayIdPath(arrayPath: string, idPath: string): void {
+  const idPaths = arrayIdPathRegistry.get(arrayPath)
+  if (idPaths !== undefined) {
+    idPaths.delete(idPath)
+    if (idPaths.size === 0) {
+      arrayIdPathRegistry.delete(arrayPath)
+    }
+  }
+}
+
+/**
+ * Get all registered array paths (for debugging/testing).
+ */
+export function _getArrayIdPathRegistry(): Map<string, Set<string>> {
+  return arrayIdPathRegistry
+}
+
 // Track which deprecation warnings have been shown
 const deprecationWarnings = new Set<string>()
 
