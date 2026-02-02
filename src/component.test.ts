@@ -398,3 +398,134 @@ describe('xinSlot', () => {
     slot.remove()
   })
 })
+
+// Tests for static initAttributes
+describe('static initAttributes', () => {
+  class StaticAttrsComponent extends Component {
+    static initAttributes = {
+      caption: 'default',
+      count: 42,
+      disabled: false,
+    }
+
+    content = ({ div }: typeof elements) => div({ part: 'content' })
+  }
+
+  let staticAttrsComponent: ReturnType<
+    typeof StaticAttrsComponent.elementCreator
+  >
+
+  beforeAll(() => {
+    staticAttrsComponent = StaticAttrsComponent.elementCreator({
+      tag: 'static-attrs-component',
+    })
+  })
+
+  test('observedAttributes is auto-generated from initAttributes', () => {
+    const observed = StaticAttrsComponent.observedAttributes
+    expect(observed).toContain('hidden')
+    expect(observed).toContain('caption')
+    expect(observed).toContain('count')
+    expect(observed).toContain('disabled')
+  })
+
+  test('string attribute has correct default', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    expect(el.caption).toBe('default')
+    el.remove()
+  })
+
+  test('string attribute syncs with DOM', () => {
+    const el = staticAttrsComponent({ caption: 'from-attr' })
+    document.body.appendChild(el)
+    expect(el.caption).toBe('from-attr')
+    expect(el.getAttribute('caption')).toBe('from-attr')
+    el.remove()
+  })
+
+  test('string attribute can be set via property', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    el.caption = 'updated'
+    expect(el.getAttribute('caption')).toBe('updated')
+    el.remove()
+  })
+
+  test('number attribute has correct default', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    expect(el.count).toBe(42)
+    el.remove()
+  })
+
+  test('number attribute is parsed from DOM', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    el.setAttribute('count', '100')
+    expect(el.count).toBe(100)
+    el.remove()
+  })
+
+  test('boolean attribute defaults to false', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    expect(el.disabled).toBe(false)
+    el.remove()
+  })
+
+  test('boolean attribute true when present', () => {
+    const el = staticAttrsComponent({ disabled: true })
+    document.body.appendChild(el)
+    expect(el.disabled).toBe(true)
+    expect(el.hasAttribute('disabled')).toBe(true)
+    el.remove()
+  })
+
+  test('boolean attribute toggled via property', () => {
+    const el = staticAttrsComponent()
+    document.body.appendChild(el)
+    el.disabled = true
+    expect(el.hasAttribute('disabled')).toBe(true)
+    el.disabled = false
+    expect(el.hasAttribute('disabled')).toBe(false)
+    el.remove()
+  })
+})
+
+// Tests for formAssociated / ElementInternals
+describe('formAssociated', () => {
+  class FormComponent extends Component {
+    static formAssociated = true
+    static initAttributes = { value: '' }
+
+    content = ({ input }: typeof elements) => input({ part: 'input' })
+  }
+
+  let formComponent: ReturnType<typeof FormComponent.elementCreator>
+
+  beforeAll(() => {
+    formComponent = FormComponent.elementCreator({ tag: 'form-component' })
+  })
+
+  test('has internals when formAssociated is true (if supported)', () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    // Happy DOM doesn't support attachInternals, so internals may be undefined
+    if (typeof HTMLElement.prototype.attachInternals === 'function') {
+      expect(el.internals).toBeDefined()
+    } else {
+      expect(el.internals).toBeUndefined()
+    }
+    el.remove()
+  })
+
+  test('component works even without internals support', () => {
+    const el = formComponent()
+    document.body.appendChild(el)
+    // Should not throw, value should work
+    el.value = 'test'
+    expect(el.value).toBe('test')
+    el.remove()
+  })
+})

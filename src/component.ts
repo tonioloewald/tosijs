@@ -915,7 +915,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     instanceCount += 1
 
     // Attach ElementInternals for form-associated components
-    if ((this.constructor as typeof Component).formAssociated) {
+    if (
+      (this.constructor as typeof Component).formAssociated &&
+      typeof this.attachInternals === 'function'
+    ) {
       this.internals = this.attachInternals()
     }
 
