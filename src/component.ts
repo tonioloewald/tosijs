@@ -326,6 +326,186 @@ Be sure to call `super.render()` if you implement `render` in the subclass.
 
 This is simply provided as a convenient way to get to [elements](/?elements.ts)
 
+#### static formAssociated: boolean
+
+Set `static formAssociated = true` in your subclass to enable form participation
+via `ElementInternals`. When true, the component will have `this.internals` available
+for form integration, validation, ARIA properties, and custom states.
+
+This works without a shadow DOM.
+
+##### Form Integration Example
+
+```js
+import { Component, elements } from 'tosijs'
+
+class FormInput extends Component {
+  static formAssociated = true
+  static observedAttributes = Component.attributes('value')
+  value = ''
+
+  content = ({input}) => input({part: 'input', placeholder: 'Type here...'})
+
+  connectedCallback() {
+    super.connectedCallback()
+    const input = this.parts.input
+    input.addEventListener('input', () => {
+      this.value = input.value
+      this.internals.setFormValue(this.value)
+      if (this.value.length < 3) {
+        this.internals.setValidity({tooShort: true}, 'Min 3 characters', input)
+        this.internals.states.add('invalid')
+      } else {
+        this.internals.setValidity({})
+        this.internals.states.delete('invalid')
+      }
+    })
+    input.addEventListener('focus', () => this.internals.states.add('focused'))
+    input.addEventListener('blur', () => this.internals.states.delete('focused'))
+  }
+
+  render() {
+    const input = this.parts.input
+    if (input.value !== this.value) input.value = this.value
+  }
+}
+
+const formInput = FormInput.elementCreator({tag: 'form-input'})
+const {form, div, button} = elements
+
+const output = div()
+const myForm = form(
+  formInput({name: 'username'}),
+  button({type: 'submit'}, 'Submit')
+)
+myForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const fd = new FormData(e.target)
+  output.textContent = 'FormData: ' + [...fd.entries()].map(([k,v]) => `${k}=${v}`).join(', ')
+})
+
+preview.append(myForm, output)
+```
+```css
+.preview form { display: flex; gap: 8px; align-items: center; }
+.preview form-input { display: block; }
+.preview form-input input { padding: 8px; border: 2px solid var(--faint-text); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
+.preview form-input:state(focused) input { border-color: var(--brand-color); }
+.preview form-input:state(invalid) input { border-color: var(--error-color); }
+```
+
+##### Custom States Example
+
+Custom states let you expose internal component state to CSS via the `:state()` pseudo-class.
+
+```js
+import { Component, elements } from 'tosijs'
+
+class LoadingButton extends Component {
+  static formAssociated = true
+  loading = false
+
+  content = ({slot}) => slot()
+
+  async handleClick() {
+    this.internals.states.add('loading')
+    this.loading = true
+    await new Promise(r => setTimeout(r, 1500))
+    this.internals.states.delete('loading')
+    this.loading = false
+  }
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.addEventListener('click', () => this.handleClick())
+  }
+}
+
+const loadingButton = LoadingButton.elementCreator({tag: 'loading-button'})
+
+preview.append(loadingButton('Click me to load'))
+```
+```css
+.preview loading-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background: var(--brand-color);
+  color: var(--button-text);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.preview loading-button:state(loading) {
+  opacity: 0.6;
+  cursor: wait;
+}
+.preview loading-button:state(loading)::after {
+  content: '...';
+}
+```
+
+#### adoptedCallback
+
+The `adoptedCallback` lifecycle method is called when a component is moved to a different
+document, such as into or out of an iframe. Subclasses can implement this directly.
+
+```js
+import { Component, elements } from 'tosijs'
+
+class AdoptableWidget extends Component {
+  docCount = 0
+
+  content = ({span}) => span({part: 'info'})
+
+  adoptedCallback() {
+    this.docCount++
+    this.queueRender()
+  }
+
+  render() {
+    this.parts.info.textContent = `Adopted ${this.docCount} time(s). Document: ${this.ownerDocument.title || 'untitled'}`
+  }
+}
+
+const adoptableWidget = AdoptableWidget.elementCreator({tag: 'adoptable-widget'})
+const {iframe, button, div, span} = elements
+
+const widget = adoptableWidget()
+const widgetSlot = span({class: 'widget-slot'}, widget)
+const frame = iframe()
+const moveBtn = button('Move to iframe')
+const backBtn = button('Move back')
+
+moveBtn.addEventListener('click', () => {
+  frame.contentDocument.body.append(frame.contentDocument.adoptNode(widget))
+})
+backBtn.addEventListener('click', () => {
+  widgetSlot.append(document.adoptNode(widget))
+})
+
+preview.append(widgetSlot, div(moveBtn, backBtn), frame)
+```
+```css
+.preview .widget-slot {
+  display: block;
+  min-height: 40px;
+  border: 2px dashed #888;
+  margin-bottom: 10px;
+}
+.preview adoptable-widget {
+  display: block;
+  padding: 10px;
+  background: #666;
+  color: white;
+}
+.preview > div { display: flex; gap: 8px; margin-bottom: 10px; }
+.preview iframe {
+  width: 100%;
+  height: 60px;
+  border: 2px dashed #888;
+  background: #fff;
+}
+```
+
 ### Component static methods
 
 #### Component.elementCreator(options? {tag?: string, styleSpec: XinStyleSheet}): ElementCreator
@@ -397,6 +577,7 @@ import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
+import { warnDeprecated } from './metadata'
 
 let anonymousElementCount = 0
 
@@ -404,6 +585,33 @@ function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
 }
 let instanceCount = 0
+
+// Lazy shared MutationObserver for deprecated initAttributes
+let legacyAttributeObserver: MutationObserver | null = null
+
+function getLegacyAttributeObserver(): MutationObserver {
+  if (legacyAttributeObserver === null) {
+    legacyAttributeObserver = new MutationObserver((mutationsList) => {
+      const componentsToRender = new Set<Component>()
+      for (const mutation of mutationsList) {
+        if (
+          mutation.type === 'attributes' &&
+          mutation.target instanceof Component
+        ) {
+          const component = mutation.target as Component
+          const attrName = kabobToCamel(mutation.attributeName!)
+          if (component._legacyTrackedAttrs?.has(attrName)) {
+            componentsToRender.add(component)
+          }
+        }
+      }
+      for (const component of componentsToRender) {
+        component.queueRender(false)
+      }
+    })
+  }
+  return legacyAttributeObserver
+}
 
 interface ElementCreatorOptions extends ElementDefinitionOptions {
   tag?: string
@@ -434,7 +642,15 @@ function insertGlobalStyles(tagName: string) {
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
-  instanceId: string
+  /**
+   * Declare observed attributes for native attributeChangedCallback.
+   * Use Component.attributes() helper to include standard attributes.
+   * Example: static observedAttributes = Component.attributes('caption', 'value')
+   */
+  static observedAttributes?: readonly string[]
+  static formAssociated?: boolean
+  internals?: ElementInternals
+  instanceId!: string
   styleNode?: HTMLStyleElement
   static styleSpec?: XinStyleSheet
   static styleNode?: HTMLStyleElement
@@ -446,6 +662,20 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     return this._tagName
   }
   [key: string]: any
+
+  // For legacy initAttributes - tracks which attrs this instance watches
+  _legacyTrackedAttrs?: Set<string>
+  // Tracks attribute default values and types for property accessors
+  private _attrDefaults?: Map<string, any>
+  private _attrValues?: Map<string, any>
+
+  /**
+   * Helper to declare observed attributes. Use in subclass:
+   * static observedAttributes = Component.attributes('caption', 'value')
+   */
+  static attributes(...attrs: string[]): string[] {
+    return ['hidden', ...attrs]
+  }
 
   static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement {
     console.warn(
@@ -499,21 +729,32 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     return componentClass._elementCreator
   }
 
+  /**
+   * @deprecated Use static observedAttributes with Component.attributes() instead.
+   * Example:
+   *   static observedAttributes = Component.attributes('caption', 'value')
+   */
   initAttributes(...attributeNames: string[]): void {
+    warnDeprecated(
+      'initAttributes',
+      'initAttributes() is deprecated. Use static observedAttributes = Component.attributes(...) instead.'
+    )
+
+    // Track which attributes this instance is watching via legacy mechanism
+    if (!this._legacyTrackedAttrs) {
+      this._legacyTrackedAttrs = new Set()
+    }
+    for (const name of attributeNames) {
+      this._legacyTrackedAttrs.add(name)
+    }
+
+    // Use shared MutationObserver instead of per-instance observer
+    const observer = getLegacyAttributeObserver()
+    observer.observe(this, { attributes: true })
+
     const attributes: { [key: string]: any } = {}
     const attributeValues: { [key: string]: any } = {}
-    const observer = new MutationObserver((mutationsList) => {
-      let triggerRender = false
-      mutationsList.forEach((mutation) => {
-        triggerRender = !!(
-          mutation.attributeName &&
-          attributeNames.includes(kabobToCamel(mutation.attributeName))
-        )
-      })
-      if (triggerRender && this.queueRender !== undefined)
-        this.queueRender(false)
-    })
-    observer.observe(this, { attributes: true })
+
     attributeNames.forEach((attributeName) => {
       attributes[attributeName] = deepClone(this[attributeName])
       const attributeKabob = camelToKabob(attributeName)
@@ -625,12 +866,132 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     return this._parts
   }
 
+  /**
+   * Native web component callback for attribute changes.
+   * Only called for attributes declared in static observedAttributes.
+   */
+  attributeChangedCallback(
+    name: string,
+    _oldValue: string | null,
+    _newValue: string | null
+  ): void {
+    // Convert kabob-case attribute to camelCase property name
+    const propName = kabobToCamel(name)
+    // Only queue render if this isn't a legacy-tracked attr (those use MutationObserver)
+    if (!this._legacyTrackedAttrs?.has(propName)) {
+      this.queueRender(false)
+    }
+  }
+
   constructor() {
     super()
     instanceCount += 1
-    this.initAttributes('hidden')
+
+    // Attach ElementInternals for form-associated components
+    if ((this.constructor as typeof Component).formAssociated) {
+      this.internals = this.attachInternals()
+    }
+
+    // Set up property accessors for static observedAttributes
+    const observedAttrs = (this.constructor as typeof Component)
+      .observedAttributes
+    if (observedAttrs && observedAttrs.length > 0) {
+      this._setupAttributeAccessors(observedAttrs)
+    }
+
     this.instanceId = `${this.tagName.toLocaleLowerCase()}-${instanceCount}`
     this._value = deepClone(this.defaultValue)
+  }
+
+  /**
+   * Sets up property accessors for attributes declared in static observedAttributes.
+   * This is the modern replacement for initAttributes().
+   */
+  private _setupAttributeAccessors(attributeNames: readonly string[]): void {
+    if (!this._attrDefaults) {
+      this._attrDefaults = new Map()
+    }
+    if (!this._attrValues) {
+      this._attrValues = new Map()
+    }
+
+    for (const attrKabob of attributeNames) {
+      const attrName = kabobToCamel(attrKabob)
+
+      // Skip if already set up (e.g., by legacy initAttributes) or not configurable
+      // Check prototype chain for non-configurable properties (e.g., 'name' on Element)
+      let proto: object | null = this
+      let isNonConfigurable = false
+      while (proto) {
+        const descriptor = Object.getOwnPropertyDescriptor(proto, attrName)
+        if (descriptor) {
+          if (!descriptor.configurable || descriptor.get || descriptor.set) {
+            isNonConfigurable = true
+            break
+          }
+          break
+        }
+        proto = Object.getPrototypeOf(proto)
+      }
+      if (isNonConfigurable) {
+        continue
+      }
+
+      // Capture the default value and type from the instance
+      const defaultValue = deepClone(this[attrName])
+      this._attrDefaults.set(attrName, defaultValue)
+
+      Object.defineProperty(this, attrName, {
+        enumerable: false,
+        get: () => {
+          if (typeof defaultValue === 'boolean') {
+            return this.hasAttribute(attrKabob)
+          } else if (this.hasAttribute(attrKabob)) {
+            return typeof defaultValue === 'number'
+              ? parseFloat(this.getAttribute(attrKabob)!)
+              : this.getAttribute(attrKabob)
+          } else if (this._attrValues!.has(attrName)) {
+            return this._attrValues!.get(attrName)
+          } else {
+            return defaultValue
+          }
+        },
+        set: (value: any) => {
+          if (typeof defaultValue === 'boolean') {
+            if (value !== this[attrName]) {
+              if (value) {
+                this.setAttribute(attrKabob, '')
+              } else {
+                this.removeAttribute(attrKabob)
+              }
+              this.queueRender()
+            }
+          } else if (typeof defaultValue === 'number') {
+            if (value !== parseFloat(this[attrName])) {
+              this.setAttribute(attrKabob, value)
+              this.queueRender()
+            }
+          } else {
+            if (
+              typeof value === 'object' ||
+              `${value as string}` !== `${this[attrName] as string}`
+            ) {
+              if (
+                value === null ||
+                value === undefined ||
+                typeof value === 'object'
+              ) {
+                this.removeAttribute(attrKabob)
+              } else {
+                this.setAttribute(attrKabob, value)
+              }
+              this.queueRender()
+              this._attrValues!.set(attrName, value)
+            }
+          }
+        },
+      })
+    }
   }
 
   connectedCallback(): void {
@@ -734,6 +1095,8 @@ interface SlotParts extends PartsMap {
 }
 
 class XinSlot extends Component<SlotParts> {
+  // Note: 'name' is a native HTMLElement property, so we use the legacy
+  // initAttributes for it. Future components should avoid using 'name'.
   name = ''
   content = null
 
@@ -747,6 +1110,7 @@ class XinSlot extends Component<SlotParts> {
 
   constructor() {
     super()
+    // Use legacy method for 'name' since it's a native HTMLElement property
     this.initAttributes('name')
   }
 }
