@@ -504,4 +504,98 @@ export class Color {
       )}%)`
     )
   }
+
+  // Computed color variable management
+  private static computedColorStylesheet: HTMLStyleElement | null = null
+  private static computedColors: Map<
+    string,
+    { varName: string; scale: number; method: string }
+  > = new Map()
+  private static recomputeQueued = false
+
+  /**
+   * Register a computed color variable. Called by vars proxy when a computed
+   * color like `vars.primaryColor50b` is accessed.
+   */
+  static registerComputedColor(
+    outputVar: string,
+    sourceVar: string,
+    scale: number,
+    method: string
+  ): void {
+    if (!Color.computedColors.has(outputVar)) {
+      Color.computedColors.set(outputVar, {
+        varName: sourceVar,
+        scale,
+        method,
+      })
+      Color.queueRecompute()
+    }
+  }
+
+  /**
+   * Queue a recomputation of all computed color variables.
+   * Called when observant stylesheets change.
+   */
+  static queueRecompute(): void {
+    if (Color.recomputeQueued) return
+    Color.recomputeQueued = true
+    queueMicrotask(() => {
+      Color.recomputeQueued = false
+      Color.recomputeColors()
+    })
+  }
+
+  /**
+   * Recompute all registered computed color variables and update the stylesheet.
+   */
+  private static recomputeColors(): void {
+    if (Color.computedColors.size === 0) return
+
+    const rules: string[] = []
+    for (const [
+      outputVar,
+      { varName, scale, method },
+    ] of Color.computedColors) {
+      try {
+        const baseColor = Color.fromVar(varName)
+        let computedColor: Color
+
+        switch (method) {
+          case 'b': // brighten
+            computedColor =
+              scale > 0 ? baseColor.brighten(scale) : baseColor.darken(-scale)
+            break
+          case 's': // saturate
+            computedColor =
+              scale > 0
+                ? baseColor.saturate(scale)
+                : baseColor.desaturate(-scale)
+            break
+          case 'h': // hue
+            computedColor = baseColor.rotate(scale * 100)
+            break
+          case 'o': // alpha/opacity
+            computedColor = baseColor.opacity(scale)
+            break
+          default:
+            continue
+        }
+        rules.push(`  ${outputVar}: ${computedColor.rgba};`)
+      } catch (_e) {
+        // Skip if source color can't be resolved
+      }
+    }
+
+    if (rules.length === 0) return
+
+    const cssText = `:root {\n${rules.join('\n')}\n}`
+
+    if (Color.computedColorStylesheet === null) {
+      Color.computedColorStylesheet = document.createElement('style')
+      Color.computedColorStylesheet.id = 'tosijs-computed-colors'
+      document.head.append(Color.computedColorStylesheet)
+    }
+    Color.computedColorStylesheet.textContent = cssText
+  }
 }

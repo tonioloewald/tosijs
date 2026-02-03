@@ -83,32 +83,38 @@ test('vars.default Works', () => {
 
 test('vars color manipulation - brighten (b)', () => {
   const result = vars.brandColor50b
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color50b)')
 })
 
 test('vars color manipulation - darken (negative b)', () => {
   const result = vars.brandColor_50b
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color_50b)')
 })
 
 test('vars color manipulation - saturate (s)', () => {
   const result = vars.brandColor50s
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color50s)')
 })
 
 test('vars color manipulation - desaturate (negative s)', () => {
   const result = vars.brandColor_50s
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color_50s)')
 })
 
 test('vars color manipulation - hue rotation (h)', () => {
   const result = vars.brandColor50h
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color50h)')
 })
 
 test('vars color manipulation - opacity (o)', () => {
   const result = vars.brandColor50o
-  expect(result).toContain('rgba(')
+  // Now returns CSS variable reference, Color computes the actual value
+  expect(result).toBe('var(--brand-color50o)')
 })
 
 test('vars throws for unrecognized method', () => {
@@ -212,4 +218,75 @@ test('invertLuminance ignores non-color values', () => {
   })
   expect(result.width).toBeUndefined()
   expect(result.color).toBeInstanceOf(Color)
+})
+
+// Observant StyleSheet tests
+import { StyleSheet, onStylesheetChange } from './css'
+import { tosi } from './xin-proxy'
+import { updates } from './path-listener'
+
+test('StyleSheet creates style element with id', () => {
+  StyleSheet('test-static-stylesheet', {
+    '.test': { color: 'red' },
+  })
+  const el = document.getElementById('test-static-stylesheet')
+  expect(el).not.toBeNull()
+  expect(el?.tagName.toLowerCase()).toBe('style')
+  expect(el?.textContent).toContain('color: red')
+  el?.remove()
+})
+
+test('StyleSheet with proxy is observant', async () => {
+  const { theme } = tosi({
+    theme: {
+      body: { color: 'blue' },
+    },
+  })
+
+  StyleSheet('test-observant-stylesheet', theme)
+  const el = document.getElementById('test-observant-stylesheet')
+  expect(el).not.toBeNull()
+  expect(el?.textContent).toContain('color: blue')
+
+  // Change the proxy value
+  theme.body.color = 'green'
+  await updates()
+
+  // Stylesheet should have been updated
+  expect(el?.textContent).toContain('color: green')
+  el?.remove()
+})
+
+test('onStylesheetChange notifies when observant stylesheet updates', async () => {
+  const { notifyTheme } = tosi({
+    notifyTheme: {
+      body: { background: 'white' },
+    },
+  })
+
+  let notified = false
+  const unsubscribe = onStylesheetChange(() => {
+    notified = true
+  })
+
+  StyleSheet('test-notify-stylesheet', notifyTheme)
+  const el = document.getElementById('test-notify-stylesheet')
+
+  // Change triggers notification
+  notifyTheme.body.background = 'black'
+  await updates()
+
+  expect(notified).toBe(true)
+
+  unsubscribe()
+  el?.remove()
+})
+
+test('Color.registerComputedColor registers computed color variables', () => {
+  // Access a computed color variable
+  const ref = vars.testColor50b
+  expect(ref).toBe('var(--test-color50b)')
+
+  // Color should have registered this for computation
+  // (We can't easily test the internal state, but the reference format is correct)
 })

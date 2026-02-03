@@ -331,12 +331,47 @@ import { Color } from './color'
 import { elements } from './elements'
 import { camelToKabob } from './string-case'
 import { XinStyleSheet, XinStyleRule } from './css-types'
-import { warnDeprecated } from './metadata'
+import { warnDeprecated, tosiPath, tosiValue } from './metadata'
+import { observe } from './xin'
+
+// Callbacks to notify when any observant stylesheet regenerates
+const stylesheetChangeCallbacks: Set<() => void> = new Set()
+
+// Register Color.queueRecompute as a listener (done lazily to avoid circular import issues)
+let colorListenerRegistered = false
+function ensureColorListener(): void {
+  if (!colorListenerRegistered) {
+    colorListenerRegistered = true
+    stylesheetChangeCallbacks.add(() => Color.queueRecompute())
+  }
+}
+
+export function onStylesheetChange(callback: () => void): () => void {
+  stylesheetChangeCallbacks.add(callback)
+  return () => stylesheetChangeCallbacks.delete(callback)
+}
+
+function notifyStylesheetChange(): void {
+  ensureColorListener()
+  for (const callback of stylesheetChangeCallbacks) {
+    callback()
+  }
+}
 
 export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
-  const element = elements.style(css(styleSpec))
+  const spec = tosiValue(styleSpec) as XinStyleSheet
+  const element = elements.style(css(spec))
   element.id = id
   document.head.append(element)
+
+  // If styleSpec is a proxy, observe it for changes
+  const path = tosiPath(styleSpec)
+  if (path !== undefined) {
+    observe(path, () => {
+      element.textContent = css(tosiValue(styleSpec) as XinStyleSheet)
+      notifyStylesheetChange()
+    })
+  }
 }
 
 const numericProps = [
@@ -496,33 +531,14 @@ export const vars = new Proxy<VarsType>({} as VarsType, {
             : -Number(scaleText) / 100
         switch (method) {
           case 'b': // brighten
-            {
-              const baseColor = Color.fromVar(varName)
-              target[prop] =
-                scale > 0
-                  ? baseColor.brighten(scale).rgba
-                  : baseColor.darken(-scale).rgba
-            }
-            break
           case 's': // saturate
-            {
-              const baseColor = Color.fromVar(varName)
-              target[prop] =
-                scale > 0
-                  ? baseColor.saturate(scale).rgba
-                  : baseColor.desaturate(-scale).rgba
-            }
-            break
           case 'h': // hue
-            {
-              const baseColor = Color.fromVar(varName)
-              target[prop] = baseColor.rotate(scale * 100).rgba
-            }
-            break
           case 'o': // alpha
             {
-              const baseColor = Color.fromVar(varName)
-              target[prop] = baseColor.opacity(scale).rgba
+              // Return a CSS variable reference and register for computation
+              const outputVar = `--${prop}`
+              Color.registerComputedColor(outputVar, varName, scale, method)
+              target[prop] = `var(${outputVar})`
             }
             break
           case '':
