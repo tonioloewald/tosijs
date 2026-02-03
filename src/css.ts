@@ -559,3 +559,66 @@ export const vars = new Proxy<VarsType>({} as VarsType, {
 })
 
 type CssVarBuilder = (val: string | number) => string
+
+// Theme Preferences
+
+export type ColorScheme = 'light' | 'dark'
+export type ContrastPreference = 'no-preference' | 'more' | 'less' | 'custom'
+
+export interface ThemePreferences {
+  colorScheme: ColorScheme
+  contrast: ContrastPreference
+  reducedMotion: boolean
+  reducedTransparency: boolean
+  forcedColors: boolean
+}
+
+export function getThemePreferences(): ThemePreferences {
+  const mq = (query: string) =>
+    typeof matchMedia !== 'undefined' && matchMedia(query).matches
+
+  return {
+    colorScheme: mq('(prefers-color-scheme: dark)') ? 'dark' : 'light',
+    contrast: mq('(prefers-contrast: more)')
+      ? 'more'
+      : mq('(prefers-contrast: less)')
+      ? 'less'
+      : mq('(prefers-contrast: custom)')
+      ? 'custom'
+      : 'no-preference',
+    reducedMotion: mq('(prefers-reduced-motion: reduce)'),
+    reducedTransparency: mq('(prefers-reduced-transparency: reduce)'),
+    forcedColors: mq('(forced-colors: active)'),
+  }
+}
+
+export function onThemePreferencesChange(
+  callback: (prefs: ThemePreferences) => void
+): () => void {
+  if (typeof matchMedia === 'undefined') {
+    return () => {}
+  }
+
+  const queries = [
+    '(prefers-color-scheme: dark)',
+    '(prefers-contrast: more)',
+    '(prefers-contrast: less)',
+    '(prefers-contrast: custom)',
+    '(prefers-reduced-motion: reduce)',
+    '(prefers-reduced-transparency: reduce)',
+    '(forced-colors: active)',
+  ]
+
+  const handler = () => callback(getThemePreferences())
+
+  const mediaQueryLists = queries.map((q) => matchMedia(q))
+  for (const mql of mediaQueryLists) {
+    mql.addEventListener('change', handler)
+  }
+
+  return () => {
+    for (const mql of mediaQueryLists) {
+      mql.removeEventListener('change', handler)
+    }
+  }
+}

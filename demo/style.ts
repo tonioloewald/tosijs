@@ -3,38 +3,179 @@ FIXME component-tize the doc system in tosijs-ui
 copied from tosijs-ui demo/src/style.ts
 */
 
-import { XinStyleSheet, vars, Color, invertLuminance } from 'tosijs'
+import {
+  XinStyleSheet,
+  XinStyleRule,
+  vars,
+  Color,
+  invertLuminance,
+  tosi,
+  StyleSheet,
+  getThemePreferences,
+  onThemePreferencesChange,
+  ThemePreferences,
+} from 'tosijs'
 import { icons, svg2DataUrl } from 'tosijs-ui'
 
 const brandColor = Color.fromCss('#EE257B')
 
-const colors = {
-  _textColor: '#222',
-  _brandColor: brandColor,
-  _background: '#fafafa',
-  _inputBg: '#fdfdfd',
-  _backgroundShaded: '#f5f5f5',
-  _navBg: brandColor.rotate(30).desaturate(0.5).brighten(0.9),
-  _barColor: brandColor.opacity(0.4),
-  _focusColor: brandColor.opacity(0.7),
-  _placeholderColor: brandColor.opacity(0.4),
-  _brandTextColor: brandColor.rotate(30).brighten(0.9),
-  _insetBg: brandColor.rotate(45).brighten(0.8),
-  _codeBg: brandColor.rotate(-15).desaturate(0.5).brighten(0.9),
-  _linkColor: brandColor.rotate(-30).darken(0.5),
-  _shadowColor: '#0004',
-  _menuBg: '#fafafa',
-  _menuItemActiveColor: '#000',
-  _menuItemIconActiveColor: '#000',
-  _menuItemActiveBg: '#aaa',
-  _menuItemHoverBg: '#eee',
-  _menuItemColor: '#222',
-  _menuSeparatorColor: '#2224',
-  _scrollThumbColor: '#0006',
-  _scrollBarColor: '#0001',
+// Light mode colors
+function makeLightColors(): XinStyleRule {
+  return {
+    _textColor: '#222',
+    _brandColor: brandColor,
+    _background: '#fafafa',
+    _inputBg: '#fdfdfd',
+    _backgroundShaded: '#f5f5f5',
+    _navBg: brandColor.rotate(30).desaturate(0.5).brighten(0.9),
+    _barColor: brandColor.opacity(0.4),
+    _focusColor: brandColor.opacity(0.7),
+    _placeholderColor: brandColor.opacity(0.4),
+    _brandTextColor: brandColor.rotate(30).brighten(0.9),
+    _insetBg: brandColor.rotate(45).brighten(0.8),
+    _codeBg: brandColor.rotate(-15).desaturate(0.5).brighten(0.9),
+    _linkColor: brandColor.rotate(-30).darken(0.5),
+    _shadowColor: '#0004',
+    _menuBg: '#fafafa',
+    _menuItemActiveColor: '#000',
+    _menuItemIconActiveColor: '#000',
+    _menuItemActiveBg: '#aaa',
+    _menuItemHoverBg: '#eee',
+    _menuItemColor: '#222',
+    _menuSeparatorColor: '#2224',
+    _scrollThumbColor: '#0006',
+    _scrollBarColor: '#0001',
+  }
 }
 
-export const styleSpec: XinStyleSheet = {
+// Dark mode colors (inverted luminance)
+function makeDarkColors(): XinStyleRule {
+  const light = makeLightColors()
+  return {
+    ...invertLuminance(light),
+    _menuShadow: '0 0 0 2px #a0f3d680',
+    _menuSeparatorColor: '#a0f3d640',
+  }
+}
+
+// High contrast adjustments
+function applyHighContrast(colors: XinStyleRule): XinStyleRule {
+  // Boost contrast by darkening darks and lightening lights
+  const result = { ...colors }
+  if (result._textColor) {
+    result._textColor = '#000'
+  }
+  if (result._background) {
+    result._background = '#fff'
+  }
+  return result
+}
+
+// Compute colors based on preferences
+function computeColors(
+  colorScheme: 'light' | 'dark',
+  highContrast: boolean
+): XinStyleRule {
+  let colors = colorScheme === 'dark' ? makeDarkColors() : makeLightColors()
+  if (highContrast) {
+    colors = applyHighContrast(colors)
+  }
+  return colors
+}
+
+// Theme state - stored preferences override system
+export interface ThemeSettings {
+  colorScheme: 'system' | 'light' | 'dark'
+  highContrast: 'system' | boolean
+}
+
+const STORAGE_KEY = 'tosijs-theme'
+
+export function loadThemeSettings(): ThemeSettings {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch (_e) {
+    // ignore
+  }
+  return { colorScheme: 'system', highContrast: 'system' }
+}
+
+export function saveThemeSettings(settings: ThemeSettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  } catch (_e) {
+    // ignore
+  }
+}
+
+// Resolve settings with system preferences
+function resolveColorScheme(
+  setting: 'system' | 'light' | 'dark',
+  systemPrefs: ThemePreferences
+): 'light' | 'dark' {
+  return setting === 'system' ? systemPrefs.colorScheme : setting
+}
+
+function resolveHighContrast(
+  setting: 'system' | boolean,
+  systemPrefs: ThemePreferences
+): boolean {
+  return setting === 'system' ? systemPrefs.contrast === 'more' : setting
+}
+
+// Create observant color stylesheet
+const settings = loadThemeSettings()
+const systemPrefs = getThemePreferences()
+
+const { colorStyles } = tosi({
+  colorStyles: {
+    ':root': computeColors(
+      resolveColorScheme(settings.colorScheme, systemPrefs),
+      resolveHighContrast(settings.highContrast, systemPrefs)
+    ),
+  },
+})
+
+// Update colors when system preferences change
+onThemePreferencesChange((prefs) => {
+  const settings = loadThemeSettings()
+  colorStyles[':root'] = computeColors(
+    resolveColorScheme(settings.colorScheme, prefs),
+    resolveHighContrast(settings.highContrast, prefs)
+  )
+})
+
+// Export function to update theme from UI
+export function setTheme(newSettings: Partial<ThemeSettings>): void {
+  const current = loadThemeSettings()
+  const updated = { ...current, ...newSettings }
+  saveThemeSettings(updated)
+
+  const systemPrefs = getThemePreferences()
+  colorStyles[':root'] = computeColors(
+    resolveColorScheme(updated.colorScheme, systemPrefs),
+    resolveHighContrast(updated.highContrast, systemPrefs)
+  )
+}
+
+// Export for access to current resolved state
+export function getCurrentTheme(): {
+  colorScheme: 'light' | 'dark'
+  highContrast: boolean
+} {
+  const settings = loadThemeSettings()
+  const systemPrefs = getThemePreferences()
+  return {
+    colorScheme: resolveColorScheme(settings.colorScheme, systemPrefs),
+    highContrast: resolveHighContrast(settings.highContrast, systemPrefs),
+  }
+}
+
+// Static layout styles (non-color)
+export const layoutStyles: XinStyleSheet = {
   '@import':
     'https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&famiSpline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap',
   ':root': {
@@ -42,7 +183,6 @@ export const styleSpec: XinStyleSheet = {
     _codeFontFamily: "'Spline Sans Mono', monospace",
     _fontSize: '16px',
     _codeFontSize: '14px',
-    ...colors,
     _spacing: '10px',
     _lineHeight: vars.fontSize160,
     _h1Scale: '2',
@@ -50,25 +190,6 @@ export const styleSpec: XinStyleSheet = {
     _h3Scale: '1.25',
     _touchSize: '32px',
     _headerHeight: `calc(${vars.lineHeight} * ${vars.h2Scale} + ${vars.spacing200})`,
-  },
-  '@media (prefers-color-scheme: dark)': {
-    body: {
-      _darkmode: 'true',
-    },
-  },
-  '.darkmode': {
-    ...invertLuminance(colors),
-    _menuShadow: '0 0 0 2px #a0f3d680',
-    _menuSeparatorColor: '#a0f3d640',
-  },
-  '.high-contrast': {
-    filter: 'contrast(2)',
-  },
-  '.monochrome': {
-    filter: 'grayscale(1)',
-  },
-  '.high-contrast.monochrome': {
-    filter: 'contrast(2) grayscale(1)',
   },
   '*': {
     boxSizing: 'border-box',
@@ -428,3 +549,12 @@ export const styleSpec: XinStyleSheet = {
     },
   },
 }
+
+// Initialize stylesheets
+export function initStyles(): void {
+  StyleSheet('demo-colors', colorStyles)
+  StyleSheet('demo-layout', layoutStyles)
+}
+
+// Re-export colorStyles proxy for external observation if needed
+export { colorStyles }

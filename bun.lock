@@ -1,15 +1,16 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "tosijs",
       "devDependencies": {
         "@happy-dom/global-registrator": "^18.0.1",
         "@types/jsdom": "^21.1.7",
-        "@types/node": "^20.19.20",
+        "@types/node": "^20.19.21",
         "@types/react": "^19.2.2",
         "@typescript-eslint/eslint-plugin": "^6.21.0",
-        "bun-types": "^1.2.23",
+        "bun-types": "^1.3.0",
         "chokidar": "^4.0.3",
         "eslint": "^8.57.1",
         "marked": "^16.4.0",

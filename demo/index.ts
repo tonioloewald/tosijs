@@ -5,7 +5,6 @@ import {
   bindings,
   touch,
   getListItem,
-  StyleSheet,
   version,
   bind,
   hotReload,
@@ -25,8 +24,14 @@ import {
   version as uiVersion,
 } from 'tosijs-ui'
 
-import { styleSpec } from './style'
-StyleSheet('demo-style', styleSpec)
+import {
+  initStyles,
+  setTheme,
+  getCurrentTheme,
+  loadThemeSettings,
+  ThemeSettings,
+} from './style'
+initStyles()
 
 import * as tosijs from 'tosijs'
 import * as tosijsui from 'tosijs-ui'
@@ -51,6 +56,9 @@ const docName =
     : 'README.md'
 const currentDoc = docs.find((doc) => doc.filename === docName) || docs[0]
 
+// Load initial theme settings
+const initialThemeSettings = loadThemeSettings()
+
 const { app, prefs } = tosi({
   app: {
     title: PROJECT,
@@ -71,9 +79,8 @@ const { app, prefs } = tosi({
     compact: false,
   },
   prefs: {
-    theme: 'system',
-    highContrast: false,
-    monochrome: false,
+    colorScheme: initialThemeSettings.colorScheme,
+    highContrast: initialThemeSettings.highContrast,
     locale: '',
   },
 })
@@ -116,29 +123,17 @@ const main = document.querySelector('main') as HTMLElement | null
 
 const { h2, div, span, a, img, header, button, template, input } = elements
 
-bind(document.body, 'prefs.theme', {
-  toDOM(element, theme) {
-    if (theme === 'system') {
-      theme =
-        getComputedStyle(document.body).getPropertyValue('--darkmode') ===
-        'true'
-          ? 'dark'
-          : 'light'
-    }
-    element.classList.toggle('darkmode', theme === 'dark')
-  },
+// Update theme when prefs change
+prefs.colorScheme.observe(() => {
+  setTheme({
+    colorScheme: prefs.colorScheme.value as ThemeSettings['colorScheme'],
+  })
 })
 
-bind(document.body, prefs.highContrast, {
-  toDOM(element, highContrast) {
-    element.classList.toggle('high-contrast', highContrast.valueOf())
-  },
-})
-
-bind(document.body, prefs.monochrome, {
-  toDOM(element, monochrome) {
-    element.classList.toggle('monochrome', monochrome.valueOf())
-  },
+prefs.highContrast.observe(() => {
+  setTheme({
+    highContrast: prefs.highContrast.value as ThemeSettings['highContrast'],
+  })
 })
 
 window.addEventListener('popstate', () => {
@@ -277,47 +272,56 @@ if (main)
                     {
                       caption: 'System',
                       checked() {
-                        return prefs.theme.value === 'system'
+                        return prefs.colorScheme.value === 'system'
                       },
                       action() {
-                        prefs.theme.value = 'system'
+                        prefs.colorScheme.value = 'system'
                       },
                     },
                     {
                       caption: 'Dark',
                       checked() {
-                        return prefs.theme.value === 'dark'
+                        return prefs.colorScheme.value === 'dark'
                       },
                       action() {
-                        prefs.theme.value = 'dark'
+                        prefs.colorScheme.value = 'dark'
                       },
                     },
                     {
                       caption: 'Light',
                       checked() {
-                        return prefs.theme.value === 'light'
+                        return prefs.colorScheme.value === 'light'
                       },
                       action() {
-                        prefs.theme.value = 'light'
+                        prefs.colorScheme.value = 'light'
                       },
                     },
                     null,
                     {
-                      caption: 'High Contrast',
+                      caption: 'High Contrast (System)',
                       checked() {
-                        return prefs.highContrast.value
+                        return prefs.highContrast.value === 'system'
                       },
                       action() {
-                        prefs.highContrast.value = !prefs.highContrast.value
+                        prefs.highContrast.value = 'system'
                       },
                     },
                     {
-                      caption: 'Monochrome',
+                      caption: 'High Contrast On',
                       checked() {
-                        return prefs.monochrome.value
+                        return prefs.highContrast.value === true
                       },
                       action() {
-                        prefs.monochrome.value = !prefs.monochrome.value
+                        prefs.highContrast.value = true
+                      },
+                    },
+                    {
+                      caption: 'High Contrast Off',
+                      checked() {
+                        return prefs.highContrast.value === false
+                      },
+                      action() {
+                        prefs.highContrast.value = false
                       },
                     },
                   ],

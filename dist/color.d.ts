@@ -43,5 +43,22 @@ export declare class Color {
     static blendHue(a: number, b: number, t: number): number;
     mix(otherColor: Color, t: number): Color;
     colorMix(otherColor: Color, t: number): Color;
+    private static computedColorStylesheet;
+    private static computedColors;
+    private static recomputeQueued;
+    /**
+     * Register a computed color variable. Called by vars proxy when a computed
+     * color like `vars.primaryColor50b` is accessed.
+     */
+    static registerComputedColor(outputVar: string, sourceVar: string, scale: number, method: string): void;
+    /**
+     * Queue a recomputation of all computed color variables.
+     * Called when observant stylesheets change.
+     */
+    static queueRecompute(): void;
+    /**
+     * Recompute all registered computed color variables and update the stylesheet.
+     */
+    private static recomputeColors;
 }
 export {};
