@@ -374,25 +374,15 @@ export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
   }
 }
 
-const numericProps = [
-  'animation-iteration-count',
-  'flex',
-  'flex-base',
-  'flex-grow',
-  'flex-shrink',
-  'opacity',
-  'order',
-  'tab-size',
-  'widows',
-  'z-index',
-  'zoom',
-]
+// CSS properties that accept unitless numbers (no px suffix)
+const unitless =
+  /^(animation-iteration-count|column-count|flex(-grow|-shrink)?|font-weight|line-height|opacity|order|orphans|scale|tab-size|widows|z-index|zoom)$/
 
 export const processProp = (
   prop: string,
   value: string | number
 ): { prop: string; value: string } => {
-  if (typeof value === 'number' && !numericProps.includes(prop)) {
+  if (typeof value === 'number' && !unitless.test(prop)) {
     value = `${value}px`
   }
   if (prop.startsWith('_')) {

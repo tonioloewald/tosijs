@@ -121,14 +121,45 @@ test('vars throws for unrecognized method', () => {
   expect(() => vars.brandColor50x).toThrow('Unrecognized method x')
 })
 
-test('processProp handles numeric values without px for special props', () => {
-  const result = processProp('z-index', 100)
-  expect(result.value).toBe('100')
+test('processProp unitless properties stay unitless', () => {
+  const unitless = [
+    'animation-iteration-count',
+    'column-count',
+    'flex',
+    'flex-grow',
+    'flex-shrink',
+    'font-weight',
+    'line-height',
+    'opacity',
+    'order',
+    'orphans',
+    'scale',
+    'tab-size',
+    'widows',
+    'z-index',
+    'zoom',
+  ]
+  for (const prop of unitless) {
+    expect(processProp(prop, 100).value).toBe('100')
+  }
 })
 
-test('processProp adds px to numeric values for regular props', () => {
-  const result = processProp('width', 100)
-  expect(result.value).toBe('100px')
+test('processProp dimensional properties get px', () => {
+  const dimensional = [
+    'width',
+    'height',
+    'margin',
+    'padding',
+    'top',
+    'left',
+    'border-width',
+    'font-size',
+    'max-width',
+    'gap',
+  ]
+  for (const prop of dimensional) {
+    expect(processProp(prop, 100).value).toBe('100px')
+  }
 })
 
 test('processProp handles _ prefix for CSS variables', () => {
