@@ -28,7 +28,7 @@ const recordChange = (change: Change) => {
 }
 async function resetChanges() {
   await updates()
-  changes.splice(0)
+  changes.length = 0
 }
 
 const obj = {
@@ -1268,4 +1268,36 @@ test('array find/findLast/at return proxied objects', async () => {
   expect(proxyMethodTest.items[2].score.value).toBe(40)
 
   unobserve(listener)
+})
+
+test('observer callback touches are not lost', (done) => {
+  // When an observer callback sets state (touching a new path), the new
+  // touch schedules a fresh update cycle instead of being silently dropped.
+  const { cascadeSource, cascadeTarget } = tosi({
+    cascadeSource: { trigger: 'off' },
+    cascadeTarget: { result: 'initial' },
+  })
+
+  // Observer on source that sets target state
+  const unsub1 = cascadeSource.observe(() => {
+    cascadeTarget.result.value =
+      cascadeSource.trigger.value === 'on' ? 'activated' : 'deactivated'
+  })
+
+  let targetObserved = false
+  const unsub2 = cascadeTarget.observe(() => {
+    targetObserved = true
+  })
+
+  // Trigger: source observer fires, sets target, which schedules a second cycle
+  cascadeSource.trigger.value = 'on'
+
+  // After enough time for both cycles to complete
+  setTimeout(() => {
+    expect(cascadeTarget.result.value).toBe('activated')
+    expect(targetObserved).toBe(true)
+    unsub1()
+    unsub2()
+    done()
+  }, 50)
 })

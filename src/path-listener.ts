@@ -148,6 +148,8 @@ const update = (): void => {
     console.time('xin async update')
   }
   const paths = Array.from(touchedPaths)
+  touchedPaths.length = 0
+  updateTriggered = false
 
   for (const path of paths) {
     listeners
@@ -185,8 +187,6 @@ const update = (): void => {
       })
   }
 
-  touchedPaths.splice(0)
-  updateTriggered = false
   if (typeof resolveUpdate === 'function') {
     resolveUpdate()
   }

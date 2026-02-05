@@ -58,29 +58,9 @@ function makeDarkColors(): XinStyleRule {
   }
 }
 
-// High contrast adjustments
-function applyHighContrast(colors: XinStyleRule): XinStyleRule {
-  // Boost contrast by darkening darks and lightening lights
-  const result = { ...colors }
-  if (result._textColor) {
-    result._textColor = '#000'
-  }
-  if (result._background) {
-    result._background = '#fff'
-  }
-  return result
-}
-
 // Compute colors based on preferences
-function computeColors(
-  colorScheme: 'light' | 'dark',
-  highContrast: boolean
-): XinStyleRule {
-  let colors = colorScheme === 'dark' ? makeDarkColors() : makeLightColors()
-  if (highContrast) {
-    colors = applyHighContrast(colors)
-  }
-  return colors
+function computeColors(colorScheme: 'light' | 'dark'): XinStyleRule {
+  return colorScheme === 'dark' ? makeDarkColors() : makeLightColors()
 }
 
 // Theme state - stored preferences override system
@@ -126,6 +106,10 @@ function resolveHighContrast(
   return setting === 'system' ? systemPrefs.contrast === 'more' : setting
 }
 
+function contrastFilter(highContrast: boolean): XinStyleRule {
+  return highContrast ? { filter: 'contrast(1.5)' } : { filter: 'none' }
+}
+
 // Create observant color stylesheet
 const settings = loadThemeSettings()
 const systemPrefs = getThemePreferences()
@@ -133,7 +117,9 @@ const systemPrefs = getThemePreferences()
 const { colorStyles } = tosi({
   colorStyles: {
     ':root': computeColors(
-      resolveColorScheme(settings.colorScheme, systemPrefs),
+      resolveColorScheme(settings.colorScheme, systemPrefs)
+    ),
+    body: contrastFilter(
       resolveHighContrast(settings.highContrast, systemPrefs)
     ),
   },
@@ -143,7 +129,9 @@ const { colorStyles } = tosi({
 onThemePreferencesChange((prefs) => {
   const settings = loadThemeSettings()
   colorStyles[':root'] = computeColors(
-    resolveColorScheme(settings.colorScheme, prefs),
+    resolveColorScheme(settings.colorScheme, prefs)
+  )
+  colorStyles['body'] = contrastFilter(
     resolveHighContrast(settings.highContrast, prefs)
   )
 })
@@ -156,7 +144,9 @@ export function setTheme(newSettings: Partial<ThemeSettings>): void {
 
   const systemPrefs = getThemePreferences()
   colorStyles[':root'] = computeColors(
-    resolveColorScheme(updated.colorScheme, systemPrefs),
+    resolveColorScheme(updated.colorScheme, systemPrefs)
+  )
+  colorStyles['body'] = contrastFilter(
     resolveHighContrast(updated.highContrast, systemPrefs)
   )
 }
