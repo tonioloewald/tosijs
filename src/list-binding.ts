@@ -735,16 +735,16 @@ export class ListBinding {
         scrollTop = this.boundElement.scrollTop
       }
 
-      if (virtual.visibleColumns == null) {
-        virtual.visibleColumns =
-          virtual.width != null
-            ? Math.max(1, Math.floor(width / virtual.width))
-            : 1
-      }
+      // Always recalculate visibleColumns from current width so resizing
+      // a previously-dimensionless container produces the correct slice
+      const visibleColumns =
+        virtual.width != null
+          ? Math.max(1, Math.floor(width / virtual.width))
+          : virtual.visibleColumns ?? 1
       const visibleRows =
         Math.ceil(viewportHeight / virtual.height) + (virtual.rowChunkSize || 1)
-      const totalRows = Math.ceil(visibleArray.length / virtual.visibleColumns)
-      const visibleItems = virtual.visibleColumns * visibleRows
+      const totalRows = Math.ceil(visibleArray.length / visibleColumns)
+      const visibleItems = visibleColumns * visibleRows
       let topRow = Math.floor(scrollTop / virtual.height)
       if (topRow > totalRows - visibleRows + 1) {
         topRow = Math.max(0, totalRows - visibleRows + 1)
@@ -753,7 +753,7 @@ export class ListBinding {
         topRow -= topRow % virtual.rowChunkSize
       }
 
-      firstItem = topRow * virtual.visibleColumns
+      firstItem = topRow * visibleColumns
       lastItem = firstItem + visibleItems - 1
 
       topBuffer = topRow * virtual.height
@@ -802,7 +802,9 @@ export class ListBinding {
       isSlice === true &&
       previousSlice != null &&
       firstItem === previousSlice.firstItem &&
-      lastItem === previousSlice.lastItem
+      lastItem === previousSlice.lastItem &&
+      topBuffer === previousSlice.topBuffer &&
+      bottomBuffer === previousSlice.bottomBuffer
     ) {
       return
     }
