@@ -276,6 +276,43 @@ export class Color {
   }
 
   static fromCss(spec: CSSSystemColor | string): Color {
+    // Parse hex colors directly to avoid DOM roundtrip
+    const hex = spec.match(/^#([0-9a-fA-F]+)$/)
+    if (hex) {
+      const h = hex[1]
+      if (h.length === 3) {
+        return new Color(
+          parseInt(h[0] + h[0], 16),
+          parseInt(h[1] + h[1], 16),
+          parseInt(h[2] + h[2], 16)
+        )
+      }
+      if (h.length === 4) {
+        return new Color(
+          parseInt(h[0] + h[0], 16),
+          parseInt(h[1] + h[1], 16),
+          parseInt(h[2] + h[2], 16),
+          parseInt(h[3] + h[3], 16) / 255
+        )
+      }
+      if (h.length === 6) {
+        return new Color(
+          parseInt(h.slice(0, 2), 16),
+          parseInt(h.slice(2, 4), 16),
+          parseInt(h.slice(4, 6), 16)
+        )
+      }
+      if (h.length === 8) {
+        return new Color(
+          parseInt(h.slice(0, 2), 16),
+          parseInt(h.slice(2, 4), 16),
+          parseInt(h.slice(4, 6), 16),
+          parseInt(h.slice(6, 8), 16) / 255
+        )
+      }
+    }
+
+    // Fall back to getComputedStyle for named colors, rgb(), hsl(), etc.
     let converted = spec
     if (span instanceof HTMLSpanElement) {
       span.style.color = 'black'
