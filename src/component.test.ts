@@ -511,6 +511,51 @@ describe('static initAttributes', () => {
   })
 })
 
+// Tests for light DOM :host selector rewriting
+describe('light DOM :host rewriting', () => {
+  class HostRewriteComponent extends Component {
+    content = ({ div }: typeof elements) => div('host rewrite test')
+  }
+
+  test(':host is replaced with tagName', () => {
+    const creator = HostRewriteComponent.elementCreator({
+      tag: 'host-rewrite-test',
+      styleSpec: {
+        ':host': { display: 'block' },
+      },
+    })
+    const el = creator()
+    document.body.appendChild(el)
+    const style = document.getElementById('host-rewrite-test-component')
+    expect(style).not.toBeNull()
+    expect(style?.textContent).toContain('host-rewrite-test')
+    expect(style?.textContent).not.toContain(':host')
+    el.remove()
+  })
+
+  class HostParenComponent extends Component {
+    content = ({ div }: typeof elements) => div('host paren test')
+  }
+
+  test(':host(.foo) is replaced with tagName.foo', () => {
+    const creator = HostParenComponent.elementCreator({
+      tag: 'host-paren-test',
+      styleSpec: {
+        ':host(.active)': { color: 'red' },
+        ':host(.active) > span': { fontWeight: 'bold' },
+      },
+    })
+    const el = creator()
+    document.body.appendChild(el)
+    const style = document.getElementById('host-paren-test-component')
+    expect(style).not.toBeNull()
+    expect(style?.textContent).toContain('host-paren-test.active')
+    expect(style?.textContent).not.toContain(':host')
+    expect(style?.textContent).toContain('host-paren-test.active > span')
+    el.remove()
+  })
+})
+
 // Tests for formAssociated / ElementInternals
 describe('formAssociated', () => {
   class FormComponent extends Component {

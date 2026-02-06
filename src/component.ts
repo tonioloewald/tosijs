@@ -585,7 +585,9 @@ const globalStyleSheets: {
 
 function setGlobalStyle(tagName: string, styleSpec: XinStyleSheet) {
   const existing = globalStyleSheets[tagName]
-  const processed = css(styleSpec).replace(/:host\b/g, tagName)
+  const processed = css(styleSpec)
+    .replace(/:host\(([^)]+)\)/g, `${tagName}$1`)
+    .replace(/:host\b/g, tagName)
   globalStyleSheets[tagName] = existing
     ? existing + '\n' + processed
     : processed
