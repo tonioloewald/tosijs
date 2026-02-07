@@ -37,6 +37,7 @@ export {
   getListItem,
   getListBinding,
   deleteListItem,
+  scrollListItemIntoView,
 } from './list-binding'
 export { makeComponent } from './make-component'
 export type {

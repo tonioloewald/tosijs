@@ -53,18 +53,43 @@ State (xin) ──────────────────────�
 **Core modules:**
 - `xin.ts` / `xin-proxy.ts` - State management with path-based observers; `tosi()` and `xinProxy()` are the main entry points
 - `by-path.ts` - Path parsing and value access (e.g., `'app.user.name'`, `'list[id=123]'`)
+- `registry.ts` - Central state object; breaks circular dependency between `xin.ts` and `bind.ts`
+- `path-listener.ts` - Observer implementation (`touch()`, `observe()`, `unobserve()`)
+- `metadata.ts` - Proxy helpers (`tosiPath()`, `tosiValue()`), binding metadata storage
 - `elements.ts` - Element factory functions (`div()`, `span()`, etc.)
 - `bind.ts` - Data binding connecting state to DOM
-- `list-binding.ts` - Array/list bindings with virtual scrolling support
+- `list-binding.ts` - Array/list bindings with virtual scrolling and surgical updates
 - `component.ts` - Base class for web components
 - `css.ts` - CSS generation utilities (`css()`, `vars`, `initVars()`)
+
+### Dual Proxy System (`xin` vs `boxed`)
+
+The library exposes two proxies over the same `registry` object:
+- **`xin`** — returns raw values for scalars. `xin.foo.bar` returns the string/number directly.
+- **`boxed`** — returns `BoxedScalar` proxies for everything, including primitives. `boxed.foo.bar` has `.value`, `.path`, `.observe()`, etc.
+
+Both are created in `xin.ts` via `regHandler(path, boxScalars)`. The `boxScalars` flag controls whether primitives are wrapped. `tosi()` / `xinProxy()` in `xin-proxy.ts` are sugar for assigning to `xin` and returning from `boxed`.
+
+### Path-Based Observer System
+
+Paths support dot notation (`'app.user.name'`), array indices (`'list[0]'`), and id-paths (`'list[id=123]'`). Observers can be registered with string paths, RegExp patterns, or filter functions.
+
+`touch(path)` propagates upward — touching `'app.user.name'` also notifies observers on `'app.user'` and `'app'`.
+
+### Surgical Array Updates via id-paths
+
+When a list binding specifies `idPath: 'id'`, the proxy `set` handler in `xin.ts` detects mutations inside array items and synthesizes id-path touches (e.g., `'list[id=123].color'`). This allows the list binding to update only the affected DOM element — no diffing or reconciliation needed.
+
+### Registry Pattern
+
+`registry.ts` holds the plain state object and lazy getters (`getXinProxy()`, `getBoxed()`). This breaks the circular dependency between `xin.ts` (which creates the proxies) and `bind.ts` (which needs to access them).
 
 **Key types (in `xin-types.ts`):**
 - `BoxedProxy<T>` - Type-safe proxy for state objects and arrays with:
   - `.value` / `.path` - Get underlying value and path string
   - `.observe()`, `.bind()`, `.on()`, `.binding()`, `.listBinding()` - Reactive bindings
   - `.valueOf()`, `.toJSON()` - Type coercion
-  - Note: `xinValue`, `xinPath`, `tosiValue`, `tosiPath`, etc. are deprecated; use the above
+  - Note: `xinValue`, `xinPath`, `tosiValue`, `tosiPath`, etc. are deprecated; use `.value` / `.path`
 - `BoxedScalar<T>` - Lightweight proxy for primitives (string/number/boolean); same API as `BoxedProxy`
 - `XinBinding<T>` - Binding specification with `toDOM` and `fromDOM` functions
 - `Component` - Abstract base class for web components
@@ -72,6 +97,26 @@ State (xin) ──────────────────────�
 ## Testing
 
 Tests use Bun's test runner with Happy DOM for DOM environment (configured in `bunfig.toml` and `happydom.ts`). Test files follow the pattern `*.test.ts` in the `src/` directory.
+
+**Happy DOM limitations:**
+- Does NOT support `:scope >` CSS selector — use manual child iteration instead
+- Elements return `0` for `offsetWidth`/`offsetHeight` — mock with `Object.defineProperty(el, 'offsetHeight', { value: 300, configurable: true })`
+- `ListBinding` tests require proxied arrays from `xin['path.to.array']`, not raw arrays (raw arrays lack the `XIN_PATH` metadata)
+- Throttled event handlers are unreliable in tests; call methods like `lb.update()` directly
+
+## Component Conventions
+
+- **`static initAttributes`** declares attributes synced to properties with automatic type inference from default values (string, number, boolean).
+- **`value`** is a special property, not an attribute. Don't put it in `initAttributes`. Setting it triggers a `change` event and `render()`.
+- **`content`** can be a function `({div, span}) => div(...)` or a static node/array. The function form receives a destructurable `elements` proxy.
+- **`parts`** is a proxy — `this.parts.foo` finds the element with `part="foo"`.
+- **`static formAssociated = true`** enables form integration via `ElementInternals`.
+- Components default to shadow DOM. Set `role` in `initAttributes` to use light DOM instead.
+- In light DOM, `<slot>` elements are automatically converted to `<xin-slot>` for composition.
+
+## Deprecation Conventions
+
+Deprecated APIs emit a single `console.warn` per feature (tracked in a `Set` in `metadata.ts`). Old names (`xinValue`, `xinPath`, `tosiValue`, `tosiPath`) still work but should not be used in new code. Prefer `.value` and `.path` on `BoxedProxy`/`BoxedScalar`.
 
 ## Code Style
 

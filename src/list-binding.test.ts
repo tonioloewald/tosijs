@@ -2,7 +2,11 @@ import { test, expect, describe } from 'bun:test'
 import { xin } from './xin'
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
-import { ListBinding } from './list-binding'
+import {
+  ListBinding,
+  getListBinding,
+  scrollListItemIntoView,
+} from './list-binding'
 
 function mockDimensions(el: HTMLElement, width: number, height: number): void {
   Object.defineProperty(el, 'offsetWidth', {
@@ -212,5 +216,136 @@ describe('virtual list binding - dimensionless container race condition', () => 
     const fiveColCount = childCount(container)
 
     expect(fiveColCount).toBeGreaterThan(twoColCount)
+  })
+})
+
+describe('scrollListItemIntoView', () => {
+  test('returns false when element has no list binding', () => {
+    const { div } = elements
+    const el = div()
+    expect(scrollListItemIntoView(el, {})).toBe(false)
+  })
+
+  test('returns false when item is not in the array', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 10 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ scrollTest1: { items } })
+    const proxiedArray = xin['scrollTest1.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+
+    expect(scrollListItemIntoView(container, { id: 999, label: 'nope' })).toBe(
+      false
+    )
+  })
+
+  test('scrolls to item in virtual list by setting scrollTop', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ scrollTest2: { items } })
+    const proxiedArray = xin['scrollTest2.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    // Mock scrollTo
+    let scrolledTo: { top: number; behavior: string } | undefined
+    ;(container as any).scrollTo = (opts: any) => {
+      scrolledTo = opts
+    }
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+    lb.update(proxiedArray)
+
+    // Scroll to item 50 (row 50, top = 1500px)
+    const result = scrollListItemIntoView(container, items[50])
+    expect(result).toBe(true)
+    expect(scrolledTo).toBeDefined()
+    // Middle position: itemTop - (viewportHeight - itemHeight) / 2
+    // = 1500 - (300 - 30) / 2 = 1500 - 135 = 1365
+    expect(scrolledTo!.top).toBe(1365)
+    expect(scrolledTo!.behavior).toBe('smooth')
+  })
+
+  test('scrolls to item in non-virtual list via scrollIntoView', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 5 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ scrollTest3: { items } })
+    const proxiedArray = xin['scrollTest3.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+
+    // Find the element for item 2 and mock scrollIntoView
+    const itemEl = lb.itemToElement.get(items[2])
+    expect(itemEl).toBeDefined()
+    let scrollIntoViewOpts: any
+    ;(itemEl as any).scrollIntoView = (opts: any) => {
+      scrollIntoViewOpts = opts
+    }
+
+    const result = scrollListItemIntoView(container, items[2])
+    expect(result).toBe(true)
+    expect(scrollIntoViewOpts).toEqual({
+      block: 'center',
+      behavior: 'smooth',
+    })
+  })
+
+  test('position start scrolls item to top of viewport', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ scrollTest4: { items } })
+    const proxiedArray = xin['scrollTest4.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    let scrolledTo: any
+    ;(container as any).scrollTo = (opts: any) => {
+      scrolledTo = opts
+    }
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+    lb.update(proxiedArray)
+
+    scrollListItemIntoView(container, items[50], { position: 'start' })
+    // Item 50 row top = 1500
+    expect(scrolledTo!.top).toBe(1500)
   })
 })

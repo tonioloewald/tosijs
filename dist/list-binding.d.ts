@@ -13,6 +13,7 @@ export declare class ListBinding {
     private _previousSlice?;
     static filterBoundObservers: WeakMap<Element, Listener>;
     constructor(boundElement: Element, value: any[], options?: ListBindingOptions);
+    filteredArray(): any[];
     private visibleSlice;
     private needle?;
     filter: (...args: any[]) => void;
@@ -28,4 +29,7 @@ export declare const getListInstance: (element: Element) => {
 } | undefined;
 export declare const getListItem: (element: Element) => any;
 export declare const deleteListItem: (element: Element) => boolean;
+export declare const scrollListItemIntoView: (element: Element, item: any, options?: {
+    position?: "start" | "middle" | "end" | "nearest";
+}) => boolean;
 export {};

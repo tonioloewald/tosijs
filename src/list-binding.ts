@@ -126,57 +126,49 @@ iteration patterns behave:
 
 ### `for...of` loops yield proxied items
 
-```js
-for (const item of list) {
-  // item is a proxy - use .value for scalars
-  console.log(item.name.value)
+    for (const item of list) {
+      // item is a proxy - use .value for scalars
+      console.log(item.name.value)
 
-  // mutations trigger observers and surgical DOM updates
-  item.score.value = 100
-}
-```
+      // mutations trigger observers and surgical DOM updates
+      item.score.value = 100
+    }
 
 ### `find()`, `findLast()`, and `at()` return proxied items
 
-```js
-// The predicate receives raw items - no .value needed for comparisons
-const found = list.find(item => item.id === 'abc')
+    // The predicate receives raw items - no .value needed for comparisons
+    const found = list.find(item => item.id === 'abc')
 
-// The result is proxied - mutations work and trigger updates
-found.score.value = 100
-```
+    // The result is proxied - mutations work and trigger updates
+    found.score.value = 100
 
 This is the best of both worlds: clean predicate syntax without `.value`,
 and the returned item is fully reactive.
 
 ### `forEach()`, `map()`, `filter()`, etc. pass raw items to callbacks
 
-```js
-// Callbacks receive raw items for clean predicate/transform syntax
-list.filter(item => item.score > 50)
-list.map(item => item.name)
+    // Callbacks receive raw items for clean predicate/transform syntax
+    list.filter(item => item.score > 50)
+    list.map(item => item.name)
 
-// But mutations in forEach won't trigger observers!
-list.forEach(item => {
-  item.score = 100  // Modifies raw object - NO observer triggered
-})
-```
+    // But mutations in forEach won't trigger observers!
+    list.forEach(item => {
+      item.score = 100  // Modifies raw object - NO observer triggered
+    })
 
 If you need to mutate items, use `for...of` instead, or call `touch()` on
 the array or individual items after your `forEach`:
 
-```js
-// Option 1: Use for...of
-for (const item of list) {
-  item.score.value = 100  // Triggers observers
-}
+    // Option 1: Use for...of
+    for (const item of list) {
+      item.score.value = 100  // Triggers observers
+    }
 
-// Option 2: Touch after forEach
-list.forEach(item => {
-  item.score = 100
-})
-touch('path.to.list')  // Manually notify observers
-```
+    // Option 2: Touch after forEach
+    list.forEach(item => {
+      item.score = 100
+    })
+    touch('path.to.list')  // Manually notify observers
 
 ## Virtualized Lists
 
@@ -202,49 +194,69 @@ Now you can trivially bind an array of a million objects to the DOM and have it 
 120fps.
 
 ```js
-import { elements, tosi } from 'tosijs'
+import { elements, tosi, scrollListItemIntoView } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )
+const emojiData = await request.json()
 const { emojiListExample } = tosi({
   emojiListExample: {
-    array: await request.json()
+    array: emojiData
   }
 })
 
-const { div } = elements
+const { div, button } = elements
+
+const emojiTable = div(
+  {
+    class: 'emoji-table'
+  },
+  ...emojiListExample.array.tosiListBinding(({div, span}, item) =>
+    div(
+      {
+        class: 'emoji-row',
+        tabindex: 0,
+      },
+      span({ bindText: item.chars, class: 'graphic' }),
+      span({ bindText: item.name, class: 'no-overflow' }),
+      span({ bindText: item.category, class: 'no-overflow' }),
+      span({ bindText: item.subcategory, class: 'no-overflow' })
+    ),
+    {
+      value: emojiListExample.array,
+      idPath: 'name',
+      virtual: {
+        height: 30,
+        rowChunkSize: 3
+      },
+    }
+  )
+)
+
+const scrollTo = (name) => {
+  const item = emojiData.find(e => e.name === name)
+  if (item) scrollListItemIntoView(emojiTable, item)
+}
 
 preview.append(
+  emojiTable,
   div(
-    {
-      class: 'emoji-table'
-    },
-    ...emojiListExample.array.tosiListBinding(({div, span}, item) =>
-      div(
-        {
-          class: 'emoji-row',
-          tabindex: 0,
-        },
-        span({ bindText: item.chars, class: 'graphic' }),
-        span({ bindText: item.name, class: 'no-overflow' }),
-        span({ bindText: item.category, class: 'no-overflow' }),
-        span({ bindText: item.subcategory, class: 'no-overflow' })
-      ),
-      {
-        value: emojiListExample.array,
-        idPath: 'name',
-        virtual: {
-          height: 30,
-          rowChunkSize: 3
-        },
-      }
-    )
-  )
+    { class: 'scroll-buttons' },
+    button('rocket', { onClick: () => scrollTo('rocket') }),
+    button('flag: Finland', { onClick: () => scrollTo('flag: Finland') }),
+    button('pile of poo', { onClick: () => scrollTo('pile of poo') }),
+  ),
 )
 ```
 ```css
+.scroll-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+}
 .emoji-table {
-  height: 100%;
+  height: calc(100% - 36px);
   overflow: auto;
 }
 .emoji-row {
@@ -283,7 +295,7 @@ randomly every 500ms. Enable paint flashing to see the surgical updates in actio
 Note how `rowChunkSize: 2` allows consistent row shading via `:nth-child()`.
 
 ```js
-import { elements, tosi } from 'tosijs'
+import { elements, tosi, scrollListItemIntoView } from 'tosijs'
 
 // Generate random saturated colors
 const randomColor = () => {
@@ -309,41 +321,67 @@ setInterval(() => {
   }
 }, 500)
 
-const { div } = elements
+const { div, button } = elements
 
-preview.append(
-  div(
-    {
-      class: 'virtual-grid-example',
-    },
-    ...bigBindTest.tosiListBinding(
-      ({div}, item) => div({
-        class: 'cell',
-        bindText: item.id,
-        bind: {
-          value: item.color,
-          binding: {
-            toDOM(el, color) {
-              el.style.color = color
-            }
+const grid = div(
+  {
+    class: 'virtual-grid-example',
+  },
+  ...bigBindTest.tosiListBinding(
+    ({div}, item) => div({
+      class: 'cell',
+      bindText: item.id,
+      bind: {
+        value: item.color,
+        binding: {
+          toDOM(el, color) {
+            el.style.color = color
           }
         }
-      }),
-      {
-        idPath: 'id',
-        virtual: {
-          height: 40,
-          visibleColumns: 7,
-          rowChunkSize: 2,
-        }
       }
-    )
+    }),
+    {
+      idPath: 'id',
+      virtual: {
+        height: 40,
+        visibleColumns: 7,
+        rowChunkSize: 2,
+      }
+    }
   )
+)
+
+preview.append(
+  grid,
+  div(
+    { class: 'scroll-buttons' },
+    button('Scroll to #17', {
+      onClick() {
+        scrollListItemIntoView(grid, list[17])
+      }
+    }),
+    button('Scroll to #1000', {
+      onClick() {
+        scrollListItemIntoView(grid, list[1000])
+      }
+    }),
+    button('Scroll to #1984', {
+      onClick() {
+        scrollListItemIntoView(grid, list[1984])
+      }
+    })
+  ),
 )
 ```
 ```css
+.scroll-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+}
 .virtual-grid-example {
-  height: 100%;
+  height: calc(100% - 36px);
   width: 100%;
   overflow-y: auto;
   display: grid;
@@ -553,6 +591,25 @@ array item out of the array and then triggers an update the bound list.
 > `deleteListItem()` requires that the list binding specifies
 > a valid `idPath`, or it will throw an error (and fail).
 
+### `scrollListItemIntoView(element: Element, item: any, options?): boolean`
+
+Scrolls a bound array item into view within its list container. This is
+especially useful for virtualized lists where the item's DOM element may
+not exist yet.
+
+- `element` - the list container element (the one with the `bindList`)
+- `item` - the raw array item to scroll to
+- `options.position` - where to place the item in the viewport:
+  `'start'`, `'middle'` (default), `'end'`, or `'nearest'`
+
+Returns `true` on success, `false` if the binding or item can't be found
+(with a `console.error` explaining what went wrong).
+
+For **virtual lists**, the scroll position is computed mathematically from
+the item's index and row height, then applied via `scrollTo({ behavior: 'smooth' })`.
+For **non-virtual lists**, the item's DOM element is found and
+`scrollIntoView()` is called directly.
+
 ## Window Scroll Container (Experimental)
 
 By default, virtualized lists scroll within their container element. For infinite-scroll
@@ -683,6 +740,8 @@ export class ListBinding {
     this.listBottom.classList.add('virtual-list-padding')
     this.boundElement.append(this.listTop)
     this.boundElement.append(this.listBottom)
+    // @ts-expect-error storing binding ref on element
+    this.boundElement[LIST_BINDING_REF] = this
     if (options.virtual != null) {
       resizeObserver.observe(this.boundElement)
       this._update = throttle(() => {
@@ -699,8 +758,8 @@ export class ListBinding {
     }
   }
 
-  private visibleSlice(): VirtualListSlice {
-    const { virtual, hiddenProp, visibleProp } = this.options
+  filteredArray(): any[] {
+    const { hiddenProp, visibleProp } = this.options
     let visibleArray = this.array
     if (hiddenProp !== undefined) {
       visibleArray = visibleArray.filter((item) => item[hiddenProp] !== true)
@@ -711,6 +770,12 @@ export class ListBinding {
     if (this.options.filter && this.needle !== undefined) {
       visibleArray = this.options.filter(visibleArray, this.needle)
     }
+    return visibleArray
+  }
+
+  private visibleSlice(): VirtualListSlice {
+    const { virtual } = this.options
+    const visibleArray = this.filteredArray()
     let firstItem = 0
     let lastItem = visibleArray.length - 1
     let topBuffer = 0
@@ -953,4 +1018,101 @@ export const deleteListItem = (element: Element): boolean => {
     return true
   }
   return false
+}
+
+const POSITION_TO_BLOCK: Record<string, ScrollLogicalPosition> = {
+  start: 'start',
+  middle: 'center',
+  end: 'end',
+  nearest: 'nearest',
+}
+
+export const scrollListItemIntoView = (
+  element: Element,
+  item: any,
+  options: { position?: 'start' | 'middle' | 'end' | 'nearest' } = {}
+): boolean => {
+  const binding = getListBinding(element)
+  if (binding == null) {
+    console.error(
+      'scrollListItemIntoView failed, element has no list binding',
+      element
+    )
+    return false
+  }
+
+  const { position = 'middle' } = options
+  const filtered = binding.filteredArray()
+  const rawItem = tosiValue(item) ?? item
+  const index = filtered.indexOf(rawItem)
+  if (index === -1) {
+    console.error('scrollListItemIntoView failed, item not found in list', item)
+    return false
+  }
+
+  const { virtual } = binding.options
+
+  if (virtual != null && element instanceof HTMLElement) {
+    const visibleColumns =
+      virtual.width != null
+        ? Math.max(1, Math.floor(element.offsetWidth / virtual.width))
+        : virtual.visibleColumns ?? 1
+    const itemRow = Math.floor(index / visibleColumns)
+    const itemTop = itemRow * virtual.height
+
+    const useWindowScroll = virtual.scrollContainer === 'window'
+    const viewportHeight = useWindowScroll
+      ? window.innerHeight
+      : element.offsetHeight
+
+    let scrollTarget: number
+    switch (position) {
+      case 'start':
+        scrollTarget = itemTop
+        break
+      case 'end':
+        scrollTarget = itemTop - viewportHeight + virtual.height
+        break
+      case 'nearest': {
+        const currentScroll = useWindowScroll
+          ? Math.max(0, -element.getBoundingClientRect().top)
+          : element.scrollTop
+        if (itemTop < currentScroll) {
+          scrollTarget = itemTop
+        } else if (itemTop + virtual.height > currentScroll + viewportHeight) {
+          scrollTarget = itemTop - viewportHeight + virtual.height
+        } else {
+          return true // already visible
+        }
+        break
+      }
+      default: // middle
+        scrollTarget = itemTop - (viewportHeight - virtual.height) / 2
+    }
+
+    scrollTarget = Math.max(0, scrollTarget)
+
+    if (useWindowScroll) {
+      const elementTop = element.getBoundingClientRect().top + window.scrollY
+      window.scrollTo({ top: elementTop + scrollTarget, behavior: 'smooth' })
+    } else {
+      element.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+    }
+  } else {
+    // Non-virtual: find the DOM element and use native scrollIntoView
+    const domElement = binding.itemToElement.get(rawItem)
+    if (domElement == null) {
+      console.error(
+        'scrollListItemIntoView failed, no DOM element found for item',
+        item
+      )
+      return false
+    }
+    domElement.scrollIntoView({
+      block: POSITION_TO_BLOCK[position] ?? 'center',
+      behavior: 'smooth',
+    })
+  }
+
+  return true
 }
