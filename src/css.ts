@@ -326,6 +326,19 @@ declarations to `elements` and `css` has done wonders to reduce the need for
 stuff like `const nameElement = this.parts.nameField as unknown as HTMLInputElement`
 and prevent css property typos without adding a single byte to the size of
 the javascript payload.
+
+## onStylesheetChange(callback: () => void): () => void
+
+Registers a callback that fires whenever any observant stylesheet regenerates
+(i.e., when a proxy-backed `StyleSheet` detects a change and rewrites its CSS).
+Returns an unsubscribe function.
+
+    const unsub = onStylesheetChange(() => {
+      console.log('a stylesheet was updated')
+    })
+
+    // later
+    unsub()
 */
 import { Color } from './color'
 import { elements } from './elements'
