@@ -183,9 +183,10 @@ The real power of `bindList` comes from its support for virtualizing lists.
       },
     }
 
-Simply add a `virtual` property to the list-binding specifying a *minimum* `height` (and, optionally,
-`height`) and the list will be `virtualized` (meaning that only visible elements will be rendered,
+Simply add a `virtual` property to the list-binding specifying the row `height`
+and the list will be `virtualized` (meaning that only visible elements will be rendered,
 missing elements being replaced by a single padding element above and below the list).
+For variable-height items, add `minHeight` — see **Variable-Height Items** below.
 
 You can (optionally) specify `rowChunkSize` to virtualize the list in chunks of rows to allow
 consistent `:nth-child()` styling.
@@ -408,6 +409,124 @@ preview.append(
 .virtual-grid-example .cell:nth-child(14n+7),
 .virtual-grid-example .cell:nth-child(14n+8) {
   background: #0001;
+}
+```
+
+## Variable-Height Items
+
+If your list items have varying heights, you can use `minHeight` instead of
+relying solely on `height`. When `minHeight` is specified, the list uses
+scroll-fraction interpolation: the total scroll area is estimated from
+`minHeight`, and the visible slice is determined by interpolating between
+the top and bottom of the list based on scroll position.
+
+Items render at their **natural height** — no fixed-height constraint.
+The scrollbar position is approximate but smooth.
+
+    bindList: {
+      value: myArray,
+      idPath: 'id',
+      virtual: {
+        height: 40,
+        minHeight: 30,
+      },
+    }
+
+```js
+import { elements, tosi, scrollListItemIntoView } from 'tosijs'
+
+const items = Array.from({ length: 2000 }, (_, i) => ({
+  id: i,
+  label: `Item #${i}`,
+  // Vary description length to create different heights
+  description: i % 7 === 0
+    ? 'This item has a much longer description that will cause it to wrap onto multiple lines, demonstrating variable-height rendering in the virtualized list.'
+    : i % 3 === 0
+      ? 'Medium-length description for this item.'
+      : '',
+}))
+
+const { varHeightExample } = tosi({ varHeightExample: { items } })
+
+const { div, span, button } = elements
+
+const list = div(
+  {
+    class: 'var-height-list',
+  },
+  ...varHeightExample.items.tosiListBinding(
+    ({div, span}, item) => div(
+      {
+        class: 'var-height-item',
+      },
+      span({ bindText: item.label, class: 'var-item-label' }),
+      span({ bindText: item.description, class: 'var-item-desc' }),
+    ),
+    {
+      idPath: 'id',
+      virtual: {
+        height: 40,
+        minHeight: 30,
+      },
+    }
+  )
+)
+
+preview.append(
+  list,
+  div(
+    { class: 'scroll-buttons' },
+    button('Scroll to #5', {
+      onClick() {
+        scrollListItemIntoView(list, items[5])
+      }
+    }),
+    button('Scroll to #1000', {
+      onClick() {
+        scrollListItemIntoView(list, items[1000])
+      }
+    }),
+    button('Scroll to #1995', {
+      onClick() {
+        scrollListItemIntoView(list, items[1995])
+      }
+    }),
+  ),
+)
+```
+```css
+.scroll-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+}
+.var-height-list {
+  height: calc(100% - 36px);
+  width: 100%;
+  overflow-y: auto;
+}
+.var-height-item {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.var-height-item:nth-child(odd) {
+  background: #f8f8f8;
+}
+.var-item-label {
+  font-weight: bold;
+  font-size: 14px;
+}
+.var-item-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+.var-item-desc:empty {
+  display: none;
 }
 ```
 
@@ -666,6 +785,15 @@ interface VirtualListSlice {
   lastItem: number
   topBuffer: number
   bottomBuffer: number
+  // Variable-height mode: deferred buffer calculation after DOM measurement
+  interpolation?: {
+    t: number
+    position: number
+    scrollTop: number
+    viewportHeight: number
+    totalScrollHeight: number
+    rowHeight: number
+  }
 }
 
 function updateRelativeBindings(element: Element, path: string): void {
@@ -806,26 +934,85 @@ export class ListBinding {
         virtual.width != null
           ? Math.max(1, Math.floor(width / virtual.width))
           : virtual.visibleColumns ?? 1
-      const visibleRows =
-        Math.ceil(viewportHeight / virtual.height) + (virtual.rowChunkSize || 1)
       const totalRows = Math.ceil(visibleArray.length / visibleColumns)
-      const visibleItems = visibleColumns * visibleRows
-      let topRow = Math.floor(scrollTop / virtual.height)
-      if (topRow > totalRows - visibleRows + 1) {
-        topRow = Math.max(0, totalRows - visibleRows + 1)
-      }
-      if (virtual.rowChunkSize) {
-        topRow -= topRow % virtual.rowChunkSize
-      }
 
-      firstItem = topRow * visibleColumns
-      lastItem = firstItem + visibleItems - 1
+      if (virtual.minHeight != null) {
+        // Variable-height mode: scroll-fraction interpolation (b8r approach)
+        // Total scroll area is fixed at totalRows * minHeight.
+        // We interpolate which rows to show based on scroll fraction,
+        // then position them using an interpolated offset that smoothly
+        // transitions from top-pinned (t=0) to bottom-pinned (t=1).
+        const effectiveHeight = virtual.minHeight
+        const visibleRows =
+          Math.ceil(viewportHeight / effectiveHeight) +
+          (virtual.rowChunkSize || 1)
+        const visibleItems = visibleColumns * visibleRows
+        const totalScrollHeight = totalRows * effectiveHeight
+        const maxScrollTop = Math.max(0, totalScrollHeight - viewportHeight)
 
-      topBuffer = topRow * virtual.height
-      bottomBuffer = Math.max(
-        (totalRows - visibleRows) * virtual.height - topBuffer,
-        0
-      )
+        const t =
+          maxScrollTop > 0
+            ? Math.min(1, Math.max(0, scrollTop / maxScrollTop))
+            : 0
+
+        // position is the fractional row index at the scroll point
+        const maxPosition = Math.max(0, totalRows - visibleRows + 1)
+        const position = t * maxPosition
+        let topRow = Math.floor(position)
+        if (virtual.rowChunkSize) {
+          topRow -= topRow % virtual.rowChunkSize
+        }
+
+        firstItem = topRow * visibleColumns
+        lastItem = firstItem + visibleItems - 1
+
+        // Defer buffer calculation to update() where we can measure
+        // actual rendered content height (b8r approach).
+        // Set provisional buffers for the early-exit comparison.
+        topBuffer = scrollTop
+        bottomBuffer = Math.max(
+          0,
+          totalScrollHeight - scrollTop - viewportHeight
+        )
+
+        return {
+          items: visibleArray,
+          firstItem,
+          lastItem,
+          topBuffer,
+          bottomBuffer,
+          interpolation: {
+            t,
+            position,
+            scrollTop,
+            viewportHeight,
+            totalScrollHeight,
+            rowHeight: virtual.height,
+          },
+        }
+      } else {
+        // Fixed-height mode: exact pixel-to-row mapping
+        const visibleRows =
+          Math.ceil(viewportHeight / virtual.height) +
+          (virtual.rowChunkSize || 1)
+        const visibleItems = visibleColumns * visibleRows
+        let topRow = Math.floor(scrollTop / virtual.height)
+        if (topRow > totalRows - visibleRows + 1) {
+          topRow = Math.max(0, totalRows - visibleRows + 1)
+        }
+        if (virtual.rowChunkSize) {
+          topRow -= topRow % virtual.rowChunkSize
+        }
+
+        firstItem = topRow * visibleColumns
+        lastItem = firstItem + visibleItems - 1
+
+        topBuffer = topRow * virtual.height
+        bottomBuffer = Math.max(
+          (totalRows - visibleRows) * virtual.height - topBuffer,
+          0
+        )
+      }
     }
 
     return {
@@ -861,16 +1048,24 @@ export class ListBinding {
     )
     const previousSlice = this._previousSlice
     const { firstItem, lastItem, topBuffer, bottomBuffer } = slice
-    if (
+    const sliceUnchanged =
       hiddenProp === undefined &&
       visibleProp === undefined &&
       isSlice === true &&
       previousSlice != null &&
       firstItem === previousSlice.firstItem &&
-      lastItem === previousSlice.lastItem &&
-      topBuffer === previousSlice.topBuffer &&
-      bottomBuffer === previousSlice.bottomBuffer
+      lastItem === previousSlice.lastItem
+    if (
+      sliceUnchanged &&
+      slice.interpolation == null &&
+      topBuffer === previousSlice!.topBuffer &&
+      bottomBuffer === previousSlice!.bottomBuffer
     ) {
+      return
+    }
+    // Variable-height mode: slice unchanged but buffers need updating
+    if (sliceUnchanged && slice.interpolation != null) {
+      this._updateInterpolatedBuffers(slice)
       return
     }
     this._previousSlice = slice
@@ -947,9 +1142,44 @@ export class ListBinding {
       insertionPoint = element
     }
 
+    // Variable-height mode: compute final buffer positions from measured heights
+    if (slice.interpolation != null) {
+      this._updateInterpolatedBuffers(slice)
+    }
+
     if (settings.perf) {
       console.log(arrayPath, 'updated', { removed, created, moved })
     }
+  }
+
+  private _updateInterpolatedBuffers(slice: VirtualListSlice): void {
+    const {
+      t,
+      position,
+      scrollTop,
+      viewportHeight,
+      totalScrollHeight,
+      rowHeight,
+    } = slice.interpolation!
+
+    // Measure actual rendered content height from DOM
+    let renderedHeight = 0
+    for (const child of Array.from(this.boundElement.children)) {
+      if (child === this.listTop || child === this.listBottom) continue
+      renderedHeight += (child as HTMLElement).offsetHeight || rowHeight
+    }
+
+    // b8r formula: interpolate between pinning to top and bottom
+    const pinTop = scrollTop
+    const pinBottom = scrollTop + viewportHeight - renderedHeight
+    const offset = Math.max(
+      0,
+      t * pinBottom + (1 - t) * pinTop - (position % 1) * rowHeight
+    )
+
+    this.listTop.style.height = String(offset) + 'px'
+    this.listBottom.style.height =
+      String(Math.max(0, totalScrollHeight - offset - renderedHeight)) + 'px'
   }
 }
 
@@ -1058,7 +1288,8 @@ export const scrollListItemIntoView = (
         ? Math.max(1, Math.floor(element.offsetWidth / virtual.width))
         : virtual.visibleColumns ?? 1
     const itemRow = Math.floor(index / visibleColumns)
-    const itemTop = itemRow * virtual.height
+    const effectiveHeight = virtual.minHeight ?? virtual.height
+    const totalRows = Math.ceil(filtered.length / visibleColumns)
 
     const useWindowScroll = virtual.scrollContainer === 'window'
     const viewportHeight = useWindowScroll
@@ -1066,28 +1297,83 @@ export const scrollListItemIntoView = (
       : element.offsetHeight
 
     let scrollTarget: number
-    switch (position) {
-      case 'start':
-        scrollTarget = itemTop
-        break
-      case 'end':
-        scrollTarget = itemTop - viewportHeight + virtual.height
-        break
-      case 'nearest': {
-        const currentScroll = useWindowScroll
-          ? Math.max(0, -element.getBoundingClientRect().top)
-          : element.scrollTop
-        if (itemTop < currentScroll) {
-          scrollTarget = itemTop
-        } else if (itemTop + virtual.height > currentScroll + viewportHeight) {
-          scrollTarget = itemTop - viewportHeight + virtual.height
-        } else {
-          return true // already visible
+
+    if (virtual.minHeight != null) {
+      // Variable-height mode: convert row to scroll fraction
+      const visibleRows =
+        Math.ceil(viewportHeight / effectiveHeight) +
+        (virtual.rowChunkSize || 1)
+      const totalScrollHeight = totalRows * effectiveHeight
+      const maxScrollTop = Math.max(0, totalScrollHeight - viewportHeight)
+      const maxTopRow = Math.max(1, totalRows - visibleRows + 1)
+      const itemFraction = itemRow / maxTopRow
+
+      switch (position) {
+        case 'start':
+          scrollTarget = itemFraction * maxScrollTop
+          break
+        case 'end':
+          scrollTarget = Math.max(
+            0,
+            ((itemRow - visibleRows + 1) / maxTopRow) * maxScrollTop
+          )
+          break
+        case 'nearest': {
+          const currentScroll = useWindowScroll
+            ? Math.max(0, -element.getBoundingClientRect().top)
+            : element.scrollTop
+          const currentFraction =
+            maxScrollTop > 0 ? currentScroll / maxScrollTop : 0
+          const currentTopRow = Math.floor(currentFraction * maxTopRow)
+          if (itemRow < currentTopRow) {
+            scrollTarget = itemFraction * maxScrollTop
+          } else if (itemRow >= currentTopRow + visibleRows) {
+            scrollTarget = Math.max(
+              0,
+              ((itemRow - visibleRows + 1) / maxTopRow) * maxScrollTop
+            )
+          } else {
+            return true // already visible
+          }
+          break
         }
-        break
+        default: {
+          // middle
+          const midRow = itemRow - Math.floor(visibleRows / 2)
+          const midFraction = Math.max(0, midRow) / maxTopRow
+          scrollTarget = midFraction * maxScrollTop
+        }
       }
-      default: // middle
-        scrollTarget = itemTop - (viewportHeight - virtual.height) / 2
+    } else {
+      // Fixed-height mode: exact pixel calculation
+      const itemTop = itemRow * virtual.height
+
+      switch (position) {
+        case 'start':
+          scrollTarget = itemTop
+          break
+        case 'end':
+          scrollTarget = itemTop - viewportHeight + virtual.height
+          break
+        case 'nearest': {
+          const currentScroll = useWindowScroll
+            ? Math.max(0, -element.getBoundingClientRect().top)
+            : element.scrollTop
+          if (itemTop < currentScroll) {
+            scrollTarget = itemTop
+          } else if (
+            itemTop + virtual.height >
+            currentScroll + viewportHeight
+          ) {
+            scrollTarget = itemTop - viewportHeight + virtual.height
+          } else {
+            return true // already visible
+          }
+          break
+        }
+        default: // middle
+          scrollTarget = itemTop - (viewportHeight - virtual.height) / 2
+      }
     }
 
     scrollTarget = Math.max(0, scrollTarget)

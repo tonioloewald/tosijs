@@ -180,6 +180,9 @@ export interface ListBindingOptions {
     idPath?: string;
     virtual?: {
         height: number;
+        /** When set, enables variable-height mode using scroll-fraction interpolation.
+         *  Items render at natural height; minHeight is used for scroll area estimation. */
+        minHeight?: number;
         width?: number;
         visibleColumns?: number;
         rowChunkSize?: number;

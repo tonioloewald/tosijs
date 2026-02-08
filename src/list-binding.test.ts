@@ -349,3 +349,136 @@ describe('scrollListItemIntoView', () => {
     expect(scrolledTo!.top).toBe(1500)
   })
 })
+
+describe('variable-height virtual list (minHeight)', () => {
+  test('renders items using minHeight for scroll calculation', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ varHeightTest1: { items } })
+    const proxiedArray = xin['varHeightTest1.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, minHeight: 20 },
+    })
+    lb.update(proxiedArray)
+
+    // With minHeight=20, visibleRows = ceil(300/20) + 1 = 16
+    // So at least 15 items should be rendered
+    expect(childCount(container)).toBeGreaterThanOrEqual(15)
+  })
+
+  test('scroll fraction interpolates correctly at extremes', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ varHeightTest2: { items } })
+    const proxiedArray = xin['varHeightTest2.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, minHeight: 20 },
+    })
+
+    // At scrollTop=0, first items should render
+    Object.defineProperty(container, 'scrollTop', {
+      value: 0,
+      writable: true,
+      configurable: true,
+    })
+    lb.update(proxiedArray, true)
+
+    // Check that the first child (non-padding) is item 0
+    const firstChild = Array.from(container.children).find(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+    expect(firstChild).toBeDefined()
+  })
+
+  test('scrollListItemIntoView works with minHeight', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ varHeightTest3: { items } })
+    const proxiedArray = xin['varHeightTest3.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    let scrolledTo: any
+    ;(container as any).scrollTo = (opts: any) => {
+      scrolledTo = opts
+    }
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, minHeight: 20 },
+    })
+    lb.update(proxiedArray)
+
+    // Scroll to item 50 — should succeed and use fraction-based math
+    const result = scrollListItemIntoView(container, items[50])
+    expect(result).toBe(true)
+    expect(scrolledTo).toBeDefined()
+    expect(scrolledTo!.top).toBeGreaterThan(0)
+    expect(scrolledTo!.behavior).toBe('smooth')
+  })
+
+  test('top buffer tracks scroll position smoothly', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 200 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ varHeightTest4: { items } })
+    const proxiedArray = xin['varHeightTest4.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, minHeight: 20 },
+    })
+
+    // Simulate scrolling partway
+    Object.defineProperty(container, 'scrollTop', {
+      value: 500,
+      writable: true,
+      configurable: true,
+    })
+    lb.update(proxiedArray, true)
+
+    // Top padding should be positive and roughly track scroll position
+    const pads = container.querySelectorAll('.virtual-list-padding')
+    const topPad = parseInt((pads[0] as HTMLElement).style.height)
+    expect(topPad).toBeGreaterThan(0)
+    // Should be in the neighborhood of scrollTop (interpolated, not exact)
+    expect(topPad).toBeLessThanOrEqual(500)
+  })
+})

@@ -18,6 +18,7 @@ export declare class ListBinding {
     private needle?;
     filter: (...args: any[]) => void;
     update(array?: any[], isSlice?: boolean): void;
+    private _updateInterpolatedBuffers;
 }
 interface ListBoundElement extends Element {
     [LIST_BINDING_REF]?: ListBinding;
