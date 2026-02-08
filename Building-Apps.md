@@ -41,9 +41,14 @@ to your code.
 There's no `dispatch`, no `setState`, no action creators.
 To change state, just change it:
 
-    app.user.name = 'Bob'
+    app.user.name.value = 'Bob'
 
 The proxy sees the mutation and notifies anyone who cares.
+
+> **TypeScript note:** `app.user.name` is a `BoxedScalar<string>`, not a
+> raw string. Use `.value` to read or write the underlying primitive.
+> At runtime, direct assignment works too, but TypeScript's type system
+> can't express asymmetric get/set on mapped types.
 
 ### 2. Build your UI as static DOM
 
@@ -115,7 +120,7 @@ Without it, the list falls back to index-based paths that break on reorder.
 
 ### No component tree means no prop drilling
 
-State lives in `xin`. Any element anywhere can bind to any path. You don't
+State lives in the `tosi()` proxy. Any element anywhere can bind to any path. You don't
 need wrapper components to shuttle data through the hierarchy. A deeply
 nested `<span>` can bind directly to `app.user.name` without any of its
 ancestors knowing or caring.
@@ -152,9 +157,17 @@ a websocket, user input — the bindings just start working:
     // this just works whenever the fetch completes
     fetch('/api/posts')
       .then(r => r.json())
-      .then(posts => { app.posts = posts })
+      .then(posts => { app.posts.value = posts })
 
-No loading state management, no suspense boundaries, no effect hooks.
+No suspense boundaries, no effect hooks. The real UI is already mounted —
+an empty bound list is your loading state, and it fills in with no layout
+shift when data arrives. If you want an explicit loading indicator, bind one:
+
+    spinner({ hidden: app.loaded })
+
+That's a real element with a real binding, not a parallel placeholder UI
+that gets swapped out. Other frameworks have you build two versions of your
+UI and orchestrate the handoff. tosijs just has the UI, and it fills in.
 
 ### `observe()` is for side effects, not rendering
 
@@ -162,9 +175,15 @@ In React you'd use `useEffect` for everything. In tosijs, DOM rendering
 is handled by bindings. `observe()` is for *side effects* — things that
 aren't directly binding a value to a DOM property:
 
-    observe(app.prefs.darkMode, () => {
+    app.prefs.darkMode.observe(() => {
       document.body.classList.toggle('dark', app.prefs.darkMode.value)
     })
+
+The `.observe()` method on a boxed value watches that exact path. You can
+also use the standalone `observe()` function for pattern matching:
+
+    observe('app.prefs', () => { /* any pref changed */ })
+    observe(/app\.user\./, path => { /* any user field changed */ })
 
 Toggle a body class. Fire an analytics event. Persist to localStorage.
 That's what `observe()` is for.
@@ -177,16 +196,34 @@ That's what `observe()` is for.
 observers. But `forEach`, `map`, and `filter` pass *raw* items to callbacks.
 Mutations inside these are invisible to tosijs.
 
-    // Proxied — mutations work
+    // for...of gives proxied items — mutations trigger observers
     for (const item of app.items) {
-      item.score.value = 100  // triggers observers
+      item.score.value = 100  // observers fire
     }
 
-    // Raw — mutations are silent
+    // forEach/map/filter pass raw items — mutations are silent
     app.items.forEach(item => {
-      item.score = 100  // nothing happens
+      item.score = 100  // no observer fires
     })
-    touch(app.items)  // manual touch needed
+    touch(app.items)  // manual touch needed after raw mutations
+
+### `this` in proxied methods
+
+Methods on proxied objects receive the proxy as `this`, which means
+property access goes through the proxy. This is usually what you want —
+mutations trigger observers automatically. But be aware that `this.items`
+returns a proxied array, not a raw one:
+
+    const todo = {
+      items: [],
+      add(text) {
+        // `this` is the proxy — this push triggers observers
+        this.items.push({ id: Date.now(), text, done: false })
+      }
+    }
+
+If you need the raw value (e.g. for serialization), use
+`tosiValue(this.items)` or `this.items.value`.
 
 ### The BoxedScalar comparison trap
 
@@ -207,7 +244,7 @@ this automatically. `touch()` is for when it can't.
 
 | React | tosijs |
 |-------|--------|
-| `useState` + `setState` | just assign a property |
+| `useState` + `setState` | assign via `.value` |
 | `useEffect` | `observe()` (but rarely needed) |
 | `useMemo` / `useCallback` | not needed — no re-renders to avoid |
 | props / prop drilling | bind directly to any path |
@@ -215,7 +252,7 @@ this automatically. `touch()` is for when it can't.
 | `key` prop on lists | `idPath` on list bindings |
 | Virtual DOM diffing | path-based direct DOM updates |
 | Component re-render | individual binding updates |
-| ~45kB gzipped | ~10kB gzipped |
+| ~45kB gzipped | ~10kB gzipped (core) |
 
 The fundamental difference: React asks "what changed?" after every state update
 and works backwards to figure out the minimum DOM update. tosijs knows exactly
