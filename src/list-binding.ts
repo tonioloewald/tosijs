@@ -822,6 +822,7 @@ export class ListBinding {
   options: ListBindingOptions
   itemToElement: WeakMap<XinObject, Element>
   array: any[] = []
+  private _filteredCache?: any[]
   private readonly _update?: VoidFunction
   private _previousSlice?: VirtualListSlice
   static filterBoundObservers = new WeakMap<Element, Listener>()
@@ -887,6 +888,7 @@ export class ListBinding {
   }
 
   filteredArray(): any[] {
+    if (this._filteredCache != null) return this._filteredCache
     const { hiddenProp, visibleProp } = this.options
     let visibleArray = this.array
     if (hiddenProp !== undefined) {
@@ -898,6 +900,7 @@ export class ListBinding {
     if (this.options.filter && this.needle !== undefined) {
       visibleArray = this.options.filter(visibleArray, this.needle)
     }
+    this._filteredCache = visibleArray
     return visibleArray
   }
 
@@ -1037,6 +1040,7 @@ export class ListBinding {
       array = []
     }
     this.array = array
+    if (!isSlice) this._filteredCache = undefined
 
     const { hiddenProp, visibleProp } = this.options
     const arrayPath: string = tosiPath(array) as string

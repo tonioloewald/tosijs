@@ -9,6 +9,7 @@ export declare class ListBinding {
     options: ListBindingOptions;
     itemToElement: WeakMap<XinObject, Element>;
     array: any[];
+    private _filteredCache?;
     private readonly _update?;
     private _previousSlice?;
     static filterBoundObservers: WeakMap<Element, Listener>;
