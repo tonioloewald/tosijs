@@ -80,10 +80,11 @@ You build it once. It doesn't re-render. You're writing a structure with
 live bindings, not a render function that gets called over and over.
 
 **Proxies become live bindings automatically.** Pass a proxy as a child
-and it becomes a text-bound `<span>` — `h1(app.user.name)` just works.
-Pass a proxy as any property or attribute and tosijs detects it and binds
-it — `hidden: app.loggedIn` stays in sync with state. This eliminates
-the need for most custom bindings.
+and it becomes a text-bound `<span>` — `h1(app.user.name)` just works
+(at the cost of one extra DOM element; use `textContent: app.user.name`
+if that bothers you). Pass a proxy as any property or attribute and tosijs
+detects it and binds it — `hidden: app.loggedIn` stays in sync with state.
+This eliminates the need for most custom bindings.
 
 `bindText` and `bindValue` are shorthands that also handle `fromDOM`
 (two-way binding). For anything truly custom, use
