@@ -56,7 +56,8 @@ The proxy sees the mutation and notifies anyone who cares.
 > At runtime, direct assignment works too, but TypeScript's type system
 > can't express asymmetric get/set on mapped types.
 
-This also means `===` doesn't work on proxied scalars:
+This also means `===` doesn't work on proxied scalars — JavaScript
+doesn't allow objects to be strictly equal to primitives:
 
     app.user.name === 'Bob'        // always false — comparing proxy to string
     app.user.name.value === 'Bob'  // correct
@@ -94,6 +95,19 @@ build both and bind visibility:
 
 Both elements exist in the DOM. Bindings show/hide them. No teardown,
 no re-creation, no lost state.
+
+For large, expensive UI branches you don't want in the initial DOM at all,
+just append them when needed — it's standard DOM manipulation:
+
+    const container = div()
+    app.showFeature.observe(() => {
+      if (app.showFeature.value && !container.children.length) {
+        container.append(buildExpensiveFeature())
+      }
+    })
+
+No lazy-loading API, no `Suspense`, no dynamic imports. A function returns
+an element, you put it in the DOM, bindings activate. That's it.
 
 ### 3. Bind state to the DOM
 
