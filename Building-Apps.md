@@ -70,29 +70,31 @@ assignments, or passing to external APIs.
     const { div, h1, input, ul } = elements
 
     const view = div(
-      h1({ bindText: app.user.name }),
-      input({ bindValue: app.user.name }),
-      div({ bind: {
-        value: app.prefs.darkMode,
-        binding: {
-          toDOM(el, isDark) {
-            el.classList.toggle('dark', isDark)
-          }
-        }
-      }})
+      h1({ textContent: app.user.name }),
+      input({ value: app.user.name }),
+      div({ class: 'status', hidden: app.loggedIn })
     )
 
 This is real DOM — not a template, not JSX, not a virtual representation.
 You build it once. It doesn't re-render. You're writing a structure with
 live bindings, not a render function that gets called over and over.
 
-`bindText` and `bindValue` are shorthands for the most common bindings.
-For anything custom, use `bind: { value, binding: { toDOM, fromDOM } }`.
-A function is also accepted as shorthand for `{ toDOM: fn }`:
+**Any property or attribute can be a live binding** — just pass a proxy
+value instead of a static one. tosijs detects the proxy and sets up a
+binding automatically. `hidden: app.loggedIn` stays in sync with state.
+`textContent: app.user.name` updates when the name changes. This
+eliminates the need for most custom bindings.
+
+`bindText` and `bindValue` are shorthands that also handle `fromDOM`
+(two-way binding). For anything truly custom, use
+`bind: { value, binding: { toDOM, fromDOM } }`. A function is also
+accepted as shorthand for `{ toDOM: fn }`:
 
     div({ bind: {
-      value: app.loggedIn,
-      binding(el, loggedIn) { el.hidden = !loggedIn }
+      value: app.prefs.darkMode,
+      binding(el, isDark) {
+        el.classList.toggle('dark', isDark)
+      }
     }})
 
 **Bind individual scalar values, not objects.** This is the key insight.
