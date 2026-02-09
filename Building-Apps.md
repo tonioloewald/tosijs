@@ -27,7 +27,7 @@ paths. Mutations fire on paths. Everything in tosijs routes through paths — th
 why binding to a specific scalar path is so much more efficient than binding to
 an object and diffing.
 
-## The Four Steps
+## The Three Steps
 
 ### 1. Put your state in a proxy
 
@@ -65,19 +65,48 @@ doesn't allow objects to be strictly equal to primitives:
 Reach for `.value` whenever you need the raw primitive — for comparisons,
 assignments, or passing to external APIs.
 
-### 2. Build your UI as static DOM
+### 2. Build your UI with bindings
 
     const { div, h1, input, ul } = elements
 
     const view = div(
-      h1('My App'),
-      input({ placeholder: 'Your name' }),
-      ul()
+      h1({ bindText: app.user.name }),
+      input({ bindValue: app.user.name }),
+      div({ bind: {
+        value: app.prefs.darkMode,
+        binding: {
+          toDOM(el, isDark) {
+            el.classList.toggle('dark', isDark)
+          }
+        }
+      }})
     )
 
 This is real DOM — not a template, not JSX, not a virtual representation.
-You build it once. It doesn't re-render. You're writing a structure,
-not a render function that gets called over and over.
+You build it once. It doesn't re-render. You're writing a structure with
+live bindings, not a render function that gets called over and over.
+
+`bindText` and `bindValue` are shorthands for the most common bindings.
+For anything custom, use `bind: { value, binding: { toDOM, fromDOM } }`.
+A function is also accepted as shorthand for `{ toDOM: fn }`:
+
+    div({ bind: {
+      value: app.loggedIn,
+      binding(el, loggedIn) { el.hidden = !loggedIn }
+    }})
+
+**Bind individual scalar values, not objects.** This is the key insight.
+When you bind `app.user.name` to a `<span>`, tosijs sets up a listener
+on that exact path. When only the name changes, only that `<span>` updates.
+
+If you bound the entire `app.user` object and pulled out `.name` in a
+`toDOM` function, the binding would fire on *any* change to user — name,
+email, whatever. You'd be doing React's job of figuring out what actually
+changed. Don't. Let the path system do it for you.
+
+**`fromDOM` bindings flow user input back to state** — an `<input>` with
+`bindValue: app.user.name` writes directly to `app.user.name` when the
+user types. Two-way binding with zero boilerplate.
 
 **Conditional UI?** Don't think `condition ? <A/> : <B/>`. Instead,
 build both and bind visibility:
@@ -109,38 +138,7 @@ just append them when needed — it's standard DOM manipulation:
 No lazy-loading API, no `Suspense`, no dynamic imports. A function returns
 an element, you put it in the DOM, bindings activate. That's it.
 
-### 3. Bind state to the DOM
-
-    const view = div(
-      h1({ bindText: app.user.name }),
-      input({ bindValue: app.user.name }),
-      div({ bind: {
-        value: app.prefs.darkMode,
-        binding: {
-          toDOM(el, isDark) {
-            el.classList.toggle('dark', isDark)
-          }
-        }
-      }})
-    )
-
-`bindText` and `bindValue` are shorthands for the most common bindings.
-For anything custom, use `bind: { value, binding: { toDOM, fromDOM } }`.
-
-**Bind individual scalar values, not objects.** This is the key insight.
-When you bind `app.user.name` to a `<span>`, tosijs sets up a listener
-on that exact path. When only the name changes, only that `<span>` updates.
-
-If you bound the entire `app.user` object and pulled out `.name` in a
-`toDOM` function, the binding would fire on *any* change to user — name,
-email, whatever. You'd be doing React's job of figuring out what actually
-changed. Don't. Let the path system do it for you.
-
-**`fromDOM` bindings flow user input back to state** — an `<input>` with
-`bindValue: app.user.name` writes directly to `app.user.name` when the
-user types. Two-way binding with zero boilerplate.
-
-### 4. Use virtual list bindings for collections
+### 3. Use list bindings for collections
 
     ul(
       ...app.messages.listBinding(
@@ -154,6 +152,11 @@ user types. Two-way binding with zero boilerplate.
         }
       )
     )
+
+This looks like `...items.map(item => li(item.name))` — familiar one-shot
+rendering. It's not. The binding stays alive: additions, removals, and
+property changes on `app.messages` automatically update the DOM. The
+familiar mapping syntax is a Trojan horse for live list rendering.
 
 Virtual list bindings only render what's visible. A list of a million
 messages renders the same number of DOM nodes as a list of twenty.
@@ -183,12 +186,21 @@ Your data objects are just objects. They can have methods:
         this.items.push({ id: Date.now(), text, done: false })
       },
       toggle(id) {
-        const item = this.items.find(i => i.id === id)
-        if (item) item.done = !item.done
+        for (const item of this.items) {
+          if (item.id.value === id) {
+            item.done.value = !item.done.value
+            break
+          }
+        }
       }
     }
 
     const { app } = tosi({ app: todo })
+
+Note the `toggle` method uses `for...of` (which yields proxied items) and
+`.value` for reads and writes. This ensures mutations trigger observers.
+Array callbacks like `find` and `forEach` pass raw items — see the gotchas
+section below.
 
 No imports from tosijs needed in your business logic. No framework concepts
 leak into your data layer. You can test `todo.add()` and `todo.toggle()`
@@ -219,6 +231,8 @@ UI and orchestrate the handoff. tosijs just has the UI, and it fills in.
 
 Bindings to paths that don't exist yet are safe — they render as empty/blank
 until data arrives. No `TypeError: cannot read property of undefined`.
+The proxy intercepts the access; tosijs simply waits for the path to
+materialize before firing the first update.
 
 ### `observe()` is for side effects, not rendering
 
