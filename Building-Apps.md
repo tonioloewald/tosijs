@@ -70,7 +70,7 @@ assignments, or passing to external APIs.
     const { div, h1, input, ul } = elements
 
     const view = div(
-      h1({ textContent: app.user.name }),
+      h1(app.user.name),
       input({ value: app.user.name }),
       div({ class: 'status', hidden: app.loggedIn })
     )
@@ -79,11 +79,11 @@ This is real DOM — not a template, not JSX, not a virtual representation.
 You build it once. It doesn't re-render. You're writing a structure with
 live bindings, not a render function that gets called over and over.
 
-**Any property or attribute can be a live binding** — just pass a proxy
-value instead of a static one. tosijs detects the proxy and sets up a
-binding automatically. `hidden: app.loggedIn` stays in sync with state.
-`textContent: app.user.name` updates when the name changes. This
-eliminates the need for most custom bindings.
+**Proxies become live bindings automatically.** Pass a proxy as a child
+and it becomes a text-bound `<span>` — `h1(app.user.name)` just works.
+Pass a proxy as any property or attribute and tosijs detects it and binds
+it — `hidden: app.loggedIn` stays in sync with state. This eliminates
+the need for most custom bindings.
 
 `bindText` and `bindValue` are shorthands that also handle `fromDOM`
 (two-way binding). For anything truly custom, use
