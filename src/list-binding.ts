@@ -40,12 +40,12 @@ The basic structure of a **list-binding** is:
   preview.append(
     h3('binding an array of strings'),
     ul(
-      ...listBindingExample.array.tosiListBinding(({li}, item) => li(item))
+      ...listBindingExample.array.listBinding(({li}, item) => li(item))
     )
   )
 ```
 
-### tosiListBinding(templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => [ElementProps, HTMLTemplateElement]
+### listBinding(templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => [ElementProps, HTMLTemplateElement]
 
     type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
     type ListBinding = [ElementProps, HTMLTemplateElement]
@@ -54,7 +54,7 @@ The example leverages new syntax sugar that makes list-binding simpler
 and more intuitive. (It's intended to be as convenient as mapping an array to elements,
 except that you get dynamic binding, virtualized lists, versus a static list.)
 
-If you have a BoxedProxy<T[]>, you can use `tosiListBinding()`
+If you have a BoxedProxy<T[]>, you can use `listBinding()`
 to create the binding inline (see the example above). Under the hood, the template
 gets created and an object with the necessary specifications is produced.
 
@@ -212,7 +212,7 @@ const emojiTable = div(
   {
     class: 'emoji-table'
   },
-  ...emojiListExample.array.tosiListBinding(({div, span}, item) =>
+  ...emojiListExample.array.listBinding(({div, span}, item) =>
     div(
       {
         class: 'emoji-row',
@@ -328,7 +328,7 @@ const grid = div(
   {
     class: 'virtual-grid-example',
   },
-  ...bigBindTest.tosiListBinding(
+  ...bigBindTest.listBinding(
     ({div}, item) => div({
       class: 'cell',
       bindText: item.id,
@@ -454,7 +454,7 @@ const list = div(
   {
     class: 'var-height-list',
   },
-  ...varHeightExample.items.tosiListBinding(
+  ...varHeightExample.items.listBinding(
     ({div, span}, item) => div(
       {
         class: 'var-height-item',
@@ -628,7 +628,7 @@ preview.append(
       class: 'emoji-table',
       style: 'height: calc(100% - 60px)',
     },
-    ...filterListExample.array.tosiListBinding(
+    ...filterListExample.array.listBinding(
       ({div, span}, item) => div(
         {
           class: 'emoji-row',
