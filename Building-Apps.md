@@ -233,12 +233,31 @@ to know:
 - **`content()` runs once.** It's not a render function — it builds the DOM
   during hydration and never re-runs. Updates happen through bindings, not
   by re-calling `content()`.
-- **Light DOM is the default.** Components only create a shadow root if you
-  provide a `styleSpec` or `styleNode`. Path bindings can't see into
-  shadow DOM (the shadow root is an encapsulation boundary that hides
-  elements from external queries), so most components should stay in light DOM.
-- **Styles in light DOM are global.** tosijs rewrites `:host` selectors to
-  the component's tag name, but other selectors are not scoped.
+
+### Light DOM is where the action is
+
+From reading most web component documentation, you'd think shadow DOM was
+the only option. It isn't. tosijs components use **light DOM by default**,
+and this is a deliberate choice, not a limitation.
+
+Shadow DOM gives you style encapsulation — great for word-processor-style
+isolated widgets, but a memory and performance hit for everything else.
+It also creates an encapsulation boundary that blocks path bindings,
+external styling, and the usual DOM query APIs.
+
+tosijs takes the one really valuable feature of shadow DOM components —
+`<slot>` composition — and makes it work in the light DOM. You get:
+
+- **Path bindings work everywhere.** No encapsulation boundary to cross.
+- **CSS just works.** Style your components the same way you style everything else.
+- **Lighter weight.** No shadow root overhead per instance.
+- **Slot composition.** tosijs rewrites `<slot>` elements in light DOM components.
+
+tosijs rewrites `:host` selectors to the component's tag name, so
+`styleSpec` works in both modes.
+
+Use light DOM unless you know *exactly* why you need shadow DOM — and if
+you do, you probably don't want automatic bindings anyway.
 
 ## Gotchas
 
