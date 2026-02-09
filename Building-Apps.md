@@ -21,6 +21,12 @@ Nothing in between needs to know about it.
 There's no virtual DOM, no diffing, no reconciliation. When `user.name` changes,
 the one `<span>` bound to `user.name` updates. Nothing else re-renders.
 
+The key concept is the **path**. Where React thinks in terms of a component tree,
+tosijs thinks in terms of addresses: `app.user.name` is a path. Bindings watch
+paths. Mutations fire on paths. Everything in tosijs routes through paths — that's
+why binding to a specific scalar path is so much more efficient than binding to
+an object and diffing.
+
 ## The Four Steps
 
 ### 1. Put your state in a proxy
@@ -50,6 +56,14 @@ The proxy sees the mutation and notifies anyone who cares.
 > At runtime, direct assignment works too, but TypeScript's type system
 > can't express asymmetric get/set on mapped types.
 
+This also means `===` doesn't work on proxied scalars:
+
+    app.user.name === 'Bob'        // always false — comparing proxy to string
+    app.user.name.value === 'Bob'  // correct
+
+Reach for `.value` whenever you need the raw primitive — for comparisons,
+assignments, or passing to external APIs.
+
 ### 2. Build your UI as static DOM
 
     const { div, h1, input, ul } = elements
@@ -63,6 +77,23 @@ The proxy sees the mutation and notifies anyone who cares.
 This is real DOM — not a template, not JSX, not a virtual representation.
 You build it once. It doesn't re-render. You're writing a structure,
 not a render function that gets called over and over.
+
+**Conditional UI?** Don't think `condition ? <A/> : <B/>`. Instead,
+build both and bind visibility:
+
+    div(
+      loginForm({ bind: {
+        value: app.loggedIn,
+        binding(el, loggedIn) { el.hidden = loggedIn }
+      }}),
+      dashboard({ bind: {
+        value: app.loggedIn,
+        binding(el, loggedIn) { el.hidden = !loggedIn }
+      }})
+    )
+
+Both elements exist in the DOM. Bindings show/hide them. No teardown,
+no re-creation, no lost state.
 
 ### 3. Bind state to the DOM
 
@@ -172,6 +203,9 @@ That's a real element with a real binding, not a parallel placeholder UI
 that gets swapped out. Other frameworks have you build two versions of your
 UI and orchestrate the handoff. tosijs just has the UI, and it fills in.
 
+Bindings to paths that don't exist yet are safe — they render as empty/blank
+until data arrives. No `TypeError: cannot read property of undefined`.
+
 ### `observe()` is for side effects, not rendering
 
 In React you'd use `useEffect` for everything. In tosijs, DOM rendering
@@ -200,8 +234,9 @@ to know:
   during hydration and never re-runs. Updates happen through bindings, not
   by re-calling `content()`.
 - **Light DOM is the default.** Components only create a shadow root if you
-  provide a `styleSpec` or `styleNode`. Since path bindings can't see into
-  shadow DOM, most components should stay in light DOM.
+  provide a `styleSpec` or `styleNode`. Path bindings can't see into
+  shadow DOM (the shadow root is an encapsulation boundary that hides
+  elements from external queries), so most components should stay in light DOM.
 - **Styles in light DOM are global.** tosijs rewrites `:host` selectors to
   the component's tag name, but other selectors are not scoped.
 
@@ -254,14 +289,6 @@ Observer callbacks are called with the *path* that changed, not the new value:
     })
 
 This is true for both the `.observe()` method and the standalone `observe()` function.
-
-### The BoxedScalar comparison trap
-
-    boxed.count === 3  // always false! comparing a proxy to a number
-
-    boxed.count.value === 3  // correct
-
-The proxy can't intercept `===`. Use `.value` for comparisons.
 
 ### `touch()` is the escape hatch
 
