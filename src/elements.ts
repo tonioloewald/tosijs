@@ -313,12 +313,16 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
   }
 }
 
+const propBindingCache: Record<string, XinBinding> = {}
 const elementPropBinding = (key: string): XinBinding => {
-  return {
-    toDOM(element, value) {
-      elementProp(element as HTMLElement, key, value)
-    },
+  if (!propBindingCache[key]) {
+    propBindingCache[key] = {
+      toDOM(element, value) {
+        elementProp(element as HTMLElement, key, value)
+      },
+    }
   }
+  return propBindingCache[key]
 }
 
 const elementSet = (elt: HTMLElement, key: string, value: any) => {

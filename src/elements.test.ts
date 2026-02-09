@@ -212,6 +212,90 @@ test('respects observedAttributes with camelCase conversion', () => {
   expect(el.hasAttribute('is-disabled')).toBe(true)
 })
 
+test('bare proxy property creates live binding', async () => {
+  const { propTest } = tosi({
+    propTest: { name: 'Alice' },
+  })
+
+  const div = elements.div({ textContent: propTest.name })
+  document.body.append(div)
+
+  await updates()
+  expect(div.textContent).toBe('Alice')
+
+  propTest.name.value = 'Bob'
+  await updates()
+  expect(div.textContent).toBe('Bob')
+
+  div.remove()
+})
+
+test('bare proxy bindings on different elements are independent', async () => {
+  const { indepTest } = tosi({
+    indepTest: { a: 'first', b: 'second' },
+  })
+
+  const div1 = elements.div({ textContent: indepTest.a })
+  const div2 = elements.div({ textContent: indepTest.b })
+  document.body.append(div1, div2)
+
+  await updates()
+  expect(div1.textContent).toBe('first')
+  expect(div2.textContent).toBe('second')
+
+  // Changing one doesn't affect the other
+  indepTest.a.value = 'updated'
+  await updates()
+  expect(div1.textContent).toBe('updated')
+  expect(div2.textContent).toBe('second')
+
+  div1.remove()
+  div2.remove()
+})
+
+test('same bare property binding on multiple elements updates independently', async () => {
+  const { sharedTest } = tosi({
+    sharedTest: { x: 'hello', y: 'world' },
+  })
+
+  // Both use textContent binding (same cached binding object)
+  const div1 = elements.div({ textContent: sharedTest.x })
+  const div2 = elements.div({ textContent: sharedTest.y })
+  document.body.append(div1, div2)
+
+  await updates()
+  expect(div1.textContent).toBe('hello')
+  expect(div2.textContent).toBe('world')
+
+  // Update both — each should track its own path
+  sharedTest.x.value = 'foo'
+  sharedTest.y.value = 'bar'
+  await updates()
+  expect(div1.textContent).toBe('foo')
+  expect(div2.textContent).toBe('bar')
+
+  div1.remove()
+  div2.remove()
+})
+
+test('bare proxy hidden binding works', async () => {
+  const { hiddenTest } = tosi({
+    hiddenTest: { visible: false },
+  })
+
+  const div = elements.div({ hidden: hiddenTest.visible })
+  document.body.append(div)
+
+  await updates()
+  expect(div.hidden).toBe(false)
+
+  hiddenTest.visible.value = true
+  await updates()
+  expect(div.hidden).toBe(true)
+
+  div.remove()
+})
+
 test('boolean observedAttributes handled correctly', () => {
   class BooleanAttrComponent extends HTMLElement {
     static observedAttributes = ['disabled', 'hidden']
