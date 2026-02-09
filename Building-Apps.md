@@ -167,6 +167,45 @@ of list size.
 updates — changing one property on one item updates one DOM element.
 Without it, the list falls back to index-based paths that break on reorder.
 
+## Proxied vs. Raw
+
+The proxy is the core of tosijs, so understanding where it applies matters.
+
+### `for...of` gives proxied items; callbacks give raw items
+
+`for...of` on a proxied array yields proxied items — mutations trigger
+observers. But `forEach`, `map`, and `filter` pass *raw* items to callbacks.
+Mutations inside these are invisible to tosijs.
+
+    // for...of gives proxied items — mutations trigger observers
+    for (const item of app.items) {
+      item.score.value = 100  // observers fire
+    }
+
+    // forEach/map/filter pass raw items — mutations are silent
+    app.items.forEach(item => {
+      item.score = 100  // no observer fires
+    })
+    touch(app.items)  // manual touch needed after raw mutations
+
+### `this` in proxied methods
+
+Methods on proxied objects receive the proxy as `this`, which means
+property access goes through the proxy. This is usually what you want —
+mutations trigger observers automatically. But be aware that `this.items`
+returns a proxied array, not a raw one:
+
+    const todo = {
+      items: [],
+      add(text) {
+        // `this` is the proxy — this push triggers observers
+        this.items.push({ id: Date.now(), text, done: false })
+      }
+    }
+
+If you need the raw value (e.g. for serialization), use
+`tosiValue(this.items)` or `this.items.value`.
+
 ## Why This Works
 
 ### No component tree means no prop drilling
@@ -199,12 +238,13 @@ Your data objects are just objects. They can have methods:
 
 Note the `toggle` method uses `for...of` (which yields proxied items) and
 `.value` for reads and writes. This ensures mutations trigger observers.
-Array callbacks like `find` and `forEach` pass raw items — see the gotchas
-section below.
+Array callbacks like `find` and `forEach` pass raw items — see
+"Proxied vs. Raw" below.
 
-No imports from tosijs needed in your business logic. No framework concepts
-leak into your data layer. You can test `todo.add()` and `todo.toggle()`
-with plain unit tests.
+No imports from tosijs needed in your business logic — though methods
+called through the proxy receive proxied `this`, so your code does need
+to be proxy-aware (using `.value` and `for...of`). You can test
+`todo.add()` and `todo.toggle()` with plain unit tests.
 
 ### Deeply async by default
 
@@ -223,11 +263,15 @@ No suspense boundaries, no effect hooks. The real UI is already mounted —
 an empty bound list is your loading state, and it fills in with no layout
 shift when data arrives. If you want an explicit loading indicator, bind one:
 
-    spinner({ hidden: app.loaded })
+    div({ class: 'spinner', hidden: app.loaded })
 
 That's a real element with a real binding, not a parallel placeholder UI
 that gets swapped out. Other frameworks have you build two versions of your
 UI and orchestrate the handoff. tosijs just has the UI, and it fills in.
+
+Note the bare `hidden: app.loaded` — when you pass a proxy value as any
+element property, tosijs detects it and creates a live binding automatically.
+No `bind: { value, binding }` needed for simple property mappings.
 
 Bindings to paths that don't exist yet are safe — they render as empty/blank
 until data arrives. No `TypeError: cannot read property of undefined`.
@@ -288,41 +332,6 @@ Use light DOM unless you know *exactly* why you need shadow DOM — and if
 you do, you probably don't want automatic bindings anyway.
 
 ## Gotchas
-
-### Proxied vs. raw values in array callbacks
-
-`for...of` on a proxied array gives you proxied items — mutations trigger
-observers. But `forEach`, `map`, and `filter` pass *raw* items to callbacks.
-Mutations inside these are invisible to tosijs.
-
-    // for...of gives proxied items — mutations trigger observers
-    for (const item of app.items) {
-      item.score.value = 100  // observers fire
-    }
-
-    // forEach/map/filter pass raw items — mutations are silent
-    app.items.forEach(item => {
-      item.score = 100  // no observer fires
-    })
-    touch(app.items)  // manual touch needed after raw mutations
-
-### `this` in proxied methods
-
-Methods on proxied objects receive the proxy as `this`, which means
-property access goes through the proxy. This is usually what you want —
-mutations trigger observers automatically. But be aware that `this.items`
-returns a proxied array, not a raw one:
-
-    const todo = {
-      items: [],
-      add(text) {
-        // `this` is the proxy — this push triggers observers
-        this.items.push({ id: Date.now(), text, done: false })
-      }
-    }
-
-If you need the raw value (e.g. for serialization), use
-`tosiValue(this.items)` or `this.items.value`.
 
 ### Observer callbacks receive paths, not values
 
