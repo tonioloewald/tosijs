@@ -79,6 +79,9 @@ not a render function that gets called over and over.
       }})
     )
 
+`bindText` and `bindValue` are shorthands for the most common bindings.
+For anything custom, use `bind: { value, binding: { toDOM, fromDOM } }`.
+
 **Bind individual scalar values, not objects.** This is the key insight.
 When you bind `app.user.name` to a `<span>`, tosijs sets up a listener
 on that exact path. When only the name changes, only that `<span>` updates.
@@ -188,6 +191,20 @@ also use the standalone `observe()` function for pattern matching:
 Toggle a body class. Fire an analytics event. Persist to localStorage.
 That's what `observe()` is for.
 
+## Components
+
+tosijs includes a `Component` base class for web components. A few things
+to know:
+
+- **`content()` runs once.** It's not a render function — it builds the DOM
+  during hydration and never re-runs. Updates happen through bindings, not
+  by re-calling `content()`.
+- **Light DOM is the default.** Components only create a shadow root if you
+  provide a `styleSpec` or `styleNode`. Since path bindings can't see into
+  shadow DOM, most components should stay in light DOM.
+- **Styles in light DOM are global.** tosijs rewrites `:host` selectors to
+  the component's tag name, but other selectors are not scoped.
+
 ## Gotchas
 
 ### Proxied vs. raw values in array callbacks
@@ -225,6 +242,19 @@ returns a proxied array, not a raw one:
 If you need the raw value (e.g. for serialization), use
 `tosiValue(this.items)` or `this.items.value`.
 
+### Observer callbacks receive paths, not values
+
+Observer callbacks are called with the *path* that changed, not the new value:
+
+    app.prefs.darkMode.observe((path) => {
+      // path is a string like 'app.prefs.darkMode'
+      // to get the value, read it explicitly:
+      const isDark = app.prefs.darkMode.value
+      document.body.classList.toggle('dark', isDark)
+    })
+
+This is true for both the `.observe()` method and the standalone `observe()` function.
+
 ### The BoxedScalar comparison trap
 
     boxed.count === 3  // always false! comparing a proxy to a number
@@ -239,6 +269,16 @@ When you mutate state behind the proxy's back — from a raw reference,
 inside a `forEach`, after a bulk operation — call `touch(path)` to
 tell tosijs to propagate updates. Most of the time the proxy handles
 this automatically. `touch()` is for when it can't.
+
+`touch()` is also useful for **batch optimization**. If you need to make
+many mutations, you can bypass the proxy, mutate the raw data directly,
+and call `touch()` once at the end — one notification instead of N:
+
+    const raw = app.items.value
+    for (let i = 0; i < raw.length; i++) {
+      raw[i].score = computeScore(raw[i])
+    }
+    touch(app.items)  // single update for all mutations
 
 ## The React Comparison, In Short
 
