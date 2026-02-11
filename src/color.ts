@@ -265,6 +265,7 @@ const span =
   globalThis.document !== undefined
     ? globalThis.document.createElement('span')
     : undefined
+if (span) span.style.display = 'none'
 export class Color {
   r: number
   g: number
