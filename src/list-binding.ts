@@ -729,6 +729,31 @@ the item's index and row height, then applied via `scrollTo({ behavior: 'smooth'
 For **non-virtual lists**, the item's DOM element is found and
 `scrollIntoView()` is called directly.
 
+## List Operations on Proxied Arrays
+
+In addition to the utility functions above, proxied arrays have `listFind`,
+`listUpdate`, and `listRemove` methods that use the same selector pattern
+as `listBinding`. These are documented in detail in [tosi](/?tosi.ts), but
+here's a quick summary:
+
+    // Find an item — returns a proxied item (mutations trigger observers)
+    const item = app.items.listFind((item) => item.id, 'abc')
+
+    // Find by DOM element (e.g. in a click handler)
+    const item = app.items.listFind(clickedElement)
+
+    // Upsert — update in place (preserving object identity) or push
+    app.items.listUpdate((item) => item.id, { id: 'abc', name: 'New Name' })
+
+    // Remove by field match
+    app.items.listRemove((item) => item.id, 'abc')
+
+`listUpdate` is designed to work hand-in-hand with list bindings: it mutates
+the existing object property by property through the proxy, so the
+`itemToElement` WeakMap still points to the same DOM element. Only changed
+properties fire observers, producing surgical DOM updates with no element
+teardown or recreation.
+
 ## Window Scroll Container (Experimental)
 
 By default, virtualized lists scroll within their container element. For infinite-scroll

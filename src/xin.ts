@@ -498,11 +498,19 @@ Always use `.value`, `tosiValue()`, or `valueOf()` when comparing:
 - `.value` gets or sets the underlying value
 - `.path` gets the string path
 - `.observe(callback)` watches for changes, returns an unsubscribe function
+- `.touch()` forces an update notification on this path (useful for debugging
+  or after mutating state behind the proxy's back)
 - `.bind(element, binding, options?)` binds the value to a DOM element
 - `.on(element, eventType)` binds an event handler
 - `.binding(binding)` returns an inline binding spec for use with elements
 - `.listBinding(templateBuilder, options?)` returns a list binding spec
 - `.valueOf()` / `.toJSON()` for type coercion (scalars also have `.toString()`)
+
+Arrays also have:
+- `.listFind(selector, value)` finds an item by field and returns it proxied
+- `.listFind(element)` finds the array item bound to a DOM element
+- `.listUpdate(selector, newValue)` updates an existing item in place or pushes if not found
+- `.listRemove(selector, value)` removes an item by field match
 
 Example:
 ```
@@ -521,6 +529,64 @@ boxed.app.items.observe(callback)  // observe array changes
 > Note: The `xinValue`, `xinPath`, `xinObserve`, `xinBind`, `xinOn`, and
 > `tosiValue`, `tosiPath`, etc. names still work but are deprecated.
 > Use the shorter names above.
+
+## List Operations
+
+When working with list-bound arrays, you often need to find, update, or remove
+items efficiently. The `listFind`, `listUpdate`, and `listRemove` methods on
+proxied arrays handle this with the same selector pattern used by `listBinding`.
+
+### Selectors
+
+All three methods use a **selector callback** to identify which field to match on.
+The callback receives a placeholder proxy (the same `^` proxy trick used by
+`listBinding`) and should return a property of the item:
+
+    (item) => item.id        // match on the 'id' field
+    (item) => item.uid       // match on 'uid'
+    (item) => item.meta.key  // nested field paths work too
+
+### `listFind(selector, value)` / `listFind(element)`
+
+Find an item and return it as a proxied object (so mutations trigger observers):
+
+    const item = app.items.listFind((item) => item.id, 'abc')
+    if (item) {
+      item.name.value = 'Updated'  // triggers observers + DOM updates
+    }
+
+You can also pass a DOM element to find the array item bound to it — useful
+in click handlers on list-bound elements:
+
+    container.addEventListener('click', (e) => {
+      const item = app.items.listFind(e.target)
+      if (item) console.log('Clicked:', item.name.value)
+    })
+
+### `listUpdate(selector, newValue)`
+
+Upsert: update an existing item **in place** or push a new one. This is the
+recommended way to update list items because it preserves object identity —
+the `itemToElement` WeakMap still maps to the same DOM element, so no
+teardown/recreation occurs:
+
+    // Update existing — only changed properties fire observers
+    app.items.listUpdate((item) => item.id, {
+      id: 'abc', name: 'New Name', score: 100
+    })
+
+    // Item not found — pushes as new
+    app.items.listUpdate((item) => item.id, {
+      id: 'xyz', name: 'Brand New'
+    })
+
+Returns the proxied item (existing or newly pushed).
+
+### `listRemove(selector, value)`
+
+Remove an item by field match. Returns `true` if removed, `false` if not found:
+
+    app.items.listRemove((item) => item.id, 'abc')  // true if found
 
 ### To Do List Example
 

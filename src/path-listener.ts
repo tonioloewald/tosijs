@@ -5,7 +5,7 @@
 are exported from `tosijs` they shouldn't need to be used very often. Mostly
 they're used to manage state.
 
-## `touch(path: string)`
+## `touch(path: string)` and `.touch()`
 
 This is used to inform `xin` that a value at a path has changed. Remember that
 xin simply wraps an object, and if you change the object directly, `xin` won't
@@ -19,6 +19,21 @@ The two most common uses for `touch()` are:
    want to thrash the UI so you just change the object directly.
 2. You want to change the content of an object but need a something that
    is bound to the "outer" object to be refreshed.
+
+Every `BoxedProxy` also has a `.touch()` method, so you can call it directly
+on any proxied value:
+
+    app.user.name.touch()   // force update for this scalar
+    app.user.touch()        // force update for the whole object
+    app.items[2].touch()    // force update for a list item
+
+### Id-path synthesis
+
+When you touch a path that contains an array index (e.g. `items[2]` or
+`items[2].name`), `touch()` automatically synthesizes the equivalent id-path
+touches (e.g. `items[id=abc]` or `items[id=abc].name`). This means that
+`.touch()` on list items correctly updates DOM elements bound via `idPath`,
+even when you've mutated the underlying data behind the proxy's back.
 
 ## `observe()` and `unobserve()`
 

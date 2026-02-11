@@ -170,6 +170,30 @@ of list size.
 updates — changing one property on one item updates one DOM element.
 Without it, the list falls back to index-based paths that break on reorder.
 
+### Finding, updating, and removing list items
+
+Proxied arrays have `listFind`, `listUpdate`, and `listRemove` methods
+that use the same selector pattern as `listBinding`:
+
+    // Find an item — returns proxied, so mutations trigger updates
+    const item = app.items.listFind((item) => item.id, 'abc')
+    if (item) item.name.value = 'Updated'
+
+    // Find by DOM element (in a click handler)
+    const item = app.items.listFind(e.target)
+
+    // Update in place — preserves object identity and DOM elements
+    app.items.listUpdate((item) => item.id, {
+      id: 'abc', name: 'New Name', score: 100
+    })
+
+    // Remove
+    app.items.listRemove((item) => item.id, 'abc')
+
+`listUpdate` is the key one: it mutates the existing object property by
+property through the proxy, so only changed properties fire observers and
+the DOM element is reused. If the item doesn't exist, it pushes a new one.
+
 ## Proxied vs. Raw
 
 The proxy is the core of tosijs, so understanding where it applies matters.
@@ -352,9 +376,21 @@ This is true for both the `.observe()` method and the standalone `observe()` fun
 ### `touch()` is the escape hatch
 
 When you mutate state behind the proxy's back — from a raw reference,
-inside a `forEach`, after a bulk operation — call `touch(path)` to
+inside a `forEach`, after a bulk operation — call `touch()` to
 tell tosijs to propagate updates. Most of the time the proxy handles
 this automatically. `touch()` is for when it can't.
+
+Every boxed proxy has a `.touch()` method, and there's also a standalone
+`touch()` function you can import:
+
+    app.user.name.touch()     // on a scalar
+    app.items[2].touch()      // on a list item
+    touch(app.items)          // standalone, on an array
+    touch('app.user')         // standalone, by path string
+
+For list items with `idPath`, `.touch()` automatically synthesizes the
+equivalent id-path touch, so DOM bindings update correctly even when you've
+mutated the raw data behind the proxy's back.
 
 `touch()` is also useful for **batch optimization**. If you need to make
 many mutations, you can bypass the proxy, mutate the raw data directly,
