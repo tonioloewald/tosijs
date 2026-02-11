@@ -30,6 +30,7 @@ export interface XinProps<T = any> {
   // Primary API (matches BoxedScalar)
   path: string
   value: T
+  touch: () => void
   observe: ProxyObserveFunc
   bind: ProxyBindFunc
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
@@ -81,6 +82,7 @@ export interface BoxedScalar<T> {
   // New primary API
   value: T
   path: string
+  touch: () => void
   observe: (callback: ObserverCallbackFunction) => VoidFunction
   bind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction

@@ -21,6 +21,7 @@ type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBindi
 export interface XinProps<T = any> {
     path: string;
     value: T;
+    touch: () => void;
     observe: ProxyObserveFunc;
     bind: ProxyBindFunc;
     on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction;
@@ -66,6 +67,7 @@ export interface BoxedArrayProps<U = any> {
 export interface BoxedScalar<T> {
     value: T;
     path: string;
+    touch: () => void;
     observe: (callback: ObserverCallbackFunction) => VoidFunction;
     bind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void;
     on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction;

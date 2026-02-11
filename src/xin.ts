@@ -787,6 +787,8 @@ const regHandler = (
           }
         case 'toString':
           return () => String(getValue())
+        case 'touch':
+          return () => touch(path)
         case 'observe':
           return (callback: ObserverCallbackFunction) => {
             const listener = _observe(path, callback)
@@ -927,6 +929,8 @@ const regHandler = (
         case 'valueOf':
         case 'toJSON':
           return () => (target.valueOf ? target.valueOf() : target)
+        case 'touch':
+          return () => touch(path)
         case 'observe':
           return (callback: ObserverCallbackFunction) => {
             const listener = _observe(path, callback)

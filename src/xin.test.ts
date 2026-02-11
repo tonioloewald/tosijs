@@ -610,6 +610,38 @@ test('boxed scalar new API - binding method', () => {
   expect(binding.bind.binding).toBeDefined()
 })
 
+test('boxed scalar touch method', async () => {
+  const { touchScalarTest } = tosi({
+    touchScalarTest: { score: 42 },
+  })
+  await updates()
+
+  let touched = false
+  const unsub = touchScalarTest.score.observe(() => {
+    touched = true
+  })
+  touchScalarTest.score.touch()
+  await updates()
+  expect(touched).toBe(true)
+  unsub()
+})
+
+test('boxed object touch method', async () => {
+  const { touchObjTest } = tosi({
+    touchObjTest: { name: 'Alice', score: 10 },
+  })
+  await updates()
+
+  let touched = false
+  const unsub = touchObjTest.observe(() => {
+    touched = true
+  })
+  touchObjTest.touch()
+  await updates()
+  expect(touched).toBe(true)
+  unsub()
+})
+
 test('boxed null and undefined', () => {
   const { nullTest } = tosi({
     nullTest: { nullVal: null, undefVal: undefined },
