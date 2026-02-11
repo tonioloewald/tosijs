@@ -614,6 +614,7 @@ import {
   XIN_OBSERVE,
   XIN_BIND,
   XIN_ON,
+  LIST_INSTANCE_REF,
 } from './metadata'
 
 interface ProxyConstructor {
@@ -682,6 +683,65 @@ function box<T>(x: T, path: string): T {
 }
 
 const listElement = () => new Proxy({}, regHandler('^', true))
+
+// List operation helpers
+
+const selectorToFieldPath = (selector: (item: any) => any): string => {
+  const result = selector(listElement())
+  const resultPath = result?.path
+  if (!resultPath?.startsWith('^.')) {
+    throw new Error('selector must return a property of the item')
+  }
+  return resultPath.substring(2)
+}
+
+const findByField = (target: any[], fieldPath: string, value: any): number => {
+  for (let i = 0; i < target.length; i++) {
+    if (`${getByPath(target[i], fieldPath)}` === `${value}`) return i
+  }
+  return -1
+}
+
+const makeListMethods = (path: string, target: any[]) => ({
+  listFind(selectorOrElement: any, value?: any) {
+    if (selectorOrElement instanceof Element) {
+      let el = selectorOrElement as any
+      while (el && !el[LIST_INSTANCE_REF] && el.parentElement) {
+        el = el.parentElement
+      }
+      const rawItem = el?.[LIST_INSTANCE_REF]
+      if (rawItem == null) return undefined
+      const index = target.indexOf(rawItem)
+      return index !== -1 ? boxed[path][index] : undefined
+    }
+    const fieldPath = selectorToFieldPath(selectorOrElement)
+    const index = findByField(target, fieldPath, value)
+    return index !== -1 ? boxed[path][index] : undefined
+  },
+
+  listUpdate(selector: any, newValue: any) {
+    const fieldPath = selectorToFieldPath(selector)
+    const matchValue = getByPath(newValue, fieldPath)
+    const index = findByField(target, fieldPath, matchValue)
+    if (index !== -1) {
+      const proxiedItem = boxed[path][index]
+      for (const key of Object.keys(newValue)) {
+        proxiedItem[key] = (newValue as any)[key]
+      }
+      return proxiedItem
+    }
+    boxed[path].push(newValue)
+    return boxed[path][target.length - 1]
+  },
+
+  listRemove(selector: any, value: any) {
+    const fieldPath = selectorToFieldPath(selector)
+    const index = findByField(target, fieldPath, value)
+    if (index === -1) return false
+    boxed[path].splice(index, 1)
+    return true
+  },
+})
 
 // Single deprecation warning for all legacy property names
 let deprecationWarned = false
@@ -767,6 +827,12 @@ const regHandler = (
               },
             },
             elements.template(content(elements, listElement())),
+          ]
+        case 'listFind':
+        case 'listUpdate':
+        case 'listRemove':
+          return makeListMethods(path, target as any[])[
+            _prop as 'listFind' | 'listUpdate' | 'listRemove'
           ]
         // Deprecated names for boxed scalars
         case XIN_VALUE:
@@ -901,6 +967,12 @@ const regHandler = (
               },
             },
             elements.template(content(elements, listElement())),
+          ]
+        case 'listFind':
+        case 'listUpdate':
+        case 'listRemove':
+          return makeListMethods(path, target as any[])[
+            _prop as 'listFind' | 'listUpdate' | 'listRemove'
           ]
       }
     }

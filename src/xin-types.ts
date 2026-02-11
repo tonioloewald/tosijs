@@ -51,11 +51,21 @@ export interface XinProps<T = any> {
 type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
 type ListBinding = [ElementProps, HTMLTemplateElement]
 
+type ListFieldSelector<U> = (item: BoxedProxy<U>) => BoxedScalar<any>
+
 export interface BoxedArrayProps<U = any> {
   // Primary API
   listBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding
   // Legacy API
   tosiListBinding: (templateBuilder: ListTemplateBuilder<U>, options?: ListBindingOptions) => ListBinding
+
+  // List operations
+  listFind: {
+    (selector: ListFieldSelector<U>, value: any): BoxedProxy<U> | undefined
+    (element: Element): BoxedProxy<U> | undefined
+  }
+  listUpdate: (selector: ListFieldSelector<U>, newValue: U) => BoxedProxy<U>
+  listRemove: (selector: ListFieldSelector<U>, value: any) => boolean
 }
 
 /**
