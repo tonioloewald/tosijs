@@ -64,6 +64,7 @@ import {
 import { tosiPath, getArrayIdPaths } from './metadata'
 import { settings } from './settings'
 import { getByPath } from './by-path'
+import { registry } from './registry'
 
 export const observerShouldBeRemoved = Symbol('observer should be removed')
 export const listeners: Listener[] = [] // { path_string_or_test, callback }
@@ -214,6 +215,30 @@ export const touch = (touchable: XinTouchableType): void => {
     touchedPaths.find((touchedPath) => path.startsWith(touchedPath)) == null
   ) {
     touchedPaths.push(path)
+  }
+
+  // Synthesize id-path touches when touching an array item by index
+  const indexMatch = path.match(/^(.+)\[(\d+)\](.*)$/)
+  if (indexMatch !== null) {
+    const [, arrayPath, indexStr, suffix] = indexMatch
+    const index = parseInt(indexStr, 10)
+    const item = getByPath(registry, `${arrayPath}[${index}]`)
+    if (item != null) {
+      const idPathTouches = synthesizeIdPathTouches(
+        arrayPath,
+        index,
+        item,
+        suffix
+      )
+      for (const idTouch of idPathTouches) {
+        if (
+          touchedPaths.find((touchedPath) => idTouch.startsWith(touchedPath)) ==
+          null
+        ) {
+          touchedPaths.push(idTouch)
+        }
+      }
+    }
   }
 }
 

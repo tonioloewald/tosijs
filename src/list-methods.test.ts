@@ -756,3 +756,149 @@ describe('fine-grained DOM integration', () => {
     expect(found).toBeUndefined()
   })
 })
+
+describe('touch after behind-the-proxy mutation', () => {
+  test('mutate raw scalar in list item, touch propagates to observer', async () => {
+    const { touchRawTest } = tosi({
+      touchRawTest: {
+        items: [
+          { id: 1, name: 'Alice', score: 10 },
+          { id: 2, name: 'Bob', score: 20 },
+        ],
+      },
+    })
+    await updates()
+
+    let observedPath = ''
+    const unsub = touchRawTest.items[1].score.observe((path: string) => {
+      observedPath = path
+    })
+
+    // Mutate behind the proxy's back
+    const raw = tosiValue(touchRawTest.items[1])
+    raw.score = 99
+
+    // Observer should NOT have fired yet
+    await updates()
+    expect(observedPath).toBe('')
+
+    // Touch the specific scalar
+    touchRawTest.items[1].score.touch()
+    await updates()
+    expect(observedPath).toBe('touchRawTest.items[1].score')
+
+    // Value is now visible through the proxy
+    expect(touchRawTest.items[1].score.value).toBe(99)
+
+    unsub()
+  })
+
+  test('mutate raw item in list, touch item propagates to DOM', async () => {
+    document.body.textContent = ''
+
+    const { touchDomTest } = tosi({
+      touchDomTest: {
+        items: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['touchDomTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    const bobEl = contentChildren(container)[1]
+    expect(bobEl.querySelector('span')!.textContent).toBe('Bob')
+
+    // Mutate behind proxy's back — DOM won't update yet
+    const raw = tosiValue(touchDomTest.items[1])
+    raw.name = 'Robert'
+    await updates()
+    expect(bobEl.querySelector('span')!.textContent).toBe('Bob')
+
+    // Touch the item — DOM should update
+    touchDomTest.items[1].touch()
+    await updates()
+    expect(bobEl.querySelector('span')!.textContent).toBe('Robert')
+
+    // Same DOM element — no recreation
+    expect(contentChildren(container)[1]).toBe(bobEl)
+  })
+
+  test('touch array after behind-the-proxy push updates DOM', async () => {
+    document.body.textContent = ''
+
+    const { touchPushTest } = tosi({
+      touchPushTest: {
+        items: [{ id: 1, name: 'Alice' }],
+      },
+    })
+
+    const proxiedArray = xin['touchPushTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    expect(contentChildren(container).length).toBe(1)
+    const aliceEl = contentChildren(container)[0]
+
+    // Push behind proxy's back
+    tosiValue(touchPushTest.items).push({ id: 2, name: 'Bob' })
+    await updates()
+    // DOM hasn't updated because no touch fired
+    lb.update(xin['touchPushTest.items'] as any[])
+    expect(contentChildren(container).length).toBe(2)
+
+    // Alice element preserved
+    expect(contentChildren(container)[0]).toBe(aliceEl)
+    expect(
+      contentChildren(container)[1].querySelector('span')!.textContent
+    ).toBe('Bob')
+  })
+
+  test('listFind + touch workflow for debugging', async () => {
+    const { touchFindTest } = tosi({
+      touchFindTest: {
+        items: [
+          { id: 1, name: 'Alice', score: 10 },
+          { id: 2, name: 'Bob', score: 20 },
+          { id: 3, name: 'Carol', score: 30 },
+        ],
+      },
+    })
+    await updates()
+
+    let observed = false
+    const unsub = touchFindTest.items[1].observe(() => {
+      observed = true
+    })
+
+    // Simulate debugging: find item, mutate raw, touch
+    const item = touchFindTest.items.listFind((i: any) => i.id, 2)!
+    const raw = tosiValue(item)
+    raw.score = 999
+
+    await updates()
+    expect(observed).toBe(false)
+
+    item.touch()
+    await updates()
+    expect(observed).toBe(true)
+    expect(item.score.value).toBe(999)
+
+    unsub()
+  })
+})
