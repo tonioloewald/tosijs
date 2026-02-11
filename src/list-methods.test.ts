@@ -1,7 +1,10 @@
 import { test, expect, describe } from 'bun:test'
+import { xin } from './xin'
 import { tosi } from './xin-proxy'
 import { tosiValue, tosiPath } from './metadata'
 import { updates } from './path-listener'
+import { elements } from './elements'
+import { ListBinding } from './list-binding'
 
 describe('listFind', () => {
   test('finds item by selector and returns proxied result', () => {
@@ -400,5 +403,356 @@ describe('edge cases', () => {
     const item = coerceTest.items.listFind((item: any) => item.id, '42')
     expect(item).toBeDefined()
     expect(item.name.value).toBe('answer')
+  })
+})
+
+// Helper: count non-padding children
+function contentChildren(container: Element): Element[] {
+  return Array.from(container.children).filter(
+    (c) => !c.classList.contains('virtual-list-padding')
+  )
+}
+
+describe('fine-grained DOM integration', () => {
+  test('listUpdate reuses existing DOM elements (no teardown/recreation)', async () => {
+    document.body.textContent = ''
+
+    const { domUpdateTest } = tosi({
+      domUpdateTest: {
+        items: [
+          { id: 1, name: 'Alice', score: 10 },
+          { id: 2, name: 'Bob', score: 20 },
+          { id: 3, name: 'Carol', score: 30 },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['domUpdateTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(
+      template(div(span({ bindText: '^.name' }), span({ bindText: '^.score' })))
+    )
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    const children = contentChildren(container)
+    expect(children.length).toBe(3)
+
+    // Capture element references before update
+    const el0 = children[0]
+    const el1 = children[1]
+    const el2 = children[2]
+
+    // Verify initial content
+    expect(el1.querySelector('span')!.textContent).toBe('Bob')
+
+    // Update Bob's name via listUpdate
+    domUpdateTest.items.listUpdate((item: any) => item.id, {
+      id: 2,
+      name: 'Robert',
+      score: 20,
+    })
+    await updates()
+
+    // Re-render the list (simulates observer-triggered update)
+    lb.update(proxiedArray)
+
+    const childrenAfter = contentChildren(container)
+    expect(childrenAfter.length).toBe(3)
+
+    // Same DOM elements — no teardown/recreation
+    expect(childrenAfter[0]).toBe(el0)
+    expect(childrenAfter[1]).toBe(el1)
+    expect(childrenAfter[2]).toBe(el2)
+
+    // The bound text was updated
+    expect(el1.querySelector('span')!.textContent).toBe('Robert')
+  })
+
+  test('listUpdate only updates changed property DOM, not unchanged', async () => {
+    document.body.textContent = ''
+
+    const { domSurgicalTest } = tosi({
+      domSurgicalTest: {
+        items: [{ id: 1, name: 'Alice', score: 10 }],
+      },
+    })
+
+    const proxiedArray = xin['domSurgicalTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(
+      template(div(span({ bindText: '^.name' }), span({ bindText: '^.score' })))
+    )
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    const itemEl = contentChildren(container)[0]
+    const nameSpan = itemEl.children[0] as HTMLSpanElement
+    const scoreSpan = itemEl.children[1] as HTMLSpanElement
+
+    expect(nameSpan.textContent).toBe('Alice')
+    expect(scoreSpan.textContent).toBe('10')
+
+    // Sentinel: set a custom property to detect if element is replaced
+    ;(nameSpan as any)._sentinel = true
+    ;(scoreSpan as any)._sentinel = true
+
+    // Update only score, leave name unchanged
+    domSurgicalTest.items.listUpdate((item: any) => item.id, {
+      id: 1,
+      name: 'Alice',
+      score: 99,
+    })
+    await updates()
+
+    // Same elements still in DOM (sentinels survive)
+    const itemElAfter = contentChildren(container)[0]
+    expect(itemElAfter).toBe(itemEl)
+    expect((itemElAfter.children[0] as any)._sentinel).toBe(true)
+    expect((itemElAfter.children[1] as any)._sentinel).toBe(true)
+
+    // Score updated, name untouched
+    expect(itemElAfter.children[0].textContent).toBe('Alice')
+    expect(itemElAfter.children[1].textContent).toBe('99')
+  })
+
+  test('listRemove removes exactly one DOM element', async () => {
+    document.body.textContent = ''
+
+    const { domRemoveTest } = tosi({
+      domRemoveTest: {
+        items: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+          { id: 3, name: 'Carol' },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['domRemoveTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    expect(contentChildren(container).length).toBe(3)
+
+    // Capture references to Alice and Carol's elements
+    const aliceEl = contentChildren(container)[0]
+    const carolEl = contentChildren(container)[2]
+    ;(aliceEl as any)._sentinel = 'alice'
+    ;(carolEl as any)._sentinel = 'carol'
+
+    // Remove Bob
+    domRemoveTest.items.listRemove((item: any) => item.id, 2)
+    lb.update(xin['domRemoveTest.items'] as any[])
+    await updates()
+
+    const childrenAfter = contentChildren(container)
+    expect(childrenAfter.length).toBe(2)
+
+    // Alice and Carol's elements survive — same references
+    expect((childrenAfter[0] as any)._sentinel).toBe('alice')
+    expect((childrenAfter[1] as any)._sentinel).toBe('carol')
+
+    // Correct content
+    expect(childrenAfter[0].querySelector('span')!.textContent).toBe('Alice')
+    expect(childrenAfter[1].querySelector('span')!.textContent).toBe('Carol')
+  })
+
+  test('listUpdate push adds exactly one new DOM element', async () => {
+    document.body.textContent = ''
+
+    const { domPushTest } = tosi({
+      domPushTest: {
+        items: [{ id: 1, name: 'Alice' }],
+      },
+    })
+
+    const proxiedArray = xin['domPushTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    const aliceEl = contentChildren(container)[0]
+    ;(aliceEl as any)._sentinel = 'alice'
+    expect(contentChildren(container).length).toBe(1)
+
+    // Push new item via listUpdate (item not found → push)
+    domPushTest.items.listUpdate((item: any) => item.id, {
+      id: 2,
+      name: 'Bob',
+    })
+    lb.update(xin['domPushTest.items'] as any[])
+    await updates()
+
+    const childrenAfter = contentChildren(container)
+    expect(childrenAfter.length).toBe(2)
+
+    // Alice's element is still the same reference
+    expect((childrenAfter[0] as any)._sentinel).toBe('alice')
+
+    // New element for Bob
+    expect(childrenAfter[1].querySelector('span')!.textContent).toBe('Bob')
+  })
+
+  test('multiple listUpdates preserve all element identities', async () => {
+    document.body.textContent = ''
+
+    const { domMultiTest } = tosi({
+      domMultiTest: {
+        items: [
+          { id: 1, name: 'Alice', score: 10 },
+          { id: 2, name: 'Bob', score: 20 },
+          { id: 3, name: 'Carol', score: 30 },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['domMultiTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(
+      template(div(span({ bindText: '^.name' }), span({ bindText: '^.score' })))
+    )
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    // Tag all elements
+    const origElements = contentChildren(container)
+    origElements.forEach((el, i) => {
+      ;(el as any)._idx = i
+    })
+
+    // Update all three items in sequence
+    domMultiTest.items.listUpdate((item: any) => item.id, {
+      id: 1,
+      name: 'Alice',
+      score: 100,
+    })
+    domMultiTest.items.listUpdate((item: any) => item.id, {
+      id: 2,
+      name: 'Bobby',
+      score: 200,
+    })
+    domMultiTest.items.listUpdate((item: any) => item.id, {
+      id: 3,
+      name: 'Carol',
+      score: 300,
+    })
+    lb.update(proxiedArray)
+    await updates()
+
+    const afterElements = contentChildren(container)
+    expect(afterElements.length).toBe(3)
+
+    // All three elements are the exact same DOM nodes
+    for (let i = 0; i < 3; i++) {
+      expect((afterElements[i] as any)._idx).toBe(i)
+    }
+
+    // Verify updated content
+    expect(afterElements[0].children[1].textContent).toBe('100')
+    expect(afterElements[1].children[0].textContent).toBe('Bobby')
+    expect(afterElements[2].children[1].textContent).toBe('300')
+  })
+
+  test('listFind by DOM element works with list-bound elements', async () => {
+    document.body.textContent = ''
+
+    const { domFindElTest } = tosi({
+      domFindElTest: {
+        items: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+          { id: 3, name: 'Carol' },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['domFindElTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    // Get the second item's DOM element
+    const bobEl = contentChildren(container)[1]
+
+    // Use listFind with the DOM element
+    const found = domFindElTest.items.listFind(bobEl)
+    expect(found).toBeDefined()
+    expect(found.name.value).toBe('Bob')
+    expect(tosiPath(found)).toBe('domFindElTest.items[1]')
+  })
+
+  test('listFind by DOM child element walks up to list instance', async () => {
+    document.body.textContent = ''
+
+    const { domFindChildTest } = tosi({
+      domFindChildTest: {
+        items: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ],
+      },
+    })
+
+    const proxiedArray = xin['domFindChildTest.items'] as any[]
+    const { div, span, template } = elements
+
+    const container = div(template(div(span({ bindText: '^.name' }))))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    await updates()
+
+    // Get a nested child span inside the second item
+    const bobSpan = contentChildren(container)[1].querySelector('span')!
+
+    // listFind should walk up from the span to the list instance element
+    const found = domFindChildTest.items.listFind(bobSpan)
+    expect(found).toBeDefined()
+    expect(found.name.value).toBe('Bob')
+  })
+
+  test('listFind by unbound DOM element returns undefined', () => {
+    const { domFindUnboundTest } = tosi({
+      domFindUnboundTest: {
+        items: [{ id: 1, name: 'Alice' }],
+      },
+    })
+
+    const { div } = elements
+    const randomEl = div()
+    document.body.append(randomEl)
+
+    const found = domFindUnboundTest.items.listFind(randomEl)
+    expect(found).toBeUndefined()
   })
 })
