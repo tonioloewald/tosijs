@@ -468,7 +468,7 @@ and call `touch()` once at the end — one notification instead of N:
 | `key` prop on lists | `idPath` on list bindings |
 | Virtual DOM diffing | path-based direct DOM updates |
 | Component re-render | individual binding updates |
-| ~45kB gzipped | ~10kB gzipped (core) |
+| ~45kB gzipped | ~15kB gzipped (core) |
 
 The fundamental difference: React asks "what changed?" after every state update
 and works backwards to figure out the minimum DOM update. tosijs knows exactly
