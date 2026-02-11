@@ -334,9 +334,48 @@ That's what `observe()` is for.
 tosijs includes a `Component` base class for web components. A few things
 to know:
 
-- **`content()` runs once.** It's not a render function — it builds the DOM
-  during hydration and never re-runs. Updates happen through bindings, not
-  by re-calling `content()`.
+### `content()` vs `render()`
+
+- **`content()` runs once.** It builds the DOM during hydration and never
+  re-runs. Set up bindings here — they handle all data-driven updates
+  automatically.
+
+- **`render()` runs on attribute changes.** It's for *structural* changes
+  driven by attributes — showing/hiding sections, swapping an `<input>`
+  from `type="text"` to `type="password"`, reconfiguring layout. It is
+  **not** for updating text, values, or display state.
+
+The separation: **attributes drive structure, bindings drive content.**
+
+    class MessageBubble extends Component {
+      static initAttributes = { expanded: false }
+
+      content = ({div, span}) => [
+        span({ bindText: msg.sender }),
+        div({
+          class: 'body',
+          bind: {
+            // structure: show/hide based on attribute
+            value: this.expanded,
+            binding: (el, expanded) => { el.hidden = !expanded }
+          }
+        },
+          span({ bindText: msg.body })  // content: flows through binding
+        )
+      ]
+    }
+
+**The anti-pattern** is writing an `updateDisplay()` method that manually
+sets `textContent`, toggles classes, and shows/hides elements — then
+calling it from event handlers. This recreates React's "render on every
+change" model inside what should be a binding-driven system. If you find
+yourself writing a method that walks the DOM and sets properties, those
+should be bindings set up in `content()`.
+
+When state lives in the `tosi()` proxy rather than in component instance
+variables, bindings can reach it directly. A component that stores
+`this.isExpanded = true` and manually propagates that to the DOM is
+doing extra work — store it in the proxy and let bindings handle it.
 
 ### Light DOM is where the action is
 
@@ -360,8 +399,18 @@ tosijs takes the one really valuable feature of shadow DOM components —
 tosijs rewrites `:host` selectors to the component's tag name, so
 `styleSpec` works in both modes.
 
-Use light DOM unless you know *exactly* why you need shadow DOM — and if
-you do, you probably don't want automatic bindings anyway.
+Use light DOM unless you know *exactly* why you need shadow DOM.
+When you do, the mental model is:
+
+- **Light DOM** (default): bindings flow through naturally.
+- **Shadow DOM**: self-contained islands that receive data via
+  attributes/properties and manage their own internals. You handle
+  rendering inside the shadow root yourself.
+
+A good example: an email message bubble might use Shadow DOM for the
+HTML body (CSS isolation from untrusted email styles) but keep
+everything else — sender, subject, timestamps — in Light DOM with
+normal bindings.
 
 ## Gotchas
 
