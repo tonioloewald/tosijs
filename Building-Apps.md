@@ -170,6 +170,11 @@ of list size.
 updates — changing one property on one item updates one DOM element.
 Without it, the list falls back to index-based paths that break on reorder.
 
+> **Id values must not contain `]` characters.** Paths are encoded as
+> `list[id=value]`, so a `]` in the value breaks the parser. Characters
+> like `[`, `=`, and `.` are safe. Use numeric ids or UUIDs and you'll
+> never hit this.
+
 ### Finding, updating, and removing list items
 
 Proxied arrays have `listFind`, `listUpdate`, and `listRemove` methods

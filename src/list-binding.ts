@@ -98,6 +98,11 @@ Without `idPath` is fine for:
 - Static lists that never reorder
 - Lists where you always replace items wholesale, never update properties
 
+> **Id values must not contain `]` characters.** Id-paths are encoded as
+> `list[id=value]` in path strings, so a `]` in the value will break the
+> path parser. Characters like `[`, `=`, and `.` are fine. If your ids
+> could contain `]`, use a sanitized field or a separate numeric id.
+
 ### Surgical Updates with id-paths
 
 When you specify an `idPath`, something remarkable happens: changes to individual
