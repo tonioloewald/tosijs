@@ -44,13 +44,13 @@ hitting `BroadcastChannel` or `IndexedDB` with multi-megabyte writes.
 
 ## API
 
-    share(...proxies: BoxedProxy[]): Promise<{ restored: BoxedProxy[] }>
+    share(...proxiesOrPaths: (BoxedProxy | string)[]): Promise<{ restored: (BoxedProxy | string)[] }>
 
-- Accepts boxed proxies (the return values from `tosi()`)
-- Returns `{ restored }` — the subset of proxies whose values were
+- Accepts boxed proxies (from `tosi()`) or string paths
+- Returns `{ restored }` — the subset of arguments whose values were
   overwritten from pre-existing stored data
-- Idempotent: sharing the same proxy twice is a no-op
-- Throws if a non-proxy argument is passed
+- Idempotent: sharing the same path twice is a no-op
+- Throws if an argument is neither a proxy nor a string
 
 To clear shared state (e.g. on logout), set the values to their
 empty/default state. The change will propagate to all tabs and
@@ -233,10 +233,10 @@ export async function share(...proxies: any[]): Promise<{ restored: any[] }> {
   const s = getStore()
 
   for (const proxy of proxies) {
-    const path = tosiPath(proxy)
+    const path = typeof proxy === 'string' ? proxy : tosiPath(proxy)
     if (path === undefined) {
       throw new Error(
-        'share() requires boxed proxies from tosi(). Got a non-proxy value.'
+        'share() requires boxed proxies or string paths. Got a non-proxy value.'
       )
     }
 

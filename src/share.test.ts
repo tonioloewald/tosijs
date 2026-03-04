@@ -103,11 +103,56 @@ describe('share', () => {
   })
 
   test('non-proxy argument throws', async () => {
-    expect(() => share('not a proxy' as any)).toThrow(
-      'share() requires boxed proxies'
+    expect(() => share(42 as any)).toThrow(
+      'share() requires boxed proxies or string paths'
     )
-    expect(() => share(42 as any)).toThrow('share() requires boxed proxies')
-    expect(() => share(null as any)).toThrow('share() requires boxed proxies')
+    expect(() => share(null as any)).toThrow(
+      'share() requires boxed proxies or string paths'
+    )
+  })
+
+  test('string paths work the same as proxies', async () => {
+    const { t17 } = tosi({ t17: { lang: 'en' } })
+
+    // Share via string path
+    const { restored } = await share('t17')
+    expect(restored).toEqual([])
+
+    // Verify it seeded the store
+    const stored = await memStore.get('t17')
+    expect(stored).toEqual({ lang: 'en' })
+
+    // Verify idempotent with proxy after string share
+    const result2 = await share(t17)
+    expect(result2.restored).toEqual([])
+
+    // Verify inbound messages still work
+    const sender = new BroadcastChannel(CHANNEL_NAME)
+    sender.postMessage({
+      type: 'tosijs-share',
+      path: 't17',
+      value: { lang: 'fr' },
+      origin: 'other-tab-id',
+    })
+
+    await tick()
+    await updates()
+
+    expect(getByPath(registry, 't17')).toEqual({ lang: 'fr' })
+    sender.close()
+  })
+
+  test('string path restores from pre-existing store', async () => {
+    await memStore.set('t18', { pref: 'restored' })
+
+    tosi({ t18: { pref: 'default' } })
+    const { restored } = await share('t18')
+
+    await updates()
+
+    expect(restored.length).toBe(1)
+    expect(restored[0]).toBe('t18')
+    expect(getByPath(registry, 't18')).toEqual({ pref: 'restored' })
   })
 
   // --- Inbound Messages ---
