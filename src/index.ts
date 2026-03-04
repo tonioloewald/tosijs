@@ -23,6 +23,7 @@ export { elements, svgElements, mathML } from './elements'
 export type { ElementsProxy } from './elements-types'
 export { getCssVar } from './get-css-var'
 export { hotReload } from './hot-reload'
+export { share } from './share'
 export {
   xinPath,
   xinValue,
