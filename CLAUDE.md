@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 tosijs (formerly xinjs) is a lightweight (~15kB gzipped) path-based state management library for web applications. It uses proxy-based observers to eliminate binding boilerplate, similar to Redux but simpler. Works with vanilla JS/TS, web components, and integrates with React via react-tosijs.
 
 **Key characteristics:**
+
 - Zero runtime dependencies
 - No JSX, transpilation, or virtual DOM required
 - Direct DOM manipulation with native HTML and web standards
@@ -29,6 +30,7 @@ bun pack                    # Create local package tarball for testing
 ## Build System
 
 The build system (`dev.ts`) uses Bun's bundler and outputs three formats:
+
 - `dist/index.js` - IIFE for browser/script tags
 - `dist/module.js` - ES Module
 - `dist/main.js` - CommonJS
@@ -36,8 +38,16 @@ The build system (`dev.ts`) uses Bun's bundler and outputs three formats:
 TypeScript declarations are generated via `tsc --declaration`. The build runs tests before bundling.
 
 **Documentation generation:** `docs.js` extracts documentation from two sources into `demo/docs.json`:
+
 1. Markdown files (`.md`) at the root level
-2. Inline `/*# ... #*/` blocks in source files — these contain Markdown with numbered headings (e.g., `# 1.2 path-listener`) that control section ordering. Code blocks inside render as interactive demos on tosijs.net.
+2. Inline `/*# ... */` blocks in source files — these contain Markdown with numbered headings (e.g., `# 1.2 path-listener`) that control section ordering. Note: the opening delimiter is `/*#` but the closing is just `*/`.
+
+**Live examples in doc blocks:** The tosijs-ui live-example system scans rendered docs for consecutive code fences with language classes `.language-html`, `.language-js`, `.language-css`, or `.language-test`. Consecutive fences are grouped into a single interactive `<tosi-example>`. Critical rules:
+
+- **Only fences tagged ` ```html `, ` ```css `, ` ```js `, or ` ```test ` become live examples.** A bare ` ``` ` fence (no language) or ` ```typescript ` is rendered as static code — use these for non-executable API snippets.
+- **Consecutive fences are grouped together.** If a ` ```js ` fence immediately follows a ` ```html ` fence (no intervening text/elements), they become one example. A standalone ` ```js ` fence is also treated as a live example (it will execute with no HTML).
+- The JS context provides `preview` (the container div, has `position: relative` and `overflow: hidden`), plus full `tosijs` and `tosijs-ui` modules. `import { x } from 'tosijs'` is rewritten to destructure from the context object.
+- **Never use ` ```js ` for code snippets that aren't meant to run.** Use bare ` ``` ` or indented code blocks instead.
 
 ## Architecture
 
@@ -55,6 +65,7 @@ State (xin) ──────────────────────�
 ```
 
 **Core modules:**
+
 - `xin.ts` / `xin-proxy.ts` - State management with path-based observers; `tosi()` and `xinProxy()` are the main entry points
 - `by-path.ts` - Path parsing and value access (e.g., `'app.user.name'`, `'list[id=123]'`)
 - `registry.ts` - Central state object; breaks circular dependency between `xin.ts` and `bind.ts`
@@ -78,6 +89,7 @@ State (xin) ──────────────────────�
 ### Dual Proxy System (`xin` vs `boxed`)
 
 The library exposes two proxies over the same `registry` object:
+
 - **`xin`** — returns raw values for scalars. `xin.foo.bar` returns the string/number directly.
 - **`boxed`** — returns `BoxedScalar` proxies for everything, including primitives. `boxed.foo.bar` has `.value`, `.path`, `.observe()`, etc.
 
@@ -98,6 +110,7 @@ When a list binding specifies `idPath: 'id'`, the proxy `set` handler in `xin.ts
 `registry.ts` holds the plain state object and lazy getters (`getXinProxy()`, `getBind()`, `getOn()`). This breaks the circular dependency between `xin.ts` (which creates the proxies) and `bind.ts` (which needs to access them, and vice versa).
 
 **Key types (in `xin-types.ts`):**
+
 - `BoxedProxy<T>` - Type-safe proxy for state objects and arrays with:
   - `.value` / `.path` - Get underlying value and path string
   - `.observe()`, `.bind()`, `.on()`, `.binding()`, `.listBinding()` - Reactive bindings
@@ -114,6 +127,7 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 **Async updates:** After state changes in tests, use `await updates()` to wait for all pending observer callbacks and DOM updates to complete before asserting on UI state.
 
 **Happy DOM limitations:**
+
 - Does NOT support `:scope >` CSS selector — use manual child iteration instead
 - Elements return `0` for `offsetWidth`/`offsetHeight` — mock with `Object.defineProperty(el, 'offsetHeight', { value: 300, configurable: true })`
 - `ListBinding` tests require proxied arrays from `xin['path.to.array']`, not raw arrays (raw arrays lack the `XIN_PATH` metadata)
