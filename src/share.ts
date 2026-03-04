@@ -5,7 +5,7 @@
 boxed proxies from `tosi()` and those paths will be kept in sync via
 `BroadcastChannel` and persisted to `IndexedDB`.
 
-```js
+```
 import { tosi, share } from 'tosijs'
 
 const { app } = tosi({
@@ -55,7 +55,91 @@ hitting `BroadcastChannel` or `IndexedDB` with multi-megabyte writes.
 To clear shared state (e.g. on logout), set the values to their
 empty/default state. The change will propagate to all tabs and
 persist.
-#*/
+
+## Live Demo
+
+Drag the squares around, then click **New Window** to open a second
+copy. Drag in either window and watch the other update in real-time.
+
+```html
+<div class="draggable" data-key="red"></div>
+<div class="draggable" data-key="green"></div>
+<div class="draggable" data-key="blue"></div>
+<button class="spawn">New Window</button>
+```
+```css
+.preview {
+  touch-action: none;
+  min-height: 200px;
+}
+
+.draggable {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  cursor: move;
+  border-radius: 6px;
+}
+
+.draggable[data-key="red"]   { background: #f008; }
+.draggable[data-key="green"] { background: #0f08; }
+.draggable[data-key="blue"]  { background: #00f8; }
+
+.spawn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+}
+```
+```js
+import { tosi, share } from 'tosijs'
+import { trackDrag } from 'tosijs-ui'
+
+const { squares } = tosi({
+  squares: {
+    red:   { x: 20,  y: 20 },
+    green: { x: 120, y: 20 },
+    blue:  { x: 220, y: 20 },
+  }
+})
+
+await share(squares)
+
+const els = {}
+for (const el of preview.querySelectorAll('.draggable')) {
+  els[el.dataset.key] = el
+}
+
+function render() {
+  for (const [key, el] of Object.entries(els)) {
+    const pos = squares[key].value
+    el.style.left = pos.x + 'px'
+    el.style.top = pos.y + 'px'
+  }
+}
+
+render()
+squares.observe(render)
+
+function dragItem(event) {
+  const el = event.target.closest('.draggable')
+  if (!el) return
+  const key = el.dataset.key
+  const start = squares[key].value
+  trackDrag(event, (dx, dy, event) => {
+    squares[key].value = { x: start.x + dx, y: start.y + dy }
+    return event.type === 'mouseup'
+  })
+}
+
+preview.addEventListener('mousedown', dragItem)
+preview.addEventListener('touchstart', dragItem, { passive: true })
+
+preview.querySelector('.spawn').addEventListener('click', () => {
+  window.open(location.href)
+})
+```
+*/
 
 import { registry } from './registry'
 import { getByPath, setByPath } from './by-path'
