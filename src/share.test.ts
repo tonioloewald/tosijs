@@ -268,7 +268,7 @@ describe('share', () => {
     listener.close()
   })
 
-  test('boxed .value= broadcasts at the scalar path', async () => {
+  test('boxed .value= on scalar broadcasts correct value', async () => {
     const { t16 } = tosi({ t16: { a: 1, b: 2 } })
     await share(t16)
 
@@ -280,15 +280,51 @@ describe('share', () => {
       }
     }
 
-    // boxed .value= on a scalar touches at the root proxy path
     t16.a.value = 99
     await updates()
     await tick()
 
     expect(messages.length).toBeGreaterThan(0)
-    // The value at whatever path was broadcast should reflect the change
     const msg = messages[0]
     expect(msg.type).toBe('tosijs-share')
+    // Registry is updated synchronously — readable before observers fire
+    expect(getByPath(registry, 't16.a')).toBe(99)
+    listener.close()
+  })
+
+  test('boxed .value= on sub-object broadcasts and updates registry', async () => {
+    const { t19 } = tosi({
+      t19: {
+        red: { x: 20, y: 20 },
+        blue: { x: 100, y: 100 },
+      },
+    })
+    await share(t19)
+
+    await updates()
+    await tick()
+
+    const messages: any[] = []
+    const listener = new BroadcastChannel(CHANNEL_NAME)
+    listener.onmessage = (e) => {
+      if (e.data.path && e.data.path.startsWith('t19')) {
+        messages.push(e.data)
+      }
+    }
+
+    // This is the pattern used in the share() demo — setting .value on a
+    // boxed sub-object to replace it wholesale
+    t19.red.value = { x: 50, y: 60 }
+
+    // Registry should reflect the change immediately (synchronously)
+    expect(getByPath(registry, 't19.red')).toEqual({ x: 50, y: 60 })
+    // Other sub-objects untouched
+    expect(getByPath(registry, 't19.blue')).toEqual({ x: 100, y: 100 })
+
+    await updates()
+    await tick()
+
+    expect(messages.length).toBeGreaterThan(0)
     listener.close()
   })
 

@@ -10,6 +10,7 @@ export { elements, svgElements, mathML } from './elements';
 export type { ElementsProxy } from './elements-types';
 export { getCssVar } from './get-css-var';
 export { hotReload } from './hot-reload';
+export { share } from './share';
 export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, scrollListItemIntoView, } from './list-binding';
 export { makeComponent } from './make-component';
