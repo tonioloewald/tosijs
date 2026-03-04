@@ -103,7 +103,7 @@ When you bind `app.user.name` to a `<span>`, tosijs sets up a listener
 on that exact path. When only the name changes, only that `<span>` updates.
 
 If you bound the entire `app.user` object and pulled out `.name` in a
-`toDOM` function, the binding would fire on *any* change to user — name,
+`toDOM` function, the binding would fire on _any_ change to user — name,
 email, whatever. You'd be doing React's job of figuring out what actually
 changed. Don't. Let the path system do it for you.
 
@@ -206,7 +206,7 @@ The proxy is the core of tosijs, so understanding where it applies matters.
 ### `for...of` gives proxied items; callbacks give raw items
 
 `for...of` on a proxied array yields proxied items — mutations trigger
-observers. But `forEach`, `map`, and `filter` pass *raw* items to callbacks.
+observers. But `forEach`, `map`, and `filter` pass _raw_ items to callbacks.
 Mutations inside these are invisible to tosijs.
 
     // for...of gives proxied items — mutations trigger observers
@@ -313,7 +313,7 @@ materialize before firing the first update.
 ### `observe()` is for side effects, not rendering
 
 In React you'd use `useEffect` for everything. In tosijs, DOM rendering
-is handled by bindings. `observe()` is for *side effects* — things that
+is handled by bindings. `observe()` is for _side effects_ — things that
 aren't directly binding a value to a DOM property:
 
     app.prefs.darkMode.observe(() => {
@@ -340,7 +340,7 @@ to know:
   re-runs. Set up bindings here — they handle all data-driven updates
   automatically.
 
-- **`render()` runs on attribute changes.** It's for *structural* changes
+- **`render()` runs on attribute changes.** It's for _structural_ changes
   driven by attributes — showing/hiding sections, swapping an `<input>`
   from `type="text"` to `type="password"`, reconfiguring layout. It is
   **not** for updating text, values, or display state.
@@ -413,13 +413,13 @@ non-`name` attributes during the rewrite).
 
 ```js
 class CardLayout extends Component {
-  content = ({h3, xinSlot}) => [
+  content = ({ h3, xinSlot }) => [
     h3('Header'),
-    xinSlot({name: 'top', style: {background: '#eee'}}),
+    xinSlot({ name: 'top', style: { background: '#eee' } }),
     h3('Body'),
-    xinSlot(),   // default slot
+    xinSlot(), // default slot
     h3('Footer'),
-    xinSlot({name: 'bottom'}),
+    xinSlot({ name: 'bottom' }),
   ]
 }
 ```
@@ -435,7 +435,7 @@ Two things to keep in mind:
 tosijs rewrites `:host` selectors to the component's tag name, so
 `styleSpec` works in both modes.
 
-Use light DOM unless you know *exactly* why you need shadow DOM.
+Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:
 
 - **Light DOM** (default): bindings flow through naturally.
@@ -452,7 +452,7 @@ normal bindings.
 
 ### Observer callbacks receive paths, not values
 
-Observer callbacks are called with the *path* that changed, not the new value:
+Observer callbacks are called with the _path_ that changed, not the new value:
 
     app.prefs.darkMode.observe((path) => {
       // path is a string like 'app.prefs.darkMode'
@@ -494,17 +494,17 @@ and call `touch()` once at the end — one notification instead of N:
 
 ## The React Comparison, In Short
 
-| React | tosijs |
-|-------|--------|
-| `useState` + `setState` | assign via `.value` |
-| `useEffect` | `observe()` (but rarely needed) |
+| React                     | tosijs                              |
+| ------------------------- | ----------------------------------- |
+| `useState` + `setState`   | assign via `.value`                 |
+| `useEffect`               | `observe()` (but rarely needed)     |
 | `useMemo` / `useCallback` | not needed — no re-renders to avoid |
-| props / prop drilling | bind directly to any path |
-| Context API | everything is already global |
-| `key` prop on lists | `idPath` on list bindings |
-| Virtual DOM diffing | path-based direct DOM updates |
-| Component re-render | individual binding updates |
-| ~45kB gzipped | ~15kB gzipped (core) |
+| props / prop drilling     | bind directly to any path           |
+| Context API               | everything is already global        |
+| `key` prop on lists       | `idPath` on list bindings           |
+| Virtual DOM diffing       | path-based direct DOM updates       |
+| Component re-render       | individual binding updates          |
+| ~45kB gzipped             | ~15kB gzipped (core)                |
 
 The fundamental difference: React asks "what changed?" after every state update
 and works backwards to figure out the minimum DOM update. tosijs knows exactly

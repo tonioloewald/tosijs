@@ -166,16 +166,4 @@ Deprecated APIs emit a single `console.warn` per feature (tracked in a `Set` in 
 
 ## Issue Tracking
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` for full workflow context.
-
-```bash
-bd ready                    # Find unblocked work
-bd list --status=open       # All open issues
-bd show <id>                # View issue details
-bd create --title="..." --type=task|bug|feature --priority=2  # Create issue
-bd update <id> --status=in_progress  # Claim work
-bd close <id>               # Complete work
-bd sync                     # Sync with git (run at session end)
-```
-
-**Session end protocol:** Always run `bd sync` and `git push` before ending a session. See AGENTS.md for the full checklist.
+Open tasks and known issues are tracked in `TODO.md` at the project root.

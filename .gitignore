@@ -128,3 +128,6 @@ bun.lockb
 *.csr
 *.pem
 www
+
+# beads issue tracker
+.beads/

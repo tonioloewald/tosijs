@@ -56,7 +56,10 @@ describe('deepClone', () => {
   })
 
   test('clones nested arrays', () => {
-    const original = [[1, 2], [3, 4]]
+    const original = [
+      [1, 2],
+      [3, 4],
+    ]
     const cloned = deepClone(original) as typeof original
 
     expect(cloned).toEqual(original)

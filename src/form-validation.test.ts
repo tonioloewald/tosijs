@@ -34,11 +34,7 @@ function mockInternals() {
       return currentMessage
     },
     willValidate: true,
-    setValidity(
-      flags: ValidityStateFlags,
-      message?: string,
-      anchor?: any
-    ) {
+    setValidity(flags: ValidityStateFlags, message?: string, anchor?: any) {
       currentFlags = flags
       currentMessage = message ?? ''
       calls.push({ flags, message, anchor })
