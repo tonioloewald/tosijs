@@ -92,7 +92,7 @@ copy. Drag in either window and watch the other update in real-time.
 }
 ```
 ```js
-import { tosi, share } from 'tosijs'
+import { tosi, share, xin } from 'tosijs'
 import { trackDrag } from 'tosijs-ui'
 
 const { squares } = tosi({
@@ -105,16 +105,13 @@ const { squares } = tosi({
 
 await share(squares)
 
-const els = {}
-for (const el of preview.querySelectorAll('.draggable')) {
-  els[el.dataset.key] = el
-}
+const draggables = [...preview.querySelectorAll('.draggable')]
 
 function render() {
-  for (const [key, el] of Object.entries(els)) {
-    const pos = squares[key].value
-    el.style.left = pos.x + 'px'
-    el.style.top = pos.y + 'px'
+  for (const el of draggables) {
+    const key = el.dataset.key
+    el.style.left = xin.squares[key].x + 'px'
+    el.style.top = xin.squares[key].y + 'px'
   }
 }
 
@@ -125,9 +122,10 @@ function dragItem(event) {
   const el = event.target.closest('.draggable')
   if (!el) return
   const key = el.dataset.key
-  const start = squares[key].value
+  const start = { ...xin.squares[key] }
   trackDrag(event, (dx, dy, event) => {
-    squares[key].value = { x: start.x + dx, y: start.y + dy }
+    xin.squares[key] = { x: start.x + dx, y: start.y + dy }
+    render()
     return event.type === 'mouseup'
   })
 }
