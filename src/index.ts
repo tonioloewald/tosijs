@@ -53,6 +53,8 @@ export { throttle, debounce } from './throttle'
 export { version } from './version'
 export { xin, boxed, observe, unobserve, touch, updates } from './xin'
 export {
+  tosiBlueprint,
+  tosiLoader,
   blueprint,
   Blueprint,
   blueprintLoader,

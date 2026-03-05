@@ -247,7 +247,7 @@ const elementStyle = (elt: HTMLElement, prop: string, value: any) => {
   if (processed.prop.startsWith('--')) {
     elt.style.setProperty(processed.prop, processed.value)
   } else {
-    ;(elt.style as unknown as { [key: string]: string })[prop] = processed.value
+    (elt.style as unknown as { [key: string]: string })[prop] = processed.value
   }
 }
 
@@ -297,14 +297,14 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
       ) {
         elt.setAttribute(key, value)
       } else {
-        ;(elt as { [key: string]: any })[key] = value
+        (elt as { [key: string]: any })[key] = value
       }
     } else if (attr === 'class') {
       value.split(' ').forEach((className: string) => {
         elt.classList.add(className)
       })
     } else if ((elt as { [key: string]: any })[attr] !== undefined) {
-      ;(elt as StringMap)[attr] = value
+      (elt as StringMap)[attr] = value
     } else if (typeof value === 'boolean') {
       value ? elt.setAttribute(attr, '') : elt.removeAttribute(attr)
     } else {
@@ -419,7 +419,7 @@ export const elements = new Proxy(
     get(target, tagName: string) {
       tagName = tagName.replace(/[A-Z]/g, (c) => `-${c.toLocaleLowerCase()}`)
       if ((target as StringMap)[tagName] === undefined) {
-        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(tagName, ...contents)
       }
       return (target as StringMap)[tagName]
@@ -439,7 +439,7 @@ export const svgElements = new Proxy(
   {
     get(target, tagName: string) {
       if ((target as StringMap)[tagName] === undefined) {
-        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(`${tagName}|${SVG}`, ...contents)
       }
       return (target as StringMap)[tagName]
@@ -459,7 +459,7 @@ export const mathML = new Proxy(
   {
     get(target, tagName: string) {
       if ((target as StringMap)[tagName] === undefined) {
-        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(`${tagName}|${MATH}`, ...contents)
       }
       return (target as StringMap)[tagName]

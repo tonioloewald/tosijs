@@ -701,7 +701,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     options: ElementCreatorOptions = {}
   ): ElementCreator<C> {
     const componentClass = this as unknown as Component
-    if (componentClass._elementCreator == null) {
+    if (
+      !Object.prototype.hasOwnProperty.call(componentClass, '_elementCreator')
+    ) {
       const { tag, styleSpec } = options
       let tagName = options != null ? tag : null
       if (tagName == null) {

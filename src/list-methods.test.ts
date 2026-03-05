@@ -641,7 +641,7 @@ describe('fine-grained DOM integration', () => {
     // Tag all elements
     const origElements = contentChildren(container)
     origElements.forEach((el, i) => {
-      ;(el as any)._idx = i
+      (el as any)._idx = i
     })
 
     // Update all three items in sequence

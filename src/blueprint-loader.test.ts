@@ -1,7 +1,9 @@
-import { expect, test, describe, beforeAll } from 'bun:test'
+import { expect, test, describe } from 'bun:test'
 import {
   Blueprint,
   BlueprintLoader,
+  tosiBlueprint,
+  tosiLoader,
   blueprint,
   blueprintLoader,
 } from './blueprint-loader'
@@ -10,166 +12,288 @@ import {
   XinBlueprint,
   XinPackagedComponent,
 } from './make-component'
-import { Component } from './component'
-import { elements } from './elements'
+import { _resetDeprecationWarnings } from './metadata'
 
-// Create element creators
-let blueprintEl: ReturnType<typeof Blueprint.elementCreator>
-let loaderEl: ReturnType<typeof BlueprintLoader.elementCreator>
+describe('tosi-blueprint (canonical)', () => {
+  test('creates tosi-blueprint element', () => {
+    const el = tosiBlueprint()
+    expect(el.tagName.toLowerCase()).toBe('tosi-blueprint')
+  })
 
-beforeAll(() => {
-  blueprintEl = blueprint
-  loaderEl = blueprintLoader
+  test('has display: none style via global stylesheet', () => {
+    const el = tosiBlueprint()
+    document.body.appendChild(el)
+    const globalStyle = document.head.querySelector('#tosi-blueprint-component')
+    expect(globalStyle).not.toBeNull()
+    expect(globalStyle?.textContent).toContain('display')
+    expect(globalStyle?.textContent).toContain('none')
+    el.remove()
+  })
+
+  test('initializes with default attribute values', () => {
+    const el = tosiBlueprint() as InstanceType<typeof Blueprint>
+    expect(el.tag).toBe('anon-elt')
+    expect(el.src).toBe('')
+    expect(el.property).toBe('default')
+  })
+
+  test('accepts tag attribute', () => {
+    const el = tosiBlueprint({ tag: 'custom-tag' }) as InstanceType<
+      typeof Blueprint
+    >
+    document.body.appendChild(el)
+    expect(el.tag).toBe('custom-tag')
+    el.remove()
+  })
+
+  test('accepts src attribute', () => {
+    const el = tosiBlueprint({
+      src: 'https://example.com/blueprint.js',
+    }) as InstanceType<typeof Blueprint>
+    document.body.appendChild(el)
+    expect(el.src).toBe('https://example.com/blueprint.js')
+    el.remove()
+  })
+
+  test('accepts property attribute', () => {
+    const el = tosiBlueprint({ property: 'namedExport' }) as InstanceType<
+      typeof Blueprint
+    >
+    document.body.appendChild(el)
+    expect(el.property).toBe('namedExport')
+    el.remove()
+  })
+
+  test('has default no-op blueprintLoaded callback', () => {
+    const el = tosiBlueprint() as InstanceType<typeof Blueprint>
+    expect(typeof el.blueprintLoaded).toBe('function')
+    el.blueprintLoaded({} as XinPackagedComponent)
+  })
+
+  test('accepts custom blueprintLoaded callback', () => {
+    let called = false
+    const el = tosiBlueprint({
+      blueprintLoaded: () => {
+        called = true
+      },
+    }) as InstanceType<typeof Blueprint>
+    el.blueprintLoaded({} as XinPackagedComponent)
+    expect(called).toBe(true)
+  })
+
+  test('does not emit deprecation warning', () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: string) => warns.push(msg)
+    try {
+      _resetDeprecationWarnings()
+      const el = tosiBlueprint()
+      document.body.appendChild(el)
+      expect(warns.filter((w) => w.includes('deprecated'))).toEqual([])
+      el.remove()
+    } finally {
+      console.warn = origWarn
+    }
+  })
 })
 
-describe('Blueprint', () => {
-  describe('elementCreator', () => {
-    test('creates xin-blueprint element', () => {
-      const el = blueprintEl()
-      expect(el.tagName.toLowerCase()).toBe('xin-blueprint')
-    })
-
-    test('has display: none style via global stylesheet', () => {
-      const el = blueprintEl()
-      document.body.appendChild(el)
-      // styleSpec creates a global stylesheet, not a shadowDOM
-      const globalStyle = document.head.querySelector(
-        '#xin-blueprint-component'
-      )
-      expect(globalStyle).not.toBeNull()
-      expect(globalStyle?.textContent).toContain('display')
-      expect(globalStyle?.textContent).toContain('none')
-      el.remove()
-    })
+describe('xin-blueprint (deprecated)', () => {
+  test('creates xin-blueprint element', () => {
+    const el = blueprint()
+    expect(el.tagName.toLowerCase()).toBe('xin-blueprint')
   })
 
-  describe('attributes', () => {
-    test('initializes with default values', () => {
-      const el = blueprintEl() as Blueprint
-      expect(el.tag).toBe('anon-elt')
-      expect(el.src).toBe('')
-      expect(el.property).toBe('default')
-    })
-
-    test('accepts tag attribute', () => {
-      const el = blueprintEl({ tag: 'custom-tag' }) as Blueprint
-      document.body.appendChild(el)
-      expect(el.tag).toBe('custom-tag')
-      el.remove()
-    })
-
-    test('accepts src attribute', () => {
-      const el = blueprintEl({
-        src: 'https://example.com/blueprint.js',
-      }) as Blueprint
-      document.body.appendChild(el)
-      expect(el.src).toBe('https://example.com/blueprint.js')
-      el.remove()
-    })
-
-    test('accepts property attribute', () => {
-      const el = blueprintEl({ property: 'namedExport' }) as Blueprint
-      document.body.appendChild(el)
-      expect(el.property).toBe('namedExport')
-      el.remove()
-    })
+  test('has display: none style via global stylesheet', () => {
+    const el = blueprint()
+    document.body.appendChild(el)
+    const globalStyle = document.head.querySelector('#xin-blueprint-component')
+    expect(globalStyle).not.toBeNull()
+    expect(globalStyle?.textContent).toContain('display')
+    expect(globalStyle?.textContent).toContain('none')
+    el.remove()
   })
 
-  describe('blueprintLoaded callback', () => {
-    test('has default no-op callback', () => {
-      const el = blueprintEl() as Blueprint
-      expect(typeof el.blueprintLoaded).toBe('function')
-      // Should not throw
-      el.blueprintLoaded({} as XinPackagedComponent)
-    })
+  test('initializes with default attribute values', () => {
+    const el = blueprint() as any
+    expect(el.tag).toBe('anon-elt')
+    expect(el.src).toBe('')
+    expect(el.property).toBe('default')
+  })
 
-    test('accepts custom callback', () => {
-      let called = false
-      const el = blueprintEl({
-        blueprintLoaded: () => {
-          called = true
-        },
-      }) as Blueprint
-      el.blueprintLoaded({} as XinPackagedComponent)
-      expect(called).toBe(true)
-    })
+  test('emits deprecation warning once', () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: string) => warns.push(msg)
+    try {
+      _resetDeprecationWarnings()
+      const el1 = blueprint()
+      document.body.appendChild(el1)
+      const el2 = blueprint()
+      document.body.appendChild(el2)
+      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
+      expect(deprecationWarns.length).toBe(1)
+      expect(deprecationWarns[0]).toContain('tosi-blueprint')
+      el1.remove()
+      el2.remove()
+    } finally {
+      console.warn = origWarn
+    }
   })
 })
 
-describe('BlueprintLoader', () => {
-  describe('elementCreator', () => {
-    test('creates xin-loader element', () => {
-      const el = loaderEl()
-      expect(el.tagName.toLowerCase()).toBe('xin-loader')
-    })
-
-    test('has display: none style via global stylesheet', () => {
-      const el = loaderEl()
-      document.body.appendChild(el)
-      // styleSpec creates a global stylesheet, not a shadowDOM
-      const globalStyle = document.head.querySelector('#xin-loader-component')
-      expect(globalStyle).not.toBeNull()
-      expect(globalStyle?.textContent).toContain('display')
-      expect(globalStyle?.textContent).toContain('none')
-      el.remove()
-    })
+describe('tosi-loader (canonical)', () => {
+  test('creates tosi-loader element', () => {
+    const el = tosiLoader()
+    expect(el.tagName.toLowerCase()).toBe('tosi-loader')
   })
 
-  describe('allLoaded callback', () => {
-    test('has default no-op callback', () => {
-      const el = loaderEl() as BlueprintLoader
-      expect(typeof el.allLoaded).toBe('function')
-      // Should not throw
-      el.allLoaded()
-    })
-
-    test('accepts custom callback', () => {
-      let called = false
-      const el = loaderEl({
-        allLoaded: () => {
-          called = true
-        },
-      }) as BlueprintLoader
-      el.allLoaded()
-      expect(called).toBe(true)
-    })
+  test('has display: none style via global stylesheet', () => {
+    const el = tosiLoader()
+    document.body.appendChild(el)
+    const globalStyle = document.head.querySelector('#tosi-loader-component')
+    expect(globalStyle).not.toBeNull()
+    expect(globalStyle?.textContent).toContain('display')
+    expect(globalStyle?.textContent).toContain('none')
+    el.remove()
   })
 
-  describe('loading behavior', () => {
-    test('calls allLoaded when no blueprints present', async () => {
-      let loadedCalled = false
-      const el = loaderEl({
+  test('has default no-op allLoaded callback', () => {
+    const el = tosiLoader() as InstanceType<typeof BlueprintLoader>
+    expect(typeof el.allLoaded).toBe('function')
+    el.allLoaded()
+  })
+
+  test('accepts custom allLoaded callback', () => {
+    let called = false
+    const el = tosiLoader({
+      allLoaded: () => {
+        called = true
+      },
+    }) as InstanceType<typeof BlueprintLoader>
+    el.allLoaded()
+    expect(called).toBe(true)
+  })
+
+  test('calls allLoaded when no blueprints present', async () => {
+    let loadedCalled = false
+    const el = tosiLoader({
+      allLoaded() {
+        loadedCalled = true
+      },
+    }) as InstanceType<typeof BlueprintLoader>
+    document.body.appendChild(el)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(loadedCalled).toBe(true)
+    el.remove()
+  })
+
+  test('filters blueprints without src', async () => {
+    let loadedCalled = false
+    const el = tosiLoader(
+      {
         allLoaded() {
           loadedCalled = true
         },
-      }) as BlueprintLoader
-      document.body.appendChild(el)
+      },
+      tosiBlueprint({ tag: 'no-src-tag' })
+    ) as InstanceType<typeof BlueprintLoader>
+    document.body.appendChild(el)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(loadedCalled).toBe(true)
+    el.remove()
+  })
 
-      // Wait for async load to complete
-      await new Promise((resolve) => setTimeout(resolve, 50))
-
-      expect(loadedCalled).toBe(true)
-      el.remove()
-    })
-
-    test('filters blueprints without src', async () => {
-      let loadedCalled = false
-      const el = loaderEl(
-        {
-          allLoaded() {
-            loadedCalled = true
-          },
+  test('finds both tosi-blueprint and xin-blueprint children', async () => {
+    let loadedCalled = false
+    const el = tosiLoader(
+      {
+        allLoaded() {
+          loadedCalled = true
         },
-        blueprintEl({ tag: 'no-src-tag' }) // No src attribute
-      ) as BlueprintLoader
+      },
+      tosiBlueprint({ tag: 'no-src-a' }),
+      blueprint({ tag: 'no-src-b' })
+    ) as InstanceType<typeof BlueprintLoader>
+    document.body.appendChild(el)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    // allLoaded fires — both children found (filtered out by no src)
+    expect(loadedCalled).toBe(true)
+    el.remove()
+  })
+
+  test('does not emit deprecation warning', () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: string) => warns.push(msg)
+    try {
+      _resetDeprecationWarnings()
+      const el = tosiLoader()
       document.body.appendChild(el)
-
-      // Wait for async load to complete
-      await new Promise((resolve) => setTimeout(resolve, 50))
-
-      expect(loadedCalled).toBe(true)
+      expect(warns.filter((w) => w.includes('deprecated'))).toEqual([])
       el.remove()
-    })
+    } finally {
+      console.warn = origWarn
+    }
+  })
+})
+
+describe('xin-loader (deprecated)', () => {
+  test('creates xin-loader element', () => {
+    const el = blueprintLoader()
+    expect(el.tagName.toLowerCase()).toBe('xin-loader')
+  })
+
+  test('has display: none style via global stylesheet', () => {
+    const el = blueprintLoader()
+    document.body.appendChild(el)
+    const globalStyle = document.head.querySelector('#xin-loader-component')
+    expect(globalStyle).not.toBeNull()
+    expect(globalStyle?.textContent).toContain('display')
+    expect(globalStyle?.textContent).toContain('none')
+    el.remove()
+  })
+
+  test('calls allLoaded when no blueprints present', async () => {
+    let loadedCalled = false
+    const el = blueprintLoader({
+      allLoaded() {
+        loadedCalled = true
+      },
+    }) as InstanceType<typeof BlueprintLoader>
+    document.body.appendChild(el)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(loadedCalled).toBe(true)
+    el.remove()
+  })
+
+  test('emits deprecation warning once', () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: string) => warns.push(msg)
+    try {
+      _resetDeprecationWarnings()
+      const el1 = blueprintLoader()
+      document.body.appendChild(el1)
+      const el2 = blueprintLoader()
+      document.body.appendChild(el2)
+      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
+      expect(deprecationWarns.length).toBe(1)
+      expect(deprecationWarns[0]).toContain('tosi-loader')
+      el1.remove()
+      el2.remove()
+    } finally {
+      console.warn = origWarn
+    }
+  })
+})
+
+describe('Static properties', () => {
+  test('Blueprint.tagName is tosi-blueprint', () => {
+    expect(Blueprint.tagName).toBe('tosi-blueprint')
+  })
+
+  test('BlueprintLoader.tagName is tosi-loader', () => {
+    expect(BlueprintLoader.tagName).toBe('tosi-loader')
   })
 })
 
@@ -279,7 +403,6 @@ describe('makeComponent', () => {
       tag,
       { Component: C, elements: e }
     ) => {
-      // Simulate async operation
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       class AsyncBlueprintComponent extends C {
@@ -297,15 +420,5 @@ describe('makeComponent', () => {
 
     const el = pkg.creator()
     expect(el.tagName.toLowerCase()).toBe('async-blueprint-comp')
-  })
-})
-
-describe('Blueprint static properties', () => {
-  test('Blueprint.tagName is set', () => {
-    expect(Blueprint.tagName).toBe('xin-blueprint')
-  })
-
-  test('BlueprintLoader.tagName is set', () => {
-    expect(BlueprintLoader.tagName).toBe('xin-loader')
   })
 })

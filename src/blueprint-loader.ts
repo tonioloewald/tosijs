@@ -8,11 +8,11 @@ with monolithic code-bases, but it does prevent components from being loaded
 "tree shake" component libraries.
 
 ```js
-import { elements, blueprintLoader, blueprint } from 'tosijs'
+import { elements, tosiLoader, tosiBlueprint } from 'tosijs'
 
 preview.append(
-  blueprintLoader(
-    blueprint({
+  tosiLoader(
+    tosiBlueprint({
       tag: 'swiss-clock',
       src: 'https://tonioloewald.github.io/xin-clock/dist/blueprint.js?1234',
       blueprintLoaded({creator}) {
@@ -31,25 +31,29 @@ With blueprints, the *consumer* of the component chooses the `tag`, reducing the
 chance of name-collision. (You can consume the same blueprint multiple times,
 giving each one its own tag.)
 
-To address these issues, `tosijs` provides a `<xin-loader>` loader component and
+To address these issues, `tosijs` provides a `<tosi-loader>` loader component and
 a function `makeComponent` that can define a component given a blueprint
 function.
 
-## `<xin-loader>`—the blueprint loader
+## `<tosi-loader>`—the blueprint loader
 
-`<xin-loader>` is a simple custom-element provided by `tosijs` for the dynamic loading
-of component **blueprints**. It will load its `<xin-blueprint>`s in parallel.
+`<tosi-loader>` is a simple custom-element provided by `tosijs` for the dynamic loading
+of component **blueprints**. It will load its `<tosi-blueprint>`s in parallel.
 
 ```
-<xin-loader>
-  <xin-blueprint tag="swiss-clock" src="https://loewald.com/lib/swiss-clock"></xin-blueprint>
-</xin-loader>
+<tosi-loader>
+  <tosi-blueprint tag="swiss-clock" src="https://loewald.com/lib/swiss-clock"></tosi-blueprint>
+</tosi-loader>
 <swiss-clock>
   <code style="color: var(--brand-color)">tosijs</code> rules!
 </swiss-clock>
 ```
 
-### `<xin-blueprint>` Attributes
+> The legacy names `<xin-blueprint>` and `<xin-loader>` still work but emit a
+> one-time deprecation warning. New code should use `<tosi-blueprint>` and
+> `<tosi-loader>`.
+
+### `<tosi-blueprint>` Attributes
 
 - `src` is the url of the `blueprint` javascript module (required)
 - `tag` is the tagName you wish to use. This defaults to the name of the source file if suitable.
@@ -57,11 +61,11 @@ of component **blueprints**. It will load its `<xin-blueprint>`s in parallel.
   (allowing one blueprint to export multiple blueprints). By default, it's `default`.
 - `loaded` is the `XinPackagedComponent` after loading
 
-#### `<xin-blueprint>` Properties
+#### `<tosi-blueprint>` Properties
 
-- `blueprintLoaded(package: XinPackagedComponent)` `<xin-blueprint>` when its blueprint is loaded.
+- `blueprintLoaded(package: XinPackagedComponent)` `<tosi-blueprint>` when its blueprint is loaded.
 
-#### `<xin-loader>` Properties
+#### `<tosi-loader>` Properties
 
 - `allLoaded()` is called when all the blueprints have loaded.
 
@@ -90,12 +94,12 @@ This is a more complex example that loads two components and only generates
 the test component once everything is ready:
 
 ```js
-import { blueprintLoader, blueprint } from 'tosijs'
+import { tosiLoader, tosiBlueprint } from 'tosijs'
 
 let clockType = null
 
 preview.append(
-  blueprintLoader(
+  tosiLoader(
     {
       allLoaded() {
         const xinTest = this.querySelector('[tag="xin-test"]').loaded.creator
@@ -112,7 +116,7 @@ preview.append(
         )
       },
     },
-    blueprint({
+    tosiBlueprint({
       tag: 'swiss-clock',
       src: 'https://tonioloewald.github.io/xin-clock/dist/blueprint.js?1234',
       blueprintLoaded({type, creator}) {
@@ -120,7 +124,7 @@ preview.append(
         preview.append(creator())
       },
     }),
-    blueprint({
+    tosiBlueprint({
       tag: 'xin-test',
       src: 'https://tonioloewald.github.io/xin-test/dist/blueprint.js',
     })
@@ -237,10 +241,15 @@ import {
   XinBlueprint,
   XinPackagedComponent,
 } from './make-component'
+import { warnDeprecated } from './metadata'
+
+const HIDDEN_STYLE = { ':host': { display: 'none' } }
 
 const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
 
 const loadModule = (src: string): Promise<any> => import(src)
+
+// --- Canonical classes (tosi-*) ---
 
 export class Blueprint extends Component {
   static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
@@ -253,8 +262,8 @@ export class Blueprint extends Component {
     if (!this.loaded) {
       if (loadedBlueprints[signature] === undefined) {
         loadedBlueprints[signature] = loadModule(src).then((imported) => {
-          const blueprint = imported[property] as XinBlueprint
-          return makeComponent(tag, blueprint)
+          const bp = imported[property] as XinBlueprint
+          return makeComponent(tag, bp)
         })
       } else {
         console.log(`using cached ${tag} with signature ${signature}`)
@@ -266,22 +275,18 @@ export class Blueprint extends Component {
   }
 }
 
-export const blueprint = Blueprint.elementCreator({
-  tag: 'xin-blueprint',
-  styleSpec: { ':host': { display: 'none' } },
+export const tosiBlueprint = Blueprint.elementCreator({
+  tag: 'tosi-blueprint',
+  styleSpec: HIDDEN_STYLE,
 })
 
 export class BlueprintLoader extends Component {
   allLoaded = () => {}
 
-  constructor() {
-    super()
-  }
-
   private async load() {
     const blueprintElements = (
       Array.from(
-        this.querySelectorAll(Blueprint.tagName as string)
+        this.querySelectorAll('tosi-blueprint, xin-blueprint')
       ) as Blueprint[]
     ).filter((elt) => elt.src)
     const promises = blueprintElements.map((elt) => elt.packaged())
@@ -291,12 +296,59 @@ export class BlueprintLoader extends Component {
 
   connectedCallback() {
     super.connectedCallback()
-
     this.load()
   }
 }
 
-export const blueprintLoader = BlueprintLoader.elementCreator({
+export const tosiLoader = BlueprintLoader.elementCreator({
+  tag: 'tosi-loader',
+  styleSpec: HIDDEN_STYLE,
+})
+
+// --- Deprecated classes (xin-*) ---
+
+class DeprecatedBlueprint extends Blueprint {
+  constructor() {
+    super()
+    warnDeprecated(
+      'xin-blueprint',
+      '<xin-blueprint> is deprecated. Use <tosi-blueprint> instead.'
+    )
+  }
+}
+
+export const blueprint = DeprecatedBlueprint.elementCreator({
+  tag: 'xin-blueprint',
+  styleSpec: HIDDEN_STYLE,
+})
+
+class DeprecatedLoader extends Component {
+  allLoaded = () => {}
+
+  constructor() {
+    super()
+    warnDeprecated(
+      'xin-loader',
+      '<xin-loader> is deprecated. Use <tosi-loader> instead.'
+    )
+  }
+
+  private async load() {
+    const blueprintElements = (
+      Array.from(this.querySelectorAll('xin-blueprint')) as Blueprint[]
+    ).filter((elt) => elt.src)
+    const promises = blueprintElements.map((elt) => elt.packaged())
+    await Promise.all(promises)
+    this.allLoaded()
+  }
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.load()
+  }
+}
+
+export const blueprintLoader = DeprecatedLoader.elementCreator({
   tag: 'xin-loader',
-  styleSpec: { ':host': { display: 'none' } },
+  styleSpec: HIDDEN_STYLE,
 })

@@ -224,9 +224,9 @@ function setByPath(
             if ((obj as XinArray)[idx] === val) {
               return false
             }
-            ;(obj as XinArray)[idx] = val
+            (obj as XinArray)[idx] = val
           } else {
-            ;(obj as XinArray).splice(idx, 1)
+            (obj as XinArray).splice(idx, 1)
           }
           return true
         }
@@ -243,7 +243,7 @@ function setByPath(
             if ((obj as XinObject)[key] === val) {
               return false
             }
-            ;(obj as XinObject)[key] = val
+            (obj as XinObject)[key] = val
           } else {
             if (!Object.prototype.hasOwnProperty.call(obj, key)) {
               return false
