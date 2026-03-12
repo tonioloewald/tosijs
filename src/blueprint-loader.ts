@@ -174,25 +174,24 @@ So instead of defining a component like this:
     const { h2, slot } = elements
 
     export class MyThing extends Component {
-      static styleSpec = {
+      static preferredTagName = 'my-thing'
+      static shadowStyleSpec = {
         ':host': {
           color: varDefault.textColor('#222'),
           background: vars.bgColor,
         },
-
-        content = () => [
-          h2('my thing'),
-          slot()
-        ]
       }
-    }
-
-    export const myThing = myThing.elementCreator({
-      tag: 'my-thing',
-      styleSpec: {
+      static lightStyleSpec = {
         _bgColor: '#f00'
       }
-    })
+
+      content = () => [
+        h2('my thing'),
+        slot()
+      ]
+    }
+
+    export const myThing = MyThing.elementCreator()
 
 You can define a "blueprint" like this:
 
@@ -205,22 +204,22 @@ You can define a "blueprint" like this:
       const {h2, slot} = elements
 
       class MyThing extends Component {
-        static styleSpec = {
+        static shadowStyleSpec = {
           ':host': {
             color: varDefault.textColor('#222'),
             background: vars.bgColor,
           },
-
-          content = () => [
-            h2('my thing'),
-            slot()
-          ]
         }
+
+        content = () => [
+          h2('my thing'),
+          slot()
+        ]
       }
 
       return {
         type: MyThing,
-        styleSpec: {
+        lightStyleSpec: {
           _bgColor: '#f00'
         }
       }
@@ -252,6 +251,8 @@ const loadModule = (src: string): Promise<any> => import(src)
 // --- Canonical classes (tosi-*) ---
 
 export class Blueprint extends Component {
+  static preferredTagName = 'tosi-blueprint'
+  static lightStyleSpec = HIDDEN_STYLE
   static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
   loaded?: XinPackagedComponent
   blueprintLoaded = (_pkg: XinPackagedComponent) => {}
@@ -275,12 +276,11 @@ export class Blueprint extends Component {
   }
 }
 
-export const tosiBlueprint = Blueprint.elementCreator({
-  tag: 'tosi-blueprint',
-  styleSpec: HIDDEN_STYLE,
-})
+export const tosiBlueprint = Blueprint.elementCreator()
 
 export class BlueprintLoader extends Component {
+  static preferredTagName = 'tosi-loader'
+  static lightStyleSpec = HIDDEN_STYLE
   allLoaded = () => {}
 
   private async load() {
@@ -300,14 +300,14 @@ export class BlueprintLoader extends Component {
   }
 }
 
-export const tosiLoader = BlueprintLoader.elementCreator({
-  tag: 'tosi-loader',
-  styleSpec: HIDDEN_STYLE,
-})
+export const tosiLoader = BlueprintLoader.elementCreator()
 
 // --- Deprecated classes (xin-*) ---
 
 class DeprecatedBlueprint extends Blueprint {
+  static preferredTagName = 'xin-blueprint'
+  static lightStyleSpec = HIDDEN_STYLE
+
   constructor() {
     super()
     warnDeprecated(
@@ -317,12 +317,11 @@ class DeprecatedBlueprint extends Blueprint {
   }
 }
 
-export const blueprint = DeprecatedBlueprint.elementCreator({
-  tag: 'xin-blueprint',
-  styleSpec: HIDDEN_STYLE,
-})
+export const blueprint = DeprecatedBlueprint.elementCreator()
 
 class DeprecatedLoader extends Component {
+  static preferredTagName = 'xin-loader'
+  static lightStyleSpec = HIDDEN_STYLE
   allLoaded = () => {}
 
   constructor() {
@@ -348,7 +347,4 @@ class DeprecatedLoader extends Component {
   }
 }
 
-export const blueprintLoader = DeprecatedLoader.elementCreator({
-  tag: 'xin-loader',
-  styleSpec: HIDDEN_STYLE,
-})
+export const blueprintLoader = DeprecatedLoader.elementCreator()

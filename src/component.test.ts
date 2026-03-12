@@ -4,6 +4,7 @@ import { elements } from './elements'
 
 // Simple test component
 class TestComponent extends Component {
+  static preferredTagName = 'test-component'
   testProp = 'initial'
   counter = 0
 
@@ -22,9 +23,10 @@ class TestComponent extends Component {
   }
 }
 
-// Component with static styleSpec
+// Component with static shadowStyleSpec
 class StyledComponent extends Component {
-  static styleSpec = {
+  static preferredTagName = 'styled-component'
+  static shadowStyleSpec = {
     ':host': {
       display: 'block',
       padding: '10px',
@@ -36,6 +38,7 @@ class StyledComponent extends Component {
 
 // Component with value
 class ValueComponent extends Component {
+  static preferredTagName = 'value-component'
   value = ''
 
   content = ({ input }: typeof elements) =>
@@ -60,6 +63,7 @@ class ValueComponent extends Component {
 
 // Component with onResize
 class ResizableComponent extends Component {
+  static preferredTagName = 'resizable-component'
   resizeCount = 0
 
   content = ({ div }: typeof elements) => div({ part: 'box' }, 'Resizable')
@@ -71,6 +75,7 @@ class ResizableComponent extends Component {
 
 // Component with slots
 class SlottedComponent extends Component {
+  static preferredTagName = 'slotted-component'
   content = ({ div, slot }: typeof elements) => [
     div({ part: 'header' }, slot({ name: 'header' })),
     div({ part: 'main' }, slot()),
@@ -80,11 +85,13 @@ class SlottedComponent extends Component {
 
 // Component with null content
 class EmptyComponent extends Component {
+  static preferredTagName = 'empty-component'
   content = null
 }
 
 // Component with function content that uses props
 class DynamicComponent extends Component {
+  static preferredTagName = 'dynamic-component'
   greeting = 'Hello'
 
   constructor() {
@@ -105,19 +112,13 @@ let emptyComponent: ReturnType<typeof EmptyComponent.elementCreator>
 let dynamicComponent: ReturnType<typeof DynamicComponent.elementCreator>
 
 beforeAll(() => {
-  testComponent = TestComponent.elementCreator({ tag: 'test-component' })
-  styledComponent = StyledComponent.elementCreator({ tag: 'styled-component' })
-  valueComponent = ValueComponent.elementCreator({ tag: 'value-component' })
-  resizableComponent = ResizableComponent.elementCreator({
-    tag: 'resizable-component',
-  })
-  slottedComponent = SlottedComponent.elementCreator({
-    tag: 'slotted-component',
-  })
-  emptyComponent = EmptyComponent.elementCreator({ tag: 'empty-component' })
-  dynamicComponent = DynamicComponent.elementCreator({
-    tag: 'dynamic-component',
-  })
+  testComponent = TestComponent.elementCreator()
+  styledComponent = StyledComponent.elementCreator()
+  valueComponent = ValueComponent.elementCreator()
+  resizableComponent = ResizableComponent.elementCreator()
+  slottedComponent = SlottedComponent.elementCreator()
+  emptyComponent = EmptyComponent.elementCreator()
+  dynamicComponent = DynamicComponent.elementCreator()
 })
 
 describe('Component', () => {
@@ -359,8 +360,8 @@ describe('Component', () => {
     })
   })
 
-  describe('styleSpec', () => {
-    test('static styleSpec creates shadow DOM', () => {
+  describe('shadowStyleSpec', () => {
+    test('static shadowStyleSpec creates shadow DOM', () => {
       const el = styledComponent()
       document.body.appendChild(el)
       expect(el.shadowRoot).not.toBeNull()
@@ -402,6 +403,7 @@ describe('xinSlot', () => {
 // Tests for static initAttributes
 describe('static initAttributes', () => {
   class StaticAttrsComponent extends Component {
+    static preferredTagName = 'static-attrs-component'
     static initAttributes = {
       caption: 'default',
       count: 42,
@@ -416,9 +418,7 @@ describe('static initAttributes', () => {
   >
 
   beforeAll(() => {
-    staticAttrsComponent = StaticAttrsComponent.elementCreator({
-      tag: 'static-attrs-component',
-    })
+    staticAttrsComponent = StaticAttrsComponent.elementCreator()
   })
 
   test('observedAttributes is auto-generated from initAttributes', () => {
@@ -498,9 +498,10 @@ describe('static initAttributes', () => {
     console.warn = (msg: string) => warnings.push(msg)
 
     class BadValueComponent extends Component {
+      static preferredTagName = 'bad-value-component'
       static initAttributes = { value: 'bad' }
     }
-    BadValueComponent.elementCreator({ tag: 'bad-value-component' })()
+    BadValueComponent.elementCreator()()
 
     console.warn = originalWarn
     expect(
@@ -514,16 +515,15 @@ describe('static initAttributes', () => {
 // Tests for light DOM :host selector rewriting
 describe('light DOM :host rewriting', () => {
   class HostRewriteComponent extends Component {
+    static preferredTagName = 'host-rewrite-test'
+    static lightStyleSpec = {
+      ':host': { display: 'block' },
+    }
     content = ({ div }: typeof elements) => div('host rewrite test')
   }
 
   test(':host is replaced with tagName', () => {
-    const creator = HostRewriteComponent.elementCreator({
-      tag: 'host-rewrite-test',
-      styleSpec: {
-        ':host': { display: 'block' },
-      },
-    })
+    const creator = HostRewriteComponent.elementCreator()
     const el = creator()
     document.body.appendChild(el)
     const style = document.getElementById('host-rewrite-test-component')
@@ -534,17 +534,16 @@ describe('light DOM :host rewriting', () => {
   })
 
   class HostParenComponent extends Component {
+    static preferredTagName = 'host-paren-test'
+    static lightStyleSpec = {
+      ':host(.active)': { color: 'red' },
+      ':host(.active) > span': { fontWeight: 'bold' },
+    }
     content = ({ div }: typeof elements) => div('host paren test')
   }
 
   test(':host(.foo) is replaced with tagName.foo', () => {
-    const creator = HostParenComponent.elementCreator({
-      tag: 'host-paren-test',
-      styleSpec: {
-        ':host(.active)': { color: 'red' },
-        ':host(.active) > span': { fontWeight: 'bold' },
-      },
-    })
+    const creator = HostParenComponent.elementCreator()
     const el = creator()
     document.body.appendChild(el)
     const style = document.getElementById('host-paren-test-component')
@@ -559,6 +558,7 @@ describe('light DOM :host rewriting', () => {
 // Tests for formAssociated / ElementInternals
 describe('formAssociated', () => {
   class FormComponent extends Component {
+    static preferredTagName = 'form-component'
     static formAssociated = true
     value = '' // value is a property, not an attribute
 
@@ -568,7 +568,7 @@ describe('formAssociated', () => {
   let formComponent: ReturnType<typeof FormComponent.elementCreator>
 
   beforeAll(() => {
-    formComponent = FormComponent.elementCreator({ tag: 'form-component' })
+    formComponent = FormComponent.elementCreator()
   })
 
   test('has internals when formAssociated is true (if supported)', () => {
@@ -681,6 +681,115 @@ describe('formAssociated', () => {
     expect((el as any)._valueChanged).toBe(false)
     el.setAttribute('data-test', 'foo')
     expect((el as any)._valueChanged).toBe(false)
+    el.remove()
+  })
+})
+
+// Tests for new static properties
+describe('static preferredTagName', () => {
+  test('uses preferredTagName for registration', () => {
+    class PreferredTagComponent extends Component {
+      static preferredTagName = 'preferred-tag-test'
+      content = null
+    }
+    const creator = PreferredTagComponent.elementCreator()
+    const el = creator()
+    expect(el.tagName.toLowerCase()).toBe('preferred-tag-test')
+  })
+
+  test('falls back to anon tag when no preferredTagName and anonymous class', () => {
+    const AnonClass = class extends Component {
+      content = null
+    }
+    // Force anonymous by clearing name
+    Object.defineProperty(AnonClass, 'name', { value: '' })
+    const creator = AnonClass.elementCreator()
+    const el = creator()
+    expect(el.tagName.toLowerCase()).toMatch(/^custom-elt/)
+  })
+})
+
+describe('static shadowStyleSpec', () => {
+  test('creates shadow DOM with style', () => {
+    class ShadowStyleComponent extends Component {
+      static preferredTagName = 'shadow-style-test'
+      static shadowStyleSpec = {
+        ':host': { display: 'flex' },
+      }
+      content = ({ div }: typeof elements) => div('shadow styled')
+    }
+    const creator = ShadowStyleComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    expect(el.shadowRoot).not.toBeNull()
+    const style = el.shadowRoot?.querySelector('style')
+    expect(style).not.toBeNull()
+    expect(style?.textContent).toContain('display')
+    el.remove()
+  })
+})
+
+describe('static lightStyleSpec', () => {
+  test('creates global style in head', () => {
+    class LightStyleComponent extends Component {
+      static preferredTagName = 'light-style-test'
+      static lightStyleSpec = {
+        ':host': { display: 'grid' },
+      }
+      content = ({ div }: typeof elements) => div('light styled')
+    }
+    const creator = LightStyleComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    const style = document.getElementById('light-style-test-component')
+    expect(style).not.toBeNull()
+    expect(style?.textContent).toContain('light-style-test')
+    expect(style?.textContent).toContain('display')
+    expect(style?.textContent).not.toContain(':host')
+    el.remove()
+  })
+})
+
+describe('deprecated elementCreator options', () => {
+  test('tag option still works with deprecation warning', () => {
+    class LegacyTagComponent extends Component {
+      content = null
+    }
+    const warnings: string[] = []
+    const originalWarn = console.warn
+    console.warn = (msg: string) => warnings.push(String(msg))
+    const creator = LegacyTagComponent.elementCreator({
+      tag: 'legacy-tag-test',
+    })
+    console.warn = originalWarn
+    const el = creator()
+    expect(el.tagName.toLowerCase()).toBe('legacy-tag-test')
+    expect(
+      warnings.some((w) => w.includes('deprecated') && w.includes('tag'))
+    ).toBe(true)
+  })
+
+  test('styleSpec option still works with deprecation warning', () => {
+    class LegacyStyleComponent extends Component {
+      content = ({ div }: typeof elements) => div('legacy styled')
+    }
+    const warnings: string[] = []
+    const originalWarn = console.warn
+    console.warn = (msg: string) => warnings.push(String(msg))
+    const creator = LegacyStyleComponent.elementCreator({
+      tag: 'legacy-style-test',
+      styleSpec: { ':host': { display: 'block' } },
+    })
+    console.warn = originalWarn
+    const el = creator()
+    document.body.appendChild(el)
+    const style = document.getElementById('legacy-style-test-component')
+    expect(style).not.toBeNull()
+    expect(
+      warnings.some(
+        (w) => w.includes('deprecated') && w.includes('styleSpec')
+      )
+    ).toBe(true)
     el.remove()
   })
 })

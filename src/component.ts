@@ -15,7 +15,8 @@ new component's element and produces instances of it as needed.
 import {Component} from 'tosijs'
 
 class ToolBar extends Component {
-  static styleSpec = {
+  static preferredTagName = 'tool-bar'
+  static shadowStyleSpec = {
     ':host': {
       display: 'flex',
       gap: '10px',
@@ -23,7 +24,7 @@ class ToolBar extends Component {
   }
 }
 
-export const toolBar = ToolBar.elementCreator({ tag: 'tool-bar' })
+export const toolBar = ToolBar.elementCreator()
 ```
 
 > **Note**: Custom elements default to `display: inline`, which often causes them to
@@ -35,9 +36,10 @@ This component is just a structural element. By default a `Component` subclass w
 comprise itself and a `<slot>`. You can change this by giving your subclass its
 own `content` template.
 
-The last line defines the `ToolBar` class as the implementation of `<tool-bar>`
-HTML elements (`tool-bar` is derived automatically from the class name) and
-returns an `ElementCreator` function that creates `<tool-bar>` elements.
+`static preferredTagName` sets the desired tag name for the custom element.
+If omitted, it is derived from the class name (e.g. `ToolBar` → `tool-bar`),
+but this does not survive minification. `elementCreator()` returns an
+`ElementCreator` function that creates instances of the element.
 
 See [elements](/?elements.ts) for more information on `ElementCreator` functions.
 
@@ -103,7 +105,7 @@ If you'd like to see a more complex example along the same lines, look at
 
 ```
 class MenuBar extends Component {
-  static styleSpec = {
+  static shadowStyleSpec = {
     ':host, :host > slot': {
       display: 'flex',
     },
@@ -157,21 +159,20 @@ class FauxSlotExample extends Component {
   ]
 }
 
-const fauxSlotExample = FauxSlotExample.elementCreator({
-  tag: 'faux-slot-example',
-  styleSpec: {
-    ':host': {
-      display: 'flex',
-      flexDirection: 'column'
-    },
-    ':host h4, :host h5': {
-      margin: 0,
-    },
-    ':host xin-slot': {
-      border: '2px solid grey'
-    }
+FauxSlotExample.preferredTagName = 'faux-slot-example'
+FauxSlotExample.lightStyleSpec = {
+  ':host': {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  ':host h4, :host h5': {
+    margin: 0,
+  },
+  ':host xin-slot': {
+    border: '2px solid grey'
   }
-})
+}
+const fauxSlotExample = FauxSlotExample.elementCreator()
 
 const { div } = elements
 
@@ -426,7 +427,8 @@ class AdoptableWidget extends Component {
   }
 }
 
-const adoptableWidget = AdoptableWidget.elementCreator({tag: 'adoptable-widget'})
+AdoptableWidget.preferredTagName = 'adoptable-widget'
+const adoptableWidget = AdoptableWidget.elementCreator()
 const {iframe, button, div, span} = elements
 
 const widget = adoptableWidget()
@@ -466,47 +468,56 @@ preview.append(widgetSlot, div(moveBtn, backBtn), frame)
 }
 ```
 
-### Component static methods
+### Component static properties
 
-#### Component.elementCreator(options? {tag?: string, styleSpec: XinStyleSheet}): ElementCreator
+#### `static preferredTagName?: string`
 
-    export const toolBar = ToolBar.elementCreator({tag: 'tool-bar'})
+Sets the desired tag name for the custom element. If omitted, it is derived
+from the class name (e.g. `ToolBar` → `tool-bar`), but this does **not** survive
+minification. If the tag is already in use, a unique anonymous tag is generated.
 
-Returns a function that creates the custom-element. If you don't pass a `tag` or if the provided tag
-is already in use, a new unique tag will be used.
+#### `static shadowStyleSpec?: XinStyleSheet`
 
-If no tag is provided, the Component will try to use introspection to "snake-case" the
-"ClassName", but if you're using name mangling this won't work and you'll get something
-pretty meaningless.
+Styles injected into the component's shadow DOM as a `<style>` element.
+Setting this property causes the component to use shadow DOM.
 
-If you want to create a global `<style>` sheet for the element (especially useful if
-your component doesn't use the `shadowDOM`) then you can pass `styleSpec`. E.g.
+#### `static lightStyleSpec?: XinStyleSheet`
 
-    export const toolBar = ToolBar.elementCreator({
-      tag: 'tool-bar',
-      styleSpec: {
-        ':host': { // note that ':host' will be turned into the tagName automatically!
+Global styles appended to `document.head` when the first instance is inserted
+in the DOM. `:host` selectors are automatically rewritten to the tag name, e.g.:
+
+    class ToolBar extends Component {
+      static preferredTagName = 'tool-bar'
+      static lightStyleSpec = {
+        ':host': {
           display: 'flex',
           padding: 'var(--toolbar-padding, 0 8px)',
           gap: '4px'
         }
       }
-    })
+    }
 
-This will—assuming "tool-bar" is available—create:
+produces `tool-bar { display: flex; ... }` in a global `<style>` element.
 
-    <style id="tool-bar-helper">
-      tool-bar {
-        display: flex;
-        padding: var(--toolbar-padding, 0 8px);
-        gap: 4px;
-      }
-    <style>
+#### `static extends?: string`
 
-And append it to `document.head` when the first instance of `<tool-bar>` is inserted in the DOM.
+For customized built-in elements. Passed as `{ extends }` to `customElements.define()`.
 
-Finally, `elementCreator` is memoized and only generated once (and the arguments are
-ignored on all subsequent calls).
+### Component static methods
+
+#### Component.elementCreator(): ElementCreator
+
+    export const toolBar = ToolBar.elementCreator()
+
+Returns a function that creates the custom-element. Registration uses
+`preferredTagName`, `lightStyleSpec`, `shadowStyleSpec`, and `extends`
+from the class's static properties.
+
+`elementCreator` is memoized and only generated once.
+
+> **Deprecated:** Passing `{ tag, styleSpec, extends }` as options to
+> `elementCreator()` still works but emits deprecation warnings.
+> Use the static properties instead.
 
 ## Examples
 
@@ -607,6 +618,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   private static _elementCreator?: ElementCreator<Component>
   static initAttributes?: Record<string, any>
   static formAssociated?: boolean
+  static preferredTagName?: string
+  static shadowStyleSpec?: XinStyleSheet
+  static lightStyleSpec?: XinStyleSheet
+  static extends?: string
   internals?: ElementInternals
 
   // Form validation API - delegated to internals when formAssociated
@@ -691,7 +706,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement {
     console.warn(
-      'StyleNode is deprecated, just assign static styleSpec: XinStyleSheet to the class directly'
+      'StyleNode is deprecated, use static shadowStyleSpec instead'
     )
     return elements.style(css(styleSpec))
   }
@@ -704,8 +719,29 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (
       !Object.prototype.hasOwnProperty.call(componentClass, '_elementCreator')
     ) {
-      const { tag, styleSpec } = options
-      let tagName = options != null ? tag : null
+      // Deprecation warnings for options-based API
+      if (options.tag !== undefined) {
+        warnDeprecated(
+          'elementCreator-tag',
+          'Passing tag to elementCreator() is deprecated. Use static preferredTagName instead.'
+        )
+      }
+      if (options.styleSpec !== undefined) {
+        warnDeprecated(
+          'elementCreator-styleSpec',
+          'Passing styleSpec to elementCreator() is deprecated. Use static lightStyleSpec instead.'
+        )
+      }
+      if (options.extends !== undefined) {
+        warnDeprecated(
+          'elementCreator-extends',
+          'Passing extends to elementCreator() is deprecated. Use static extends instead.'
+        )
+      }
+
+      // Resolve tag: options.tag > static preferredTagName > camelToKabob > anon
+      let tagName: string | null | undefined =
+        options.tag ?? componentClass.preferredTagName
       if (tagName == null) {
         if (
           typeof componentClass.name === 'string' &&
@@ -730,13 +766,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         tagName = anonElementTag()
       }
       componentClass._tagName = tagName
-      if (styleSpec !== undefined) {
-        setGlobalStyle(tagName, styleSpec)
+
+      // Resolve light style spec: options.styleSpec > static lightStyleSpec
+      const lightStyleSpec = options.styleSpec ?? componentClass.lightStyleSpec
+      if (lightStyleSpec !== undefined) {
+        setGlobalStyle(tagName, lightStyleSpec)
       }
+
+      // Resolve extends: options.extends > static extends
+      const extendsTag = options.extends ?? componentClass.extends
+      const defineOptions: ElementDefinitionOptions | undefined = extendsTag
+        ? { extends: extendsTag }
+        : undefined
+
       window.customElements.define(
         tagName,
         this as unknown as CustomElementConstructor,
-        options
+        defineOptions
       )
       componentClass._elementCreator = elements[tagName]
     }
@@ -1122,17 +1168,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           ? this.content(elements)
           : this.content
 
-      const { styleSpec } = this.constructor as unknown as Component
-      let { styleNode } = this.constructor as unknown as Component
-      if (styleSpec) {
-        styleNode = (this.constructor as unknown as Component).styleNode =
-          elements.style(css(styleSpec))
-        delete (this.constructor as unknown as Component).styleNode
+      const ctor = this.constructor as unknown as Component
+      const shadowStyle = ctor.shadowStyleSpec ?? ctor.styleSpec
+      if (ctor.styleSpec && !ctor.shadowStyleSpec) {
+        warnDeprecated(
+          'static-styleSpec',
+          'static styleSpec is deprecated. Use static shadowStyleSpec instead.'
+        )
+      }
+      let { styleNode } = ctor
+      if (shadowStyle) {
+        styleNode = ctor.styleNode = elements.style(css(shadowStyle))
+        delete ctor.styleNode
       }
       if (this.styleNode) {
         console.warn(
           this,
-          'styleNode is deprecrated, use static styleNode or statc styleSpec instead'
+          'styleNode is deprecated, use static shadowStyleSpec instead'
         )
         styleNode = this.styleNode
       }
@@ -1194,6 +1246,7 @@ interface SlotParts extends PartsMap {
 }
 
 class XinSlot extends Component<SlotParts> {
+  static preferredTagName = 'xin-slot'
   static initAttributes = { name: '' }
   content = null
 
@@ -1206,4 +1259,4 @@ class XinSlot extends Component<SlotParts> {
   }
 }
 
-export const xinSlot = XinSlot.elementCreator({ tag: 'xin-slot' })
+export const xinSlot = XinSlot.elementCreator()

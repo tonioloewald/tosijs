@@ -432,8 +432,17 @@ Two things to keep in mind:
   `<xin-slot>` elements. If you inspect the DOM, you'll see `<xin-slot>`,
   not `<slot>`.
 
-tosijs rewrites `:host` selectors to the component's tag name, so
-`styleSpec` works in both modes.
+Components declare their styles via static properties:
+
+- **`static shadowStyleSpec`** — injected into the shadow DOM as a `<style>` element.
+  Setting this causes the component to use shadow DOM.
+- **`static lightStyleSpec`** — appended to `document.head` as a global `<style>`.
+  `:host` selectors are rewritten to the component's tag name, so
+  `:host { display: flex }` becomes `my-tag { display: flex }`.
+- **`static preferredTagName`** — sets the tag name explicitly (survives minification).
+
+> The older patterns — `static styleSpec` (alias for `shadowStyleSpec`) and
+> passing `{ tag, styleSpec }` to `elementCreator()` — still work but are deprecated.
 
 Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:

@@ -846,8 +846,9 @@ function updateRelativeBindings(element: Element, path: string): void {
 
 export class ListBinding {
   boundElement: Element
-  listTop: HTMLElement
-  listBottom: HTMLElement
+  listTop: HTMLElement | null
+  listBottom: HTMLElement | null
+  isNamespaced: boolean
   template: Element
   options: ListBindingOptions
   itemToElement: WeakMap<XinObject, Element>
@@ -893,15 +894,32 @@ export class ListBinding {
       this.template.remove()
     }
     this.options = options
-    this.listTop = document.createElement('div')
-    this.listBottom = document.createElement('div')
-    this.listTop.classList.add('virtual-list-padding')
-    this.listBottom.classList.add('virtual-list-padding')
-    this.boundElement.append(this.listTop)
-    this.boundElement.append(this.listBottom)
+    const ns = boundElement.namespaceURI
+    this.isNamespaced =
+      ns === 'http://www.w3.org/2000/svg' ||
+      ns === 'http://www.w3.org/1998/Math/MathML'
+
+    if (this.isNamespaced) {
+      // SVG/MathML containers cannot hold HTML div elements,
+      // so skip virtual list padding entirely
+      this.listTop = null
+      this.listBottom = null
+    } else {
+      this.listTop = document.createElement('div')
+      this.listBottom = document.createElement('div')
+      this.listTop.classList.add('virtual-list-padding')
+      this.listBottom.classList.add('virtual-list-padding')
+      this.boundElement.append(this.listTop)
+      this.boundElement.append(this.listBottom)
+    }
     // @ts-expect-error storing binding ref on element
     this.boundElement[LIST_BINDING_REF] = this
-    if (options.virtual != null) {
+    if (this.isNamespaced && options.virtual != null) {
+      console.warn(
+        'ListBinding: virtual scrolling is not supported in SVG/MathML containers, ignoring virtual option'
+      )
+    }
+    if (!this.isNamespaced && options.virtual != null) {
       resizeObserver.observe(this.boundElement)
       this._update = throttle(() => {
         this.update(this.array, true)
@@ -1126,8 +1144,10 @@ export class ListBinding {
       }
     }
 
-    this.listTop.style.height = String(topBuffer) + 'px'
-    this.listBottom.style.height = String(bottomBuffer) + 'px'
+    if (this.listTop != null && this.listBottom != null) {
+      this.listTop.style.height = String(topBuffer) + 'px'
+      this.listBottom.style.height = String(bottomBuffer) + 'px'
+    }
 
     // build a complete new set of elements in the right order
     const elements: Element[] = []
@@ -1146,7 +1166,11 @@ export class ListBinding {
           // @ts-expect-error if it's there it's there
           element[LIST_INSTANCE_REF] = tosiValue(item)
         }
-        this.boundElement.insertBefore(element, this.listBottom)
+        if (this.listBottom != null) {
+          this.boundElement.insertBefore(element, this.listBottom)
+        } else {
+          this.boundElement.append(element)
+        }
         if (idPath != null) {
           const idValue = item[idPath] as string
           const itemPath = `${arrayPath}[${idPath}=${idValue}]`
@@ -1169,8 +1193,10 @@ export class ListBinding {
             element,
             insertionPoint.nextElementSibling
           )
-        } else {
+        } else if (this.listBottom != null) {
           this.boundElement.insertBefore(element, this.listBottom)
+        } else {
+          this.boundElement.append(element)
         }
       }
       insertionPoint = element
@@ -1211,9 +1237,11 @@ export class ListBinding {
       t * pinBottom + (1 - t) * pinTop - (position % 1) * rowHeight
     )
 
-    this.listTop.style.height = String(offset) + 'px'
-    this.listBottom.style.height =
-      String(Math.max(0, totalScrollHeight - offset - renderedHeight)) + 'px'
+    if (this.listTop != null && this.listBottom != null) {
+      this.listTop.style.height = String(offset) + 'px'
+      this.listBottom.style.height =
+        String(Math.max(0, totalScrollHeight - offset - renderedHeight)) + 'px'
+    }
   }
 }
 

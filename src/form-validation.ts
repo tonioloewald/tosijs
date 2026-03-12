@@ -25,6 +25,7 @@ Here's a minimal form-associated component:
 import { Component, elements } from 'tosijs'
 
 class SimpleInput extends Component {
+  static preferredTagName = 'simple-input'
   static formAssociated = true
   value = ''
 
@@ -45,7 +46,7 @@ class SimpleInput extends Component {
   }
 }
 
-const simpleInput = SimpleInput.elementCreator({tag: 'simple-input'})
+const simpleInput = SimpleInput.elementCreator()
 const { form, button, div } = elements
 
 const output = div()
@@ -112,6 +113,7 @@ when `value` changes:
 import { Component, elements } from 'tosijs'
 
 class ValidatedInput extends Component {
+  static preferredTagName = 'validated-input'
   static formAssociated = true
   value = ''
 
@@ -132,7 +134,7 @@ class ValidatedInput extends Component {
   }
 }
 
-const validatedInput = ValidatedInput.elementCreator({tag: 'validated-input'})
+const validatedInput = ValidatedInput.elementCreator()
 const { form, button, div } = elements
 
 const output = div()
@@ -203,6 +205,7 @@ Use `this.internals.states` to expose component state to CSS via `:state()`:
 import { Component, elements } from 'tosijs'
 
 class StatefulInput extends Component {
+  static preferredTagName = 'stateful-input'
   static formAssociated = true
   value = ''
 
@@ -239,7 +242,7 @@ class StatefulInput extends Component {
   }
 }
 
-const statefulInput = StatefulInput.elementCreator({tag: 'stateful-input'})
+const statefulInput = StatefulInput.elementCreator()
 const { div } = elements
 
 preview.append(

@@ -11,6 +11,10 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private static _elementCreator?;
     static initAttributes?: Record<string, any>;
     static formAssociated?: boolean;
+    static preferredTagName?: string;
+    static shadowStyleSpec?: XinStyleSheet;
+    static lightStyleSpec?: XinStyleSheet;
+    static extends?: string;
     internals?: ElementInternals;
     get validity(): ValidityState | undefined;
     get validationMessage(): string;
@@ -97,6 +101,7 @@ interface SlotParts extends PartsMap {
     slotty: HTMLSlotElement;
 }
 declare class XinSlot extends Component<SlotParts> {
+    static preferredTagName: string;
     static initAttributes: {
         name: string;
     };

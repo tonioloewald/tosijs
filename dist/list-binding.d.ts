@@ -3,8 +3,9 @@ import { XinObject, ListBindingOptions } from './xin-types';
 import { Listener } from './path-listener';
 export declare class ListBinding {
     boundElement: Element;
-    listTop: HTMLElement;
-    listBottom: HTMLElement;
+    listTop: HTMLElement | null;
+    listBottom: HTMLElement | null;
+    isNamespaced: boolean;
     template: Element;
     options: ListBindingOptions;
     itemToElement: WeakMap<XinObject, Element>;

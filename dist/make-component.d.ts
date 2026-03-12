@@ -27,6 +27,8 @@ export interface XinFactory {
 }
 export interface XinComponentSpec<T = PartsMap> {
     type: Component<T>;
+    lightStyleSpec?: XinStyleSheet;
+    /** @deprecated Use lightStyleSpec instead */
     styleSpec?: XinStyleSheet;
 }
 export interface XinPackagedComponent<T = PartsMap> {

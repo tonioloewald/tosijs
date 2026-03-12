@@ -206,6 +206,7 @@ describe('validateAgainstConstraints', () => {
 
 describe('Component validation methods with mocked internals', () => {
   class ValidatedComponent extends Component {
+    static preferredTagName = 'validated-component'
     static formAssociated = true
     value = ''
     content = null
@@ -214,9 +215,7 @@ describe('Component validation methods with mocked internals', () => {
   let validatedComponent: ReturnType<typeof ValidatedComponent.elementCreator>
 
   beforeAll(() => {
-    validatedComponent = ValidatedComponent.elementCreator({
-      tag: 'validated-component',
-    })
+    validatedComponent = ValidatedComponent.elementCreator()
   })
 
   test('checkValidity delegates to internals', () => {

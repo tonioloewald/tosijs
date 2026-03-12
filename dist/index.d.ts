@@ -11,6 +11,8 @@ export type { ElementsProxy } from './elements-types';
 export { getCssVar } from './get-css-var';
 export { hotReload } from './hot-reload';
 export { share } from './share';
+export { sync } from './sync';
+export type { SyncTransport, SyncMessage, SyncOptions } from './sync';
 export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, scrollListItemIntoView, } from './list-binding';
 export { makeComponent } from './make-component';

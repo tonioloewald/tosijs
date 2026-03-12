@@ -205,6 +205,107 @@ just like other element factory functions.
 `svgElements` is a proxy just like `elements` but it produces **SVG** elements in
 the appropriate namespace.
 
+```js
+import { svgElements, tosi, xin } from 'tosijs'
+
+const { svg, g, path, circle, polygon } = svgElements
+
+// --- radar background ---
+const outerRing = 'M128,8 C194.274,8,248,61.7258,248,128 C248,194.274,194.274,248,128,248 C61.7258,248,8.00001,194.274,8.00001,128 C8.00001,61.7258,61.7258,8,128,8 z'
+const vLine = 'M128,53 C128,53,128,203,128,203'
+const hRight = 'M203,128 C203,128,143,128,143,128'
+const hLeft = 'M113,128 C113,128,53,128,53,128'
+const guide = 'fill:#00a79e;fill-opacity:0.127;fill-rule:evenodd;stroke:#00a79e;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-width:4;'
+const axis = guide + 'stroke-opacity:0.24;'
+
+// --- two separate arrays: friendlies and hostiles ---
+let nextId = 0
+const RANGE = 115
+
+function spawnFriendly() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.6 + Math.random() * 0.8)
+  const speed = 0.2 + Math.random() * 0.3
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 105, y: 128 + Math.sin(angle) * 105,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+function spawnHostile() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.7 + Math.random() * 0.6)
+  const speed = 0.5 + Math.random() * 0.6
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 110, y: 128 + Math.sin(angle) * 110,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+const { friendlies, hostiles } = tosi({
+  friendlies: Array.from({ length: 6 }, spawnFriendly),
+  hostiles: Array.from({ length: 4 }, spawnHostile),
+})
+
+// custom binding: position a <g> from its list item's x,y
+const position = (el, item) => {
+  if (item) el.setAttribute('transform', `translate(${item.x},${item.y})`)
+}
+
+// --- list-bound blip layers (one per array, no filter needed) ---
+const friendlyLayer = g(
+  g(
+    circle({ r: '5', fill: 'none', stroke: '#8cc63f', 'stroke-width': '1' }),
+    { bind: { value: '^', binding: position } }
+  ),
+  { bindList: { value: friendlies, idPath: 'id' } }
+)
+const hostileLayer = g(
+  g(
+    polygon({ points: '0,-6 5.2,3 -5.2,3', fill: 'none', stroke: '#ff1d25', 'stroke-width': '1.5', 'stroke-linejoin': 'round' }),
+    { bind: { value: '^', binding: position } }
+  ),
+  { bindList: { value: hostiles, idPath: 'id' } }
+)
+
+preview.append(
+  svg(
+    { width: '256', height: '256', viewBox: '0 0 256 256' },
+    g(
+      path({ style: guide + 'stroke-opacity:0.5;', d: outerRing }),
+      path({ style: axis, d: vLine }),
+      path({ style: axis, d: hRight }),
+      path({ style: axis, d: hLeft }),
+    ),
+    friendlyLayer,
+    hostileLayer,
+  )
+)
+
+// animate: advance, cull out-of-range, spawn new
+function tick(arr) {
+  const kept = []
+  for (const b of arr) {
+    const nx = b.x + b.dx, ny = b.y + b.dy
+    if (Math.sqrt((nx - 128) ** 2 + (ny - 128) ** 2) < RANGE) {
+      kept.push({ ...b, x: nx, y: ny })
+    }
+  }
+  return kept
+}
+setInterval(() => {
+  const f = tick(xin.friendlies)
+  if (Math.random() < 0.06) f.push(spawnFriendly())
+  xin.friendlies = f
+
+  const h = tick(xin.hostiles)
+  if (Math.random() < 0.04) h.push(spawnHostile())
+  xin.hostiles = h
+}, 50)
+```
+
 ## mathML
 
 `mathML` is a proxy just like `elements` but it products **MathML** elements in

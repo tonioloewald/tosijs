@@ -18,7 +18,8 @@ export type XinBlueprint<T = PartsMap> = (
 
 export interface XinComponentSpec<T = PartsMap> {
   type: Component<T>
-  styleSpec?: XinStyleSheet
+  lightStyleSpec?: XinStyleSheet
+  styleSpec?: XinStyleSheet // deprecated, use lightStyleSpec
 }
 ```
 
@@ -58,6 +59,8 @@ export interface XinFactory {
 
 export interface XinComponentSpec<T = PartsMap> {
   type: Component<T>
+  lightStyleSpec?: XinStyleSheet
+  /** @deprecated Use lightStyleSpec instead */
   styleSpec?: XinStyleSheet
 }
 
@@ -77,7 +80,7 @@ export async function makeComponent<T = PartsMap>(
   tag: string,
   blueprint: XinBlueprint<T>
 ): Promise<XinPackagedComponent<T>> {
-  const { type, styleSpec } = (await blueprint(tag, {
+  const spec = (await blueprint(tag, {
     Color,
     Component,
     elements,
@@ -95,9 +98,16 @@ export async function makeComponent<T = PartsMap>(
     on,
     version,
   })) as XinComponentSpec<T>
+  const { type } = spec
+  // Set static properties from blueprint spec before calling elementCreator
+  ;(type as any).preferredTagName = tag
+  const lightStyle = spec.lightStyleSpec ?? spec.styleSpec
+  if (lightStyle) {
+    (type as any).lightStyleSpec = lightStyle
+  }
   const packagedComponent = {
     type,
-    creator: type.elementCreator({ tag, styleSpec }),
+    creator: type.elementCreator(),
   }
 
   madeComponents[tag] = packagedComponent
