@@ -10,6 +10,7 @@ export declare const XIN_BIND = "xinBind";
 export declare const XIN_ON = "xinOn";
 export declare const LIST_BINDING_REF: unique symbol;
 export declare const LIST_INSTANCE_REF: unique symbol;
+export declare const LIST_TEMPLATE: WeakSet<Element>;
 /**
  * Register an idPath for an array path. Called by ListBinding when a list
  * binding with an idPath is created.

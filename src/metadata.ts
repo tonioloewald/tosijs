@@ -54,6 +54,7 @@ export const XIN_ON = 'xinOn'
 
 export const LIST_BINDING_REF = Symbol('list-binding')
 export const LIST_INSTANCE_REF = Symbol('list-instance')
+export const LIST_TEMPLATE = new WeakSet<Element>()
 
 /**
  * Registry mapping array paths to their registered idPaths.

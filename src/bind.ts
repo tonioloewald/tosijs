@@ -238,6 +238,7 @@ import {
   XinEventBindings,
   XIN_PATH,
   XIN_VALUE,
+  LIST_TEMPLATE,
 } from './metadata'
 import {
   XinObject,
@@ -263,6 +264,9 @@ export const touchElement = (element: Element, changedPath?: string): void => {
     const { toDOM } = binding
     if (toDOM != null) {
       if (path.startsWith('^')) {
+        // Skip unresolved relative bindings on list templates —
+        // they'll be resolved when cloned into a list instance
+        if (LIST_TEMPLATE.has(element)) return
         const dataSource = getListItem(element)
         if (dataSource != null && (dataSource as XinProps)[XIN_PATH] != null) {
           path = dataBinding.path = `${

@@ -801,6 +801,7 @@ import {
   tosiPath,
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
+  LIST_TEMPLATE,
   registerArrayIdPath,
 } from './metadata'
 import { XinObject, ListBindingOptions } from './xin-types'
@@ -893,6 +894,7 @@ export class ListBinding {
       this.template = boundElement.children[0] as HTMLElement
       this.template.remove()
     }
+    LIST_TEMPLATE.add(this.template)
     this.options = options
     const ns = boundElement.namespaceURI
     this.isNamespaced =
