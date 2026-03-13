@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
-import { elements } from './elements'
+import { elements, svgElements } from './elements'
 import { updates } from './path-listener'
 import { on, bind, touchElement } from './bind'
 import { bindings } from './bindings'
@@ -150,6 +150,49 @@ test('touchElement handles unbound elements gracefully', () => {
   const div = elements.div()
   // Should not throw
   expect(() => touchElement(div)).not.toThrow()
+})
+
+test('touchElement skips unresolved ^ binding on HTML element with warning', () => {
+  const div = elements.div()
+  bind(div, '^.name', {
+    toDOM(el, value) {
+      el.textContent = value
+    },
+  })
+
+  const warnings: any[][] = []
+  const origWarn = console.warn
+  console.warn = (...args: any[]) => warnings.push(args)
+  try {
+    // Should not throw — just warn and skip
+    expect(() => touchElement(div)).not.toThrow()
+    expect(warnings.length).toBe(1)
+    expect(warnings[0][0]).toContain('Unresolved relative binding')
+    expect(warnings[0][2]).toContain('<template>')
+  } finally {
+    console.warn = origWarn
+  }
+})
+
+test('touchElement silently skips unresolved ^ binding on SVG element', () => {
+  const { g } = svgElements
+  const gEl = g()
+  bind(gEl, '^.x', {
+    toDOM(el, value) {
+      el.setAttribute('transform', `translate(${value}, 0)`)
+    },
+  })
+
+  const warnings: any[][] = []
+  const origWarn = console.warn
+  console.warn = (...args: any[]) => warnings.push(args)
+  try {
+    // Should not throw and should not warn
+    expect(() => touchElement(gEl)).not.toThrow()
+    expect(warnings.length).toBe(0)
+  } finally {
+    console.warn = origWarn
+  }
 })
 
 test('on() registers multiple handlers for same event type', async () => {

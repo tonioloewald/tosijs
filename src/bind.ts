@@ -238,7 +238,6 @@ import {
   XinEventBindings,
   XIN_PATH,
   XIN_VALUE,
-  LIST_TEMPLATE,
 } from './metadata'
 import {
   XinObject,
@@ -264,21 +263,20 @@ export const touchElement = (element: Element, changedPath?: string): void => {
     const { toDOM } = binding
     if (toDOM != null) {
       if (path.startsWith('^')) {
-        // Skip unresolved relative bindings on list templates —
-        // they'll be resolved when cloned into a list instance
-        if (LIST_TEMPLATE.has(element)) return
         const dataSource = getListItem(element)
         if (dataSource != null && (dataSource as XinProps)[XIN_PATH] != null) {
           path = dataBinding.path = `${
             (dataSource as XinProps)[XIN_PATH]
           }${path.substring(1)}`
         } else {
-          console.error(
-            `Cannot resolve relative binding ${path}`,
-            element,
-            'is not part of a list'
-          )
-          throw new Error(`Cannot resolve relative binding ${path}`)
+          if (element instanceof HTMLElement) {
+            console.warn(
+              `Unresolved relative binding "${path}" —`,
+              element,
+              'is not part of a list. If this is a list template, wrap it in a <template>.'
+            )
+          }
+          continue
         }
       }
       if (changedPath == null || path.startsWith(changedPath)) {

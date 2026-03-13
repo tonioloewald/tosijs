@@ -787,6 +787,31 @@ This is ideal for:
 **Important**: The list element should not be inside a separately scrollable container
 when using window scroll. The element can be positioned anywhere on the page - the
 virtualization will correctly account for content above the list.
+
+## Templates and Namespaced Elements
+
+List bindings use a **template** — the first child of the bound container — to stamp out
+repeated items. The template can be either:
+
+- A `<template>` element (recommended for HTML lists). Its content is inert and won't
+  trigger premature bindings.
+- A **naked element** (the first child is used directly and removed from the DOM).
+  This is necessary for **SVG** and **MathML** containers, since `<template>` is an
+  HTML element and invalid inside namespaced contexts.
+
+### Relative bindings on templates
+
+Bindings that start with `^` (relative to the list item) cannot resolve until the
+template is cloned into a list instance. If `touchElement` encounters an unresolved
+`^` binding:
+
+- **HTML elements**: a `console.warn` is emitted suggesting you wrap the template in
+  a `<template>` element (which keeps its content inert and avoids the issue).
+- **Non-HTML elements** (SVG, MathML, etc.): the binding is silently skipped, since
+  `<template>` is not available in these namespaces and naked templates are the only option.
+
+In both cases, the `^` binding resolves correctly once the cloned element is placed
+in a list instance.
 */
 import { settings } from './settings'
 import { resizeObserver } from './dom'
@@ -801,7 +826,6 @@ import {
   tosiPath,
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
-  LIST_TEMPLATE,
   registerArrayIdPath,
 } from './metadata'
 import { XinObject, ListBindingOptions } from './xin-types'
@@ -894,7 +918,6 @@ export class ListBinding {
       this.template = boundElement.children[0] as HTMLElement
       this.template.remove()
     }
-    LIST_TEMPLATE.add(this.template)
     this.options = options
     const ns = boundElement.namespaceURI
     this.isNamespaced =
