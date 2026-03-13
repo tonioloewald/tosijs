@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
-import { elements, svgElements } from './elements'
+import { elements, svgElements, bindParts } from './elements'
 import { updates } from './path-listener'
 import { on, bind, touchElement } from './bind'
 import { bindings } from './bindings'
@@ -277,4 +277,117 @@ test('fromDOM handles existing values correctly', async () => {
   input.value = 'changed'
   input.dispatchEvent(new Event('change'))
   expect(fromDomTest.value.valueOf()).toBe('changed')
+})
+
+test('bindParts applies ElementProps to elements with data-part', async () => {
+  const { partsTest } = tosi({
+    partsTest: { title: 'hello parts' },
+  })
+
+  const root = elements.div()
+  root.innerHTML =
+    '<h2 data-part="heading"></h2><input data-part="input"><span data-part="unmapped"></span>'
+  document.body.append(root)
+
+  bindParts(root, {
+    heading: { bindText: partsTest.title },
+    input: { bindValue: partsTest.title },
+  })
+
+  await updates()
+  const h2 = root.querySelector('h2')!
+  const input = root.querySelector('input')!
+  expect(h2.textContent).toBe('hello parts')
+  expect(input.value).toBe('hello parts')
+
+  // unmapped element should be untouched
+  const span = root.querySelector('span')!
+  expect(span.textContent).toBe('')
+
+  // state changes propagate to bound elements
+  partsTest.title = 'updated'
+  await updates()
+  expect(h2.textContent).toBe('updated')
+  expect(input.value).toBe('updated')
+})
+
+test('bindParts does not double-bind elements', () => {
+  const root = elements.div()
+  root.innerHTML = '<button data-part="btn">click</button>'
+  document.body.append(root)
+
+  let clickCount = 0
+  const map = {
+    btn: {
+      onClick: () => {
+        clickCount++
+      },
+    },
+  }
+
+  bindParts(root, map)
+  bindParts(root, map) // second call should be a no-op
+
+  root.querySelector('button')!.click()
+  expect(clickCount).toBe(1)
+})
+
+test('bindParts supports custom data attribute', async () => {
+  const { customAttrTest } = tosi({
+    customAttrTest: { label: 'custom' },
+  })
+
+  const root = elements.div()
+  root.innerHTML = '<span data-role="info"></span>'
+  document.body.append(root)
+
+  bindParts(
+    root,
+    {
+      info: { bindText: customAttrTest.label },
+    },
+    'role'
+  )
+
+  await updates()
+  expect(root.querySelector('span')!.textContent).toBe('custom')
+})
+
+test('bindParts works on SVG elements', async () => {
+  const { svgPartsTest } = tosi({
+    svgPartsTest: { x: 10, y: 20, label: 'point' },
+  })
+
+  const { svg, circle, text } = svgElements
+  const root = svg({ viewBox: '0 0 100 100' })
+  // Build SVG DOM with data-part attributes
+  const c = circle({ 'data-part': 'dot', r: '5' })
+  const t = text({ 'data-part': 'label' })
+  root.append(c, t)
+  document.body.append(root)
+
+  bindParts(root, {
+    dot: {
+      bind: {
+        value: svgPartsTest.x,
+        binding: {
+          toDOM(el: Element, value: any) {
+            el.setAttribute('cx', String(value))
+          },
+        },
+      },
+    },
+    label: { bindText: svgPartsTest.label },
+  })
+
+  await updates()
+  expect(c.getAttribute('cx')).toBe('10')
+  expect(t.textContent).toBe('point')
+
+  // state changes propagate
+  svgPartsTest.x = 50
+  svgPartsTest.label = 'moved'
+  await updates()
+  expect(c.getAttribute('cx')).toBe('50')
+  expect(t.textContent).toBe('moved')
 })

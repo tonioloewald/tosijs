@@ -6,7 +6,7 @@ export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types';
 export { Color } from './color';
 export { Component } from './component';
 export { validateAgainstConstraints, type FormValidation, } from './form-validation';
-export { elements, svgElements, mathML } from './elements';
+export { elements, svgElements, mathML, bindParts } from './elements';
 export type { ElementsProxy } from './elements-types';
 export { getCssVar } from './get-css-var';
 export { hotReload } from './hot-reload';

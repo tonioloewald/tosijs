@@ -71,7 +71,7 @@ State (xin) ──────────────────────�
 - `registry.ts` - Central state object; breaks circular dependency between `xin.ts` and `bind.ts`
 - `path-listener.ts` - Observer implementation (`touch()`, `observe()`, `unobserve()`, `updates()`)
 - `metadata.ts` - Proxy helpers (`tosiPath()`, `tosiValue()`), binding metadata storage
-- `elements.ts` - Element factory functions (`div()`, `span()`, etc.)
+- `elements.ts` - Element factory functions (`div()`, `span()`, etc.), `bindParts()` for applying ElementProps to existing DOM via data attributes
 - `bind.ts` - Data binding connecting state to DOM
 - `list-binding.ts` - Array/list bindings with virtual scrolling and surgical updates
 - `component.ts` - Base class for web components

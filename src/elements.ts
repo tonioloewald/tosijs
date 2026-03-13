@@ -324,6 +324,48 @@ the appropriate namespace.
 > setting the attribute works.
 >
 > Again, use with caution!
+
+## `bindParts()`
+
+```
+bindParts(
+  root: Element,
+  bindingMap: Record<string, ElementProps>,
+  dataAttribute?: string  // default: 'part'
+): void
+```
+
+`bindParts()` applies `ElementProps` to elements inside `root` that are identified
+by a `data-` attribute. This lets you take an existing chunk of DOM — from `innerHTML`,
+a CMS, a server-rendered page, or an HTML `<template>` — and wire up bindings,
+event handlers, and properties without having to build the DOM programmatically.
+
+    const root = document.querySelector('.my-widget')
+    root.innerHTML = `
+      <h2 data-part="title"></h2>
+      <input data-part="search">
+      <button data-part="submit">Go</button>
+    `
+
+    bindParts(root, {
+      title:  { bindText: app.title },
+      search: { bindValue: app.query },
+      submit: { onClick: () => performSearch() },
+    })
+
+Each key in `bindingMap` is matched against the value of `data-part` (or whatever
+`dataAttribute` you specify). Matching elements receive the full `ElementProps`
+treatment — the same logic used by element creators — so `bind`, `bindText`,
+`on*` handlers, `style`, `class`, `apply`, and proxy values all work.
+
+Elements are tracked via a `WeakSet` so calling `bindParts()` again on the same
+root is safe — already-bound elements are skipped.
+
+### Custom data attribute
+
+Pass a third argument to use a different attribute name:
+
+    bindParts(root, map, 'role')  // matches data-role="..."
 */
 
 import { bind, on } from './bind'
@@ -426,7 +468,7 @@ const elementPropBinding = (key: string): XinBinding => {
   return propBindingCache[key]
 }
 
-const elementSet = (elt: HTMLElement, key: string, value: any) => {
+export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   if (key === 'apply') {
     value(elt)
   } else if (key.match(/^on[A-Z]/) != null) {
@@ -570,3 +612,24 @@ export const mathML = new Proxy(
     },
   }
 ) as unknown as MathMLElementsProxy
+
+const boundParts = new WeakSet<Element>()
+
+export function bindParts(
+  root: Element,
+  bindingMap: Record<string, ElementProps>,
+  dataAttribute = 'part'
+): void {
+  const selector = `[data-${dataAttribute}]`
+  for (const el of Array.from(root.querySelectorAll(selector))) {
+    if (boundParts.has(el)) continue
+    const key = el.getAttribute(`data-${dataAttribute}`)
+    if (key == null) continue
+    const props = bindingMap[key]
+    if (props == null) continue
+    boundParts.add(el)
+    for (const k of Object.keys(props)) {
+      elementSet(el as HTMLElement, k, (props as any)[k])
+    }
+  }
+}
