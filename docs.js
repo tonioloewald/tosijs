@@ -46,8 +46,10 @@ function findMarkdownFiles(dirs, ignore) {
       const stats = fs.statSync(filePath, ignore)
 
       if (stats.isDirectory()) {
-        traverseDirectory(filePath, ignore)
-      } else if (path.extname(file) === '.md') {
+        if (!file.startsWith('.')) {
+          traverseDirectory(filePath, ignore)
+        }
+      } else if (path.extname(file) === '.md' && !ignore.includes(file)) {
         const content = fs.readFileSync(filePath, 'utf8')
         markdownFiles.push({
           text: content,
@@ -87,7 +89,7 @@ function saveAsJSON(data, outputFilePath) {
   fs.writeFileSync(outputFilePath, jsonData, 'utf8')
 }
 
-const ignore = ['node_modules', 'third-party', 'dist', 'www', 'docs']
+const ignore = ['node_modules', 'third-party', 'dist', 'www', 'docs', 'AGENTS.md', 'CLAUDE.md', 'TODO.md']
 
 // Specify the directories to search for markdown files
 const directoriesToSearch = ['.']
