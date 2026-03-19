@@ -110,7 +110,8 @@ If you want to build a web-application that's performant, robust, and maintainab
 
 - build user-interfaces with pure javascript/typescript—no JSX, complex tooling, or spooky action-at-a-distance
 - manage application state almost effortlessly—eliminate most binding code
-- written in Typescript, Javascript-friendly
+- bind application state to the UI and services without locking yourself into a specific framework
+- work in Typescript or Javascript
 - use web-components, build your own web-components quickly and easily
 - manage CSS efficiently and flexibly using CSS variables and Color computations
 - leverage existing business logic and libraries without complex wrappers
@@ -136,7 +137,7 @@ const { h4, ul, template, li, label, input } = elements
 preview.append(
   h4('To Do List'),
   ul(
-    ...readmeTodoDemo.list.tosiListBinding(
+    ...readmeTodoDemo.list.listBinding(
       ({ li, button }, item) =>
         li(
           item.reminder,
@@ -174,7 +175,7 @@ and simplicity as you get with highly-refined React-centric toolchains, but with
 domain-specific-languages, or other tricks that provide "convenience" at the cost of becoming locked-in
 to React, a specific state-management system (which permeates your business logic), and usually a specific UI framework.
 
-\`tosijs\` lets you work with pure HTML and web-component as cleanly—more cleanly—and efficiently than
+\`tosijs\` lets you work with pure HTML and web-components as cleanly—more cleanly—and efficiently than
 React toolchains let you work with JSX.
 
     export default function App() {
@@ -196,7 +197,7 @@ Becomes:
     )
 
 Except this reusable component outputs native DOM nodes. No transpilation, spooky magic at a distance,
-or virtual DOM required. And it all works just as well with web-components. This is you get when
+or virtual DOM required. And it all works just as well with web-components. This is what you get when
 you run App() in the console:
 
     ▼ <div class="App">
@@ -222,13 +223,13 @@ more compactly than with \`jsx\` (and without a virtual DOM).
 
     import { Component, elements, css } from 'tosijs'
 
-    const { style, h1, slot } = elements
+    const { h1, slot } = elements
     export class MyComponent extends Component {
-      styleNode = style(css({
+      static shadowStyleSpec = css({
         h1: {
           color: 'blue'
         }
-      }))
+      })
       content = [ h1('hello world'), slot() ]
     }
 
@@ -243,9 +244,9 @@ and are natively supported by all modern browsers.
 \`tosijs\` tracks the state of objects you assign to it using \`paths\` allowing economical
 and direct updates to application state.
 
-    import { xinProxy, observe } from 'tosijs'
+    import { tosi, observe } from 'tosijs'
 
-    const { app } = xinProxy({
+    const { app } = tosi({
       app: {
         prefs: {
           darkmode: false
@@ -261,29 +262,28 @@ and direct updates to application state.
     })
 
     observe('app.prefs.darkmode', () => {
-      document.body.classList.toggle('dark-mode', app.prefs.darkmode)
+      document.body.classList.toggle('dark-mode', app.prefs.darkmode.value)
     })
 
     observe('app.docs', () => {
       // render docs
     })
 
-> #### What does \`xinProxy\` do, and what is a \`XinProxy\`?
+> #### What does \`tosi\` do, and what is a \`BoxedProxy\`?
 >
-> \`xinProxy\` is syntax sugar for assigning something to \`xin\` (which is a \`XinProxyObject\`)
-> and then getting it back out again.
+> \`tosi\` is syntax sugar for assigning something to \`xin\` (which is a proxy over
+> the central registry) and then getting it back out as a \`BoxedProxy\`.
 >
-> A \`XinProxy\` is an [ES Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+> A \`BoxedProxy\` is an [ES Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
 > wrapped around an \`object\` (which in Javascript means anything
 > that has a \`constructor\` which in particular includes \`Array\`s, \`class\` instances, \`function\`s
 > and so on, but not "scalars" like \`number\`s, \`string\`s, \`boolean\`s, \`null\`, and \`undefined\`)
 >
-> All you need to know about a \`XinProxy\` is that it's Proxy wrapped around your original
+> All you need to know about a \`BoxedProxy\` is that it's a Proxy wrapped around your original
 > object that allows you to interact with the object normally, but which allows \`tosijs\` to
 > **observe** changes made to the wrapped object and tell interested parties about the changes.
 >
-> If you want to original object back you can just hold on to a reference or use \`xinValue(someProxy)\`
-> to unwrap it.
+> If you want the original object back you can use \`.value\` on any proxy to unwrap it.
 
 ### No Tax, No Packaging
 
@@ -291,17 +291,17 @@ and direct updates to application state.
 with a \`Proxy\` and then if you use \`xin\` to make changes to those objects,
 \`tosijs\` will notify any interested observers.
 
-**Note** \`xinProxy({foo: {...}})\` is syntax sugar for \`xin.foo = {...}\`.
+**Note** \`tosi({foo: {...}})\` is syntax sugar for \`xin.foo = {...}\`.
 
-    import { xinProxy, observe } from 'tosijs'
-    const { foo } = xinProxy({
+    import { tosi, observe } from 'tosijs'
+    const { foo } = tosi({
       foo: {
         bar: 17
       }
     })
 
-    observe('foo.bar', v => {
-      console.log('foo.bar was changed to', xin.foo.bar)
+    observe('foo.bar', (path) => {
+      console.log('foo.bar was changed to', foo.bar.value)
     })
 
     foo.bar = 17        // does not trigger the observer
@@ -312,13 +312,13 @@ with a \`Proxy\` and then if you use \`xin\` to make changes to those objects,
 \`xin\` is designed to behave just like a JavaScript \`Object\`. What you put
 into it is what you get out of it:
 
-    import { xin, xinValue } from 'tosijs'
+    import { xin } from 'tosijs'
 
     const foo = {bar: 'baz'}
     xin.foo = foo
 
-    // xin.foo returns a Proxy wrapped around foo (without touching foo)
-    xinValue(xin.foo) === foo
+    // xin.foo returns the value directly
+    xin.foo.bar === 'baz'
 
     // really, it's just the original object
     xin.foo.bar = 'lurman'
@@ -333,9 +333,9 @@ into it is what you get out of it:
 It's very common to deal with arrays of objects that have unique id values,
 so \`tosijs\` supports the idea of id-paths
 
-    import { xinProxy, xin } from 'tosijs
+    import { tosi, xin } from 'tosijs'
 
-    const { app } = xinProxy ({
+    const { app } = tosi({
       app: {
         list: [
           {
@@ -352,7 +352,7 @@ so \`tosijs\` supports the idea of id-paths
 
     console.log(app.list[0].text)              // hello world
     console.log(app.list['id=5678efgh'])       // so long, redux
-    console.log(xin['app.list[id=1234abcd'])   // hello world
+    console.log(xin['app.list[id=1234abcd]'])  // hello world
 
 ### Telling \`xin\` about changes using \`touch()\`
 
@@ -363,7 +363,7 @@ When you want to trigger updates, simply touch the path.
 
     const foo = { bar: 17 }
     xin.foo = foo
-    observe('foo.bar', path => console.log(path, '->', xin[path])
+    observe('foo.bar', (path) => console.log(path, '->', xin[path]))
     xin.foo.bar = -2              // console will show: foo.bar -> -2
 
     foo.bar = 100                 // nothing happens
@@ -402,37 +402,35 @@ elements are reused (no teardown/recreation).
 
 \`tosijs\` includes utilities for working with css.
 
-    import {css, vars, initVars, darkMode} from 'tosijs'
-    const cssVars = {
-      textFont: 'sans-serif'
-      color: '#111'
-    }
+    import { css, vars } from 'tosijs'
 
-\`initVars()\` processes an object changing its keys from camelCase to --kabob-case:
-
-    initVars(cssVars) // emits { --text-font: "sans-serif", --color: "#111" }
-
-\`darkMode()\` processes an object, taking only the color properties and inverting their luminance values:
-darkMode(cssVars) // emits { color: '#ededed' }
-
-The \`vars\` simply converts its camelCase properties into css variable references
+The \`vars\` proxy converts camelCase properties into css variable references:
 
     vars.fooBar // emits 'var(--foo-bar)'
-    calc(\`\${vars.width} + 2 * \${vars.spacing}\`) // emits 'calc(var(--width) + 2 * var(--spacing))'
+    \`calc(\${vars.width} + 2 * \${vars.spacing})\` // emits 'calc(var(--width) + 2 * var(--spacing))'
 
-\`css()\` processes an object, rendering it as CSS
+\`css()\` processes an object, rendering it as CSS:
 
     css({
       '.container': {
-        'position', 'relative'
+        position: 'relative'
       }
     }) // emits .container { position: relative; }
+
+CSS variables can be declared using \`_\` and \`__\` prefixes in \`css()\` objects:
+
+    css({
+      ':root': {
+        _textFont: 'sans-serif',   // emits --text-font: sans-serif
+        _color: '#111',            // emits --color: #111
+      }
+    })
 
 ## Color
 
 \`tosijs\` includes a powerful \`Color\` class for manipulating colors.
 
-    import {Color} from 'tosijs
+    import { Color } from 'tosijs'
     const translucentBlue = new Color(0, 0, 255, 0.5) // r, g, b, a parameters
     const postItBackground = Color.fromCss('#e7e79d')
     const darkGrey = Color.fromHsl(0, 0, 0.2)
@@ -440,13 +438,15 @@ The \`vars\` simply converts its camelCase properties into css variable referenc
 The color objects have computed properties for rendering the color in different ways,
 making adjustments, blending colors, and so forth.
 
+Use \`invertLuminance()\` to generate dark-mode equivalents of color values.
+
 ## Hot Reload
 
 One of the nice things about working with the React toolchain is hot reloading.
 \`tosijs\` supports hot reloading (and not just in development!) via the \`hotReload()\`
 function:
 
-    import {xin, hotReload} from 'tosijs'
+    import { xin, hotReload } from 'tosijs'
 
     xin.app = {
       ...
@@ -463,42 +463,20 @@ Only top-level properties in \`xin\` that pass the test will be persisted.
 
 To completely reset the app, run \`localStorage.clear()\` in the console.
 
-### Types
-
-\`tosijs\` [type-by-example](https://www.npmjs.com/package/type-by-example) has been
-broken out into a separate standalone library. (Naturally it works very well with
-tosijs but they are completely independent.)
-
 ## Development Notes
 
-You'll need to install [bun](https://bun.sh/) and [nodejs](https://nodejs.org)),
-and then run \`npm install\` and \`bun install\`. \`bun\` is used because it's
-**fast** and is a really nice test-runner.
+You'll need to install [bun](https://bun.sh/) and then run \`bun install\`.
 
-To work interactively on the demo code, use \`bun start\`. This runs the demo
-site on localhost.
-
-To build everything run \`bun run make\` which builds production versions of the
-demo site (in \`www\`) and the \`dist\` and \`cdn\` directories.
-
-To create a local package (for experimenting with a build) run \`bun pack\`.
-
-### Parcel Occasionally Gets Screwed Up
-
-- remove all the parcel transformer dependencies @parcel/\\*
-- rm -rf node_modules
-- run the update script
-- npx parcel build (which restores needed parcel transformers)
+    bun start                  # dev server with hot reload (https://localhost:8018)
+    bun test                   # run all tests
+    bun run dev.ts --build     # production build (runs tests, then bundles)
+    bun run format             # lint and format (ESLint + Prettier)
+    bun pack                   # create local package tarball
 
 ## Related Libraries
 
-- react-tosijs [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme)
-  allows you to use xin's path-observer model in React [ReactJS](https://reactjs.org) apps
-- type-by-example [github](https://github.com/tonioloewald/type-by-example) | [npm](https://www.npmjs.com/package/type-by-example)
-  is a library for declaring types in pure javascript, allowing run-time type-checking.
-- filter-shapes [github](https://github.com/tonioloewald/filter-shapes) | [npm](https://www.npmjs.com/package/filter-shapes)
-  is a library for filtering objects (and arrays of objects) to specific shapes (e.g. to reduce storage / bandwidth costs).
-  It is built on top of type-by-example.
+- [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme)
+  allows you to use tosijs's path-observer model in [React](https://reactjs.org) apps
 
 ## Credits
 
@@ -5004,5 +4982,5 @@ Bun WebSocket relay server.
 The returned \`disconnect()\` removes all observers and calls
 \`transport.disconnect()\`.`,title:"A.5 sync",filename:"sync.ts",path:"src/sync.ts"},{text:'# Migrating from `xinjs` to `tosijs`\n\n<!--{ "pin": "bottom" }-->\n\nIn a nutshell:\n\n1. Update to `xinjs` (and `xinjs-ui`) 1.0.6\n2. Fix any issues\n3. Replace all references to "xinjs" with "tosijs"\n\n`xinjs` and `tosijs` 1.0.6 should be identical (likewise `xinjs-ui` and `tosijs-ui`), so the only thing you need to change\nshould be the module names.\n\n> Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.\n',title:"Migrating from xinjs to tosijs",filename:"Migration.md",path:"Migration.md",pin:"bottom"}];hi();var vn="tosijs";setTimeout(()=>{let n=y.fromVar(d.brandColor),e=y.fromVar(d.background);console.log(`welcome to %c${vn}`,`background: ${n.html}; color: ${e.html}; padding: 0 5px;`)},100);var tc=document.location.search!==""?document.location.search.substring(1).split("&")[0]:"README.md",ac=it.find((n)=>n.filename===tc)||it[0],pi=fe(),{app:O,prefs:A}=_({app:{title:vn,blogUrl:"https://loewald.com",discordUrl:"https://discord.com/invite/ramJ9rgky5",githubUrl:`https://github.com/tonioloewald/${vn}#readme`,npmUrl:`https://www.npmjs.com/package/${vn}`,tosijsuiUrl:"https://ui.tosijs.net",bundleBadgeUrl:`https://deno.bundlejs.com/?q=${vn}&badge=`,bundleUrl:`https://bundlejs.com/?q=${vn}`,cdnBadgeUrl:`https://data.jsdelivr.com/v1/package/npm/${vn}/badge`,cdnUrl:`https://www.jsdelivr.com/package/npm/${vn}`,optimizeLottie:!1,lottieFilename:"",lottieData:"",docs:it,currentDoc:ac,compact:!1},prefs:{colorScheme:pi.colorScheme,highContrast:pi.highContrast,locale:""}});_t((n)=>{if(n.startsWith("prefs"))return!0;return!1});an.docLink={toDOM(n,e){n.setAttribute("href",`?${e}`)}};an.current={toDOM(n,e){let t=n.getAttribute("href")||"";n.classList.toggle("current",e===t.substring(1))}};setTimeout(()=>{Object.assign(globalThis,{app:O,tosi:_,img:lt,bindings:an,elements:m,vars:d,touch:F,Color:y})},1000);var ui=document.querySelector("main"),{h2:oc,div:mi,span:xe,a:rt,img:lt,header:sc,button:bi,template:ic,input:rc}=m;A.colorScheme.observe(()=>{Ma({colorScheme:A.colorScheme.value})});A.highContrast.observe(()=>{Ma({highContrast:A.highContrast.value})});window.addEventListener("popstate",()=>{let n=window.location.search.substring(1);O.currentDoc=O.docs.find((e)=>e.filename===n)||O.docs[0]});var lc=se(()=>{console.time("filter");let n=gi.value.toLocaleLowerCase();O.docs.forEach((e)=>{e.hidden=!e.title.toLocaleLowerCase().includes(n)&&!e.text.toLocaleLowerCase().includes(n)}),F(O.docs),console.timeEnd("filter")}),gi=rc({slot:"nav",placeholder:"search",type:"search",style:{width:"calc(100% - 10px)",margin:"5px"},onInput:lc});if(ui)ui.append(sc(bi({class:"iconic",style:{color:d.linkColor},title:"navigation",bind:{value:O.compact,binding:{toDOM(n,e){n.style.display=e?"":"none",n.nextSibling.style.display=e?"":"none"}}},onClick(){let n=document.querySelector(Ln.tagName);n.contentVisible=!n.contentVisible}},v.menu()),xe({style:{flex:"0 0 10px"}}),rt({href:"/",style:{display:"flex",alignItems:"center",borderBottom:"none"},title:`tosijs ${Ne}, tosijs-ui ${Ya}`},lt({src:"favicon.svg",style:{height:40,marginRight:10}}),oc({bindText:"app.title"})),xe({class:"elastic"}),Ka({minWidth:750},xe({style:{marginRight:d.spacing,display:"flex",alignItems:"center",gap:d.spacing50}},rt({href:O.bundleUrl},lt({alt:"bundlejs size badge",src:O.bundleBadgeUrl})),rt({href:O.cdnUrl},lt({alt:"jsdelivr",src:O.cdnBadgeUrl}))),xe({slot:"small"})),xe({style:{flex:"0 0 10px"}}),bi({title:"theme",class:"iconic",onClick(n){en({target:n.target.closest("button"),menuItems:[{icon:"github",caption:"github",action:O.githubUrl.value},{icon:"npm",caption:"npm",action:O.npmUrl.value},{icon:"discord",caption:"discord",action:O.discordUrl.value},{icon:"tosiUi",caption:"tosijs-ui",action:O.tosijsuiUrl.value},{icon:"blog",caption:"Blog",action:"https://loewald.com"},null,{icon:"rgb",caption:"Color Theme",menuItems:[{caption:"System",checked(){return A.colorScheme.value==="system"},action(){A.colorScheme.value="system"}},{caption:"Dark",checked(){return A.colorScheme.value==="dark"},action(){A.colorScheme.value="dark"}},{caption:"Light",checked(){return A.colorScheme.value==="light"},action(){A.colorScheme.value="light"}},null,{caption:"High Contrast (System)",checked(){return A.highContrast.value==="system"},action(){A.highContrast.value="system"}},{caption:"High Contrast On",checked(){return A.highContrast.value===!0},action(){A.highContrast.value=!0}},{caption:"High Contrast Off",checked(){return A.highContrast.value===!1},action(){A.highContrast.value=!1}}]}]})}},v.moreVertical())),_a({name:"Documentation",navSize:200,minSize:600,style:{flex:"1 1 auto",overflow:"hidden"},onChange(){let n=document.querySelector(Ln.tagName);O.compact.value=n.compact}},gi,mi({slot:"nav",style:{display:"flex",flexDirection:"column",width:"100%",height:"100%",overflowY:"scroll"},bindList:{hiddenProp:"hidden",value:O.docs}},ic(rt({class:"doc-link",bindCurrent:"app.currentDoc.filename",bindDocLink:"^.filename",bindText:"^.title",onClick(n){let e=n.target.closest("a");if(!e)return;let t=In(n.target),a=n.target.closest("xin-sidenav");a.contentVisible=!0;let{href:o}=e;window.history.pushState({href:o},"",o),O.currentDoc=t,n.preventDefault()}}))),mi({style:{position:"relative",overflowY:"scroll",height:"100%"}},Na({style:{display:"block",maxWidth:"44em",margin:"auto",padding:"0 1em",overflow:"hidden"},bindValue:"app.currentDoc.text",didRender(){Hn.insertExamples(this,{tosijs:le,"tosijs-ui":Za})}}))));
 
-//# debugId=F49277AA9AE446FF64756E2164756E21
+//# debugId=4B29F9FF1DF7EB7064756E2164756E21
 //# sourceMappingURL=index.js.map
