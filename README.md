@@ -393,8 +393,9 @@ You'll need to install [bun](https://bun.sh/) and then run `bun install`.
 
 ## Related Libraries
 
-- [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme)
-  allows you to use tosijs's path-observer model in [React](https://reactjs.org) apps
+- [tosijs-ui](https://ui.tosijs.net) — a web-component library built on tosijs `Component`
+- [tosijs-3d](https://3d.tosijs.net) — 3D graphics library built on tosijs
+- [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme) — use tosijs's path-observer model in [React](https://reactjs.org) apps
 
 ## Credits
 
