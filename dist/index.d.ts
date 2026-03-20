@@ -4,7 +4,7 @@ export { css, invertLuminance, initVars, vars, varDefault, StyleSheet, onStylesh
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types';
 export { Color } from './color';
-export { Component } from './component';
+export { Component, tosiSlot, xinSlot } from './component';
 export { validateAgainstConstraints, type FormValidation, } from './form-validation';
 export { elements, svgElements, mathML, bindParts } from './elements';
 export type { ElementsProxy } from './elements-types';

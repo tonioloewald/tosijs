@@ -1,6 +1,7 @@
 import { expect, test, describe, beforeAll } from 'bun:test'
-import { Component, xinSlot } from './component'
+import { Component, tosiSlot, xinSlot } from './component'
 import { elements } from './elements'
+import { dispatch } from './dom'
 
 // Simple test component
 class TestComponent extends Component {
@@ -323,11 +324,11 @@ describe('Component', () => {
     })
   })
 
-  describe('slots (xin-slot)', () => {
-    test('creates xin-slot elements', () => {
+  describe('slots (tosi-slot)', () => {
+    test('creates tosi-slot elements', () => {
       const el = slottedComponent()
       document.body.appendChild(el)
-      const slots = el.querySelectorAll('xin-slot')
+      const slots = el.querySelectorAll('tosi-slot')
       expect(slots.length).toBe(3)
       el.remove()
     })
@@ -341,8 +342,8 @@ describe('Component', () => {
       )
       document.body.appendChild(el)
 
-      const headerSlot = el.querySelector('xin-slot[name="header"]')
-      const footerSlot = el.querySelector('xin-slot[name="footer"]')
+      const headerSlot = el.querySelector('tosi-slot[name="header"]')
+      const footerSlot = el.querySelector('tosi-slot[name="footer"]')
 
       expect(headerSlot?.textContent).toContain('Header Content')
       expect(footerSlot?.textContent).toContain('Footer Content')
@@ -354,7 +355,7 @@ describe('Component', () => {
       const el = slottedComponent(div('Default Content'))
       document.body.appendChild(el)
 
-      const defaultSlot = el.querySelector('xin-slot:not([name])')
+      const defaultSlot = el.querySelector('tosi-slot:not([name])')
       expect(defaultSlot?.textContent).toContain('Default Content')
       el.remove()
     })
@@ -386,7 +387,21 @@ describe('Component', () => {
   })
 })
 
-describe('xinSlot', () => {
+describe('tosiSlot', () => {
+  test('creates tosi-slot element', () => {
+    const slot = tosiSlot()
+    expect(slot.tagName.toLowerCase()).toBe('tosi-slot')
+  })
+
+  test('accepts name attribute', () => {
+    const slot = tosiSlot({ name: 'test-slot' })
+    document.body.appendChild(slot)
+    expect(slot.getAttribute('name')).toBe('test-slot')
+    slot.remove()
+  })
+})
+
+describe('xinSlot (deprecated)', () => {
   test('creates xin-slot element', () => {
     const slot = xinSlot()
     expect(slot.tagName.toLowerCase()).toBe('xin-slot')
@@ -790,6 +805,95 @@ describe('deprecated elementCreator options', () => {
         (w) => w.includes('deprecated') && w.includes('styleSpec')
       )
     ).toBe(true)
+    el.remove()
+  })
+})
+
+describe('content array with ElementProps on host', () => {
+  test('event handler on host via content array', () => {
+    let clicked = false
+    class ClickHostComponent extends Component {
+      static preferredTagName = 'click-host-test'
+      content = ({ div }: typeof elements) => [
+        { onClick: () => { clicked = true } },
+        div('child'),
+      ]
+    }
+    const creator = ClickHostComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    dispatch(el, 'click')
+    expect(clicked).toBe(true)
+    el.remove()
+  })
+
+  test('style applied to host via content array', () => {
+    class StyleHostComponent extends Component {
+      static preferredTagName = 'style-host-test'
+      content = ({ div }: typeof elements) => [
+        { style: { display: 'flex', gap: '10px' } },
+        div('child'),
+      ]
+    }
+    const creator = StyleHostComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    expect(el.style.display).toBe('flex')
+    expect(el.style.gap).toBe('10px')
+    el.remove()
+  })
+
+  test('multiple ElementProps objects are merged', () => {
+    let count = 0
+    class MergePropsComponent extends Component {
+      static preferredTagName = 'merge-props-test'
+      content = ({ div }: typeof elements) => [
+        { class: 'first', onClick: () => { count++ } },
+        div('child'),
+        { class: 'second' },
+      ]
+    }
+    const creator = MergePropsComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    // Later props override earlier ones (onClick adds -xin-event class)
+    expect(el.className).toContain('second')
+    // But event handler from first props still works
+    dispatch(el, 'click')
+    expect(count).toBe(1)
+    el.remove()
+  })
+
+  test('children are still appended correctly', () => {
+    class MixedContentComponent extends Component {
+      static preferredTagName = 'mixed-content-test'
+      content = ({ div, span }: typeof elements) => [
+        { style: { display: 'grid' } },
+        div({ part: 'a' }, 'first'),
+        span({ part: 'b' }, 'second'),
+      ]
+    }
+    const creator = MixedContentComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    expect(el.querySelector('[part="a"]')).not.toBeNull()
+    expect(el.querySelector('[part="b"]')).not.toBeNull()
+    expect(el.children.length).toBe(2)
+    el.remove()
+  })
+
+  test('content array with no ElementProps works as before', () => {
+    class PlainArrayComponent extends Component {
+      static preferredTagName = 'plain-array-test'
+      content = ({ div, span }: typeof elements) => [
+        div('one'),
+        span('two'),
+      ]
+    }
+    const creator = PlainArrayComponent.elementCreator()
+    const el = creator()
+    document.body.appendChild(el)
+    expect(el.children.length).toBe(2)
     el.remove()
   })
 })

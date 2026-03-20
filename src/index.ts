@@ -14,7 +14,7 @@ export {
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css'
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 export { Color } from './color'
-export { Component } from './component'
+export { Component, tosiSlot, xinSlot } from './component'
 export {
   validateAgainstConstraints,
   type FormValidation,

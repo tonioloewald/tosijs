@@ -98,6 +98,28 @@ In particular, you can use `onXxxx` syntax sugar to bind events.
 because `xin` cannot "see" elements there. As a general rule, you need to take care
 of anything in the `shadowDOM` yourself.)
 
+##### ElementProps in content arrays
+
+When `content` returns an array, any plain objects (ElementProps) in the array are
+applied to the **host element** itself, just as they would be applied to the element
+being created by `div()`, `span()`, etc. This provides a clean way to set up styles,
+event handlers, classes, and bindings on the component from within `content`:
+
+```
+class MyButton extends Component {
+  static preferredTagName = 'my-button'
+
+  content = ({span}) => [
+    { onClick: () => console.log('clicked!'), style: { cursor: 'pointer' } },
+    span({part: 'label'}, 'Click me'),
+  ]
+}
+```
+
+Multiple ElementProps objects are merged (later values override earlier ones).
+Only plain objects are treated as props — DOM nodes, strings, numbers, and proxied
+values pass through as children.
+
 If you'd like to see a more complex example along the same lines, look at
 [form and field](https://ui.tosijs.net/?form.ts).
 
@@ -127,20 +149,22 @@ slot using the `slot` attribute.
 This app's layout (the nav sidebar that disappears if the app is in a narrow space, etc.)
 is built using just such a custom-element.
 
-#### `<xin-slot>`
+#### `<tosi-slot>`
 
 If you put `<slot>` elements inside a `Component` subclass that doesn't have a
-shadowDOM, they will automatically be replaced with `<xin-slot>` elements that
+shadowDOM, they will automatically be replaced with `<tosi-slot>` elements that
 have the expected behavior (i.e. sucking in children in based on their `<slot>`
 attribute).
 
-`<xin-slot>` doesn't support `:slotted` but since there's no shadowDOM, just
-style such elements normally, or use `xin-slot` as a CSS-selector.
+`<tosi-slot>` doesn't support `:slotted` but since there's no shadowDOM, just
+style such elements normally, or use `tosi-slot` as a CSS-selector.
 
 Note that you cannot give a `<slot>` element attributes (other than `name`) so if
-you want to give a `<xin-slot>` attributes (such as `class` or `style`), create it
-explicitly (e.g. using `elements.xinSlot()`) rather than using `<slot>` elements
+you want to give a `<tosi-slot>` attributes (such as `class` or `style`), create it
+explicitly (e.g. using `elements.tosiSlot()`) rather than using `<slot>` elements
 and letting them be switched out (because they'll lose any attributes you give them).
+
+> The legacy name `<xin-slot>` still works but emits a deprecation warning.
 
 Here's a very simple example:
 
@@ -148,14 +172,14 @@ Here's a very simple example:
 import { Component, elements } from 'tosijs'
 
 class FauxSlotExample extends Component {
-  content = ({h4, h5, xinSlot}) => [
+  content = ({h4, h5, tosiSlot}) => [
     h4('This is a web-component with no shadow DOM and working slots!'),
     h5('top slot'),
-    xinSlot({name: 'top'}),
+    tosiSlot({name: 'top'}),
     h5('middle slot'),
-    xinSlot(),
+    tosiSlot(),
     h5('bottom slot'),
-    xinSlot({name: 'bottom'}),
+    tosiSlot({name: 'bottom'}),
   ]
 }
 
@@ -168,7 +192,7 @@ FauxSlotExample.lightStyleSpec = {
   ':host h4, :host h5': {
     margin: 0,
   },
-  ':host xin-slot': {
+  ':host tosi-slot': {
     border: '2px solid grey'
   }
 }
@@ -262,7 +286,7 @@ content = ({div}) => div('hello world')
 
 `ContentType` can be an HTMLElement or an array of elements.
 
-> Note that if a component does not use the shadowDOM, its `<slot>` elements will be replaced with `<xin-slot>` elements.
+> Note that if a component does not use the shadowDOM, its `<slot>` elements will be replaced with `<tosi-slot>` elements.
 > This allows composition to work as expected without requiring the shadow DOM.
 
 ### Component static properties
@@ -545,7 +569,8 @@ import { XinStyleSheet } from './css-types'
 import { deepClone } from './deep-clone'
 import { appendContentToElement, dispatch, resizeObserver } from './dom'
 import { ElementsProxy } from './elements-types'
-import { elements } from './elements'
+import { elements, elementSet } from './elements'
+import { tosiPath } from './metadata'
 import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
@@ -1163,10 +1188,29 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (!this._hydrated) {
       this.initValue()
       const cloneElements = typeof this.content !== 'function'
-      const _content: ContentType | null =
+      let _content: ContentType | null =
         typeof this.content === 'function'
           ? this.content(elements)
           : this.content
+
+      if (Array.isArray(_content)) {
+        const hostProps: Record<string, any> = {}
+        _content = _content.filter((item) => {
+          if (
+            item instanceof Node ||
+            typeof item === 'string' ||
+            typeof item === 'number' ||
+            tosiPath(item)
+          ) {
+            return true
+          }
+          Object.assign(hostProps, item)
+          return false
+        })
+        for (const key of Object.keys(hostProps)) {
+          elementSet(this as HTMLElement, key, hostProps[key])
+        }
+      }
 
       const ctor = this.constructor as unknown as Component
       const shadowStyle = ctor.shadowStyleSpec ?? ctor.styleSpec
@@ -1195,15 +1239,18 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       } else if (_content !== null) {
         const existingChildren = Array.from(this.childNodes)
         appendContentToElement(this as HTMLElement, _content, cloneElements)
-        this.isSlotted = this.querySelector('slot,xin-slot') !== undefined
+        this.isSlotted =
+          this.querySelector('slot,tosi-slot,xin-slot') !== undefined
         const slots = Array.from(this.querySelectorAll('slot'))
         if (slots.length > 0) {
-          slots.forEach(XinSlot.replaceSlot)
+          slots.forEach(TosiSlot.replaceSlot)
         }
         if (existingChildren.length > 0) {
           const slotMap: { [key: string]: Element } = { '': this }
-          Array.from(this.querySelectorAll('xin-slot')).forEach((slot) => {
-            slotMap[(slot as XinSlot).name] = slot
+          Array.from(
+            this.querySelectorAll('tosi-slot,xin-slot')
+          ).forEach((slot) => {
+            slotMap[(slot as TosiSlot).name] = slot
           })
           existingChildren.forEach((child) => {
             const defaultSlot = slotMap['']
@@ -1245,18 +1292,38 @@ interface SlotParts extends PartsMap {
   slotty: HTMLSlotElement
 }
 
-class XinSlot extends Component<SlotParts> {
-  static preferredTagName = 'xin-slot'
+class TosiSlot extends Component<SlotParts> {
+  static preferredTagName = 'tosi-slot'
   static initAttributes = { name: '' }
   content = null
 
   static replaceSlot(slot: HTMLSlotElement): void {
-    const _slot = document.createElement('xin-slot')
+    const _slot = document.createElement('tosi-slot')
     if (slot.name !== '') {
       _slot.setAttribute('name', slot.name)
     }
     slot.replaceWith(_slot)
   }
+}
+
+export const tosiSlot = TosiSlot.elementCreator()
+
+// --- Deprecated xin-slot ---
+
+class XinSlot extends Component<SlotParts> {
+  static preferredTagName = 'xin-slot'
+  static initAttributes = { name: '' }
+  content = null
+
+  constructor() {
+    super()
+    warnDeprecated(
+      'xin-slot',
+      '<xin-slot> is deprecated. Use <tosi-slot> instead.'
+    )
+  }
+
+  static replaceSlot = TosiSlot.replaceSlot
 }
 
 export const xinSlot = XinSlot.elementCreator()
