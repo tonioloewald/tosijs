@@ -11,7 +11,7 @@ const now36 = (): string =>
 let _seq = 0
 const seq = (): string =>
   (parseInt('10000', 36) + ++_seq).toString(36).slice(-5)
-const id = (): string => now36() + seq()
+export const id = (): string => now36() + seq()
 
 const _delete_ = Symbol('delete')
 const _newObject_ = Symbol('new-object')

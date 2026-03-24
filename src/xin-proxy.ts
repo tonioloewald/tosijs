@@ -90,6 +90,7 @@ This lets you write bindings that support autocomplete and lint. Yay!
 import { XinProxy, BoxedProxy } from './xin-types'
 import { xin, boxed } from './xin'
 import { warnDeprecated } from './metadata'
+import { id } from './by-path'
 
 export function tosi<T extends object>(obj: T): BoxedProxy<T> {
   Object.assign(boxed, obj)
@@ -102,6 +103,55 @@ export function boxedProxy<T extends object>(obj: T): BoxedProxy<T> {
     'boxedProxy is deprecated, please use tosi() instead'
   )
   return tosi(obj)
+}
+
+/*#
+## `tosiUnique()`
+
+`tosiUnique()` creates a reactive proxy stored under a guaranteed unique key.
+This is useful for component instances or any situation where you need
+per-instance reactive state without worrying about key collisions.
+
+It returns a tuple of `[proxy, removeFunc]`:
+
+- `proxy` is a `BoxedProxy<T>` — the reactive proxy for your object
+- `removeFunc` is a cleanup function that removes the state from the registry
+
+If you pass an `owner` object (e.g. `this` in a component), the state will
+be automatically cleaned up when the owner is garbage collected — no need
+to call the remove function manually.
+
+Typical usage in a component:
+
+    class MyComponent extends Component {
+      proxy = tosiUnique({ count: 0, name: '' }, this)[0]
+    }
+
+Or if you want explicit cleanup control:
+
+    const [proxy, remove] = tosiUnique({ count: 0, name: '' })
+    // ... later ...
+    remove()
+
+*/
+const tosiUniqueCleanup = new FinalizationRegistry((remove: () => void) => {
+  remove()
+})
+
+export function tosiUnique<T extends object>(
+  obj: T,
+  owner?: object
+): [BoxedProxy<T>, () => void] {
+  const key = id()
+  ;(boxed as any)[key] = obj
+  const proxy = (boxed as any)[key] as BoxedProxy<T>
+  const remove = () => {
+    delete (xin as any)[key]
+  }
+  if (owner) {
+    tosiUniqueCleanup.register(owner, remove)
+  }
+  return [proxy, remove]
 }
 
 export function xinProxy<T extends object>(obj: T, boxed = false): XinProxy<T> {

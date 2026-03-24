@@ -1,4 +1,5 @@
 import { XinObject, XinArray } from './xin-types';
+export declare const id: () => string;
 type Part = string | string[];
 type PartArray = Part[];
 declare function pathParts(path: string | PartArray): PartArray;

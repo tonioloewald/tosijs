@@ -63,4 +63,4 @@ export {
   BlueprintLoader,
 } from './blueprint-loader'
 export * from './xin-types'
-export { tosi, xinProxy, boxedProxy } from './xin-proxy'
+export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'

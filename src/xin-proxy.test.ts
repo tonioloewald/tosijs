@@ -1,7 +1,7 @@
 import { test, expect, spyOn } from 'bun:test'
 import { xin } from './xin'
 import { xinPath, _resetDeprecationWarnings } from './metadata'
-import { tosi, xinProxy, boxedProxy } from './xin-proxy'
+import { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'
 
 test('tosi works', () => {
   const { test } = tosi({
@@ -87,6 +87,47 @@ test('xinProxy with boxed=true warns and calls tosi', () => {
   expect(result.boxedTest.value.valueOf()).toBe('hello')
 
   warnSpy.mockRestore()
+})
+
+test('tosiUnique creates isolated proxy with cleanup', () => {
+  const [proxy, remove] = tosiUnique({ count: 0, name: 'test' })
+
+  // proxy works like a normal boxed proxy
+  expect(proxy.count.valueOf()).toBe(0)
+  expect(proxy.name.valueOf()).toBe('test')
+
+  // mutations work
+  // @ts-expect-error boxed proxy assignment
+  proxy.count = 5
+  expect(proxy.count.valueOf()).toBe(5)
+
+  // path is under a unique key
+  const path = proxy.count.tosiPath
+  expect(path).toMatch(/\.count$/)
+
+  // the key exists in xin
+  const key = path.split('.')[0]
+  expect(xin[key]).toBeDefined()
+  expect(xin[key].count).toBe(5)
+
+  // cleanup removes it
+  remove()
+  expect(xin[key]).toBeUndefined()
+})
+
+test('tosiUnique creates distinct keys for each call', () => {
+  const [proxy1, remove1] = tosiUnique({ x: 1 })
+  const [proxy2, remove2] = tosiUnique({ x: 2 })
+
+  const key1 = proxy1.x.tosiPath.split('.')[0]
+  const key2 = proxy2.x.tosiPath.split('.')[0]
+
+  expect(key1).not.toBe(key2)
+  expect(proxy1.x.valueOf()).toBe(1)
+  expect(proxy2.x.valueOf()).toBe(2)
+
+  remove1()
+  remove2()
 })
 
 test('boxedProxy warns and delegates to tosi', () => {
