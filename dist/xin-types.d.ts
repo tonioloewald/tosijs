@@ -56,15 +56,9 @@ export interface BoxedArrayProps<U = any> {
     listRemove: (selector: ListFieldSelector<U>, value: any) => boolean;
 }
 /**
- * BoxedScalar represents a boxed primitive value (string, number, boolean, null, undefined).
- * It provides a clean API for accessing the value and path, and catches the common
- * comparison trap where users write `proxy.x === 3` instead of `proxy.x.value === 3`.
- *
- * Note: Direct assignment like `proxy.x = 3` is a TypeScript type error due to
- * fundamental limitations in TypeScript's mapped types (no asymmetric get/set).
- * Use `proxy.x.value = 3` instead.
+ * BoxedScalarAPI is the reactive API surface for boxed primitives.
  */
-export interface BoxedScalar<T> {
+interface BoxedScalarAPI<T> {
     value: T;
     path: string;
     touch: () => void;
@@ -98,6 +92,16 @@ export interface BoxedScalar<T> {
         };
     };
 }
+/**
+ * BoxedScalar represents a boxed primitive value (string, number, boolean, null, undefined).
+ * It provides the reactive API (value, path, observe, etc.) plus all methods from the
+ * underlying primitive's prototype (e.g. toLocaleLowerCase for strings, toFixed for numbers).
+ *
+ * Note: Direct assignment like `proxy.x = 3` is a TypeScript type error due to
+ * fundamental limitations in TypeScript's mapped types (no asymmetric get/set).
+ * Use `proxy.x.value = 3` instead.
+ */
+export type BoxedScalar<T> = BoxedScalarAPI<T> & (T extends string ? Omit<String, keyof BoxedScalarAPI<any>> : T extends number ? Omit<Number, keyof BoxedScalarAPI<any>> : T extends boolean ? Omit<Boolean, keyof BoxedScalarAPI<any>> : {});
 export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
 } & XinProps<T> : T extends string ? BoxedScalar<string> : T extends number ? BoxedScalar<number> : T extends boolean ? BoxedScalar<boolean> : T extends undefined | null ? BoxedScalar<T> : T;

@@ -642,6 +642,27 @@ test('boxed object touch method', async () => {
   unsub()
 })
 
+test('boxed scalar delegates to underlying value methods', () => {
+  const { methodTest } = tosi({
+    methodTest: { str: 'Hello World', num: 3.14159, bool: true },
+  })
+
+  // String methods - no cast needed, BoxedScalar<string> includes String methods
+  expect(methodTest.str.toLocaleLowerCase()).toBe('hello world')
+  expect(methodTest.str.startsWith('Hello')).toBe(true)
+  expect(methodTest.str.includes('World')).toBe(true)
+  expect(methodTest.str.slice(0, 5)).toBe('Hello')
+  expect(methodTest.str.trim()).toBe('Hello World')
+  expect(methodTest.str.length).toBe(11)
+  expect(methodTest.str[0]).toBe('H')
+
+  // Number methods
+  expect(methodTest.num.toFixed(2)).toBe('3.14')
+
+  // Boolean method
+  expect(methodTest.bool.toString()).toBe('true')
+})
+
 test('boxed null and undefined', () => {
   const { nullTest } = tosi({
     nullTest: { nullVal: null, undefVal: undefined },

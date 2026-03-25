@@ -397,6 +397,16 @@ boxed.test.answer.valueOf() === 42
 String(boxed.box.pie) === 'apple'
 ```
 
+Boxed scalars also delegate to the underlying value's prototype methods,
+so you can call string, number, and boolean methods directly:
+
+```
+boxed.box.pie.toUpperCase() === 'APPLE'
+boxed.box.pie.startsWith('app') === true
+boxed.box.pie.length === 5
+boxed.test.answer.toFixed(2) === '42.00'
+```
+
 Aside from always "boxing" scalar values, `boxed` works just like `xin`.
 
 In the console, you can also access `boxed` and look at what happens if you
@@ -505,6 +515,9 @@ Always use `.value`, `tosiValue()`, or `valueOf()` when comparing:
 - `.binding(binding)` returns an inline binding spec for use with elements
 - `.listBinding(templateBuilder, options?)` returns a list binding spec
 - `.valueOf()` / `.toJSON()` for type coercion (scalars also have `.toString()`)
+
+Boxed scalars also expose all methods from the underlying primitive's prototype
+(e.g. `.toUpperCase()`, `.startsWith()`, `.toFixed()`, `.length`, index access).
 
 Arrays also have:
 - `.listFind(selector, value)` finds an item by field and returns it proxied
@@ -963,19 +976,15 @@ const regHandler = (
           ]
       }
 
-      // String index access (e.g., boxedStr[0])
-      if (typeof _prop === 'string' && /^\d+$/.test(_prop)) {
-        const val = getValue()
-        if (typeof val === 'string') {
-          return val[parseInt(_prop, 10)]
-        }
-      }
-
-      // String length
-      if (_prop === 'length') {
-        const val = getValue()
-        if (typeof val === 'string') {
-          return val.length
+      // Delegate to underlying value for any unrecognized property
+      // This lets string methods (toLocaleLowerCase, startsWith, etc.),
+      // number methods (toFixed, etc.), and index access work transparently
+      const val = getValue()
+      if (val != null) {
+        const wrapped = Object(val)
+        if (_prop in wrapped) {
+          const member = wrapped[_prop]
+          return typeof member === 'function' ? member.bind(wrapped) : member
         }
       }
 

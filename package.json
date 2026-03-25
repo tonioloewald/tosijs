@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
@@ -41,7 +41,7 @@
     "eslint": "^8.57.1",
     "marked": "^16.4.0",
     "prettier": "^2.8.8",
-    "tjs-lang": "0.6.16",
+    "tjs-lang": "^0.6.19",
     "tosijs": "file:.",
     "tosijs-ui": "^1.0.6",
     "typescript": "^5.9.3"
