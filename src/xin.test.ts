@@ -19,6 +19,8 @@ import {
   tosiPath,
   tosiValue,
   tosiSetValue,
+  tosiAccessor,
+  TOSI_ACCESSOR,
 } from './metadata'
 
 type Change = { path: string; value: any; observed?: any }
@@ -661,6 +663,116 @@ test('boxed scalar delegates to underlying value methods', () => {
 
   // Boolean method
   expect(methodTest.bool.toString()).toBe('true')
+})
+
+test('.tosi accessor on boxed scalars', async () => {
+  const { tosiAccTest } = tosi({
+    tosiAccTest: { name: 'Alice', count: 42 },
+  })
+
+  // .tosi.path and .tosi.value
+  expect(tosiAccTest.name.tosi.path).toBe('tosiAccTest.name')
+  expect(tosiAccTest.name.tosi.value).toBe('Alice')
+  expect(tosiAccTest.count.tosi.path).toBe('tosiAccTest.count')
+  expect(tosiAccTest.count.tosi.value).toBe(42)
+
+  // .tosi.value setter
+  tosiAccTest.name.tosi.value = 'Bob'
+  expect(tosiAccTest.name.tosi.value).toBe('Bob')
+  expect(xin.tosiAccTest.name).toBe('Bob')
+
+  // .tosi.touch and .tosi.observe
+  let observed = false
+  const unsub = tosiAccTest.count.tosi.observe(() => {
+    observed = true
+  })
+  tosiAccTest.count.tosi.touch()
+  await updates()
+  expect(observed).toBe(true)
+  unsub()
+})
+
+test('.tosi accessor on boxed objects', async () => {
+  const { tosiObjTest } = tosi({
+    tosiObjTest: { nested: { deep: 'val' } },
+  })
+
+  // .tosi on object proxy
+  expect(tosiObjTest.tosi.path).toBe('tosiObjTest')
+  expect(tosiObjTest.tosi.value).toEqual({ nested: { deep: 'val' } })
+  expect(tosiObjTest.nested.tosi.path).toBe('tosiObjTest.nested')
+
+  // .tosi.value setter on object
+  tosiObjTest.nested.tosi.value = { deep: 'updated' }
+  expect(xin.tosiObjTest.nested.deep).toBe('updated')
+})
+
+test('.tosi accessor avoids property name collisions', () => {
+  const { collisionTest } = tosi({
+    collisionTest: {
+      value: 'actual-value',
+      path: '/actual/path',
+      observe: 'not-a-function',
+    },
+  })
+
+  // Direct access returns the real properties (shadowed)
+  expect(collisionTest.value.tosi.value).toBe('actual-value')
+  expect(collisionTest.path.tosi.value).toBe('/actual/path')
+  expect(collisionTest.observe.tosi.value).toBe('not-a-function')
+
+  // .tosi gives the observer API regardless
+  expect(collisionTest.tosi.path).toBe('collisionTest')
+  expect(collisionTest.tosi.value).toEqual({
+    value: 'actual-value',
+    path: '/actual/path',
+    observe: 'not-a-function',
+  })
+})
+
+test('tosiAccessor() utility function', () => {
+  const { accUtilTest } = tosi({
+    accUtilTest: { name: 'test', count: 5 },
+  })
+
+  // Works on proxied objects
+  const acc = tosiAccessor(accUtilTest)
+  expect(acc).toBeDefined()
+  expect(acc.path).toBe('accUtilTest')
+  expect(acc.value).toEqual({ name: 'test', count: 5 })
+
+  // Works on proxied scalars
+  const scalarAcc = tosiAccessor(accUtilTest.name)
+  expect(scalarAcc).toBeDefined()
+  expect(scalarAcc.path).toBe('accUtilTest.name')
+  expect(scalarAcc.value).toBe('test')
+
+  // Returns undefined for non-proxy values
+  expect(tosiAccessor('hello')).toBeUndefined()
+  expect(tosiAccessor(42)).toBeUndefined()
+  expect(tosiAccessor(null)).toBeUndefined()
+  expect(tosiAccessor({ foo: 'bar' })).toBeUndefined()
+
+  // TOSI_ACCESSOR symbol works directly on proxies
+  const symAcc = accUtilTest[TOSI_ACCESSOR]
+  expect(symAcc).toBeDefined()
+  expect(symAcc.path).toBe('accUtilTest')
+  expect(symAcc.value).toEqual({ name: 'test', count: 5 })
+
+  // Symbol returns undefined on plain objects
+  expect(({ foo: 'bar' } as any)[TOSI_ACCESSOR]).toBeUndefined()
+
+  // Even if data has a 'tosi' property, .tosi returns the accessor
+  const { shadowTest } = tosi({
+    shadowTest: { tosi: 'shadowed value', real: 42 },
+  })
+  // .tosi always returns the accessor (not the data property)
+  expect(shadowTest.tosi.path).toBe('shadowTest')
+  // TOSI_ACCESSOR symbol also returns the accessor
+  const shadowAcc = tosiAccessor(shadowTest)
+  expect(shadowAcc).toBeDefined()
+  expect(shadowAcc.path).toBe('shadowTest')
+  expect(shadowAcc.value).toEqual({ tosi: 'shadowed value', real: 42 })
 })
 
 test('boxed null and undefined', () => {

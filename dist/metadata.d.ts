@@ -8,6 +8,7 @@ export declare const XIN_VALUE: unique symbol;
 export declare const XIN_OBSERVE = "xinObserve";
 export declare const XIN_BIND = "xinBind";
 export declare const XIN_ON = "xinOn";
+export declare const TOSI_ACCESSOR: unique symbol;
 export declare const LIST_BINDING_REF: unique symbol;
 export declare const LIST_INSTANCE_REF: unique symbol;
 /**
@@ -49,6 +50,12 @@ export declare const tosiPath: (x: any) => string | undefined;
  * Passes through non-proxy values unchanged.
  */
 export declare function tosiValue<T>(x: T): Unboxed<T>;
+/**
+ * Get the accessor object from a boxed proxy via the TOSI_ACCESSOR symbol.
+ * Guaranteed collision-free — works even if your data has a 'tosi' property.
+ * Returns undefined for non-proxy values.
+ */
+export declare function tosiAccessor(x: any): any | undefined;
 /**
  * Set the value of a boxed proxy (replaces the entire value at that path).
  * Useful for replacing arrays or objects.

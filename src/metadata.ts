@@ -1,10 +1,39 @@
 /*#
 # 1.3 metadata
 
-## `xinValue(x: any): any`
+## `tosiAccessor(x: any): TosiAccessor | undefined`
 
-`xinValue` is helpful when you want to strip the `xin` or `boxed` proxy off of a
-value. `xinValue` passes through normal values, so it's safe to use on anything.
+`tosiAccessor` returns the collision-free accessor object from any boxed proxy,
+using the `TOSI_ACCESSOR` symbol internally. Returns `undefined` for non-proxy values.
+
+This is the guaranteed escape hatch — it works even if your data has a property
+named `tosi` that would shadow the `.tosi` convenience accessor.
+
+```
+import { tosiAccessor, TOSI_ACCESSOR } from 'tosijs'
+
+const { app } = tosi({ app: { tosi: 'shadowed!', name: 'test' } })
+
+// .tosi is always intercepted by the proxy (not shadowed in practice)
+app.tosi.path === 'app'
+
+// tosiAccessor() and TOSI_ACCESSOR are guaranteed collision-free
+const acc = tosiAccessor(app)
+acc.path === 'app'
+acc.value  // { tosi: 'shadowed!', name: 'test' }
+
+// TOSI_ACCESSOR symbol works directly
+app[TOSI_ACCESSOR].path === 'app'
+
+// returns undefined for non-proxy values
+tosiAccessor('hello') === undefined
+tosiAccessor({ foo: 1 }) === undefined
+```
+
+## `xinValue(x: any): any` (deprecated)
+
+`xinValue` strips the `xin` or `boxed` proxy off of a value.
+Passes through non-proxy values unchanged. Prefer `.value` or `.tosi.value`.
 
 ```
 import { boxed } from 'tosijs'
@@ -15,22 +44,17 @@ boxed.foo = foo
 boxed.foo.bar === foo.bar               // false, boxed.foo.bar is a proxy
 boxed.foo === foo                       // false, boxed.foo is a proxy
 boxed.foo.baz === 17                    // false, boxed.foo.baz is a proxy
-xinValue(boxed.foo.bar) === 'hello'     // true
 boxed.foo.bar.value === 'hello'         // true (preferred)
-boxed.foo.xinValue === foo              // true (deprecated)
+xinValue(boxed.foo.bar) === 'hello'     // true
 boxed.foo.baz.value === 17              // true
 xinValue(boxed.foo) === xinValue(foo)   // true
 foo.xinValue                            // undefined! foo isn't a proxy
 ```
 
-## `xinPath(x: any): string | undefined`
+## `xinPath(x: any): string | undefined` (deprecated)
 
-`xinPath` will get you the path of a `xin` or `boxed` proxy. `xinPath` will be
-undefined for anything that's isn't a `xin` or `boxed` proxy, so it can also
-be used to tell if a value is a (`xin` or `boxed`) proxy.
-
-> Note: For boxed scalars, prefer using `.value` and `.path` directly:
-> `boxed.foo.bar.value` and `boxed.foo.bar.path`
+`xinPath` returns the path of a `xin` or `boxed` proxy. Returns `undefined`
+for non-proxy values. Prefer `.path` or `.tosi.path`.
 */
 import {
   XinObject,
@@ -51,6 +75,8 @@ export const XIN_VALUE = Symbol.for('xin-value')
 export const XIN_OBSERVE = 'xinObserve'
 export const XIN_BIND = 'xinBind'
 export const XIN_ON = 'xinOn'
+
+export const TOSI_ACCESSOR = Symbol.for('tosi-accessor')
 
 export const LIST_BINDING_REF = Symbol('list-binding')
 export const LIST_INSTANCE_REF = Symbol('list-instance')
@@ -156,6 +182,15 @@ export function tosiValue<T>(x: T): Unboxed<T> {
     return (val !== undefined ? val : x) as Unboxed<T>
   }
   return x as Unboxed<T>
+}
+
+/**
+ * Get the accessor object from a boxed proxy via the TOSI_ACCESSOR symbol.
+ * Guaranteed collision-free — works even if your data has a 'tosi' property.
+ * Returns undefined for non-proxy values.
+ */
+export function tosiAccessor(x: any): any | undefined {
+  return x != null ? x[TOSI_ACCESSOR] : undefined
 }
 
 /**

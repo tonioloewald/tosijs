@@ -32,6 +32,8 @@ export {
   tosiPath,
   tosiValue,
   tosiSetValue,
+  tosiAccessor,
+  TOSI_ACCESSOR,
   deprecated,
   warnDeprecated,
 } from './metadata'

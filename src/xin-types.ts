@@ -1,4 +1,4 @@
-import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND } from './metadata'
+import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND, TOSI_ACCESSOR } from './metadata'
 import { XinStyleRule } from './css-types'
 import { ElementsProxy } from './elements-types'
 
@@ -20,14 +20,40 @@ type ProxyObserveFunc = ((path: string) => void)
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBinding<T>, options?: XinObject) => VoidFunction
 
 /**
- * XinProps provides the reactive API for boxed objects and arrays.
- * As of 1.1.1, this matches the BoxedScalar API for consistency.
- * As of 1.1.2, .value setter works correctly for arrays/objects.
- * Note: These properties are only available when using `boxed`/`tosi()`,
- * and only when the property name doesn't shadow an actual property on the object.
+ * TosiAccessor is the collision-free observer API accessed via `.tosi`.
+ * Unlike the direct properties (path, value, observe, etc.) which can be
+ * shadowed by actual object properties, `.tosi` is always available.
+ */
+export interface TosiAccessor<T = any> {
+  value: T
+  readonly path: string
+  touch: () => void
+  observe: (callback: ObserverCallbackFunction) => VoidFunction
+  bind: <E extends Element = Element>(element: E, binding: XinBinding<E>, options?: XinObject) => void
+  on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
+  binding: (binding: XinBinding) => { bind: { value: string; binding: XinBinding } }
+  listBinding: (templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => ListBinding
+  listFind: {
+    (selector: (item: any) => any, value: any): BoxedProxy | undefined
+    (element: Element): BoxedProxy | undefined
+  }
+  listUpdate: (selector: (item: any) => any, newValue: any) => BoxedProxy
+  listRemove: (selector: (item: any) => any, value: any) => boolean
+}
+
+/**
+ * XinProps provides the observer API for boxed objects and arrays.
+ * The `.tosi` accessor is the preferred, collision-free way to access
+ * the observer API. The direct properties (path, value, observe, etc.)
+ * still work but can be shadowed by actual object properties with the
+ * same names.
  */
 export interface XinProps<T = any> {
-  // Primary API (matches BoxedScalar)
+  // Collision-free API — always available
+  [TOSI_ACCESSOR]: TosiAccessor<T>
+  tosi: TosiAccessor<T>
+
+  // Direct API (deprecated — can be shadowed by target properties)
   path: string
   value: T
   touch: () => void
@@ -70,10 +96,14 @@ export interface BoxedArrayProps<U = any> {
 }
 
 /**
- * BoxedScalarAPI is the reactive API surface for boxed primitives.
+ * BoxedScalarAPI is the observer API surface for boxed primitives.
  */
 interface BoxedScalarAPI<T> {
-  // New primary API
+  // Collision-free API — always available
+  [TOSI_ACCESSOR]: TosiAccessor<T>
+  tosi: TosiAccessor<T>
+
+  // Direct API (deprecated — can be shadowed on object proxies, safe on scalars)
   value: T
   path: string
   touch: () => void

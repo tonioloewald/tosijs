@@ -500,16 +500,53 @@ This is critical for comparisons such as `===` and `!==`.
 Always use `.value`, `tosiValue()`, or `valueOf()` when comparing:
 `boxed.foo.bar.value === 'hello'` or `tosiValue(boxed.foo.bar) === 'hello'`.
 
-## Helper properties and functions
+## The `.tosi` accessor
 
-`BoxedProxy` provides these helper properties and methods on all boxed values
-(scalars, objects, and arrays):
+Every boxed proxy has a `.tosi` property that provides the full reactive API
+without risk of name collisions. If your data has properties named `value`,
+`path`, `observe`, etc., those will shadow the proxy's direct API — but `.tosi`
+is always available.
+
+```
+proxy.foo.tosi.value        // get the underlying value
+proxy.foo.tosi.value = 17   // set it (triggers observers)
+proxy.foo.tosi.path         // 'foo'
+proxy.foo.tosi.observe(cb)  // watch for changes
+proxy.foo.tosi.touch()      // force update notification
+proxy.foo.tosi.bind(el, binding)
+proxy.foo.tosi.on(el, eventType)
+proxy.foo.tosi.binding(binding)
+proxy.foo.tosi.listBinding(templateBuilder, options)
+proxy.foo.tosi.listFind(selector, value)
+proxy.foo.tosi.listUpdate(selector, newValue)
+proxy.foo.tosi.listRemove(selector, value)
+```
+
+This is the recommended API. The only reserved name is `tosi` itself — don't
+use it as a property name in your data.
+
+If you do have data with a `tosi` property, use `tosiAccessor(proxy)` or
+the `TOSI_ACCESSOR` symbol directly — these are guaranteed collision-free:
+
+```
+import { tosiAccessor, TOSI_ACCESSOR } from 'tosijs'
+
+const acc = tosiAccessor(proxy.foo)  // always works
+const acc2 = proxy.foo[TOSI_ACCESSOR]  // also always works
+acc.value  // underlying value
+acc.path   // path string
+```
+
+## Direct helper properties (deprecated)
+
+The following properties are also available directly on boxed proxies, but
+they can be shadowed by actual properties on the target object. Prefer
+`.tosi.*` instead:
 
 - `.value` gets or sets the underlying value
 - `.path` gets the string path
 - `.observe(callback)` watches for changes, returns an unsubscribe function
-- `.touch()` forces an update notification on this path (useful for debugging
-  or after mutating state behind the proxy's back)
+- `.touch()` forces an update notification
 - `.bind(element, binding, options?)` binds the value to a DOM element
 - `.on(element, eventType)` binds an event handler
 - `.binding(binding)` returns an inline binding spec for use with elements
@@ -525,23 +562,9 @@ Arrays also have:
 - `.listUpdate(selector, newValue)` updates an existing item in place or pushes if not found
 - `.listRemove(selector, value)` removes an item by field match
 
-Example:
-```
-boxed.foo.color.bind(element, {
-  toDOM(element, color){
-    element.style.backgroundColor = color
-  }
-})
-
-// Works on objects too:
-boxed.app.user.path      // 'app.user'
-boxed.app.user.value     // { name: 'Alice', ... }
-boxed.app.items.observe(callback)  // observe array changes
-```
-
 > Note: The `xinValue`, `xinPath`, `xinObserve`, `xinBind`, `xinOn`, and
 > `tosiValue`, `tosiPath`, etc. names still work but are deprecated.
-> Use the shorter names above.
+> Use `.tosi.*` instead.
 
 ## List Operations
 
@@ -692,6 +715,7 @@ import {
   XIN_OBSERVE,
   XIN_BIND,
   XIN_ON,
+  TOSI_ACCESSOR,
   LIST_INSTANCE_REF,
 } from './metadata'
 
@@ -826,7 +850,7 @@ let deprecationWarned = false
 function warnDeprecation() {
   if (!deprecationWarned) {
     console.warn(
-      'xinValue, tosiValue, xinPath, tosiPath, etc. are deprecated. Use value, path, observe, bind, on, binding, listBinding instead.'
+      'xinValue, tosiValue, xinPath, tosiPath, etc. are deprecated. Use .tosi.value, .tosi.path, .tosi.observe(), etc. instead.'
     )
     deprecationWarned = true
   }
@@ -837,22 +861,110 @@ const isBoxedScalar = (target: any): boolean => {
   return target === boxedScalarTarget
 }
 
+// Accessor handler — wraps the same target, dispatches accessor API via get/set
+const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
+  get(_t, prop) {
+    switch (prop) {
+      case 'value':
+        return target === boxedScalarTarget
+          ? getByPath(registry, path)
+          : target.valueOf
+            ? target.valueOf()
+            : target
+      case 'path':
+        return path
+      case 'touch':
+        return () => touch(path)
+      case 'observe':
+        return (callback: ObserverCallbackFunction) => {
+          const listener = _observe(path, callback)
+          return () => unobserve(listener)
+        }
+      case 'bind':
+        return (element: Element, binding: XinBinding, options?: XinObject) => {
+          getBind()(element, path, binding, options)
+        }
+      case 'on': {
+        const val = target === boxedScalarTarget
+          ? getByPath(registry, path)
+          : target.valueOf
+            ? target.valueOf()
+            : target
+        return (element: HTMLElement, eventType: keyof HTMLElementEventMap): VoidFunction =>
+          getOn()(element, eventType, val as XinEventHandler)
+      }
+      case 'binding':
+        return (binding: XinBinding) => ({
+          bind: { value: path, binding },
+        })
+      case 'listBinding':
+        return (
+          content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
+            span,
+          }) => span({ bindText: '^' }),
+          options: XinObject = {}
+        ) => [
+          { bindList: { value: path, ...options } },
+          elements.template(content(elements, listElement())),
+        ]
+      case 'listFind':
+      case 'listUpdate':
+      case 'listRemove':
+        return makeListMethods(path, Array.isArray(target) ? target : [])[
+          prop as 'listFind' | 'listUpdate' | 'listRemove'
+        ]
+    }
+    return undefined
+  },
+  set(_t, prop, v) {
+    if (prop === 'value') {
+      v = tosiValue(v)
+      const existing = tosiValue(xin[path])
+      if (existing !== v && setByPath(registry, path, v)) {
+        touch(path)
+      }
+      return true
+    }
+    return false
+  },
+})
+
+const makeTosiAccessor = (path: string, target: any) =>
+  new Proxy(target, accessorHandler(path, target))
+
+// Accessor API property names — looked up on every get, so use a Set
+const ACCESSOR_PROPS = new Set([
+  'path', 'value', 'touch', 'observe', 'bind', 'on',
+  'binding', 'listBinding', 'listFind', 'listUpdate', 'listRemove',
+])
+
+// Legacy/deprecated property names → accessor property they map to
+const LEGACY_MAP = new Map<string | symbol, string>([
+  [XIN_PATH, 'path'], ['xinPath', 'path'], ['tosiPath', 'path'],
+  [XIN_VALUE, 'value'], ['xinValue', 'value'], ['tosiValue', 'value'],
+  [XIN_OBSERVE, 'observe'], ['xinObserve', 'observe'], ['tosiObserve', 'observe'],
+  [XIN_ON, 'on'], ['xinOn', 'on'], ['tosiOn', 'on'],
+  [XIN_BIND, 'bind'], ['xinBind', 'bind'], ['tosiBind', 'bind'],
+  ['tosiBinding', 'binding'],
+  ['tosiListBinding', 'listBinding'],
+])
+
 const regHandler = (
   path: string,
   boxScalars: boolean
 ): ProxyHandler<XinObject> => ({
   get(target: XinObject | XinArray, _prop: string | symbol): XinValue {
+    // .tosi / TOSI_ACCESSOR — collision-free accessor API
+    if ((_prop === 'tosi' || _prop === TOSI_ACCESSOR) && boxScalars) {
+      return makeTosiAccessor(path, target)
+    }
+
     // For boxed scalars, intercept property access - value always comes from registry
     if (isBoxedScalar(target)) {
-      // Helper to get the actual value from registry
       const getValue = () => getByPath(registry, path)
 
+      // Coercion methods — must live on the main proxy
       switch (_prop) {
-        // Primary API for boxed scalars
-        case 'path':
-          return path
-        case 'value':
-          return getValue()
         case 'valueOf':
         case 'toJSON':
           return () => getValue()
@@ -865,120 +977,22 @@ const regHandler = (
           }
         case 'toString':
           return () => String(getValue())
-        case 'touch':
-          return () => touch(path)
-        case 'observe':
-          return (callback: ObserverCallbackFunction) => {
-            const listener = _observe(path, callback)
-            return () => unobserve(listener)
-          }
-        case 'on':
-          return (
-            element: HTMLElement,
-            eventType: keyof HTMLElementEventMap
-          ): VoidFunction =>
-            getOn()(element, eventType, getValue() as XinEventHandler)
-        case 'bind':
-          return (
-            element: Element,
-            binding: XinBinding,
-            options?: XinObject
-          ) => {
-            getBind()(element, path, binding, options)
-          }
-        case 'binding':
-          return (binding: XinBinding) => ({
-            bind: {
-              value: path,
-              binding,
-            },
-          })
-        case 'listBinding':
-          return (
-            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
-              span,
-            }) => span({ bindText: '^' }),
-            options: XinObject = {}
-          ) => [
-            {
-              bindList: {
-                value: path,
-                ...options,
-              },
-            },
-            elements.template(content(elements, listElement())),
-          ]
-        case 'listFind':
-        case 'listUpdate':
-        case 'listRemove':
-          return makeListMethods(path, target as any[])[
-            _prop as 'listFind' | 'listUpdate' | 'listRemove'
-          ]
-        // Deprecated names for boxed scalars
-        case XIN_VALUE:
-        case 'xinValue':
-        case 'tosiValue':
-          warnDeprecation()
-          return getValue()
-        case XIN_PATH:
-        case 'xinPath':
-        case 'tosiPath':
-          warnDeprecation()
-          return path
-        case XIN_OBSERVE:
-        case 'tosiObserve':
-          warnDeprecation()
-          return (callback: ObserverCallbackFunction) => {
-            const listener = _observe(path, callback)
-            return () => unobserve(listener)
-          }
-        case XIN_ON:
-        case 'tosiOn':
-          warnDeprecation()
-          return (
-            element: HTMLElement,
-            eventType: keyof HTMLElementEventMap
-          ): VoidFunction =>
-            getOn()(element, eventType, getValue() as XinEventHandler)
-        case XIN_BIND:
-        case 'tosiBind':
-          warnDeprecation()
-          return (
-            element: Element,
-            binding: XinBinding,
-            options?: XinObject
-          ) => {
-            getBind()(element, path, binding, options)
-          }
-        case 'tosiBinding':
-          warnDeprecation()
-          return (binding: XinBinding) => ({
-            bind: {
-              value: path,
-              binding,
-            },
-          })
-        case 'tosiListBinding':
-          warnDeprecation()
-          return (
-            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
-              span,
-            }) => span({ bindText: '^' }),
-            options: XinObject = {}
-          ) => [
-            {
-              bindList: {
-                value: path,
-                ...options,
-              },
-            },
-            elements.template(content(elements, listElement())),
-          ]
       }
 
-      // Delegate to underlying value for any unrecognized property
-      // This lets string methods (toLocaleLowerCase, startsWith, etc.),
-      // number methods (toFixed, etc.), and index access work transparently
+      // Accessor API — delegate to accessor proxy
+      if (ACCESSOR_PROPS.has(_prop as string)) {
+        return makeTosiAccessor(path, target)[_prop]
+      }
+
+      // Deprecated prefixed names — delegate to accessor
+      const mapped = LEGACY_MAP.get(_prop)
+      if (mapped !== undefined) {
+        warnDeprecation()
+        return makeTosiAccessor(path, target)[mapped]
+      }
+
+      // Delegate to underlying primitive for unrecognized properties
+      // (string methods, number methods, index access, etc.)
       const val = getValue()
       if (val != null) {
         const wrapped = Object(val)
@@ -991,124 +1005,20 @@ const regHandler = (
       return undefined
     }
 
-    // For non-boxed-scalar objects, handle property access
-    // Primary API (unprefixed) - only for boxed proxies to avoid conflicts with actual properties
-    // Only intercept if the property does NOT exist on the target (to avoid shadowing real properties)
-    if (boxScalars && !(_prop in target)) {
-      switch (_prop) {
-        case 'path':
-          return path
-        case 'value':
-          return target.valueOf ? target.valueOf() : target
-        case 'valueOf':
-        case 'toJSON':
-          return () => (target.valueOf ? target.valueOf() : target)
-        case 'touch':
-          return () => touch(path)
-        case 'observe':
-          return (callback: ObserverCallbackFunction) => {
-            const listener = _observe(path, callback)
-            return () => unobserve(listener)
-          }
-        case 'on':
-          return (
-            element: HTMLElement,
-            eventType: keyof HTMLElementEventMap
-          ): VoidFunction =>
-            getOn()(element, eventType, tosiValue(target) as XinEventHandler)
-        case 'bind':
-          return (
-            element: Element,
-            binding: XinBinding,
-            options?: XinObject
-          ) => {
-            getBind()(element, path, binding, options)
-          }
-        case 'binding':
-          return (binding: XinBinding) => ({
-            bind: {
-              value: path,
-              binding,
-            },
-          })
-        case 'listBinding':
-          return (
-            content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
-              span,
-            }) => span({ bindText: '^' }),
-            options: XinObject = {}
-          ) => [
-            {
-              bindList: {
-                value: path,
-                ...options,
-              },
-            },
-            elements.template(content(elements, listElement())),
-          ]
-        case 'listFind':
-        case 'listUpdate':
-        case 'listRemove':
-          return makeListMethods(path, target as any[])[
-            _prop as 'listFind' | 'listUpdate' | 'listRemove'
-          ]
-      }
+    // valueOf/toJSON — must override the inherited Object.prototype versions
+    if (boxScalars && (_prop === 'valueOf' || _prop === 'toJSON')) {
+      return () => (target.valueOf ? target.valueOf() : target)
     }
-    // Legacy API (xin/tosi prefixed) - works for both xin and boxed proxies
-    switch (_prop) {
-      case XIN_PATH:
-      case 'xinPath':
-      case 'tosiPath':
-        return path
-      case XIN_VALUE:
-      case 'xinValue':
-      case 'tosiValue':
-        // For proxied objects, valueOf() returns the underlying object
-        // because function values are bound to target in the get handler
-        return target.valueOf ? target.valueOf() : target
-      case XIN_OBSERVE:
-      case 'xinObserve':
-      case 'tosiObserve':
-        return (callback: ObserverCallbackFunction) => {
-          const listener = _observe(path, callback)
-          return () => unobserve(listener)
-        }
-      case XIN_ON:
-      case 'xinOn':
-      case 'tosiOn':
-        return (
-          element: HTMLElement,
-          eventType: keyof HTMLElementEventMap
-        ): VoidFunction =>
-          getOn()(element, eventType, tosiValue(target) as XinEventHandler)
-      case XIN_BIND:
-      case 'xinBind':
-      case 'tosiBind':
-        return (element: Element, binding: XinBinding, options?: XinObject) => {
-          getBind()(element, path, binding, options)
-        }
-      case 'tosiBinding':
-        return (binding: XinBinding) => ({
-          bind: {
-            value: path,
-            binding,
-          },
-        })
-      case 'tosiListBinding':
-        return (
-          content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
-            span,
-          }) => span({ bindText: '^' }),
-          options: XinObject = {}
-        ) => [
-          {
-            bindList: {
-              value: path,
-              ...options,
-            },
-          },
-          elements.template(content(elements, listElement())),
-        ]
+
+    // For non-boxed-scalar objects: accessor API (only when not shadowed by target)
+    if (boxScalars && !(_prop in target) && ACCESSOR_PROPS.has(_prop as string)) {
+      return makeTosiAccessor(path, target)[_prop]
+    }
+
+    // Legacy prefixed API — works for both xin and boxed proxies
+    const legacyMapped = LEGACY_MAP.get(_prop)
+    if (legacyMapped !== undefined) {
+      return makeTosiAccessor(path, target)[legacyMapped]
     }
     if (typeof _prop === 'symbol') {
       return (target as XinObject)[_prop]
@@ -1135,7 +1045,7 @@ const regHandler = (
     if (compoundProp !== null) {
       const [, basePath, subPath] = compoundProp
       const currentPath = extendPath(path, basePath)
-      const value = getByPath(target, basePath)
+      const value = tosiValue(getByPath(target, basePath))
       return value !== null && typeof value === 'object'
         ? new Proxy<XinObject, XinProxyObject>(
             value,
@@ -1162,6 +1072,7 @@ const regHandler = (
         value = (target as XinArray)[prop as unknown as number]
       }
       if (value instanceof Object) {
+        value = tosiValue(value)
         const currentPath = extendPath(path, prop)
         return new Proxy<XinObject, XinProxyObject>(
           value instanceof Function ? value.bind(target) : value,
@@ -1171,7 +1082,7 @@ const regHandler = (
         return boxScalars ? box(value, extendPath(path, prop)) : value
       }
     } else if (Array.isArray(target)) {
-      const value = target[prop as unknown as number]
+      let value = target[prop as unknown as number]
       return typeof value === 'function'
         ? (...items: any[]) => {
             // Unwrap any proxied/boxed values before passing to array methods
@@ -1197,20 +1108,36 @@ const regHandler = (
           }
         : typeof value === 'object'
         ? new Proxy<XinProxyTarget, XinObject>(
-            value,
+            tosiValue(value),
             regHandler(extendPath(path, prop), boxScalars)
           )
         : boxScalars
         ? box(value, extendPath(path, prop))
         : value
     } else {
+      let val = target[prop]
+      if (val !== null && typeof val === 'object') {
+        val = tosiValue(val) // unwrap if already proxied (defensive)
+      }
       return boxScalars
-        ? box(target[prop], extendPath(path, prop))
-        : target[prop]
+        ? box(val, extendPath(path, prop))
+        : val
     }
   },
   set(target, prop: string | symbol, value: any) {
     value = tosiValue(value)
+    // Shallow-unwrap proxied children (e.g. from { ...proxy } spreads)
+    if (value !== null && typeof value === 'object') {
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          value[i] = tosiValue(value[i])
+        }
+      } else {
+        for (const k of Object.keys(value)) {
+          value[k] = tosiValue(value[k])
+        }
+      }
+    }
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
     // (when boxScalars is true, .value should always set the underlying value)
     const isValueProp =
