@@ -112,7 +112,7 @@ function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
 }
 
 function byIdPath(
-  array: any[],
+  array: any[] | XinObject,
   idPath: string,
   idValue: string,
   valueToInsert?: any
