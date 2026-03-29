@@ -117,7 +117,7 @@ function byIdPath(
   idValue: string,
   valueToInsert?: any
 ): any {
-  let idx = idPath !== '' ? keyToIndex(array, idPath, idValue) : idValue
+  let idx = idPath !== '' ? keyToIndex(array as any[], idPath, idValue) : idValue
   if (valueToInsert === _delete_) {
     array.splice(idx as number, 1)
     idPathMaps.delete(array)
