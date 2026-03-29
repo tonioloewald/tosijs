@@ -36,7 +36,7 @@ async function build() {
   console.time('build')
   let result: any
 
-  await $`bun test`
+  await $`bun test src/`
   await $`mkdir -p ${PUBLIC} && rsync -a demo/static/ ${PUBLIC}/`
 
   await $`bun tsc --declaration --emitDeclarationOnly --target es2022 --outDir dist`
@@ -59,6 +59,39 @@ async function build() {
     })
     if (!result.success) {
       console.error('demo build failed')
+      for (const message of result.logs) {
+        console.error(message)
+      }
+      return
+    }
+  }
+
+  // TJS variants: convert source then bundle the debug and safe entry points
+  const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
+  await $`rm -rf ${TJS_OUT}`
+  await $`mkdir -p ${TJS_OUT}`
+  await $`bun tjs convert src/ -o ${TJS_OUT}/`
+  // Convert the debug and safe entry points
+  await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
+  await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
+
+  const tjsTargets = [
+    { entry: './tjs-out/index-debug.js', naming: 'module.debug.js', format: 'esm' },
+    { entry: './tjs-out/index-safe.js', naming: 'module.safe.js', format: 'esm' },
+  ]
+  for (const target of tjsTargets) {
+    const { entry, naming, format } = target
+    let result = await Bun.build({
+      entrypoints: [entry],
+      format,
+      outdir: DIST,
+      target: 'browser',
+      sourcemap: 'linked',
+      minify: MINIFY,
+      naming,
+    })
+    if (!result.success) {
+      console.error(`tjs ${naming} build failed`)
       for (const message of result.logs) {
         console.error(message)
       }
