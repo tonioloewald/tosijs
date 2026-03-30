@@ -131,10 +131,3 @@ www
 
 # beads issue tracker
 .beads/
-
-# tjs conversion output
-tjs-out/
-convert-report.txt
-
-# docs source maps (may contain API tokens from demo dependencies)
-docs/*.map
