@@ -13,7 +13,7 @@ export { hotReload } from './hot-reload';
 export { share } from './share';
 export { sync } from './sync';
 export type { SyncTransport, SyncMessage, SyncOptions } from './sync';
-export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, tosiAccessor, TOSI_ACCESSOR, deprecated, warnDeprecated, } from './metadata';
+export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, tosiAccessor, TOSI_ACCESSOR, TAKE_DESCRIPTOR, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, scrollListItemIntoView, } from './list-binding';
 export { makeComponent } from './make-component';
 export type { XinBlueprint, XinFactory, XinPackagedComponent, XinComponentSpec, } from './make-component';

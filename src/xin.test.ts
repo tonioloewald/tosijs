@@ -10,6 +10,8 @@ import {
   isValidPath,
 } from './xin'
 import { tosi } from './xin-proxy'
+import { bind } from './bind'
+import { bindings } from './bindings'
 import { elements } from './elements'
 import {
   XIN_VALUE,
@@ -21,6 +23,7 @@ import {
   tosiSetValue,
   tosiAccessor,
   TOSI_ACCESSOR,
+  TAKE_DESCRIPTOR,
 } from './metadata'
 
 type Change = { path: string; value: any; observed?: any }
@@ -1465,4 +1468,135 @@ test('observer callback touches are not lost', (done) => {
     unsub2()
     done()
   }, 50)
+})
+
+// .take() tests
+
+test('take returns a TakeDescriptor with correct shape', () => {
+  const { takeShapeTest } = tosi({
+    takeShapeTest: { count: 5, label: 'hello' },
+  })
+
+  const desc = takeShapeTest.count.tosi.take((v: number) => v * 2)
+  expect(desc[TAKE_DESCRIPTOR]).toBe(true)
+  expect(desc.paths).toEqual(['takeShapeTest.count'])
+  expect(typeof desc.transform).toBe('function')
+  expect(desc.transform(5)).toBe(10)
+})
+
+test('take multi-path returns descriptor with all paths', () => {
+  const { takeMultiTest } = tosi({
+    takeMultiTest: { items: [1, 2, 3], filter: 'odd' },
+  })
+
+  const desc = takeMultiTest.items.tosi.take(
+    takeMultiTest.filter,
+    (items: number[], filter: string) =>
+      filter === 'odd' ? items.filter((n) => n % 2) : items
+  )
+  expect(desc[TAKE_DESCRIPTOR]).toBe(true)
+  expect(desc.paths).toEqual(['takeMultiTest.items', 'takeMultiTest.filter'])
+  expect(desc.transform([1, 2, 3], 'odd')).toEqual([1, 3])
+})
+
+test('take with bindText updates DOM on state change', async () => {
+  const { takeBindTest } = tosi({
+    takeBindTest: { count: 3 },
+  })
+
+  const span = elements.span({ bindText: takeBindTest.count.tosi.take((n: number) => `Count: ${n}`) })
+  document.body.append(span)
+  await updates()
+
+  expect(span.textContent).toBe('Count: 3')
+
+  takeBindTest.count.value = 7
+  await updates()
+
+  expect(span.textContent).toBe('Count: 7')
+  span.remove()
+})
+
+test('take with bindEnabled inverts boolean', async () => {
+  const { takeEnabledTest } = tosi({
+    takeEnabledTest: { items: [] as string[] },
+  })
+
+  const btn = elements.button('Delete', {
+    bindEnabled: takeEnabledTest.items.tosi.take((list: string[]) => list.length > 0),
+  })
+  document.body.append(btn)
+  await updates()
+
+  expect(btn.disabled).toBe(true)
+
+  takeEnabledTest.items.push('item1')
+  touch(takeEnabledTest.items)
+  await updates()
+
+  expect(btn.disabled).toBe(false)
+  btn.remove()
+})
+
+test('take multi-path binding reacts to any path change', async () => {
+  const { takeMultiBindTest } = tosi({
+    takeMultiBindTest: { firstName: 'Alice', lastName: 'Smith' },
+  })
+
+  const span = elements.span({
+    bindText: takeMultiBindTest.firstName.tosi.take(
+      takeMultiBindTest.lastName,
+      (first: string, last: string) => `${first} ${last}`
+    ),
+  })
+  document.body.append(span)
+  await updates()
+
+  expect(span.textContent).toBe('Alice Smith')
+
+  takeMultiBindTest.lastName.value = 'Jones'
+  await updates()
+
+  expect(span.textContent).toBe('Alice Jones')
+
+  takeMultiBindTest.firstName.value = 'Bob'
+  await updates()
+
+  expect(span.textContent).toBe('Bob Jones')
+  span.remove()
+})
+
+test('take deduplicates — transform skipped when inputs unchanged', async () => {
+  const { takeDedupTest } = tosi({
+    takeDedupTest: { value: 'hello', other: 'world' },
+  })
+
+  let transformCallCount = 0
+  const span = elements.span({
+    bindText: takeDedupTest.value.tosi.take((v: string) => {
+      transformCallCount++
+      return v.toUpperCase()
+    }),
+  })
+  document.body.append(span)
+  await updates()
+
+  const initialCalls = transformCallCount
+  expect(span.textContent).toBe('HELLO')
+
+  // Touch the same path without changing the value
+  touch(takeDedupTest.value)
+  await updates()
+
+  // Transform should not have run again (same input)
+  expect(transformCallCount).toBe(initialCalls)
+  expect(span.textContent).toBe('HELLO')
+
+  // Now actually change the value
+  takeDedupTest.value.value = 'world'
+  await updates()
+
+  expect(transformCallCount).toBe(initialCalls + 1)
+  expect(span.textContent).toBe('WORLD')
+  span.remove()
 })
