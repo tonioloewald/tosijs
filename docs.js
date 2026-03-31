@@ -89,7 +89,7 @@ function saveAsJSON(data, outputFilePath) {
   fs.writeFileSync(outputFilePath, jsonData, 'utf8')
 }
 
-const ignore = ['node_modules', 'third-party', 'dist', 'www', 'docs', 'AGENTS.md', 'CLAUDE.md', 'TODO.md']
+const ignore = ['node_modules', 'third-party', 'dist', 'www', 'docs', 'tjs-out', 'AGENTS.md', 'CLAUDE.md', 'TODO.md']
 
 // Specify the directories to search for markdown files
 const directoriesToSearch = ['.']
