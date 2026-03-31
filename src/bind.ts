@@ -238,6 +238,7 @@ import {
   XinEventBindings,
   XIN_PATH,
   XIN_VALUE,
+  TAKE_DESCRIPTOR,
 } from './metadata'
 import {
   XinObject,
@@ -246,6 +247,7 @@ import {
   XinTouchableType,
   XinBinding,
   XinBindingSpec,
+  TakeDescriptor,
   EventType,
 } from './xin-types'
 import { ListBinding, getListItem } from './list-binding'
@@ -361,15 +363,72 @@ interface BindingOptions {
   [key: string]: any
 }
 
+function bindTake<T extends Element>(
+  element: T,
+  descriptor: TakeDescriptor,
+  binding: XinBinding<T>,
+  options?: BindingOptions
+): T {
+  const { paths, transform } = descriptor
+  const { toDOM } = binding
+  if (toDOM == null) return element
+
+  let lastInputs: any[] | null = null
+
+  const wrappedBinding: XinBinding<Element> = {
+    toDOM(el, _value, opts) {
+      const xin = getXinProxy()
+      const currentInputs = paths.map((p) => xin[p])
+      if (
+        lastInputs !== null &&
+        currentInputs.every((v, i) => v === lastInputs![i])
+      ) {
+        return
+      }
+      lastInputs = currentInputs
+      const result = transform(...currentInputs)
+      ;(toDOM as any)(el, result, opts)
+    },
+    fromDOM: binding.fromDOM as XinBinding<Element>['fromDOM'],
+  }
+
+  element.classList?.add(BOUND_CLASS)
+  let dataBindings = elementToBindings.get(element)
+  if (dataBindings == null) {
+    dataBindings = []
+    elementToBindings.set(element, dataBindings)
+  }
+
+  for (const p of paths) {
+    dataBindings.push({
+      path: p,
+      binding: wrappedBinding,
+      options,
+    })
+  }
+
+  if (!paths[0].startsWith('^')) {
+    touch(paths[0])
+  }
+
+  return element
+}
+
 export function bind<T extends Element = Element>(
   element: T,
-  what: XinTouchableType | XinBindingSpec,
+  what: XinTouchableType | XinBindingSpec | TakeDescriptor,
   binding: XinBinding<T>,
   options?: BindingOptions
 ): T {
   if (element instanceof DocumentFragment) {
     throw new Error('bind cannot bind to a DocumentFragment')
   }
+
+  // TakeDescriptor — multi-path reactive transform
+  if (what != null && typeof what === 'object' && (what as any)[TAKE_DESCRIPTOR]) {
+    return bindTake(element, what as unknown as TakeDescriptor, binding, options)
+  }
+
   let path: string
   if (
     typeof what === 'object' &&

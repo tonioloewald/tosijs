@@ -1,4 +1,4 @@
-import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND, TOSI_ACCESSOR } from './metadata';
+import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND, TOSI_ACCESSOR, TAKE_DESCRIPTOR } from './metadata';
 import { XinStyleRule } from './css-types';
 import { ElementsProxy } from './elements-types';
 export type AnyFunction = (...args: any[]) => any | Promise<any>;
@@ -11,6 +11,16 @@ export type XinProxyTarget = XinObject | XinArray;
 export type XinValue = XinObject | XinArray | XinScalar | null | undefined;
 type ProxyObserveFunc = ((path: string) => void);
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: XinBinding<T>, options?: XinObject) => VoidFunction;
+/**
+ * TakeDescriptor is returned by `.take()` — a reactive binding descriptor
+ * that carries paths to observe and a transform function.
+ * The binding system uses this to wire up multi-path reactive transforms.
+ */
+export interface TakeDescriptor {
+    [TAKE_DESCRIPTOR]: true;
+    paths: string[];
+    transform: (...values: any[]) => any;
+}
 /**
  * TosiAccessor is the collision-free observer API accessed via `.tosi`.
  * Unlike the direct properties (path, value, observe, etc.) which can be
@@ -36,6 +46,7 @@ export interface TosiAccessor<T = any> {
     };
     listUpdate: (selector: (item: any) => any, newValue: any) => BoxedProxy;
     listRemove: (selector: (item: any) => any, value: any) => boolean;
+    take: (...args: [...sources: any[], transform: (...values: any[]) => any]) => TakeDescriptor;
 }
 /**
  * XinProps provides the observer API for boxed objects and arrays.
@@ -152,7 +163,7 @@ export type XinEventHandler<T extends Event = Event, E = Element> = ((evt: T & {
 }) => void) | ((evt: T & {
     target: E;
 }) => Promise<void>) | string;
-export type XinBindingShortcut = XinTouchableType | XinBindingSpec;
+export type XinBindingShortcut = XinTouchableType | XinBindingSpec | TakeDescriptor;
 type _BooleanFunction = () => boolean;
 type _PathTestFunction = (path: string) => boolean | symbol;
 export type PathTestFunction = _BooleanFunction | _PathTestFunction;

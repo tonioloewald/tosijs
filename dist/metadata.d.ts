@@ -9,6 +9,7 @@ export declare const XIN_OBSERVE = "xinObserve";
 export declare const XIN_BIND = "xinBind";
 export declare const XIN_ON = "xinOn";
 export declare const TOSI_ACCESSOR: unique symbol;
+export declare const TAKE_DESCRIPTOR: unique symbol;
 export declare const LIST_BINDING_REF: unique symbol;
 export declare const LIST_INSTANCE_REF: unique symbol;
 /**

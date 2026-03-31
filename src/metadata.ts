@@ -77,6 +77,7 @@ export const XIN_BIND = 'xinBind'
 export const XIN_ON = 'xinOn'
 
 export const TOSI_ACCESSOR = Symbol.for('tosi-accessor')
+export const TAKE_DESCRIPTOR = Symbol.for('tosi-take')
 
 export const LIST_BINDING_REF = Symbol('list-binding')
 export const LIST_INSTANCE_REF = Symbol('list-instance')

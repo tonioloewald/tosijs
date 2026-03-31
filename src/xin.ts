@@ -566,6 +566,56 @@ Arrays also have:
 > `tosiValue`, `tosiPath`, etc. names still work but are deprecated.
 > Use `.tosi.*` instead.
 
+## `.take()` — Reactive Binding Transforms
+
+`.take()` creates a reactive binding descriptor that transforms values before
+they reach the DOM. It eliminates most custom bindings.
+
+### Single-path transform
+
+```js
+import { tosi, elements } from 'tosijs'
+
+const { takeDemo } = tosi({ takeDemo: { count: 3, items: ['a', 'b', 'c'] } })
+
+const { span, button } = elements
+
+preview.append(
+  span({ bindText: takeDemo.count.tosi.take(n => `Count: ${n}`) }),
+  button('Delete', {
+    bindEnabled: takeDemo.items.tosi.take(list => list.length > 0),
+  })
+)
+```
+
+### Multi-path transform
+
+Pass additional proxies before the transform function. The transform receives
+all current values when any of the watched paths change.
+
+```js
+import { tosi, elements } from 'tosijs'
+
+const { takeMultiDemo } = tosi({
+  takeMultiDemo: { firstName: 'Alice', lastName: 'Smith' }
+})
+
+const { span, input, label } = elements
+
+preview.append(
+  span({ bindText: takeMultiDemo.firstName.tosi.take(
+    takeMultiDemo.lastName,
+    (first, last) => `${first} ${last}`
+  ) }),
+  label('First', input({ bindValue: takeMultiDemo.firstName })),
+  label('Last', input({ bindValue: takeMultiDemo.lastName })),
+)
+```
+
+`.take()` is efficient: the transform only runs when the input values actually
+change (compared by identity). If an observer fires but the value is the same,
+the transform is skipped entirely.
+
 ## List Operations
 
 When working with list-bound arrays, you often need to find, update, or remove
@@ -716,6 +766,7 @@ import {
   XIN_BIND,
   XIN_ON,
   TOSI_ACCESSOR,
+  TAKE_DESCRIPTOR,
   LIST_INSTANCE_REF,
 } from './metadata'
 
@@ -913,6 +964,19 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
         return makeListMethods(path, Array.isArray(target) ? target : [])[
           prop as 'listFind' | 'listUpdate' | 'listRemove'
         ]
+      case 'take':
+        return (...args: any[]) => {
+          const transform = args[args.length - 1]
+          const extraSources = args.slice(0, -1)
+          const extraPaths = extraSources.map((p: any) =>
+            typeof p === 'string' ? p : p[XIN_PATH]
+          )
+          return {
+            [TAKE_DESCRIPTOR]: true,
+            paths: [path, ...extraPaths],
+            transform,
+          }
+        }
     }
     return undefined
   },
@@ -935,7 +999,7 @@ const makeTosiAccessor = (path: string, target: any) =>
 // Accessor API property names — looked up on every get, so use a Set
 const ACCESSOR_PROPS = new Set([
   'path', 'value', 'touch', 'observe', 'bind', 'on',
-  'binding', 'listBinding', 'listFind', 'listUpdate', 'listRemove',
+  'binding', 'listBinding', 'listFind', 'listUpdate', 'listRemove', 'take',
 ])
 
 // Legacy/deprecated property names → accessor property they map to
