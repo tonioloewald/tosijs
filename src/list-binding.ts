@@ -7,7 +7,57 @@ for handling this efficiently.
 
 ## `bindList` and `bindings.list`
 
-The basic structure of a **list-binding** is:
+## `.tosi.listBinding()` — the preferred way
+
+The simplest way to bind an array is with `.tosi.listBinding()` (or `.listBinding()`
+directly on a BoxedProxy). It takes a template builder function that receives
+the `elements` proxy and a placeholder item for bindings:
+
+```js
+import { elements, tosi } from 'tosijs'
+const { listBindingExample } = tosi({
+  listBindingExample: {
+    array: ['this', 'is', 'an', 'example']
+  }
+})
+
+const { h3, ul } = elements
+
+preview.append(
+  h3('binding an array of strings'),
+  ul(
+    ...listBindingExample.array.tosi.listBinding(({li}, item) => li(item))
+  )
+)
+```
+
+### listBinding(templateBuilder, options?) => [ElementProps, HTMLTemplateElement]
+
+    type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
+
+The template builder receives two arguments: the `elements` proxy (destructure
+the tags you need) and a placeholder proxy for the array item. Property access
+on the placeholder creates relative bindings (`^.name`, `^.score`, etc.)
+automatically.
+
+Spread the result into a container element — it returns an `[ElementProps, HTMLTemplateElement]`
+tuple that the container uses to set up the list binding.
+
+Under the hood, this creates the same `bindList` + `template` structure shown below,
+but without the boilerplate.
+
+### Options
+
+Pass options as the second argument:
+
+    ...items.tosi.listBinding(({div}, item) => div(item.name), {
+      idPath: 'id',           // unique id field for surgical updates
+      virtual: { height: 30 } // virtualize for large lists
+    })
+
+### `bindList` + `template` — the low-level way
+
+For reference, the equivalent low-level structure that `.listBinding()` generates:
 
     div( // container element
       {
@@ -27,36 +77,7 @@ The basic structure of a **list-binding** is:
       )
     )
 
-```js
-  import { elements, tosi } from 'tosijs'
-  const { listBindingExample } = tosi({
-    listBindingExample: {
-      array: ['this', 'is', 'an', 'example']
-    }
-  })
-
-  const { h3, ul, li, template } = elements
-
-  preview.append(
-    h3('binding an array of strings'),
-    ul(
-      ...listBindingExample.array.listBinding(({li}, item) => li(item))
-    )
-  )
-```
-
-### listBinding(templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => [ElementProps, HTMLTemplateElement]
-
-    type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement
-    type ListBinding = [ElementProps, HTMLTemplateElement]
-
-The example leverages new syntax sugar that makes list-binding simpler
-and more intuitive. (It's intended to be as convenient as mapping an array to elements,
-except that you get dynamic binding, virtualized lists, versus a static list.)
-
-If you have a BoxedProxy<T[]>, you can use `listBinding()`
-to create the binding inline (see the example above). Under the hood, the template
-gets created and an object with the necessary specifications is produced.
+You rarely need this form — `.listBinding()` is more concise and type-safe.
 
 Even better, `templateBuilder()` is passed the `elements` proxy and a placeholder `BoxedProxy` of
 the array's type, supporting autocompletion of property names within the template.

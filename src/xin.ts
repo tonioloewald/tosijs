@@ -616,6 +616,68 @@ preview.append(
 change (compared by identity). If an observer fires but the value is the same,
 the transform is skipped entirely.
 
+### Filtered list with `.take()`
+
+`.take()` works with list bindings to create reactive filtered views. The filter
+re-evaluates when any of the watched paths change, but the list binding still
+does surgical DOM updates.
+
+```js
+import { elements, tosi, touch } from 'tosijs'
+
+const { takeFilterDemo } = tosi({
+  takeFilterDemo: {
+    search: '',
+    items: [
+      { id: 1, name: 'Alice', role: 'engineer' },
+      { id: 2, name: 'Bob', role: 'designer' },
+      { id: 3, name: 'Carol', role: 'engineer' },
+      { id: 4, name: 'Dave', role: 'manager' },
+      { id: 5, name: 'Eve', role: 'designer' },
+    ]
+  }
+})
+
+const { div, input, label, ul } = elements
+
+preview.append(
+  div(
+    { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 10 } },
+    label('Filter', input({
+      placeholder: 'type to filter...',
+      bindValue: takeFilterDemo.search,
+    })),
+    div({
+      bindText: takeFilterDemo.items.tosi.take(
+        takeFilterDemo.search,
+        (items, search) => {
+          const s = search.toLowerCase()
+          const count = s ? items.filter(i => i.name.toLowerCase().includes(s) || i.role.includes(s)).length : items.length
+          return `Showing ${count} of ${items.length}`
+        }
+      ),
+      style: { fontStyle: 'italic', opacity: 0.7 },
+    }),
+    ul(
+      ...takeFilterDemo.items.tosi.listBinding(
+        ({li, span}, item) => li(
+          span({ bindText: item.name, style: { fontWeight: 'bold' } }),
+          ' — ',
+          span({ bindText: item.role }),
+        ),
+        {
+          idPath: 'id',
+          filter: (items, needle) => needle
+            ? items.filter(i => i.name.toLowerCase().includes(needle) || i.role.includes(needle))
+            : items,
+          needle: takeFilterDemo.search.tosi.take(s => s.toLowerCase()),
+        }
+      )
+    )
+  )
+)
+```
+
 ## List Operations
 
 When working with list-bound arrays, you often need to find, update, or remove
