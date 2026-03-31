@@ -411,7 +411,7 @@ directly from the `elements` proxy if you need to set attributes like
 `class` or `style` on the slot container (plain `<slot>` elements lose
 non-`name` attributes during the rewrite).
 
-```js
+```
 class CardLayout extends Component {
   content = ({ h3, xinSlot }) => [
     h3('Header'),
