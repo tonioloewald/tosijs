@@ -1600,3 +1600,61 @@ test('take deduplicates — transform skipped when inputs unchanged', async () =
   expect(span.textContent).toBe('WORLD')
   span.remove()
 })
+
+// Bare proxy property binding tests
+
+test('bare proxy binds to textContent', async () => {
+  const { barePropTest } = tosi({
+    barePropTest: { label: 'hello' },
+  })
+
+  const span = elements.span({ textContent: barePropTest.label })
+  document.body.append(span)
+  await updates()
+
+  expect(span.textContent).toBe('hello')
+
+  barePropTest.label.value = 'world'
+  await updates()
+
+  expect(span.textContent).toBe('world')
+  span.remove()
+})
+
+test('bare proxy binds to disabled', async () => {
+  const { bareDisabledTest } = tosi({
+    bareDisabledTest: { isDisabled: true },
+  })
+
+  const btn = elements.button('Click', { disabled: bareDisabledTest.isDisabled })
+  document.body.append(btn)
+  await updates()
+
+  expect(btn.disabled).toBe(true)
+
+  bareDisabledTest.isDisabled.value = false
+  await updates()
+
+  expect(btn.disabled).toBe(false)
+  btn.remove()
+})
+
+test('take descriptor works as bare property binding', async () => {
+  const { bareTakeTest } = tosi({
+    bareTakeTest: { items: ['a', 'b', 'c'] },
+  })
+
+  const btn = elements.button('Delete', {
+    disabled: bareTakeTest.items.tosi.take((list: string[]) => list.length === 0),
+  })
+  document.body.append(btn)
+  await updates()
+
+  expect(btn.disabled).toBe(false)
+
+  bareTakeTest.items.value = []
+  await updates()
+
+  expect(btn.disabled).toBe(true)
+  btn.remove()
+})

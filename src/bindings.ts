@@ -30,34 +30,38 @@ The `text` binding copies state from `xin` to the bound element's `textContent` 
 
 ## enabled & disabled
 
+> **Note:** `bindEnabled` and `bindDisabled` are deprecated. Use bare proxy
+> property bindings instead:
+>
+>     button({ disabled: proxy.flag })
+>     button({ disabled: proxy.items.tosi.take(list => !list.length) })
+
 The `enabled` and `disabled` bindings allow you to make a widget's enabled status
 be determined by the truthiness of something in `xin`, e.g.
 
 ```
-import { xinProxy, elements } from 'tosijs'
+import { tosi, elements } from 'tosijs'
 
-const myDoc = xinProxy({
+const { myDoc } = tosi({
     myDoc: {
-        content: ''
+        content: '',
         unsavedChanges: false
     }
-}, 1)
+})
 
-// this button will only be enabled if there is something in `myList.array`
 document.body.append(
     elements.textarea({
         bindValue: myDoc.content,
         onInput() {
-            myDoc.unsavedChanges = true
+            myDoc.unsavedChanges.value = true
         }
     }),
     elements.button(
         'Save Changes',
         {
-            bindEnabled: myDoc.unsavedChanges,
+            disabled: myDoc.unsavedChanges.tosi.take(v => !v),
             onClick() {
-                // save the doc
-                myDoc.unsavedChanges = false
+                myDoc.unsavedChanges.value = false
             }
         }
     )

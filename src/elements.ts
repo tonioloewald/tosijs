@@ -380,7 +380,7 @@ import {
 } from './xin-types'
 import { camelToKabob } from './string-case'
 import { processProp } from './css'
-import { tosiPath } from './metadata'
+import { tosiPath, warnDeprecated, TAKE_DESCRIPTOR } from './metadata'
 import { MATH, SVG, type ElementsProxy } from './elements-types'
 
 const templates: { [key: string]: Element } = {}
@@ -492,6 +492,20 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
     }
   } else if (key.match(/^bind[A-Z]/) != null) {
     const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5)
+    if (bindingType !== 'value') {
+      const alt =
+        bindingType === 'text' ? 'textContent'
+        : bindingType === 'enabled' ? 'disabled (with .tosi.take(v => !v))'
+        : bindingType === 'disabled' ? 'disabled'
+        : bindingType === 'list' ? '.tosi.listBinding()'
+        : null
+      if (alt) {
+        warnDeprecated(
+          `bind${bindingType}`,
+          `bind${key.substring(4)} is deprecated. Use { ${alt}: ... } instead.`
+        )
+      }
+    }
     const binding = bindings[bindingType]
     if (binding !== undefined) {
       bind(elt, value, binding)
@@ -500,6 +514,9 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
         `${key} is not allowed, bindings.${bindingType} is not defined`
       )
     }
+  } else if (value != null && typeof value === 'object' && value[TAKE_DESCRIPTOR]) {
+    // TakeDescriptor used as a bare property binding
+    bind(elt, value, elementPropBinding(key))
   } else if (tosiPath(value)) {
     bind(elt, value, elementPropBinding(key))
   } else {

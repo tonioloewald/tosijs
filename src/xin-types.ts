@@ -280,9 +280,13 @@ export interface ElementProps<T = Element> {
   onKeyup?: XinEventHandler<KeyboardEvent, T>
   bind?: XinInlineBinding<T>
   bindValue?: XinBindingShortcut
+  /** @deprecated Use { textContent: proxy } instead */
   bindText?: XinBindingShortcut
+  /** @deprecated Use .tosi.listBinding() instead */
   bindList?: XinBindingShortcut
+  /** @deprecated Use { disabled: proxy.tosi.take(v => !v) } instead */
   bindEnabled?: XinBindingShortcut
+  /** @deprecated Use { disabled: proxy } instead */
   bindDisabled?: XinBindingShortcut
   style?: XinStyleRule
   class?: string
