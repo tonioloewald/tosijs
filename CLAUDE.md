@@ -35,7 +35,7 @@ The build system (`dev.ts`) uses Bun's bundler and outputs three formats:
 - `dist/module.js` - ES Module
 - `dist/main.js` - CommonJS
 
-TypeScript declarations are generated via `tsc --declaration`. The build runs tests before bundling.
+TypeScript declarations are generated via `tsc --declaration`. The build runs tests before bundling. After bundling, `tjs convert` generates debug and safe variants (`dist/module.debug.js`, `dist/module.safe.js`) as subpath exports (`tosijs/debug`, `tosijs/safe`).
 
 **Documentation generation:** `docs.js` extracts documentation from two sources into `demo/docs.json`:
 

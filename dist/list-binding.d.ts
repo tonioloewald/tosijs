@@ -9,6 +9,7 @@ export declare class ListBinding {
     template: Element;
     options: ListBindingOptions;
     itemToElement: WeakMap<XinObject, Element>;
+    private idToElement;
     array: any[];
     private _filteredCache?;
     private readonly _update?;

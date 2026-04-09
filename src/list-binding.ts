@@ -898,6 +898,7 @@ export class ListBinding {
   template: Element
   options: ListBindingOptions
   itemToElement: WeakMap<XinObject, Element>
+  private idToElement: Map<string, Element> = new Map()
   array: any[] = []
   private _filteredCache?: any[]
   private readonly _update?: VoidFunction
@@ -1172,6 +1173,20 @@ export class ListBinding {
     let moved = 0
     let created = 0
 
+    const { idPath } = this.options
+
+    // Build a set of visible ids for the removal phase
+    let visibleIds: Set<string> | undefined
+    if (idPath != null) {
+      visibleIds = new Set()
+      for (let i = firstItem; i <= lastItem; i++) {
+        const item = slice.items[i]
+        if (item !== undefined) {
+          visibleIds.add(String(item[idPath]))
+        }
+      }
+    }
+
     for (const element of Array.from(this.boundElement.children)) {
       if (element === this.listTop || element === this.listBottom) {
         continue
@@ -1181,10 +1196,20 @@ export class ListBinding {
       if (proxy == null) {
         element.remove()
       } else {
-        const idx = slice.items.indexOf(proxy)
-        if (idx < firstItem || idx > lastItem) {
+        let shouldRemove: boolean
+        if (idPath != null) {
+          // Check by id rather than reference so replaced objects are matched
+          shouldRemove = !visibleIds!.has(String(proxy[idPath]))
+        } else {
+          const idx = slice.items.indexOf(proxy)
+          shouldRemove = idx < firstItem || idx > lastItem
+        }
+        if (shouldRemove) {
           element.remove()
           this.itemToElement.delete(proxy)
+          if (idPath != null) {
+            this.idToElement.delete(String(proxy[idPath]))
+          }
           removed++
         }
       }
@@ -1197,13 +1222,24 @@ export class ListBinding {
 
     // build a complete new set of elements in the right order
     const elements: Element[] = []
-    const { idPath } = this.options
     for (let i = firstItem; i <= lastItem; i++) {
       const item = slice.items[i]
       if (item === undefined) {
         continue
       }
       let element = this.itemToElement.get(tosiValue(item))
+      // When WeakMap misses (new object ref) but idPath matches an
+      // existing element, reuse it and augment the itemToElement WeakMap
+      if (element == null && idPath != null) {
+        const id = String(item[idPath])
+        element = this.idToElement.get(id)
+        if (element != null) {
+          const rawItem = tosiValue(item)
+          this.itemToElement.set(rawItem, element)
+          // @ts-expect-error storing binding ref on element
+          element[LIST_INSTANCE_REF] = rawItem
+        }
+      }
       if (element == null) {
         created++
         element = cloneWithBindings(this.template) as HTMLElement
@@ -1221,6 +1257,7 @@ export class ListBinding {
           const idValue = item[idPath] as string
           const itemPath = `${arrayPath}[${idPath}=${idValue}]`
           updateRelativeBindings(element, itemPath)
+          this.idToElement.set(String(idValue), element)
         } else {
           const itemPath = `${arrayPath}[${i}]`
           updateRelativeBindings(element, itemPath)

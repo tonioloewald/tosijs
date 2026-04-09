@@ -482,3 +482,104 @@ describe('variable-height virtual list (minHeight)', () => {
     expect(topPad).toBeLessThanOrEqual(500)
   })
 })
+
+describe('list binding element reuse with idPath on array replacement', () => {
+  test('replacing array with new objects sharing same ids reuses elements', () => {
+    document.body.textContent = ''
+
+    const initial = [
+      { name: 'Alice', score: 10 },
+      { name: 'Bob', score: 20 },
+      { name: 'Carol', score: 30 },
+    ]
+    tosi({ reuseTest1: { list: initial } })
+    const proxiedArray = xin['reuseTest1.list'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.name' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'name' })
+    lb.update(proxiedArray)
+
+    expect(childCount(container)).toBe(3)
+
+    // Capture the actual DOM elements
+    const elementsBefore = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // Simulate polling: replace array with new objects, same ids, mostly same data
+    const updated = [
+      { name: 'Alice', score: 10 }, // unchanged
+      { name: 'Bob', score: 25 },   // score changed
+      { name: 'Carol', score: 30 }, // unchanged
+    ]
+    xin['reuseTest1.list'] = updated
+    const newProxiedArray = xin['reuseTest1.list'] as any[]
+
+    lb.update(newProxiedArray)
+
+    expect(childCount(container)).toBe(3)
+
+    const elementsAfter = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // Elements should be reused, not recreated
+    expect(elementsAfter[0]).toBe(elementsBefore[0])
+    expect(elementsAfter[1]).toBe(elementsBefore[1])
+    expect(elementsAfter[2]).toBe(elementsBefore[2])
+  })
+
+  test('find + Object.assign + touch does not recreate elements', () => {
+    document.body.textContent = ''
+
+    const initial = [
+      { name: 'Alice', score: 10 },
+      { name: 'Bob', score: 20 },
+      { name: 'Carol', score: 30 },
+    ]
+    const { reuseTest2 } = tosi({ reuseTest2: { list: initial } })
+    const proxiedArray = xin['reuseTest2.list'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.name' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'name' })
+    lb.update(proxiedArray)
+
+    const elementsBefore = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // Simulate polling: find each existing item and Object.assign new data
+    const polledData = [
+      { name: 'Alice', score: 10 }, // unchanged
+      { name: 'Bob', score: 25 },   // score changed
+      { name: 'Carol', score: 30 }, // unchanged
+    ]
+    for (const newItem of polledData) {
+      const existing = proxiedArray.find(
+        (item: any) => item.name === newItem.name
+      )
+      if (existing) {
+        Object.assign(existing, newItem)
+      }
+    }
+    // Touch array proxy to trigger list update
+    reuseTest2.list.tosi.touch()
+
+    // Manually trigger update (simulating what the observer would do)
+    lb.update(xin['reuseTest2.list'] as any[])
+
+    const elementsAfter = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    expect(elementsAfter[0]).toBe(elementsBefore[0])
+    expect(elementsAfter[1]).toBe(elementsBefore[1])
+    expect(elementsAfter[2]).toBe(elementsBefore[2])
+  })
+})
