@@ -583,3 +583,127 @@ describe('list binding element reuse with idPath on array replacement', () => {
     expect(elementsAfter[2]).toBe(elementsBefore[2])
   })
 })
+
+describe('virtual list aria attributes', () => {
+  test('container has aria-rowcount and items have aria-rowindex', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ ariaTest1: { items } })
+    const proxiedArray = xin['ariaTest1.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+    lb.update(proxiedArray)
+
+    expect(container.getAttribute('aria-rowcount')).toBe('50')
+
+    const rendered = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+    // First rendered item should have aria-rowindex="1" (1-based)
+    expect(rendered[0].getAttribute('aria-rowindex')).toBe('1')
+    // Second item
+    expect(rendered[1].getAttribute('aria-rowindex')).toBe('2')
+  })
+
+  test('padding elements have aria-hidden and role=presentation', () => {
+    document.body.textContent = ''
+
+    const items = [{ id: 1, label: 'a' }]
+    tosi({ ariaTest2: { items } })
+    const proxiedArray = xin['ariaTest2.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+
+    const pads = container.querySelectorAll('.virtual-list-padding')
+    expect(pads.length).toBe(2)
+    for (const pad of Array.from(pads)) {
+      expect(pad.getAttribute('aria-hidden')).toBe('true')
+      expect(pad.getAttribute('role')).toBe('presentation')
+    }
+  })
+
+  test('aria-rowindex updates when slice shifts', () => {
+    document.body.textContent = ''
+
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      label: `Item ${i}`,
+    }))
+    tosi({ ariaTest3: { items } })
+    const proxiedArray = xin['ariaTest3.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    Object.defineProperty(container, 'scrollTop', {
+      value: 0,
+      writable: true,
+      configurable: true,
+    })
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+    lb.update(proxiedArray)
+
+    // Scroll down
+    Object.defineProperty(container, 'scrollTop', {
+      value: 600,
+      configurable: true,
+    })
+    lb.update(proxiedArray, true)
+
+    const rendered = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+    // First rendered item should now be ~item 20 (600/30), aria-rowindex = 21
+    const firstIndex = parseInt(rendered[0].getAttribute('aria-rowindex')!)
+    expect(firstIndex).toBeGreaterThan(1)
+  })
+
+  test('non-virtual lists do not get aria attributes', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, label: 'a' },
+      { id: 2, label: 'b' },
+    ]
+    tosi({ ariaTest4: { items } })
+    const proxiedArray = xin['ariaTest4.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+
+    expect(container.getAttribute('aria-rowcount')).toBeNull()
+    const rendered = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+    expect(rendered[0].getAttribute('aria-rowindex')).toBeNull()
+  })
+})

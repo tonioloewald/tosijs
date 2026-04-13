@@ -956,6 +956,10 @@ export class ListBinding {
       this.listBottom = document.createElement('div')
       this.listTop.classList.add('virtual-list-padding')
       this.listBottom.classList.add('virtual-list-padding')
+      this.listTop.setAttribute('role', 'presentation')
+      this.listBottom.setAttribute('role', 'presentation')
+      this.listTop.setAttribute('aria-hidden', 'true')
+      this.listBottom.setAttribute('aria-hidden', 'true')
       this.boundElement.append(this.listTop)
       this.boundElement.append(this.listBottom)
     }
@@ -1145,6 +1149,13 @@ export class ListBinding {
       '-xin-empty-list',
       slice.items.length === 0
     )
+    // Announce total item count to assistive tech for virtual lists
+    if (this.options.virtual != null) {
+      this.boundElement.setAttribute(
+        'aria-rowcount',
+        String(slice.items.length)
+      )
+    }
     const previousSlice = this._previousSlice
     const { firstItem, lastItem, topBuffer, bottomBuffer } = slice
     const sliceUnchanged =
@@ -1262,6 +1273,10 @@ export class ListBinding {
           const itemPath = `${arrayPath}[${i}]`
           updateRelativeBindings(element, itemPath)
         }
+      }
+      // Update aria-rowindex for virtual lists (1-based)
+      if (this.options.virtual != null) {
+        element.setAttribute('aria-rowindex', String(i + 1))
       }
       elements.push(element)
     }
