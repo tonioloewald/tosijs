@@ -452,6 +452,37 @@ The container automatically gets:
 
 Override `grid-template-columns` in your own CSS to set custom column widths.
 
+### How it works
+
+`.listBinding()` returns `[props, template]` — when spread into an element
+factory call, the props (containing `bindList`) are applied to the container
+and the `<template>` becomes a child. The `ListBinding` constructor finds
+and removes the `<template>`, extracting its children as stamp templates.
+**The `<template>` element never appears in the live DOM** — it's consumed
+during initialization.
+
+### Pinned Header and Footer Rows
+
+Any elements before the template in the container are treated as headers;
+any after it are footers. Both are preserved across list updates, and
+because they're siblings of the data cells in the same grid container,
+`position: sticky` works for pinning rows to the top or bottom:
+
+    div(
+      ...headerCells,                                // sticky top: 0
+      ...items.tosi.listBinding(builder, options),   // virtual data rows
+      ...footerCells,                                // sticky bottom: 0
+    )
+
+The template's position determines where list items and virtual padding
+are inserted — between the headers and footers.
+
+> **Limitation:** header and footer rows must be static content. They
+> cannot themselves be list bindings, because the list binding has no
+> anchor element to track its insertion point among siblings. If you need
+> dynamic columns, rebuild the entire grid container when the column set
+> changes.
+
 ```js
 import { elements, tosi } from 'tosijs'
 
@@ -524,7 +555,14 @@ const grid = div(
       idPath: 'id',
       virtual: { height: 28, itemsPerRow: columns.length },
     }
-  )
+  ),
+  // Footer cells — static, pinned to bottom
+  ...columns.map((col, i) =>
+    span({
+      class: cellClass('sg-footer', col),
+      style: stickyStyle(col),
+    }, i === 0 ? `${data.length}` : i === 1 ? 'rows' : '')
+  ),
 )
 
 preview.append(grid)
@@ -558,7 +596,17 @@ preview.append(grid)
   background: var(--bg-color, #fff);
   z-index: 1;
 }
-.sg-header.sg-pinned {
+.sg-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg-color, #f5f5f5);
+  font-weight: bold;
+  padding: 4px 8px;
+  border-top: 2px solid #ccc;
+  white-space: nowrap;
+}
+.sg-header.sg-pinned, .sg-footer.sg-pinned {
   z-index: 3;
   background: var(--bg-color, #f5f5f5);
 }
@@ -1050,9 +1098,11 @@ export class ListBinding {
     }
 
     const itemsPerRow = options.virtual?.itemsPerRow ?? 1
+    // Find the template — its position divides headers (before) from footers (after)
     const templateEl = Array.from(boundElement.children).find(
       (c) => c instanceof HTMLTemplateElement
     ) as HTMLTemplateElement | undefined
+    let insertionRef: Element | null = null // where to insert padding/items
     if (templateEl != null) {
       const expectedChildren = itemsPerRow
       if (
@@ -1066,6 +1116,7 @@ export class ListBinding {
       this.templates = Array.from(templateEl.content.children).map(
         (child) => cloneWithBindings(child) as HTMLElement
       )
+      insertionRef = templateEl.nextElementSibling
       templateEl.remove()
     } else if (boundElement.children.length === 1) {
       // Legacy: single non-template child used as the template
@@ -1096,8 +1147,14 @@ export class ListBinding {
       this.listBottom.setAttribute('role', 'presentation')
       this.listTop.setAttribute('aria-hidden', 'true')
       this.listBottom.setAttribute('aria-hidden', 'true')
-      this.boundElement.append(this.listTop)
-      this.boundElement.append(this.listBottom)
+      // Insert padding where the template was — between headers and footers
+      if (insertionRef != null) {
+        this.boundElement.insertBefore(this.listTop, insertionRef)
+        this.boundElement.insertBefore(this.listBottom, insertionRef)
+      } else {
+        this.boundElement.append(this.listTop)
+        this.boundElement.append(this.listBottom)
+      }
     }
     if (itemsPerRow > 1) {
       this.boundElement.classList.add('tosi-virtual-grid')

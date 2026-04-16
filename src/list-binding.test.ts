@@ -962,6 +962,47 @@ describe('itemsPerRow grid layout', () => {
     expect(container.children.length).toBe(8)
   })
 
+  test('footer rows placed after list items', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ]
+    tosi({ gridTest8: { items } })
+    const proxiedArray = xin['gridTest8.items'] as any[]
+
+    const { div, span, template } = elements
+    const header = span('Header')
+    const footer = span('Footer')
+    const container = div(
+      header,
+      template(div({ bindText: '^.name' })),
+      footer,
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30 },
+    })
+    lb.update(proxiedArray)
+
+    const children = Array.from(container.children)
+    // Order: header, pad, Alice, Bob, pad, footer
+    expect(children[0]).toBe(header)
+    expect(children[children.length - 1]).toBe(footer)
+    expect(container.contains(header)).toBe(true)
+    expect(container.contains(footer)).toBe(true)
+
+    // Survives updates
+    lb.update(proxiedArray)
+    const children2 = Array.from(container.children)
+    expect(children2[0]).toBe(header)
+    expect(children2[children2.length - 1]).toBe(footer)
+  })
+
   test('scalar list items are cleaned up with static content present', () => {
     document.body.textContent = ''
 
