@@ -281,34 +281,17 @@ export class Color {
     const hex = spec.match(/^#([0-9a-fA-F]+)$/)
     if (hex) {
       const h = hex[1]
-      if (h.length === 3) {
-        return new Color(
-          parseInt(h[0] + h[0], 16),
-          parseInt(h[1] + h[1], 16),
-          parseInt(h[2] + h[2], 16)
-        )
+      const p = (i: number, len: number) => parseInt(h.slice(i, i + len), 16)
+      if (h.length === 3 || h.length === 4) {
+        const x = (i: number) => p(i, 1) * 0x11
+        return new Color(x(0), x(1), x(2), h.length === 4 ? x(3) / 255 : 1)
       }
-      if (h.length === 4) {
+      if (h.length === 6 || h.length === 8) {
         return new Color(
-          parseInt(h[0] + h[0], 16),
-          parseInt(h[1] + h[1], 16),
-          parseInt(h[2] + h[2], 16),
-          parseInt(h[3] + h[3], 16) / 255
-        )
-      }
-      if (h.length === 6) {
-        return new Color(
-          parseInt(h.slice(0, 2), 16),
-          parseInt(h.slice(2, 4), 16),
-          parseInt(h.slice(4, 6), 16)
-        )
-      }
-      if (h.length === 8) {
-        return new Color(
-          parseInt(h.slice(0, 2), 16),
-          parseInt(h.slice(2, 4), 16),
-          parseInt(h.slice(4, 6), 16),
-          parseInt(h.slice(6, 8), 16) / 255
+          p(0, 2),
+          p(2, 2),
+          p(4, 2),
+          h.length === 8 ? p(6, 2) / 255 : 1
         )
       }
     }

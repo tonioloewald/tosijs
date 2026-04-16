@@ -16,6 +16,20 @@
   component/element, it could be auto-removed when the owner is GC'd (same pattern
   as `tosiUnique`'s owner-based cleanup).
 
+## 2.0 refactoring candidates
+
+- **Remove deprecated exports** (~2-3KB gzipped): `xinPath`, `xinValue`, `boxedProxy`,
+  `xinSlot`, `bindText`, `bindEnabled`, `bindDisabled`, `bindList` and their warning wrappers
+- **Simplify dual API surface** (~1.5-2KB gzipped): collapse `xin*`/`tosi*`/symbol variants
+  in `XinProps`, `BoxedScalarAPI`, and the proxy `get` handler to just `.tosi` accessor +
+  direct properties
+- **Remove blueprint-loader deprecation scaffolding** (~0.5KB): `DeprecatedBlueprint`,
+  `DeprecatedLoader` classes
+- **Remove debug/test exports from prod bundle**: `_getArrayIdPathRegistry()`,
+  `_resetDeprecationWarnings()`
+- **Split list-binding.ts**: extract virtual scrolling logic into `list-binding-virtual.ts`
+  for maintainability and documentation separation
+
 ## known issues
 
 - bindList cloning doesn't duplicate svgs for some reason
