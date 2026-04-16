@@ -438,6 +438,134 @@ preview.append(
 }
 ```
 
+## Multi-Column Grids with `itemsPerRow`
+
+When `itemsPerRow` is set, the template builder is called N times per array item,
+with a `columnIndex` argument (0..N-1). This produces a flat CSS grid where every
+cell is a direct child of the container — which means `position: sticky` works
+naturally for pinned rows and columns.
+
+The container automatically gets:
+- Class `tosi-virtual-grid`
+- CSS variable `--tosi-columns` (equal to `itemsPerRow`)
+- `display: grid` with `grid-template-columns: repeat(var(--tosi-columns), 1fr)`
+
+Override `grid-template-columns` in your own CSS to set custom column widths.
+
+```js
+import { elements, tosi } from 'tosijs'
+
+const columns = [
+  { key: 'id',     label: '#',          w: '40px',  sticky: 'left:0' },
+  { key: 'name',   label: 'Name',       w: '120px', sticky: 'left:40px', edge: 'right' },
+  { key: 'dept',   label: 'Department', w: '110px' },
+  { key: 'role',   label: 'Role',       w: '80px' },
+  { key: 'level',  label: 'Level',      w: '60px' },
+  { key: 'region', label: 'Region',     w: '70px' },
+  { key: 'joined', label: 'Joined',     w: '90px' },
+  { key: 'email',  label: 'Email',      w: '160px' },
+  { key: 'team',   label: 'Team',       w: '100px' },
+  { key: 'score',  label: 'Score',      w: '60px' },
+  { key: 'status', label: 'Status',     w: '80px',  sticky: 'right:0', edge: 'left' },
+]
+
+const depts = ['Engineering', 'Design', 'Product', 'QA', 'Marketing', 'Sales']
+const roles = ['Lead', 'Senior', 'Mid', 'Junior']
+const regions = ['AMER', 'EMEA', 'APAC']
+const teams = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Omega']
+const statuses = ['Active', 'Away', 'Offline']
+
+const data = Array.from({ length: 2000 }, (_, i) => ({
+  id: i,
+  name: `Person ${i}`,
+  dept: depts[i % depts.length],
+  role: roles[i % roles.length],
+  level: `L${3 + (i % 5)}`,
+  region: regions[i % regions.length],
+  joined: `2024-${String((i % 12) + 1).padStart(2, '0')}-15`,
+  email: `person${i}@example.com`,
+  team: teams[i % teams.length],
+  score: Math.floor(Math.random() * 100),
+  status: statuses[i % statuses.length],
+}))
+
+const { gridDemo } = tosi({ gridDemo: data })
+const { div, span } = elements
+
+const stickyStyle = (col) => col.sticky
+  ? `position:sticky;${col.sticky}`
+  : ''
+const cellClass = (base, col) =>
+  base + (col.sticky ? ' sg-pinned' : '') + (col.edge ? ` sg-edge-${col.edge}` : '')
+
+// Headers and data cells are siblings in the same grid scroll container.
+// Headers are static children; data cells come from the list binding.
+// Both sticky columns (left/right) and the sticky header row work via CSS.
+const grid = div(
+  { class: 'sg-grid' },
+  // Header cells — static content, preserved across list updates
+  ...columns.map(col =>
+    span({
+      class: cellClass('sg-header', col),
+      style: stickyStyle(col),
+    }, col.label)
+  ),
+  // Data cells — itemsPerRow stamps one cell per column per array item
+  ...gridDemo.listBinding(
+    ({ span }, item, columnIndex) => {
+      const col = columns[columnIndex]
+      return span({
+        class: cellClass('sg-cell', col),
+        style: stickyStyle(col),
+        bindText: item[col.key],
+      })
+    },
+    {
+      idPath: 'id',
+      virtual: { height: 28, itemsPerRow: columns.length },
+    }
+  )
+)
+
+preview.append(grid)
+```
+```css
+.sg-grid {
+  height: 100%;
+  overflow: auto;
+  grid-template-columns: 40px 120px 110px 80px 60px 70px 90px 160px 100px 60px 80px !important;
+}
+.sg-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-color, #f5f5f5);
+  font-weight: bold;
+  padding: 4px 8px;
+  border-bottom: 2px solid #ccc;
+  white-space: nowrap;
+}
+.sg-cell {
+  padding: 4px 8px;
+  height: 28px;
+  line-height: 20px;
+  border-bottom: 1px solid #eee;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sg-pinned {
+  background: var(--bg-color, #fff);
+  z-index: 1;
+}
+.sg-header.sg-pinned {
+  z-index: 3;
+  background: var(--bg-color, #f5f5f5);
+}
+.sg-edge-right { border-right: 2px solid #ccc; }
+.sg-edge-left  { border-left: 2px solid #ccc; }
+```
+
 ## Variable-Height Items
 
 If your list items have varying heights, you can use `minHeight` instead of
@@ -895,10 +1023,10 @@ export class ListBinding {
   listTop: HTMLElement | null
   listBottom: HTMLElement | null
   isNamespaced: boolean
-  template: Element
+  templates: Element[]
   options: ListBindingOptions
-  itemToElement: WeakMap<XinObject, Element>
-  private idToElement: Map<string, Element> = new Map()
+  itemToElement: WeakMap<XinObject, Element[]>
+  private idToElement: Map<string, Element[]> = new Map()
   array: any[] = []
   private _filteredCache?: any[]
   private readonly _update?: VoidFunction
@@ -921,24 +1049,32 @@ export class ListBinding {
       }
     }
 
-    if (boundElement.children.length !== 1) {
-      throw new Error(
-        'ListBinding expects an element with exactly one child element'
-      )
-    }
-    if (boundElement.children[0] instanceof HTMLTemplateElement) {
-      const template = boundElement.children[0]
-      if (template.content.children.length !== 1) {
+    const itemsPerRow = options.virtual?.itemsPerRow ?? 1
+    const templateEl = Array.from(boundElement.children).find(
+      (c) => c instanceof HTMLTemplateElement
+    ) as HTMLTemplateElement | undefined
+    if (templateEl != null) {
+      const expectedChildren = itemsPerRow
+      if (
+        templateEl.content.children.length < 1 ||
+        templateEl.content.children.length !== expectedChildren
+      ) {
         throw new Error(
-          'ListBinding expects a template with exactly one child element'
+          `ListBinding expects a template with exactly ${expectedChildren} child element(s)`
         )
       }
-      this.template = cloneWithBindings(
-        template.content.children[0]
-      ) as HTMLElement
+      this.templates = Array.from(templateEl.content.children).map(
+        (child) => cloneWithBindings(child) as HTMLElement
+      )
+      templateEl.remove()
+    } else if (boundElement.children.length === 1) {
+      // Legacy: single non-template child used as the template
+      this.templates = [boundElement.children[0] as HTMLElement]
+      this.templates[0].remove()
     } else {
-      this.template = boundElement.children[0] as HTMLElement
-      this.template.remove()
+      throw new Error(
+        'ListBinding expects a <template> child or exactly one child element'
+      )
     }
     this.options = options
     const ns = boundElement.namespaceURI
@@ -962,6 +1098,28 @@ export class ListBinding {
       this.listBottom.setAttribute('aria-hidden', 'true')
       this.boundElement.append(this.listTop)
       this.boundElement.append(this.listBottom)
+    }
+    if (itemsPerRow > 1) {
+      this.boundElement.classList.add('tosi-virtual-grid')
+      const style = (this.boundElement as HTMLElement).style
+      if (style != null) {
+        style.setProperty('--tosi-columns', String(itemsPerRow))
+        style.display = style.display || 'grid'
+        style.gridTemplateColumns =
+          style.gridTemplateColumns ||
+          `repeat(var(--tosi-columns), 1fr)`
+      }
+      if (this.listTop != null && this.listBottom != null) {
+        this.listTop.style.gridColumn = `1 / -1`
+        this.listBottom.style.gridColumn = `1 / -1`
+      }
+    }
+    // Set default ARIA role for virtual lists if not already specified
+    if (options.virtual != null && !this.boundElement.getAttribute('role')) {
+      this.boundElement.setAttribute(
+        'role',
+        itemsPerRow > 1 ? 'grid' : 'list'
+      )
     }
     // @ts-expect-error storing binding ref on element
     this.boundElement[LIST_BINDING_REF] = this
@@ -1185,6 +1343,7 @@ export class ListBinding {
     let created = 0
 
     const { idPath } = this.options
+    const itemsPerRow = this.options.virtual?.itemsPerRow ?? 1
 
     // Build a set of visible ids for the removal phase
     let visibleIds: Set<string> | undefined
@@ -1198,6 +1357,9 @@ export class ListBinding {
       }
     }
 
+    // Track which items we've already processed for removal (avoids
+    // removing the same group multiple times when itemsPerRow > 1)
+    const removedProxies = new Set()
     for (const element of Array.from(this.boundElement.children)) {
       if (element === this.listTop || element === this.listBottom) {
         continue
@@ -1205,18 +1367,29 @@ export class ListBinding {
       // @ts-expect-error if it's there it's there
       const proxy = element[LIST_INSTANCE_REF]
       if (proxy == null) {
+        // Static content (e.g. pinned header rows) — leave it alone
+        continue
+      } else if (proxy === true) {
+        // Scalar list item — no identity tracking, always remove and rebuild
         element.remove()
+        removed++
       } else {
+        if (removedProxies.has(proxy)) continue
         let shouldRemove: boolean
         if (idPath != null) {
-          // Check by id rather than reference so replaced objects are matched
           shouldRemove = !visibleIds!.has(String(proxy[idPath]))
         } else {
           const idx = slice.items.indexOf(proxy)
           shouldRemove = idx < firstItem || idx > lastItem
         }
         if (shouldRemove) {
-          element.remove()
+          removedProxies.add(proxy)
+          const group = this.itemToElement.get(proxy)
+          if (group != null) {
+            for (const el of group) el.remove()
+          } else {
+            element.remove()
+          }
           this.itemToElement.delete(proxy)
           if (idPath != null) {
             this.idToElement.delete(String(proxy[idPath]))
@@ -1238,47 +1411,71 @@ export class ListBinding {
       if (item === undefined) {
         continue
       }
-      let element = this.itemToElement.get(tosiValue(item))
+      let group = this.itemToElement.get(tosiValue(item))
       // When WeakMap misses (new object ref) but idPath matches an
-      // existing element, reuse it and augment the itemToElement WeakMap
-      if (element == null && idPath != null) {
+      // existing element group, reuse it and augment the WeakMap
+      if (group == null && idPath != null) {
         const id = String(item[idPath])
-        element = this.idToElement.get(id)
-        if (element != null) {
+        group = this.idToElement.get(id)
+        if (group != null) {
           const rawItem = tosiValue(item)
-          this.itemToElement.set(rawItem, element)
-          // @ts-expect-error storing binding ref on element
-          element[LIST_INSTANCE_REF] = rawItem
+          this.itemToElement.set(rawItem, group)
+          for (const el of group) {
+            // @ts-expect-error storing binding ref on element
+            el[LIST_INSTANCE_REF] = rawItem
+          }
         }
       }
-      if (element == null) {
+      if (group == null) {
         created++
-        element = cloneWithBindings(this.template) as HTMLElement
+        const rawItem = tosiValue(item)
+        group = this.templates.map(
+          (tmpl) => cloneWithBindings(tmpl) as HTMLElement
+        )
         if (typeof item === 'object') {
-          this.itemToElement.set(tosiValue(item), element)
-          // @ts-expect-error if it's there it's there
-          element[LIST_INSTANCE_REF] = tosiValue(item)
+          this.itemToElement.set(rawItem, group)
         }
-        if (this.listBottom != null) {
-          this.boundElement.insertBefore(element, this.listBottom)
-        } else {
-          this.boundElement.append(element)
+        // Always mark list-created elements so the removal phase can
+        // distinguish them from static content (e.g. pinned header rows)
+        for (const el of group) {
+          // @ts-expect-error storing binding ref on element
+          el[LIST_INSTANCE_REF] = typeof item === 'object' ? rawItem : true
+        }
+        for (const el of group) {
+          if (this.listBottom != null) {
+            this.boundElement.insertBefore(el, this.listBottom)
+          } else {
+            this.boundElement.append(el)
+          }
         }
         if (idPath != null) {
           const idValue = item[idPath] as string
           const itemPath = `${arrayPath}[${idPath}=${idValue}]`
-          updateRelativeBindings(element, itemPath)
-          this.idToElement.set(String(idValue), element)
+          for (const el of group) updateRelativeBindings(el, itemPath)
+          this.idToElement.set(String(idValue), group)
         } else {
           const itemPath = `${arrayPath}[${i}]`
-          updateRelativeBindings(element, itemPath)
+          for (const el of group) updateRelativeBindings(el, itemPath)
         }
       }
-      // Update aria-rowindex for virtual lists (1-based)
+      // Update ARIA attributes for virtual lists
       if (this.options.virtual != null) {
-        element.setAttribute('aria-rowindex', String(i + 1))
+        const rowIndex = String(i + 1)
+        if (itemsPerRow > 1) {
+          for (let col = 0; col < group.length; col++) {
+            const el = group[col]
+            el.setAttribute('role', 'gridcell')
+            el.setAttribute('aria-rowindex', rowIndex)
+            el.setAttribute('aria-colindex', String(col + 1))
+          }
+        } else {
+          for (const el of group) {
+            el.setAttribute('role', 'listitem')
+            el.setAttribute('aria-rowindex', rowIndex)
+          }
+        }
       }
-      elements.push(element)
+      elements.push(...group)
     }
 
     // make sure all the elements are in the DOM and in the correct location
@@ -1546,15 +1743,15 @@ export const scrollListItemIntoView = (
     }
   } else {
     // Non-virtual: find the DOM element and use native scrollIntoView
-    const domElement = binding.itemToElement.get(rawItem)
-    if (domElement == null) {
+    const domGroup = binding.itemToElement.get(rawItem)
+    if (domGroup == null || domGroup.length === 0) {
       console.error(
         'scrollListItemIntoView failed, no DOM element found for item',
         item
       )
       return false
     }
-    domElement.scrollIntoView({
+    domGroup[0].scrollIntoView({
       block: POSITION_TO_BLOCK[position] ?? 'center',
       behavior: 'smooth',
     })

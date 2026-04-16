@@ -81,7 +81,7 @@ export interface XinProps<T = any> {
     [XIN_BIND]: ProxyBindFunc;
     tosiBind: ProxyBindFunc;
 }
-type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U) => HTMLElement;
+type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U, columnIndex?: number) => HTMLElement;
 type ListBinding = [ElementProps, HTMLTemplateElement];
 type ListFieldSelector<U> = (item: BoxedProxy<U>) => BoxedScalar<any>;
 export interface BoxedArrayProps<U = any> {
@@ -246,6 +246,8 @@ export interface ListBindingOptions {
         rowChunkSize?: number;
         /** Use 'window' to virtualize based on window scroll position instead of element scroll */
         scrollContainer?: 'window' | 'element';
+        /** Number of elements to stamp per array item (for grid layouts). Default 1. */
+        itemsPerRow?: number;
     };
     hiddenProp?: symbol | string;
     visibleProp?: symbol | string;

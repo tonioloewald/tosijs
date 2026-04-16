@@ -1083,6 +1083,22 @@ test('boxed array new API - listBinding method', async () => {
   expect(template).toBeInstanceOf(HTMLTemplateElement)
 })
 
+test('listBinding with itemsPerRow generates multiple templates', () => {
+  const { gridBindTest } = tosi({
+    gridBindTest: { items: [{ id: 1, a: 'x', b: 'y' }] },
+  })
+  const [props, template] = gridBindTest.items.listBinding(
+    ({ span }, item, columnIndex) => {
+      const fields = [item.a, item.b]
+      return span({ bindText: fields[columnIndex!] })
+    },
+    { idPath: 'id', virtual: { height: 30, itemsPerRow: 2 } }
+  )
+  expect(props.bindList).toBeDefined()
+  expect(template).toBeInstanceOf(HTMLTemplateElement)
+  expect(template.content.children.length).toBe(2)
+})
+
 test('boxed array new API - observe method', async () => {
   const { arrObserveTest } = tosi({ arrObserveTest: { items: [1] } })
   let observed = false

@@ -6,9 +6,9 @@ export declare class ListBinding {
     listTop: HTMLElement | null;
     listBottom: HTMLElement | null;
     isNamespaced: boolean;
-    template: Element;
+    templates: Element[];
     options: ListBindingOptions;
-    itemToElement: WeakMap<XinObject, Element>;
+    itemToElement: WeakMap<XinObject, Element[]>;
     private idToElement;
     array: any[];
     private _filteredCache?;

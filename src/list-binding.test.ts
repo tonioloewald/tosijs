@@ -303,8 +303,9 @@ describe('scrollListItemIntoView', () => {
     lb.update(proxiedArray)
 
     // Find the element for item 2 and mock scrollIntoView
-    const itemEl = lb.itemToElement.get(items[2])
-    expect(itemEl).toBeDefined()
+    const itemGroup = lb.itemToElement.get(items[2])
+    expect(itemGroup).toBeDefined()
+    const itemEl = itemGroup![0]
     let scrollIntoViewOpts: any
     ;(itemEl as any).scrollIntoView = (opts: any) => {
       scrollIntoViewOpts = opts
@@ -607,12 +608,14 @@ describe('virtual list aria attributes', () => {
     lb.update(proxiedArray)
 
     expect(container.getAttribute('aria-rowcount')).toBe('50')
+    expect(container.getAttribute('role')).toBe('list')
 
     const rendered = Array.from(container.children).filter(
       (c) => !c.classList.contains('virtual-list-padding')
     )
     // First rendered item should have aria-rowindex="1" (1-based)
     expect(rendered[0].getAttribute('aria-rowindex')).toBe('1')
+    expect(rendered[0].getAttribute('role')).toBe('listitem')
     // Second item
     expect(rendered[1].getAttribute('aria-rowindex')).toBe('2')
   })
@@ -701,9 +704,285 @@ describe('virtual list aria attributes', () => {
     lb.update(proxiedArray)
 
     expect(container.getAttribute('aria-rowcount')).toBeNull()
+    expect(container.getAttribute('role')).toBeNull()
     const rendered = Array.from(container.children).filter(
       (c) => !c.classList.contains('virtual-list-padding')
     )
     expect(rendered[0].getAttribute('aria-rowindex')).toBeNull()
+    expect(rendered[0].getAttribute('role')).toBeNull()
+  })
+})
+
+describe('itemsPerRow grid layout', () => {
+  test('stamps multiple elements per array item', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice', score: 10 },
+      { id: 2, name: 'Bob', score: 20 },
+      { id: 3, name: 'Carol', score: 30 },
+    ]
+    tosi({ gridTest1: { items } })
+    const proxiedArray = xin['gridTest1.items'] as any[]
+
+    const { div, span, template } = elements
+    const container = div(
+      template(
+        span({ bindText: '^.name' }),
+        span({ bindText: '^.score' }),
+      )
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+    lb.update(proxiedArray)
+
+    // 3 items × 2 elements each = 6 content elements
+    expect(childCount(container)).toBe(6)
+  })
+
+  test('applies tosi-virtual-grid class and --tosi-columns CSS variable', () => {
+    document.body.textContent = ''
+
+    const items = [{ id: 1, name: 'a' }]
+    tosi({ gridTest2: { items } })
+    const proxiedArray = xin['gridTest2.items'] as any[]
+
+    const { div, span, template } = elements
+    const container = div(
+      template(span({ bindText: '^.name' }), span({ bindText: '^.id' }))
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+
+    expect(container.classList.contains('tosi-virtual-grid')).toBe(true)
+    expect(
+      (container as HTMLElement).style.getPropertyValue('--tosi-columns')
+    ).toBe('2')
+  })
+
+  test('padding elements span all columns', () => {
+    document.body.textContent = ''
+
+    const items = [{ id: 1, name: 'a' }]
+    tosi({ gridTest3: { items } })
+    const proxiedArray = xin['gridTest3.items'] as any[]
+
+    const { div, span, template } = elements
+    const container = div(
+      template(span({ bindText: '^.name' }), span({ bindText: '^.id' }))
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+
+    const pads = container.querySelectorAll('.virtual-list-padding')
+    for (const pad of Array.from(pads)) {
+      expect((pad as HTMLElement).style.gridColumn).toBe('1 / -1')
+    }
+  })
+
+  test('element groups are reused on array replacement', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice', score: 10 },
+      { id: 2, name: 'Bob', score: 20 },
+    ]
+    tosi({ gridTest4: { items } })
+    const proxiedArray = xin['gridTest4.items'] as any[]
+
+    const { div, span, template } = elements
+    const container = div(
+      template(
+        span({ bindText: '^.name' }),
+        span({ bindText: '^.score' }),
+      )
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+    lb.update(proxiedArray)
+
+    const elementsBefore = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // Replace array with new objects, same ids
+    xin['gridTest4.items'] = [
+      { id: 1, name: 'Alice', score: 15 },
+      { id: 2, name: 'Bob', score: 25 },
+    ]
+    lb.update(xin['gridTest4.items'] as any[])
+
+    const elementsAfter = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // All 4 elements should be reused
+    expect(elementsAfter[0]).toBe(elementsBefore[0])
+    expect(elementsAfter[1]).toBe(elementsBefore[1])
+    expect(elementsAfter[2]).toBe(elementsBefore[2])
+    expect(elementsAfter[3]).toBe(elementsBefore[3])
+  })
+
+  test('aria roles and indices for grid layout', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ]
+    tosi({ gridTest5: { items } })
+    const proxiedArray = xin['gridTest5.items'] as any[]
+
+    const { div, span, template } = elements
+    const container = div(
+      template(
+        span({ bindText: '^.name' }),
+        span({ bindText: '^.id' }),
+      )
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+    lb.update(proxiedArray)
+
+    // Container should have role="grid"
+    expect(container.getAttribute('role')).toBe('grid')
+
+    const rendered = Array.from(container.children).filter(
+      (c) => !c.classList.contains('virtual-list-padding')
+    )
+
+    // Item 1: elements 0 and 1 share aria-rowindex="1"
+    expect(rendered[0].getAttribute('aria-rowindex')).toBe('1')
+    expect(rendered[1].getAttribute('aria-rowindex')).toBe('1')
+    // Item 2: elements 2 and 3 share aria-rowindex="2"
+    expect(rendered[2].getAttribute('aria-rowindex')).toBe('2')
+    expect(rendered[3].getAttribute('aria-rowindex')).toBe('2')
+    // All cells have role="gridcell"
+    for (const el of rendered) {
+      expect(el.getAttribute('role')).toBe('gridcell')
+    }
+    // aria-colindex (1-based)
+    expect(rendered[0].getAttribute('aria-colindex')).toBe('1')
+    expect(rendered[1].getAttribute('aria-colindex')).toBe('2')
+    expect(rendered[2].getAttribute('aria-colindex')).toBe('1')
+    expect(rendered[3].getAttribute('aria-colindex')).toBe('2')
+  })
+
+  test('itemsPerRow=1 (default) behaves identically to no itemsPerRow', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ]
+    tosi({ gridTest6: { items } })
+    const proxiedArray = xin['gridTest6.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.name' })))
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 1 },
+    })
+    lb.update(proxiedArray)
+
+    // Should not apply grid class
+    expect(container.classList.contains('tosi-virtual-grid')).toBe(false)
+    // 2 items × 1 = 2 content elements
+    expect(childCount(container)).toBe(2)
+  })
+
+  test('pinned header rows survive list updates', () => {
+    document.body.textContent = ''
+
+    const items = [
+      { id: 1, name: 'Alice', score: 10 },
+      { id: 2, name: 'Bob', score: 20 },
+    ]
+    tosi({ gridTest7: { items } })
+    const proxiedArray = xin['gridTest7.items'] as any[]
+
+    const { div, span, template } = elements
+    const header1 = span('Name')
+    const header2 = span('Score')
+    const container = div(
+      header1,
+      header2,
+      template(
+        span({ bindText: '^.name' }),
+        span({ bindText: '^.score' }),
+      )
+    )
+    mockDimensions(container, 400, 300)
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {
+      idPath: 'id',
+      virtual: { height: 30, itemsPerRow: 2 },
+    })
+    lb.update(proxiedArray)
+
+    // 2 headers + 2 items × 2 cells + 2 padding = 8 total children
+    expect(container.children.length).toBe(8)
+    expect(container.contains(header1)).toBe(true)
+    expect(container.contains(header2)).toBe(true)
+
+    // Headers must survive repeated updates
+    lb.update(proxiedArray)
+    expect(container.contains(header1)).toBe(true)
+    expect(container.contains(header2)).toBe(true)
+    expect(container.children.length).toBe(8)
+  })
+
+  test('scalar list items are cleaned up with static content present', () => {
+    document.body.textContent = ''
+
+    tosi({ scalarPinTest: { items: ['a', 'b', 'c'] } })
+    const proxiedArray = xin['scalarPinTest.items'] as any[]
+
+    const { div, span, template } = elements
+    const header = span('Header')
+    const container = div(header, template(span({ bindText: '^' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, {})
+    lb.update(proxiedArray)
+
+    // 1 header + 3 scalar items + 2 padding = 6
+    expect(container.children.length).toBe(6)
+    expect(container.contains(header)).toBe(true)
+
+    // Update again — should not duplicate scalars
+    lb.update(proxiedArray)
+    expect(container.children.length).toBe(6)
+    expect(container.contains(header)).toBe(true)
   })
 })

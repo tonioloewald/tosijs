@@ -1012,14 +1012,23 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
         })
       case 'listBinding':
         return (
-          content: (e: ElementsProxy, obj: BoxedProxy) => HTMLElement = ({
-            span,
-          }) => span({ bindText: '^' }),
+          content: (
+            e: ElementsProxy,
+            obj: BoxedProxy,
+            columnIndex?: number
+          ) => HTMLElement = ({ span }) => span({ bindText: '^' }),
           options: XinObject = {}
-        ) => [
-          { bindList: { value: path, ...options } },
-          elements.template(content(elements, listElement())),
-        ]
+        ) => {
+          const n = options.virtual?.itemsPerRow ?? 1
+          const templates = []
+          for (let col = 0; col < n; col++) {
+            templates.push(content(elements, listElement(), col))
+          }
+          return [
+            { bindList: { value: path, ...options } },
+            elements.template(...templates),
+          ]
+        }
       case 'listFind':
       case 'listUpdate':
       case 'listRemove':
