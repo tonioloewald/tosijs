@@ -922,14 +922,18 @@ not exist yet.
 - `item` - the raw array item to scroll to
 - `options.position` - where to place the item in the viewport:
   `'start'`, `'middle'` (default), `'end'`, or `'nearest'`
+- `options.behavior` - `'smooth'` (default) or `'instant'`
 
 Returns `true` on success, `false` if the binding or item can't be found
 (with a `console.error` explaining what went wrong).
 
 For **virtual lists**, the scroll position is computed mathematically from
-the item's index and row height, then applied via `scrollTo({ behavior: 'smooth' })`.
+the item's index and row height, then applied via `scrollTo()`.
 For **non-virtual lists**, the item's DOM element is found and
 `scrollIntoView()` is called directly.
+
+> **Future:** a promise-based API using the `scrollend` event could notify
+> callers when the scroll completes and the target item is rendered.
 
 ## List Operations on Proxied Arrays
 
@@ -1674,7 +1678,10 @@ const POSITION_TO_BLOCK: Record<string, ScrollLogicalPosition> = {
 export const scrollListItemIntoView = (
   element: Element,
   item: any,
-  options: { position?: 'start' | 'middle' | 'end' | 'nearest' } = {}
+  options: {
+    position?: 'start' | 'middle' | 'end' | 'nearest'
+    behavior?: ScrollBehavior
+  } = {}
 ): boolean => {
   const binding = getListBinding(element)
   if (binding == null) {
@@ -1685,7 +1692,7 @@ export const scrollListItemIntoView = (
     return false
   }
 
-  const { position = 'middle' } = options
+  const { position = 'middle', behavior = 'smooth' } = options
   const filtered = binding.filteredArray()
   const rawItem = tosiValue(item) ?? item
   const index = filtered.indexOf(rawItem)
@@ -1794,9 +1801,9 @@ export const scrollListItemIntoView = (
 
     if (useWindowScroll) {
       const elementTop = element.getBoundingClientRect().top + window.scrollY
-      window.scrollTo({ top: elementTop + scrollTarget, behavior: 'smooth' })
+      window.scrollTo({ top: elementTop + scrollTarget, behavior })
     } else {
-      element.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+      element.scrollTo({ top: scrollTarget, behavior })
     }
   } else {
     // Non-virtual: find the DOM element and use native scrollIntoView
@@ -1810,7 +1817,7 @@ export const scrollListItemIntoView = (
     }
     domGroup[0].scrollIntoView({
       block: POSITION_TO_BLOCK[position] ?? 'center',
-      behavior: 'smooth',
+      behavior,
     })
   }
 

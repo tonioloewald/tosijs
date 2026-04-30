@@ -16,6 +16,12 @@
   component/element, it could be auto-removed when the owner is GC'd (same pattern
   as `tosiUnique`'s owner-based cleanup).
 
+## tjs-lang
+
+- `Boolean()` on proxied scalars always returns `true` (JS spec limitation —
+  `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
+  or by compiling boolean coercion checks to use `.valueOf()` instead
+
 ## 2.0 refactoring candidates
 
 - **Remove deprecated exports** (~2-3KB gzipped): `xinPath`, `xinValue`, `boxedProxy`,

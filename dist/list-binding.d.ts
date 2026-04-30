@@ -35,5 +35,6 @@ export declare const getListItem: (element: Element) => any;
 export declare const deleteListItem: (element: Element) => boolean;
 export declare const scrollListItemIntoView: (element: Element, item: any, options?: {
     position?: "start" | "middle" | "end" | "nearest";
+    behavior?: ScrollBehavior;
 }) => boolean;
 export {};

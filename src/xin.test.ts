@@ -1020,6 +1020,66 @@ test('boxed object new API - valueOf and toJSON methods', () => {
   expect(objMethodsTest.data.valueOf()).toEqual({ x: 10 })
 })
 
+test('boxed scalar coercion - Number(), String(), template literals, arithmetic', () => {
+  const { coercionTest } = tosi({
+    coercionTest: {
+      num: 42,
+      str: 'hello',
+      bool: true,
+      zero: 0,
+      empty: '',
+      pi: 3.14,
+      falsy: false,
+    },
+  })
+
+  // Number() uses Symbol.toPrimitive with hint 'number'
+  expect(Number(coercionTest.num)).toBe(42)
+  expect(Number(coercionTest.bool)).toBe(1)
+  expect(Number(coercionTest.zero)).toBe(0)
+  expect(Number(coercionTest.pi)).toBe(3.14)
+  expect(Number(coercionTest.str)).toBeNaN()
+
+  // String() uses Symbol.toPrimitive with hint 'string'
+  expect(String(coercionTest.num)).toBe('42')
+  expect(String(coercionTest.str)).toBe('hello')
+  expect(String(coercionTest.bool)).toBe('true')
+  expect(String(coercionTest.zero)).toBe('0')
+  expect(String(coercionTest.empty)).toBe('')
+
+  // Arithmetic uses Symbol.toPrimitive with hint 'number'
+  expect(coercionTest.num + 1).toBe(43)
+  expect(coercionTest.num * 2).toBe(84)
+  expect(coercionTest.pi + 0.86).toBeCloseTo(4.0)
+
+  // Template literals use Symbol.toPrimitive with hint 'string'
+  expect(`${coercionTest.str}`).toBe('hello')
+  expect(`${coercionTest.num}`).toBe('42')
+
+  // valueOf() returns the raw value
+  expect(coercionTest.num.valueOf()).toBe(42)
+  expect(coercionTest.str.valueOf()).toBe('hello')
+  expect(coercionTest.bool.valueOf()).toBe(true)
+  expect(coercionTest.zero.valueOf()).toBe(0)
+
+  // == comparison uses Symbol.toPrimitive with hint 'default'
+  expect(coercionTest.num == 42).toBe(true)
+  expect(coercionTest.str == 'hello').toBe(true)
+  expect(coercionTest.zero == 0).toBe(true)
+
+  // Boolean() on any object always returns true — this is a JS spec
+  // behavior, not a bug. new Boolean(false) has the same issue.
+  // Boxed proxies behave identically to the wrapper types they extend.
+  expect(Boolean(coercionTest.zero)).toBe(true) // JS limitation
+  expect(Boolean(coercionTest.falsy)).toBe(true) // JS limitation
+  expect(Boolean(new Boolean(false))).toBe(true) // same behavior
+
+  // For boolean checks, use .value or valueOf()
+  expect(coercionTest.zero.valueOf()).toBe(0)
+  expect(coercionTest.zero.value).toBe(0)
+  expect(!coercionTest.zero.value).toBe(true)
+})
+
 test('boxed object new API - observe method', async () => {
   const { objObserveTest } = tosi({ objObserveTest: { count: 0 } })
   let observed = false

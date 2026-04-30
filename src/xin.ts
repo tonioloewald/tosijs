@@ -556,6 +556,29 @@ they can be shadowed by actual properties on the target object. Prefer
 Boxed scalars also expose all methods from the underlying primitive's prototype
 (e.g. `.toUpperCase()`, `.startsWith()`, `.toFixed()`, `.length`, index access).
 
+### Type coercion
+
+`Number()`, `String()`, arithmetic, template literals, and `==` comparison
+all work on boxed scalars via `Symbol.toPrimitive`:
+
+    Number(proxy.score)       // 42
+    String(proxy.name)        // 'Alice'
+    proxy.score + 1           // 43
+    `hello ${proxy.name}`     // 'hello Alice'
+    proxy.score == 42         // true
+
+**`Boolean()` is the exception** — in JavaScript, `Boolean(anyObject)` always
+returns `true`. This is a language-level behavior, not a tosijs limitation
+(`Boolean(new Boolean(false))` is also `true`). For boolean checks, use
+`.value` or `.valueOf()`:
+
+    // ❌ Always true — Boolean() on any object
+    if (Boolean(proxy.flag)) ...
+
+    // ✅ Correct
+    if (proxy.flag.value) ...
+    if (proxy.flag.valueOf()) ...
+
 Arrays also have:
 - `.listFind(selector, value)` finds an item by field and returns it proxied
 - `.listFind(element)` finds the array item bound to a DOM element
