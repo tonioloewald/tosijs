@@ -1,4 +1,4 @@
-/*{ "parent": "utilities" }*/
+/*{ "parent": "utilities", "description": "hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads." }*/
 /*#
 # hotReload
 

@@ -1,5 +1,5 @@
 # Managing State
-<!--{ "order": 4 }-->
+<!--{ "order": 4, "description": "The tosi observer proxy: wraps your application state and surgically updates bound DOM elements when you change properties through it." }-->
 
 The core value add of `tosijs` is the `tosi` observer proxy. It wraps around vanilla javascript object, observes changes passed through it and updates bound UI elements surgically.
 

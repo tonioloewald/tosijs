@@ -1,4 +1,4 @@
-/*{ "parent": "tosi" }*/
+/*{ "parent": "tosi", "description": "The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system." }*/
 /*#
 # path-listener
 

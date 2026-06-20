@@ -1,4 +1,4 @@
-/*{ "parent": "binding" }*/
+/*{ "parent": "binding", "description": "Reactive list bindings: surgical updates via id-paths, virtualized rendering for million-row lists, sticky headers, filtering, and grids." }*/
 /*#
 # binding arrays
 

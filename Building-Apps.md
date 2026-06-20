@@ -1,6 +1,6 @@
 # Building Apps
 
-<!--{ "pin": "top", "order": 2 }-->
+<!--{ "pin": "top", "order": 2, "description": "How to think about building applications with tosijs: state in a proxy, UI built with live bindings, list bindings for collections. Read this first." }-->
 
 > This guide explains how to think about building applications with tosijs.
 > It's not an API reference — it's a mental model. If you're coming from React

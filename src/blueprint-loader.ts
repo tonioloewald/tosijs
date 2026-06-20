@@ -1,4 +1,4 @@
-/*{ "parent": "component" }*/
+/*{ "parent": "component", "description": "Dynamically load tosijs components as zero-dependency blueprints from CDN URLs, letting consumers choose tag names and avoid name collisions." }*/
 /*#
 # blueprints
 

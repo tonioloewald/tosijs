@@ -1,4 +1,4 @@
-/*{ "parent": "component" }*/
+/*{ "parent": "component", "description": "Form validation for tosijs form-associated custom elements via ElementInternals: validity, validation messages, and constraint helpers." }*/
 /*#
 # Validation
 

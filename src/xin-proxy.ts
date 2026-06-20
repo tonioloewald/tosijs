@@ -1,4 +1,4 @@
-/*{ "parent": "tosi" }*/
+/*{ "parent": "tosi", "description": "Background on the tosijs observer proxies: how tosi() and xinProxy() relate to xin and boxed, plus tosiUnique() for per-instance state." }*/
 /*#
 # tosi, xin, and xinProxy
 

@@ -1,4 +1,4 @@
-/*{ "order": 5 }*/
+/*{ "order": 5, "description": "bind() syncs application state to DOM elements via path-based observers. Plus on() for event handlers and touchElement() for forced updates." }*/
 /*#
 # Binding
 

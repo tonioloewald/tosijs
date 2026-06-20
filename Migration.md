@@ -1,6 +1,6 @@
 # Migrating from `xinjs` to `tosijs`
 
-<!--{ "pin": "bottom" }-->
+<!--{ "pin": "bottom", "description": "Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings." }-->
 
 In a nutshell:
 

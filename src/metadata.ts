@@ -1,4 +1,4 @@
-/*{ "parent": "tosi" }*/
+/*{ "parent": "tosi", "description": "Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely." }*/
 /*#
 # metadata
 

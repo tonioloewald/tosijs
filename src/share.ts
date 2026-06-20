@@ -1,4 +1,4 @@
-/*{ "parent": "utilities" }*/
+/*{ "parent": "utilities", "description": "share() synchronizes tosijs state across browser tabs and windows using BroadcastChannel and IndexedDB." }*/
 /*#
 # share
 

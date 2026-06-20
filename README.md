@@ -1,6 +1,6 @@
 # tosijs
 
-<!--{ "pin": "top", "order": 1 }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 > `xinjs` has been renamed `tosijs`. Updating the documentation and links is a
 > work in progress. The goal is for the API to remain stable during the transition.

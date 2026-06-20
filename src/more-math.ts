@@ -1,4 +1,4 @@
-/*{ "parent": "utilities" }*/
+/*{ "parent": "utilities", "description": "Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants." }*/
 /*#
 # more-math
 

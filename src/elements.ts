@@ -1,4 +1,4 @@
-/*{ "order": 2 }*/
+/*{ "order": 2, "description": "The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required." }*/
 /*#
 # Creating Elements
 

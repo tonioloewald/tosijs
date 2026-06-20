@@ -1,4 +1,4 @@
-/*{ "parent": "css" }*/
+/*{ "parent": "css", "description": "The Color class: parse CSS colors, do color math (brighten, saturate, blend, mix), convert between HSL and RGB, generate contrasting colors." }*/
 /*#
 # color
 

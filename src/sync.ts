@@ -1,4 +1,4 @@
-/*{ "parent": "utilities" }*/
+/*{ "parent": "utilities", "description": "sync() synchronizes tosijs state across the network in real-time via a pluggable transport (websocket, fetch, or your own)." }*/
 /*#
 # sync
 

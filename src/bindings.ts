@@ -1,4 +1,4 @@
-/*{ "parent": "binding" }*/
+/*{ "parent": "binding", "description": "The built-in collection of common bindings: value (two-way), text, enabled, disabled, list — plus how to write your own." }*/
 /*#
 # bindings
 

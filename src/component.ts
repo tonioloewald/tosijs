@@ -1,4 +1,4 @@
-/*{ "order": 6 }*/
+/*{ "order": 6, "description": "The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association." }*/
 /*#
 # Web-Components
 

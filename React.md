@@ -9,4 +9,4 @@ Absolutely! The tiny [react-tosijs](https://react.tosijs.net) library provides:
 - the `reactWebComponents` proxy
   that turn any web-component into a React functional component.
 
-<!--{ "pin": "bottom" }-->
+<!--{ "pin": "bottom", "description": "Using tosijs with React via the useTosi hook, and how tosijs's path-observer model differs from React's reactive UI=f(state) model." }-->

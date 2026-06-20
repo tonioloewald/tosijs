@@ -1,4 +1,4 @@
-/*{ "parent": "tosi", "order": 1 }*/
+/*{ "parent": "tosi", "order": 1, "description": "How the tosi observer proxy works: an object wrapped in a proxy that surgically updates bound DOM elements when its properties change." }*/
 /*#
 # The tosi proxy
 

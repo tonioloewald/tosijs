@@ -1,4 +1,4 @@
-/*{ "parent": "component" }*/
+/*{ "parent": "component", "description": "makeComponent() hydrates a blueprint function into a usable tosijs web-component class plus its elementCreator." }*/
 /*#
 # makeComponent
 
