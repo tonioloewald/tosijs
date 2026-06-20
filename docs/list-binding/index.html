@@ -25,8 +25,7 @@
 <p>The most likely source of complexity and performance issues in applications is
 displaying large lists or grids of objects. <code>tosijs</code> provides robust support
 for handling this efficiently.</p>
-<h2><code>bindList</code> and <code>bindings.list</code></h2>
-<h2><code>.tosi.listBinding()</code> — the preferred way</h2>
+<h2><code>.tosi.listBinding()</code></h2>
 <p>The simplest way to bind an array is with <code>.tosi.listBinding()</code> (or <code>.listBinding()</code>
 directly on a BoxedProxy). It takes a template builder function that receives
 the <code>elements</code> proxy and a placeholder item for bindings:</p>
@@ -54,7 +53,10 @@ the tags you need) and a placeholder proxy for the array item. Property access
 on the placeholder creates relative bindings (<code>^.name</code>, <code>^.score</code>, etc.)
 automatically.</p>
 <p>Spread the result into a container element — it returns an <code>[ElementProps, HTMLTemplateElement]</code>
-tuple that the container uses to set up the list binding.</p>
+tuple. The props (containing <code>bindList</code>) are applied to the container and the
+<code>&lt;template&gt;</code> becomes a child; the <code>ListBinding</code> constructor then finds and removes
+the <code>&lt;template&gt;</code>, extracting its children as stamp templates. <strong>The <code>&lt;template&gt;</code>
+element never appears in the live DOM</strong> — it&#39;s consumed during initialization.</p>
 <p>Under the hood, this creates the same <code>bindList</code> + <code>template</code> structure shown below,
 but without the boilerplate.</p>
 <h3>Options</h3>
@@ -65,6 +67,7 @@ but without the boilerplate.</p>
 })
 </code></pre>
 <h3><code>bindList</code> + <code>template</code> — the low-level way</h3>
+<p>Before <code>.tosi.listBinding()</code> there was <code>bindList</code>.</p>
 <p>For reference, the equivalent low-level structure that <code>.listBinding()</code> generates:</p>
 <pre><code>div( // container element
   {
@@ -114,11 +117,11 @@ specifically intended to leverage pre-existing keys where available.</p>
 <li>Fine-grained property updates may not reach the correct DOM elements</li>
 <li>The list binding will work, but inefficiently - often recreating elements</li>
 </ul>
-<p>Without <code>idPath</code> is fine for:</p>
+<p>Skipping <code>idPath</code> is fine when:</p>
 <ul>
-<li>Simple arrays of scalars (<code>[&#39;apple&#39;, &#39;banana&#39;, &#39;cherry&#39;]</code>)</li>
-<li>Static lists that never reorder</li>
-<li>Lists where you always replace items wholesale, never update properties</li>
+<li>The array is simple scalars (<code>[&#39;apple&#39;, &#39;banana&#39;, &#39;cherry&#39;]</code>)</li>
+<li>The list is static and never reorders</li>
+<li>You always replace items wholesale, never updating properties</li>
 </ul>
 <blockquote>
 <p><strong>Id values must not contain <code>]</code> characters.</strong> Id-paths are encoded as
@@ -144,49 +147,26 @@ just direct, surgical updates.</p>
 (in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
 virtualized grid example below. Only the cells whose values actually change will flash.</p>
 <h2>Iterating and Searching Arrays</h2>
-<p>When working with proxied arrays, it&#39;s important to understand how different
-iteration patterns behave:</p>
-<h3><code>for...of</code> loops yield proxied items</h3>
-<pre><code>for (const item of list) {
-  // item is a proxy - use .value for scalars
-  console.log(item.name.value)
-
-  // mutations trigger observers and surgical DOM updates
-  item.score.value = 100
-}
-</code></pre>
-<h3><code>find()</code>, <code>findLast()</code>, and <code>at()</code> return proxied items</h3>
-<pre><code>// The predicate receives raw items - no .value needed for comparisons
-const found = list.find(item =&gt; item.id === &#39;abc&#39;)
-
-// The result is proxied - mutations work and trigger updates
-found.score.value = 100
-</code></pre>
-<p>This is the best of both worlds: clean predicate syntax without <code>.value</code>,
-and the returned item is fully reactive.</p>
-<h3><code>forEach()</code>, <code>map()</code>, <code>filter()</code>, etc. pass raw items to callbacks</h3>
-<pre><code>// Callbacks receive raw items for clean predicate/transform syntax
-list.filter(item =&gt; item.score &gt; 50)
-list.map(item =&gt; item.name)
-
-// But mutations in forEach won&#39;t trigger observers!
+<p>Proxied arrays have specific semantics around which iteration patterns
+yield proxied vs. raw items — <code>for...of</code> and <code>find()</code> give you proxies
+(mutations are observed), while <code>forEach()</code>/<code>map()</code>/<code>filter()</code> pass raw
+items to callbacks (mutations are silent). See <a href="/xin/">iterating proxied
+arrays</a> under tosi for the full breakdown.</p>
+<p>The relevant pattern for list bindings: when you want to update many
+items at once, the most efficient idiom is to mutate the raw array
+directly and then <code>touch()</code> the array path once — a single observer
+wave instead of one per item:</p>
+<pre><code>// Mutate behind the proxy&#39;s back…
 list.forEach(item =&gt; {
-  item.score = 100  // Modifies raw object - NO observer triggered
+  item.score = computeScore(item)
 })
+// …then tell the proxy you&#39;re done.
+touch(&#39;path.to.list&#39;)
 </code></pre>
-<p>If you need to mutate items, use <code>for...of</code> instead, or call <code>touch()</code> on
-the array or individual items after your <code>forEach</code>:</p>
-<pre><code>// Option 1: Use for...of
-for (const item of list) {
-  item.score.value = 100  // Triggers observers
-}
-
-// Option 2: Touch after forEach
-list.forEach(item =&gt; {
-  item.score = 100
-})
-touch(&#39;path.to.list&#39;)  // Manually notify observers
-</code></pre>
+<p>This trivial example would work fine via <code>for...of</code> too, but for thousands
+of mutations the batched-touch form is dramatically cheaper. The path
+string is used here deliberately: you&#39;ve already bypassed the proxy, so
+you notify the registry by path rather than reaching for a proxy reference.</p>
 <h2>Virtualized Lists</h2>
 <p>The real power of <code>bindList</code> comes from its support for virtualizing lists.</p>
 <pre><code>bindList: {
@@ -427,13 +407,6 @@ naturally for pinned rows and columns.</p>
 <li><code>display: grid</code> with <code>grid-template-columns: repeat(var(--tosi-columns), 1fr)</code></li>
 </ul>
 <p>Override <code>grid-template-columns</code> in your own CSS to set custom column widths.</p>
-<h3>How it works</h3>
-<p><code>.listBinding()</code> returns <code>[props, template]</code> — when spread into an element
-factory call, the props (containing <code>bindList</code>) are applied to the container
-and the <code>&lt;template&gt;</code> becomes a child. The <code>ListBinding</code> constructor finds
-and removes the <code>&lt;template&gt;</code>, extracting its children as stamp templates.
-<strong>The <code>&lt;template&gt;</code> element never appears in the live DOM</strong> — it&#39;s consumed
-during initialization.</p>
 <h3>Pinned Header and Footer Rows</h3>
 <p>Any elements before the template in the container are treated as headers;
 any after it are footers. Both are preserved across list updates, and
@@ -697,11 +670,11 @@ preview.append(
 <h2>Filtered Lists</h2>
 <p>It&#39;s also extremely common to want to filter a rendered list, and <code>tosijs</code>
 provides both simple and powerful methods for doing this.</p>
-<h2><code>hiddenProp</code> and <code>visibleProp</code></h2>
+<h3><code>hiddenProp</code> and <code>visibleProp</code></h3>
 <p><code>hiddenProp</code> and <code>visibleProp</code> allow you to use a property to hide or show array
 elements (and they can be <code>symbol</code> values if you want to avoid &quot;polluting&quot;
 your data, e.g. for round-tripping to a database.)</p>
-<h2><code>filter</code> and <code>needle</code></h2>
+<h3><code>filter</code> and <code>needle</code></h3>
 <pre><code>bindList: {
   value: filterListExample.array,
   idPath: &#39;name&#39;,
@@ -815,7 +788,7 @@ preview.append(
 )
 </code></pre>
 <h2>List Utilities</h2>
-<p>Suppose you have used the a list binding to bind an array of objects
+<p>Suppose you have used a list binding to bind an array of objects
 to a <code>&lt;ul&gt;</code>. So the DOM hierarchy looks something like this:</p>
 <pre><code>&lt;ul&gt;  &lt;-- array is bound to this element
   &lt;template&gt;
@@ -876,7 +849,7 @@ callers when the scroll completes and the target item is rendered.</p>
 <h2>List Operations on Proxied Arrays</h2>
 <p>In addition to the utility functions above, proxied arrays have <code>listFind</code>,
 <code>listUpdate</code>, and <code>listRemove</code> methods that use the same selector pattern
-as <code>listBinding</code>. These are documented in detail in <a href="/tosi/">tosi</a>, but
+as <code>listBinding</code>. These are documented in detail under <a href="/xin/">tosi</a>, but
 here&#39;s a quick summary:</p>
 <pre><code>// Find an item — returns a proxied item (mutations trigger observers)
 const item = app.items.listFind((item) =&gt; item.id, &#39;abc&#39;)

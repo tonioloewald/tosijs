@@ -6,9 +6,7 @@ The most likely source of complexity and performance issues in applications is
 displaying large lists or grids of objects. `tosijs` provides robust support
 for handling this efficiently.
 
-## `bindList` and `bindings.list`
-
-## `.tosi.listBinding()` — the preferred way
+## `.tosi.listBinding()`
 
 The simplest way to bind an array is with `.tosi.listBinding()` (or `.listBinding()`
 directly on a BoxedProxy). It takes a template builder function that receives
@@ -42,7 +40,10 @@ on the placeholder creates relative bindings (`^.name`, `^.score`, etc.)
 automatically.
 
 Spread the result into a container element — it returns an `[ElementProps, HTMLTemplateElement]`
-tuple that the container uses to set up the list binding.
+tuple. The props (containing `bindList`) are applied to the container and the
+`<template>` becomes a child; the `ListBinding` constructor then finds and removes
+the `<template>`, extracting its children as stamp templates. **The `<template>`
+element never appears in the live DOM** — it's consumed during initialization.
 
 Under the hood, this creates the same `bindList` + `template` structure shown below,
 but without the boilerplate.
@@ -57,6 +58,8 @@ Pass options as the second argument:
     })
 
 ### `bindList` + `template` — the low-level way
+
+Before `.tosi.listBinding()` there was `bindList`.
 
 For reference, the equivalent low-level structure that `.listBinding()` generates:
 
@@ -115,10 +118,10 @@ Without `idPath`:
 - Fine-grained property updates may not reach the correct DOM elements
 - The list binding will work, but inefficiently - often recreating elements
 
-Without `idPath` is fine for:
-- Simple arrays of scalars (`['apple', 'banana', 'cherry']`)
-- Static lists that never reorder
-- Lists where you always replace items wholesale, never update properties
+Skipping `idPath` is fine when:
+- The array is simple scalars (`['apple', 'banana', 'cherry']`)
+- The list is static and never reorders
+- You always replace items wholesale, never updating properties
 
 > **Id values must not contain `]` characters.** Id-paths are encoded as
 > `list[id=value]` in path strings, so a `]` in the value will break the
@@ -148,54 +151,28 @@ virtualized grid example below. Only the cells whose values actually change will
 
 ## Iterating and Searching Arrays
 
-When working with proxied arrays, it's important to understand how different
-iteration patterns behave:
+Proxied arrays have specific semantics around which iteration patterns
+yield proxied vs. raw items — `for...of` and `find()` give you proxies
+(mutations are observed), while `forEach()`/`map()`/`filter()` pass raw
+items to callbacks (mutations are silent). See [iterating proxied
+arrays](/xin/) under tosi for the full breakdown.
 
-### `for...of` loops yield proxied items
+The relevant pattern for list bindings: when you want to update many
+items at once, the most efficient idiom is to mutate the raw array
+directly and then `touch()` the array path once — a single observer
+wave instead of one per item:
 
-    for (const item of list) {
-      // item is a proxy - use .value for scalars
-      console.log(item.name.value)
-
-      // mutations trigger observers and surgical DOM updates
-      item.score.value = 100
-    }
-
-### `find()`, `findLast()`, and `at()` return proxied items
-
-    // The predicate receives raw items - no .value needed for comparisons
-    const found = list.find(item => item.id === 'abc')
-
-    // The result is proxied - mutations work and trigger updates
-    found.score.value = 100
-
-This is the best of both worlds: clean predicate syntax without `.value`,
-and the returned item is fully reactive.
-
-### `forEach()`, `map()`, `filter()`, etc. pass raw items to callbacks
-
-    // Callbacks receive raw items for clean predicate/transform syntax
-    list.filter(item => item.score > 50)
-    list.map(item => item.name)
-
-    // But mutations in forEach won't trigger observers!
+    // Mutate behind the proxy's back…
     list.forEach(item => {
-      item.score = 100  // Modifies raw object - NO observer triggered
+      item.score = computeScore(item)
     })
+    // …then tell the proxy you're done.
+    touch('path.to.list')
 
-If you need to mutate items, use `for...of` instead, or call `touch()` on
-the array or individual items after your `forEach`:
-
-    // Option 1: Use for...of
-    for (const item of list) {
-      item.score.value = 100  // Triggers observers
-    }
-
-    // Option 2: Touch after forEach
-    list.forEach(item => {
-      item.score = 100
-    })
-    touch('path.to.list')  // Manually notify observers
+This trivial example would work fine via `for...of` too, but for thousands
+of mutations the batched-touch form is dramatically cheaper. The path
+string is used here deliberately: you've already bypassed the proxy, so
+you notify the registry by path rather than reaching for a proxy reference.
 
 ## Virtualized Lists
 
@@ -452,15 +429,6 @@ The container automatically gets:
 - `display: grid` with `grid-template-columns: repeat(var(--tosi-columns), 1fr)`
 
 Override `grid-template-columns` in your own CSS to set custom column widths.
-
-### How it works
-
-`.listBinding()` returns `[props, template]` — when spread into an element
-factory call, the props (containing `bindList`) are applied to the container
-and the `<template>` becomes a child. The `ListBinding` constructor finds
-and removes the `<template>`, extracting its children as stamp templates.
-**The `<template>` element never appears in the live DOM** — it's consumed
-during initialization.
 
 ### Pinned Header and Footer Rows
 
@@ -738,13 +706,13 @@ preview.append(
 It's also extremely common to want to filter a rendered list, and `tosijs`
 provides both simple and powerful methods for doing this.
 
-## `hiddenProp` and `visibleProp`
+### `hiddenProp` and `visibleProp`
 
 `hiddenProp` and `visibleProp` allow you to use a property to hide or show array
 elements (and they can be `symbol` values if you want to avoid "polluting"
 your data, e.g. for round-tripping to a database.)
 
-## `filter` and `needle`
+### `filter` and `needle`
 
     bindList: {
       value: filterListExample.array,
@@ -865,7 +833,7 @@ preview.append(
 
 ## List Utilities
 
-Suppose you have used the a list binding to bind an array of objects
+Suppose you have used a list binding to bind an array of objects
 to a `<ul>`. So the DOM hierarchy looks something like this:
 
     <ul>  <-- array is bound to this element
@@ -940,7 +908,7 @@ For **non-virtual lists**, the item's DOM element is found and
 
 In addition to the utility functions above, proxied arrays have `listFind`,
 `listUpdate`, and `listRemove` methods that use the same selector pattern
-as `listBinding`. These are documented in detail in [tosi](/tosi/), but
+as `listBinding`. These are documented in detail under [tosi](/xin/), but
 here's a quick summary:
 
     // Find an item — returns a proxied item (mutations trigger observers)
@@ -1168,8 +1136,7 @@ export class ListBinding {
         style.setProperty('--tosi-columns', String(itemsPerRow))
         style.display = style.display || 'grid'
         style.gridTemplateColumns =
-          style.gridTemplateColumns ||
-          `repeat(var(--tosi-columns), 1fr)`
+          style.gridTemplateColumns || `repeat(var(--tosi-columns), 1fr)`
       }
       if (this.listTop != null && this.listBottom != null) {
         this.listTop.style.gridColumn = `1 / -1`
@@ -1178,10 +1145,7 @@ export class ListBinding {
     }
     // Set default ARIA role for virtual lists if not already specified
     if (options.virtual != null && !this.boundElement.getAttribute('role')) {
-      this.boundElement.setAttribute(
-        'role',
-        itemsPerRow > 1 ? 'grid' : 'list'
-      )
+      this.boundElement.setAttribute('role', itemsPerRow > 1 ? 'grid' : 'list')
     }
     // @ts-expect-error storing binding ref on element
     this.boundElement[LIST_BINDING_REF] = this
