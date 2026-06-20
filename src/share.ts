@@ -1,5 +1,6 @@
+/*{ "parent": "utilities" }*/
 /*#
-# A.4 share
+# share
 
 `share()` synchronizes state across browser tabs and windows. Pass it
 boxed proxies from `tosi()` and those paths will be kept in sync via

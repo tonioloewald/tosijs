@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>color — tosijs</title>
+  <meta name="description" content="Tosijs includes a lightweight, powerful Color class for manipulating colors. I hope at some point CSS will provide sufficiently capable native color…" />
+  <link rel="canonical" href="https://tosijs.net/color/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="color — tosijs" />
+  <meta property="og:description" content="Tosijs includes a lightweight, powerful Color class for manipulating colors. I hope at some point CSS will provide sufficiently capable native color…" />
+  <meta property="og:url" content="https://tosijs.net/color/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"color","description":"Tosijs includes a lightweight, powerful Color class for manipulating colors. I hope at some point CSS will provide sufficiently capable native color…","url":"https://tosijs.net/color/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>color</h1>
+<p><code>tosijs</code> includes a lightweight, powerful <code>Color</code> class for manipulating colors.
+I hope at some point CSS will provide sufficiently capable native color calculations
+so that this will no longer be needed. Some of these methods have begun to appear,
+and are approaching wide implementation.</p>
+<h2>Color</h2>
+<p>The most straightforward methods for creating a <code>Color</code> instance are to use the
+<code>Color()</code> constructor to create an <code>rgb</code> or <code>rgba</code> representation, or using the
+<code>Color.fromCss()</code> to create a <code>Color</code> from any CSS (s)rgb representation,
+e.g.</p>
+<pre><code>new Color(255, 255, 0)               // yellow
+new Color(0, 128, 0, 0.5)            // translucent dark green
+Color.fromCss(&#39;#000&#39;)                // black
+Color.fromCss(&#39;hsl(90deg 100% 50%))  // orange
+Color.fromCss(&#39;color(srgb 1 0 0.5))  // purple
+</code></pre>
+<p>Note that <code>Color.fromCss()</code> is not compatible with non-srgb color spaces. The new CSS
+color functions produce color specifications of the form <code>color(&lt;space&gt; ....)</code> and
+<code>Color.fromCSS()</code> will handle <code>color(srgb ...)</code> correctly (this is so it can parse the
+output of <code>color-mix(in hsl ...)</code> but not other <a href="https://developer.mozilla.org/en-US/blog/css-color-module-level-4/#whats_new_in_css_colors_module_level_4">color spaces</a>.</p>
+<h2>Manipulating Colors</h2>
+<pre><code class="language-js">import { elements, Color } from &#39;tosijs&#39;
+
+const { label, span, div, input, button } = elements
+
+const swatches = div({ class: &#39;swatches&#39; })
+function makeSwatch(text) {
+  const color = Color.fromCss(colorInput.value)
+  const adjustedColor = eval(&#39;color.&#39; + text)
+  swatches.style.setProperty(&#39;--original&#39;, color)
+  swatches.append(
+    div(
+      text,
+      {
+        class: &#39;swatch&#39;,
+        title: `${adjustedColor.html} ${adjustedColor.hsla}`,
+        style: {
+          _adjusted: adjustedColor,
+          _text: adjustedColor.contrasting()
+        }
+      }
+    )
+  )
+}
+
+const colorInput = input({
+  type: &#39;color&#39;,
+  value: &#39;#000&#39;,
+  onInput: update
+})
+const red = Color.fromCss(&#39;#f00&#39;)
+const gray = Color.fromCss(&#39;#888&#39;)
+const teal = Color.fromCss(&#39;teal&#39;)
+const aliceblue = Color.fromCss(&#39;aliceblue&#39;)
+
+function update() {
+  swatches.textContent = &#39;&#39;
+  makeSwatch(&#39;brighten(-0.5)&#39;)
+  makeSwatch(&#39;brighten(0.5)&#39;)
+  makeSwatch(&#39;saturate(0.25)&#39;)
+  makeSwatch(&#39;saturate(0.5)&#39;)
+  makeSwatch(&#39;desaturate(0.5)&#39;)
+  makeSwatch(&#39;desaturate(0.75)&#39;)
+  makeSwatch(&#39;contrasting()&#39;)
+  makeSwatch(&#39;contrasting(0.05)&#39;)
+  makeSwatch(&#39;contrasting(0.25)&#39;)
+  makeSwatch(&#39;contrasting(0.45)&#39;)
+  makeSwatch(&#39;inverseLuminance&#39;)
+  makeSwatch(&#39;mono&#39;)
+  makeSwatch(&#39;rotate(-330)&#39;)
+  makeSwatch(&#39;rotate(60)&#39;)
+  makeSwatch(&#39;rotate(-270)&#39;)
+  makeSwatch(&#39;rotate(120)&#39;)
+  makeSwatch(&#39;rotate(-210)&#39;)
+  makeSwatch(&#39;rotate(180)&#39;)
+  makeSwatch(&#39;rotate(-150)&#39;)
+  makeSwatch(&#39;rotate(240)&#39;)
+  makeSwatch(&#39;rotate(-90)&#39;)
+  makeSwatch(&#39;rotate(300)&#39;)
+  makeSwatch(&#39;rotate(-30)&#39;)
+  makeSwatch(&#39;opacity(0.1)&#39;)
+  makeSwatch(&#39;opacity(0.5)&#39;)
+  makeSwatch(&#39;opacity(0.75)&#39;)
+  makeSwatch(&#39;rotate(-90).opacity(0.75)&#39;)
+  makeSwatch(&#39;brighten(0.5).desaturate(0.5)&#39;)
+  makeSwatch(&#39;blend(Color.black, 0.5)&#39;)
+  makeSwatch(&#39;mix(Color.white, 0.4)&#39;)
+  makeSwatch(&#39;blend(gray, 0.4)&#39;)
+  makeSwatch(&#39;mix(red, 0.25)&#39;)
+  makeSwatch(&#39;mix(red, 0.5)&#39;)
+  makeSwatch(&#39;mix(red, 0.75)&#39;)
+  makeSwatch(&#39;mix(teal, 0.25)&#39;)
+  makeSwatch(&#39;mix(teal, 0.5)&#39;)
+  makeSwatch(&#39;mix(teal, 0.75)&#39;)
+  makeSwatch(&#39;colorMix(aliceblue, 0.25)&#39;)
+  makeSwatch(&#39;colorMix(aliceblue, 0.5)&#39;)
+  makeSwatch(&#39;colorMix(aliceblue, 0.75)&#39;)
+}
+
+function randomColor() {
+  colorInput.value = Color.fromHsl(Math.random() * 360, Math.random(), Math.random() * 0.5 + 0.25)
+  update()
+}
+
+randomColor()
+
+preview.append(
+  label(
+    span(&#39;base color&#39;),
+    colorInput
+  ),
+  button(
+    &#39;Random(ish) Color&#39;,
+    {
+      onClick: randomColor
+    }
+  ),
+  swatches
+)
+</code></pre>
+<pre><code class="language-css">.preview .swatches {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  flex-wrap: wrap;
+  font-size: 80%;
+}
+.preview .swatch {
+  display: inline-block;
+  padding: 2px 6px;
+  color: var(--text);
+  background: var(--adjusted);
+  border: 2px solid var(--original);
+}
+</code></pre>
+<p>Each of these methods creates a new color instance based on the existing color(s).</p>
+<p>In each case <code>amount</code> is from 0 to 1, and <code>degrees</code> is an angle in degrees.</p>
+<ul>
+<li><code>brighten(amount: number)</code></li>
+<li><code>darken(amount: number)</code></li>
+<li><code>saturate(amount: number)</code></li>
+<li><code>desaturate(amount: number)</code></li>
+<li><code>rotate(angle: number)</code></li>
+<li><code>opacity(amount: number)</code> — this just creates a color with that opacity (it doesn&#39;t adjust it)</li>
+<li><code>mix(otherColor: Color, amount)</code> — produces a mix of the two colors in HSL-space</li>
+<li><code>colorMix(otherColor: Color, amount)</code> — uses <code>color-mix(in hsl...)</code> to blend the colors</li>
+<li><code>blend(otherColor: Color, amount)</code> — produces a blend of the two colors in RGB-space (usually icky)</li>
+<li><code>contrasting(amount = 1)</code> — produces a <strong>contrasting color</strong> by blending the color with black (if its
+<code>brightness</code> is &gt; 0.5) or white by <code>amount</code>. The new color will always have opacity 1.
+<code>contrasting()</code> produce nearly identical results to <code>contrast-color()</code>.</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong> the captions in the example above are colored using <code>contrasting()</code> and thus
+should always be readable. In general, a base color will produce the worst results when
+its <code>brightness</code> is around 0.5, much as is the case with the new and experimental CSS
+<a href="https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color">contrast-color()</a>
+function.</p>
+<p><strong>Also note</strong> that highly translucent colors might produce disappointing <code>.contrasting()</code>
+results since it&#39;s the blended color you need to worry about.</p>
+</blockquote>
+<p>Where-ever possible, unless otherwise indicated, all of these operations are performed in HSL-space.
+HSL space is not great! For example, <code>desaturate</code> essentially blends you with medium gray (<code>#888</code>)
+rather than a BT.601 <code>brightness</code> value where &quot;yellow&quot; is really bright and &quot;blue&quot; is really dark.</p>
+<p>If you want to desaturate colors more nicely, you can try blending them with their own <code>mono</code>.</p>
+<h2>Static Methods</h2>
+<p>These are alternatives to the standard <code>Color(r, g, b, a = 1)</code> constructor.</p>
+<p><code>Color.fromVar(cssVariableName: string, element = document.body): Color</code> evaluates
+the color at the specified element and then returns a <code>Color</code> instance with that
+value. It will accept both bare variable names (<code>--foo-bar</code>) and wrapped (<code>var(--foo-bar)</code>).</p>
+<p><code>Color.fromCss(cssColor: string): Color</code> produces a <code>Color</code> instance from any
+css color definition the browser can handle.</p>
+<p><code>Color.fromHsl(h: number, s: number, l: number, a = 1)</code> produces a <code>Color</code>
+instance from HSL/HSLA values. The HSL values are cached internally and
+used for internal calculations to reduce precision problems that occur
+when converting HSL to RGB and back. It&#39;s nowhere near as sophisticated as
+the models used by (say) Adobe or Apple, but it&#39;s less bad than doing all
+computations in rgb.</p>
+<h2>Static Properties</h2>
+<ul>
+<li><code>black</code>, <code>white</code> — handy constants</li>
+</ul>
+<h2>Properties</h2>
+<ul>
+<li><code>r</code>, <code>g</code>, <code>b</code> are numbers from 0 to 255.</li>
+<li><code>a</code> is a number from 0 to 1</li>
+</ul>
+<h2>Properties (read-only)</h2>
+<ul>
+<li><code>html</code> — the color in HTML <code>#rrggbb[aa]</code> format</li>
+<li><code>inverse</code> — the photonegative of the color (light is dark, orange is blue)</li>
+<li><code>opaque</code> - the color, but guaranteed opaque</li>
+<li><code>inverseLuminance</code> — inverts luminance but keeps hue, great for &quot;dark mode&quot;</li>
+<li><code>rgb</code> and <code>rgba</code> — the color in <code>rgb(...)</code> and <code>rgba(...)</code> formats.</li>
+<li><code>hsl</code> and <code>hsla</code> — the color in <code>hsl(...)</code> and <code>hsla(...)</code> formats.</li>
+<li><code>RGBA</code> and <code>ARGB</code> — return the values as arrays of numbers from 0 to 1 for use with
+<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API">WebGL</a> (for example).</li>
+<li><code>brightness</code> — this is the brightness of the color based on <a href="https://www.itu.int/rec/R-REC-BT.601">BT.601</a></li>
+<li><code>mono</code> — this produces a <code>Color</code> instance that a greyscale version (based on <code>brightness</code>)</li>
+</ul>
+<h2>Utilities</h2>
+<ul>
+<li><code>swatch()</code> emits the color into the console with a swatch and returns the color for chaining.</li>
+<li><code>toString()</code> emits the <code>html</code> property</li>
+</ul>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details open><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/" aria-current="page" class="current">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

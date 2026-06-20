@@ -1,8 +1,12 @@
+/*{ "order": 5 }*/
 /*#
-# 2. bind
+# Binding
 
 `bind()` lets you synchronize data / application state to the user-interface reliably,
 efficiently, and with a minimum of code.
+
+> The design goal of `bind` is to eliminate most of the code used to sync state to and
+> from the UI (DOM elements) making code simpler, faster, and more reliable.
 
 ## An Aside on Reactive Programming vs. the Observer Model
 
@@ -78,7 +82,7 @@ bind(
 ```
 
 The `bind` function is a simple way of tying an `HTMLElement`'s properties to
-state via `path` using [bindings](/?bindings.ts)
+state via `path` using [bindings](/bindings/)
 
 ```
 import {bind, bindings, xin, elements, updates} from 'tosijs'
@@ -425,8 +429,17 @@ export function bind<T extends Element = Element>(
   }
 
   // TakeDescriptor — multi-path reactive transform
-  if (what != null && typeof what === 'object' && (what as any)[TAKE_DESCRIPTOR]) {
-    return bindTake(element, what as unknown as TakeDescriptor, binding, options)
+  if (
+    what != null &&
+    typeof what === 'object' &&
+    (what as any)[TAKE_DESCRIPTOR]
+  ) {
+    return bindTake(
+      element,
+      what as unknown as TakeDescriptor,
+      binding,
+      options
+    )
   }
 
   let path: string

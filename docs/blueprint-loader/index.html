@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>blueprints — tosijs</title>
+  <meta name="description" content="One issue with standard web-components built with tosijs is that building them &quot;sucks in&quot; the version of tosijs you&#39;re working with. This isn&#39;t a huge problem" />
+  <link rel="canonical" href="https://tosijs.net/blueprint-loader/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="blueprints — tosijs" />
+  <meta property="og:description" content="One issue with standard web-components built with tosijs is that building them &quot;sucks in&quot; the version of tosijs you&#39;re working with. This isn&#39;t a huge problem" />
+  <meta property="og:url" content="https://tosijs.net/blueprint-loader/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"blueprints","description":"One issue with standard web-components built with tosijs is that building them \"sucks in\" the version of tosijs you're working with. This isn't a huge problem","url":"https://tosijs.net/blueprint-loader/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>blueprints</h1>
+<p>One issue with standard web-components built with tosijs is that building them
+&quot;sucks in&quot; the version of <code>tosijs</code> you&#39;re working with. This isn&#39;t a huge problem
+with monolithic code-bases, but it does prevent components from being loaded
+&quot;on-the-fly&quot; from CDNs and composed on the spot and it does make it hard to
+&quot;tree shake&quot; component libraries.</p>
+<pre><code class="language-js">import { elements, tosiLoader, tosiBlueprint } from &#39;tosijs&#39;
+
+preview.append(
+  tosiLoader(
+    tosiBlueprint({
+      tag: &#39;swiss-clock&#39;,
+      src: &#39;https://tonioloewald.github.io/xin-clock/dist/blueprint.js?1234&#39;,
+      blueprintLoaded({creator}) {
+        preview.append(creator())
+      }
+    }),
+  )
+)
+</code></pre>
+<p>Another issue is name-collision. What if two people create a <code>&lt;tab-selector&gt;</code> component
+and you want to use both of them? Or you want to switch to a new and better one but
+don&#39;t want to do it everywhere all at once?</p>
+<p>With blueprints, the <em>consumer</em> of the component chooses the <code>tag</code>, reducing the
+chance of name-collision. (You can consume the same blueprint multiple times,
+giving each one its own tag.)</p>
+<p>To address these issues, <code>tosijs</code> provides a <code>&lt;tosi-loader&gt;</code> loader component and
+a function <code>makeComponent</code> that can define a component given a blueprint
+function.</p>
+<h2><code>&lt;tosi-loader&gt;</code>—the blueprint loader</h2>
+<p><code>&lt;tosi-loader&gt;</code> is a simple custom-element provided by <code>tosijs</code> for the dynamic loading
+of component <strong>blueprints</strong>. It will load its <code>&lt;tosi-blueprint&gt;</code>s in parallel.</p>
+<pre><code>&lt;tosi-loader&gt;
+  &lt;tosi-blueprint tag=&quot;swiss-clock&quot; src=&quot;https://loewald.com/lib/swiss-clock&quot;&gt;&lt;/tosi-blueprint&gt;
+&lt;/tosi-loader&gt;
+&lt;swiss-clock&gt;
+  &lt;code style=&quot;color: var(--brand-color)&quot;&gt;tosijs&lt;/code&gt; rules!
+&lt;/swiss-clock&gt;
+</code></pre>
+<blockquote>
+<p>The legacy names <code>&lt;xin-blueprint&gt;</code> and <code>&lt;xin-loader&gt;</code> still work but emit a
+one-time deprecation warning. New code should use <code>&lt;tosi-blueprint&gt;</code> and
+<code>&lt;tosi-loader&gt;</code>.</p>
+</blockquote>
+<h3><code>&lt;tosi-blueprint&gt;</code> Attributes</h3>
+<ul>
+<li><code>src</code> is the url of the <code>blueprint</code> javascript module (required)</li>
+<li><code>tag</code> is the tagName you wish to use. This defaults to the name of the source file if suitable.</li>
+<li><code>property</code> allows you to load a named exported property from a blueprint module
+(allowing one blueprint to export multiple blueprints). By default, it&#39;s <code>default</code>.</li>
+<li><code>loaded</code> is the <code>XinPackagedComponent</code> after loading</li>
+</ul>
+<h4><code>&lt;tosi-blueprint&gt;</code> Properties</h4>
+<ul>
+<li><code>blueprintLoaded(package: XinPackagedComponent)</code> <code>&lt;tosi-blueprint&gt;</code> when its blueprint is loaded.</li>
+</ul>
+<h4><code>&lt;tosi-loader&gt;</code> Properties</h4>
+<ul>
+<li><code>allLoaded()</code> is called when all the blueprints have loaded.</li>
+</ul>
+<h2><code>makeComponent(tag: string, blueprint: XinBlueprint): Promise&lt;XinPackagedCompoent&gt;</code></h2>
+<p><code>makeComponent</code> takes a <code>tag</code> of your choice and a <code>blueprint</code> and generates
+the custom-element&#39;s <code>class</code> and <code>elementCreator</code> as its <code>type</code> and <code>creator</code>
+properties.</p>
+<p>So, instead of:</p>
+<pre><code>import {myThing} from &#39;./path/to/my-thing&#39;
+
+document.body.append(myThing())
+</code></pre>
+<p>You could write:</p>
+<pre><code>import { makeComponent } from &#39;tosijs&#39;
+import myThingBlueprint from &#39;./path/to/my-thing-blueprint&#39;
+
+makeComponent(&#39;different-tag&#39;, myThingBlueprint).then((packaged) =&gt; {
+  document.body.append(packaged.creator())
+})
+</code></pre>
+<p>This is a more complex example that loads two components and only generates
+the test component once everything is ready:</p>
+<pre><code class="language-js">import { tosiLoader, tosiBlueprint } from &#39;tosijs&#39;
+
+let clockType = null
+
+preview.append(
+  tosiLoader(
+    {
+      allLoaded() {
+        const xinTest = this.querySelector(&#39;[tag=&quot;xin-test&quot;]&#39;).loaded.creator
+        preview.append(
+          xinTest({
+            description: `${clockType.tagName} registered`,
+            test() {
+              return (
+                preview.querySelector(clockType.tagName) &amp;&amp; preview.querySelector(clockType.tagName).constructor !==
+                HTMLElement
+              )
+            },
+          })
+        )
+      },
+    },
+    tosiBlueprint({
+      tag: &#39;swiss-clock&#39;,
+      src: &#39;https://tonioloewald.github.io/xin-clock/dist/blueprint.js?1234&#39;,
+      blueprintLoaded({type, creator}) {
+        clockType = type
+        preview.append(creator())
+      },
+    }),
+    tosiBlueprint({
+      tag: &#39;xin-test&#39;,
+      src: &#39;https://tonioloewald.github.io/xin-test/dist/blueprint.js&#39;,
+    })
+  )
+)
+</code></pre>
+<h2><code>XinBlueprint</code></h2>
+<pre><code>export interface XinFactory {
+  Color: typeof Color
+  Component: typeof Component
+  elements: typeof elements
+  svgElements: typeof svgElements
+  mathML: typeof mathML
+  vars: typeof vars
+  varDefault: typeof varDefault
+  xin: typeof xin
+  boxed: typeof boxed
+  xinProxy: typeof xinProxy
+  boxedProxy: typeof boxedProxy // deprecated
+  tosi: typeof tosi
+  makeComponent: typeof makeComponent
+  bind: typeof bind
+  on: typeof on
+  version: string
+}
+
+export interface XinPackagedComponent {
+  type: typeof Component
+  creator: ElementCreator
+}
+
+export type XinBlueprint = (
+  tag: string,
+  module: XinFactory
+) =&gt; XinPackagedComponent
+</code></pre>
+<p><code>XinBlueprint</code> lets you provide a component &quot;blueprint&quot;, in the form of a function,
+that can be loaded and turned into an actual component. The beauty of this is that
+unlike an actual component, the blueprint has no special dependencies.</p>
+<p>So instead of defining a component like this:</p>
+<pre><code>import { Component, elements, vars, varDefault } from &#39;tosijs&#39;
+
+const { h2, slot } = elements
+
+export class MyThing extends Component {
+  static preferredTagName = &#39;my-thing&#39;
+  static shadowStyleSpec = {
+    &#39;:host&#39;: {
+      color: varDefault.textColor(&#39;#222&#39;),
+      background: vars.bgColor,
+    },
+  }
+  static lightStyleSpec = {
+    _bgColor: &#39;#f00&#39;
+  }
+
+  content = () =&gt; [
+    h2(&#39;my thing&#39;),
+    slot()
+  ]
+}
+
+export const myThing = MyThing.elementCreator()
+</code></pre>
+<p>You can define a &quot;blueprint&quot; like this:</p>
+<pre><code>import { XinBlueprint } from &#39;tosijs&#39;
+
+const blueprint: XinBlueprint = (
+  tag,
+  { Component, elements, vars, varDefault }
+) =&gt; {
+  const {h2, slot} = elements
+
+  class MyThing extends Component {
+    static shadowStyleSpec = {
+      &#39;:host&#39;: {
+        color: varDefault.textColor(&#39;#222&#39;),
+        background: vars.bgColor,
+      },
+    }
+
+    content = () =&gt; [
+      h2(&#39;my thing&#39;),
+      slot()
+    ]
+  }
+
+  return {
+    type: MyThing,
+    lightStyleSpec: {
+      _bgColor: &#39;#f00&#39;
+    }
+  }
+}
+</code></pre>
+<p>The blueprint function can be <code>async</code>, so you can use async import inside it to pull in dependencies.</p>
+<blockquote>
+<p><strong>Note</strong> that in this example the blueprint is a <em>pure</em> function (i.e. it has no side-effects).
+If this blueprint is consumed twice, each will be completely independent. A non-pure blueprint
+could be implemented such that the different versions of the blueprint share information.
+E.g. you could maintain a list of all the instances of any version of the blueprint.</p>
+</blockquote>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/" aria-current="page" class="current">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
+/*{ "parent": "binding" }*/
 /*#
-# 2.1 binding arrays
+# binding arrays
 
 The most likely source of complexity and performance issues in applications is
 displaying large lists or grids of objects. `tosijs` provides robust support
@@ -939,7 +940,7 @@ For **non-virtual lists**, the item's DOM element is found and
 
 In addition to the utility functions above, proxied arrays have `listFind`,
 `listUpdate`, and `listRemove` methods that use the same selector pattern
-as `listBinding`. These are documented in detail in [tosi](/?tosi.ts), but
+as `listBinding`. These are documented in detail in [tosi](/tosi/), but
 here's a quick summary:
 
     // Find an item — returns a proxied item (mutations trigger observers)

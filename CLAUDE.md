@@ -35,7 +35,7 @@ The build system (`dev.ts`) uses Bun's bundler and outputs three formats:
 - `dist/module.js` - ES Module
 - `dist/main.js` - CommonJS
 
-TypeScript declarations are generated via `tsc --declaration`. The build runs tests before bundling. After bundling, `tjs convert` generates debug and safe variants (`dist/module.debug.js`, `dist/module.safe.js`) as subpath exports (`tosijs/debug`, `tosijs/safe`).
+TypeScript declarations are generated via `tsc --declaration`. The build runs tests before bundling. For the debug/safe variants, the build runs `tjs convert` over `src/` into `tjs-out/`, then bundles the `src/index-debug.ts` and `src/index-safe.ts` entry points into `dist/module.debug.js` and `dist/module.safe.js` (exposed as the `tosijs/debug` and `tosijs/safe` subpath exports). The two entry files differ only in how they configure `globalThis.__tjs` (debug: `throwTypeErrors: true`; safe: monadic errors).
 
 **Documentation generation:** `docs.js` extracts documentation from two sources into `demo/docs.json`:
 

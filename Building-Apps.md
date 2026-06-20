@@ -1,6 +1,6 @@
-# 0. Building Apps with tosijs
+# Building Apps
 
-<!--{}-->
+<!--{ "pin": "top", "order": 2 }-->
 
 > This guide explains how to think about building applications with tosijs.
 > It's not an API reference — it's a mental model. If you're coming from React

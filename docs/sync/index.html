@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>sync — tosijs</title>
+  <meta name="description" content="Sync() synchronizes state across the network in real-time. Pass it a transport, options, and boxed proxies from tosi() — local changes are throttled and sent…" />
+  <link rel="canonical" href="https://tosijs.net/sync/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="sync — tosijs" />
+  <meta property="og:description" content="Sync() synchronizes state across the network in real-time. Pass it a transport, options, and boxed proxies from tosi() — local changes are throttled and sent…" />
+  <meta property="og:url" content="https://tosijs.net/sync/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"sync","description":"Sync() synchronizes state across the network in real-time. Pass it a transport, options, and boxed proxies from tosi() — local changes are throttled and sent…","url":"https://tosijs.net/sync/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>sync</h1>
+<p><code>sync()</code> synchronizes state across the network in real-time. Pass it a
+transport, options, and boxed proxies from <code>tosi()</code> — local changes are
+throttled and sent as batched deltas, and inbound messages from other
+clients are applied to the local state automatically.</p>
+<pre><code>import { tosi, sync } from &#39;tosijs&#39;
+
+const { game } = tosi({
+  game: { players: {}, ball: { x: 0, y: 0 } }
+})
+
+const ws = new WebSocket(&#39;wss://my-server.example/sync&#39;)
+
+const { disconnect } = await sync(
+  websocketTransport(ws),
+  { throttleInterval: 50 },
+  game
+)
+
+// Later, to disconnect:
+disconnect()
+</code></pre>
+<h2>Transport interface</h2>
+<p><code>sync()</code> is transport-agnostic. You provide an object that satisfies
+<code>SyncTransport</code>:</p>
+<pre><code>interface SyncTransport {
+  send(messages: SyncMessage[]): void
+  onReceive(handler: (messages: SyncMessage[]) =&gt; void): void
+  connect(): Promise&lt;void&gt; | void
+  disconnect(): void
+}
+
+interface SyncMessage {
+  path: string
+  value: any
+}
+</code></pre>
+<p>Messages are <strong>batched</strong> — <code>send()</code> receives an array of accumulated
+deltas flushed at the throttle interval, and <code>onReceive()</code> delivers
+batches from the server.</p>
+<h2>WebSocket transport helper</h2>
+<pre><code>function websocketTransport(ws) {
+  let handler = null
+  let pingInterval = null
+
+  return {
+    connect() {
+      return new Promise((resolve, reject) =&gt; {
+        if (ws.readyState === WebSocket.OPEN) return resolve()
+        ws.addEventListener(&#39;open&#39;, () =&gt; resolve(), { once: true })
+        ws.addEventListener(&#39;error&#39;, reject, { once: true })
+      })
+    },
+    send(messages) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(messages))
+      }
+    },
+    onReceive(h) {
+      handler = h
+      ws.addEventListener(&#39;message&#39;, (event) =&gt; {
+        handler(JSON.parse(event.data))
+      })
+      // Keep alive: send empty batch periodically so the server
+      // knows we&#39;re still here (see idleTimeout in sync-server.ts)
+      pingInterval = setInterval(() =&gt; {
+        if (ws.readyState === WebSocket.OPEN) ws.send(&#39;[]&#39;)
+      }, 15000)
+    },
+    disconnect() {
+      clearInterval(pingInterval)
+      ws.close()
+    },
+  }
+}
+</code></pre>
+<h2>Firebase Realtime Database transport</h2>
+<p>For Firebase, implement <code>SyncTransport</code> using <code>onValue</code> for inbound
+and <code>update</code> for outbound. This is a sketch — adapt to your data model:</p>
+<pre><code>import { ref, onValue, update } from &#39;firebase/database&#39;
+
+function firebaseTransport(db, rootPath) {
+  let handler = null
+  let unsubscribe = null
+
+  return {
+    connect() {
+      const dbRef = ref(db, rootPath)
+      unsubscribe = onValue(dbRef, (snapshot) =&gt; {
+        const data = snapshot.val()
+        if (data &amp;&amp; handler) {
+          // Convert Firebase snapshot to SyncMessage[]
+          const messages = Object.entries(data).map(
+            ([path, value]) =&gt; ({ path, value })
+          )
+          handler(messages)
+        }
+      })
+    },
+    send(messages) {
+      const updates = {}
+      for (const msg of messages) {
+        updates[`${rootPath}/${msg.path}`] = msg.value
+      }
+      update(ref(db), updates)
+    },
+    onReceive(h) { handler = h },
+    disconnect() { if (unsubscribe) unsubscribe() },
+  }
+}
+</code></pre>
+<h2>Server architecture</h2>
+<p>The transport carries <code>SyncMessage[]</code> arrays. The <strong>server</strong> decides:</p>
+<ul>
+<li><strong>Broadcasting</strong>: relay deltas to other connected clients</li>
+<li><strong>Persistence</strong>: store state for snapshot-on-connect</li>
+<li><strong>Conflict resolution</strong>: last-write-wins, server timestamps, or
+custom logic — <code>sync()</code> is conflict-agnostic</li>
+</ul>
+<p>For most realistic applications, use a custom socket server as the
+single source of truth. See <code>examples/sync-server.ts</code> for a minimal
+Bun WebSocket relay server.</p>
+<h2>API</h2>
+<pre><code>sync(
+  transport: SyncTransport,
+  options: SyncOptions,
+  ...proxies: (BoxedProxy | string)[]
+): Promise&lt;{ disconnect: () =&gt; void }&gt;
+</code></pre>
+<p><strong>SyncOptions:</strong></p>
+<ul>
+<li><code>throttleInterval</code> — outbound batch interval in ms (default: 100)</li>
+</ul>
+<p>The returned <code>disconnect()</code> removes all observers and calls
+<code>transport.disconnect()</code>.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/" aria-current="page" class="current">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

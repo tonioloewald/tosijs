@@ -1,9 +1,14 @@
+/*{ "order": 3 }*/
 /*#
-# 5. css
+# CSS
 
 `tosijs` provides a collection of utilities for working with CSS rules that
 help leverage CSS variables to produce highly maintainable and lightweight
 code that is nonetheless easy to customize.
+
+> The design goal of `css`, `vars`, and `varDefault` is to make working with
+> CSS3 more intuitive, maintainable, easier, and expressive than using libraries
+> like Tailwind.
 
 The basic goal is to be able to implement some or all of our CSS very efficiently, compactly,
 and reusably in Javascript because:

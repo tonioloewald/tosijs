@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>Creating Elements — tosijs</title>
+  <meta name="description" content="Tosijs provides elements for easily and efficiently generating DOM elements without using innerHTML or other unsafe methods." />
+  <link rel="canonical" href="https://tosijs.net/elements/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Creating Elements — tosijs" />
+  <meta property="og:description" content="Tosijs provides elements for easily and efficiently generating DOM elements without using innerHTML or other unsafe methods." />
+  <meta property="og:url" content="https://tosijs.net/elements/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Creating Elements","description":"Tosijs provides elements for easily and efficiently generating DOM elements without using innerHTML or other unsafe methods.","url":"https://tosijs.net/elements/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>Creating Elements</h1>
+<p><code>tosijs</code> provides <code>elements</code> for easily and efficiently generating DOM elements
+without using <code>innerHTML</code> or other unsafe methods.</p>
+<blockquote>
+<p>The design goal of <code>elements</code> was to make creating DOM elements using javascript simpler and faster than using HTML or
+JSX / TSX while requiring no build-time tooling and no DSLs.</p>
+</blockquote>
+<pre><code class="language-js">import { elements } from &#39;tosijs&#39;
+
+const { div, input, label, span } = elements
+
+preview.append(
+  div(
+    {
+      style: {
+        display: &#39;flex&#39;,
+        flexDirection: &#39;column&#39;,
+        padding: 10,
+        gap: 10
+      }
+    },
+    label(
+      {
+        style: {
+          display: &#39;inline-flex&#39;
+        }
+      },
+      span(&#39;text&#39;),
+      input({value: &#39;hello world&#39;, placeholder: &#39;type something&#39;})
+    ),
+    label(
+      {
+        style: {
+          display: &#39;inline-flex&#39;
+        }
+      },
+      span(&#39;checkbox&#39;),
+      input({type: &#39;checkbox&#39;, checked: true})
+    )
+  )
+)
+</code></pre>
+<h2><code>ElementCreator</code> functions</h2>
+<p><code>elements</code> is a proxy whose properties are element factory functions,
+referred to throughout this documentation as <code>elementCreator</code>s, functions
+of type <code>ElementCreator</code>. So <code>elements.div</code> is a function that returns a <code>&lt;div&gt;</code>
+element, <code>elements.foo</code> creates <foo> elements, and elements.fooBar creates
+<code>&lt;foo-bar&gt;</code> elements.</p>
+<p>The arguments of <code>elementCreator</code>s can be strings, numbers, other
+elements, or property-maps, which are converted into attributes or properties
+(or bindings).</p>
+<p>E.g.</p>
+<pre><code class="language-js">import { elements, tosi } from &#39;tosijs&#39;
+
+const { elementCreatorDemo } = tosi({
+  elementCreatorDemo: {
+    isChecked: true,
+    someString: &#39;hello elementCreator&#39;,
+    someColor: &#39;blue&#39;,
+    clicks: 0
+  }
+})
+
+const { div, button, label, input } = elements
+
+preview.append(
+  div(&#39;I am a div&#39;),
+  div(
+    {
+      style: { color: &#39;blue&#39; }
+    },
+    elementCreatorDemo.someString
+  ),
+  label(
+    &#39;Edit someString&#39;,
+    input({bindValue: elementCreatorDemo.someString})
+  ),
+  div(
+    button(
+      &#39;Click me&#39;,
+      {
+        onClick() {
+          elementCreatorDemo.clicks += 1
+        }
+      }
+    ),
+    div(elementCreatorDemo.clicks, &#39; clicks so far&#39;),
+  ),
+  label(
+    &#39;isChecked?&#39;,
+    input({type: &#39;checkbox&#39;, bindValue: elementCreatorDemo.isChecked})
+  )
+)
+</code></pre>
+<h2>camelCase conversion</h2>
+<p>Attributes in camelCase, e.g. <code>dataInfo</code>, will be converted to kebab-case,
+so:</p>
+<pre><code>span({dataInfo: &#39;foo&#39;})        // produces &lt;span data-info=&quot;foo&quot;&gt;&lt;/span&gt;
+</code></pre>
+<h2>style properties</h2>
+<p><code>style</code> properties can be objects, and these are used to modify the
+element&#39;s <code>style</code> object (while a string property will just change the
+element&#39;s <code>style</code> attribute, eliminating previous changes).</p>
+<pre><code>span({style: &#39;border: 1px solid red&#39;}, {style: &#39;font-size: 15px&#39;})
+</code></pre>
+<p>…produces <code>&lt;span style=&quot;font-size: 15px&quot;&gt;&lt;/span&gt;</code>, which is probably
+not what was wanted.</p>
+<pre><code>span({style: {border: &#39;1px solid red&#39;}, {style: {fontSize: &#39;15px&#39;}}})
+</code></pre>
+<p>…produces <code>&lt;span style=&quot;border: 1px solid red; fon-size: 15px&gt;&lt;/span&gt;</code>
+which is probably what was wanted.</p>
+<h2>event handlers</h2>
+<p>Properties starting with <code>on</code> (followed by an uppercase letter)
+will be converted into event-handlers, so <code>onMouseup</code> will be
+turned into a <code>mouseup</code> listener.</p>
+<h2>binding</h2>
+<p>You can <a href="/bind/">bind</a> an element to state using <a href="/bindings/">bindings</a>
+using convenient properties, e.g.</p>
+<pre><code>import { elements } from &#39;tosijs&#39;
+const {div} = elements
+div({ bindValue: &#39;app.title&#39; })
+</code></pre>
+<p>…is syntax sugar for:</p>
+<pre><code>import { elements, bind, bindings } from &#39;tosijs&#39;
+const { div } = elements
+bind( div(), &#39;app.title&#39;, bindings.value )
+</code></pre>
+<p>If you want to use your own bindings, you can use <code>apply</code>:</p>
+<pre><code>const visibleBinding = {
+  toDOM(element, value) {
+    element.classList.toggle(&#39;hidden&#39;, !value)
+  }
+}
+
+div({ apply(elt){
+  bind(elt, &#39;app.prefs.isVisible&#39;, visibleBinding})
+} })
+</code></pre>
+<h2>event-handlers</h2>
+<p>You can attach event handlers to elements using <code>on&lt;EventType&gt;</code>
+as syntax sugar, e.g.</p>
+<pre><code>import { elements } from &#39;tosijs&#39;
+const { button } = elements
+document.body.append(
+  button(&#39;click me&#39;, {onClick() {
+    alert(&#39;clicked!&#39;)
+  }})
+)
+</code></pre>
+<p>…is syntax sugar for:</p>
+<pre><code>import { elements, on } from &#39;tosijs&#39;
+const { button } = elements
+const aButton = button(&#39;click me&#39;)
+on(aButton, &#39;click&#39;, () =&gt; {
+  alert(&#39;clicked!&#39;)
+})
+document.body.append(
+  aButton
+)
+</code></pre>
+<p>There are some subtle but important differences between <code>on()</code> and
+<code>addEventListener</code> which are discussed in detail in the section on
+<a href="/bind/">bind</a>.</p>
+<h2>apply</h2>
+<p>A property named <code>apply</code> is assumed to be a function that will be called
+on the element.</p>
+<pre><code>span({
+  apply(element){ element.textContent = &#39;foobar&#39;}
+})
+</code></pre>
+<p>…produces <code>&lt;span&gt;foobar&lt;/span&gt;</code>.</p>
+<h2>fragment</h2>
+<p><code>elements.fragment</code> is produces <code>DocumentFragment</code>s, but is otherwise
+just like other element factory functions.</p>
+<h2>svgElements</h2>
+<p><code>svgElements</code> is a proxy just like <code>elements</code> but it produces <strong>SVG</strong> elements in
+the appropriate namespace.</p>
+<pre><code class="language-js">import { svgElements, tosi, xin } from &#39;tosijs&#39;
+
+const { svg, g, path, circle, polygon } = svgElements
+
+// --- radar background ---
+const outerRing = &#39;M128,8 C194.274,8,248,61.7258,248,128 C248,194.274,194.274,248,128,248 C61.7258,248,8.00001,194.274,8.00001,128 C8.00001,61.7258,61.7258,8,128,8 z&#39;
+const vLine = &#39;M128,53 C128,53,128,203,128,203&#39;
+const hRight = &#39;M203,128 C203,128,143,128,143,128&#39;
+const hLeft = &#39;M113,128 C113,128,53,128,53,128&#39;
+const guide = &#39;fill:#00a79e;fill-opacity:0.127;fill-rule:evenodd;stroke:#00a79e;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-width:4;&#39;
+const axis = guide + &#39;stroke-opacity:0.24;&#39;
+
+// --- two separate arrays: friendlies and hostiles ---
+let nextId = 0
+const RANGE = 115
+
+function spawnFriendly() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.6 + Math.random() * 0.8)
+  const speed = 0.2 + Math.random() * 0.3
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 105, y: 128 + Math.sin(angle) * 105,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+function spawnHostile() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.7 + Math.random() * 0.6)
+  const speed = 0.5 + Math.random() * 0.6
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 110, y: 128 + Math.sin(angle) * 110,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+const { friendlies, hostiles } = tosi({
+  friendlies: Array.from({ length: 6 }, spawnFriendly),
+  hostiles: Array.from({ length: 4 }, spawnHostile),
+})
+
+// custom binding: position a &lt;g&gt; from its list item&#39;s x,y
+const position = (el, item) =&gt; {
+  if (item) el.setAttribute(&#39;transform&#39;, `translate(${item.x},${item.y})`)
+}
+
+// --- list-bound blip layers (one per array, no filter needed) ---
+const friendlyLayer = g(
+  g(
+    circle({ r: &#39;5&#39;, fill: &#39;none&#39;, stroke: &#39;#8cc63f&#39;, &#39;stroke-width&#39;: &#39;1&#39; }),
+    { bind: { value: &#39;^&#39;, binding: position } }
+  ),
+  { bindList: { value: friendlies, idPath: &#39;id&#39; } }
+)
+const hostileLayer = g(
+  g(
+    polygon({ points: &#39;0,-6 5.2,3 -5.2,3&#39;, fill: &#39;none&#39;, stroke: &#39;#ff1d25&#39;, &#39;stroke-width&#39;: &#39;1.5&#39;, &#39;stroke-linejoin&#39;: &#39;round&#39; }),
+    { bind: { value: &#39;^&#39;, binding: position } }
+  ),
+  { bindList: { value: hostiles, idPath: &#39;id&#39; } }
+)
+
+preview.append(
+  svg(
+    { width: &#39;256&#39;, height: &#39;256&#39;, viewBox: &#39;0 0 256 256&#39; },
+    g(
+      path({ style: guide + &#39;stroke-opacity:0.5;&#39;, d: outerRing }),
+      path({ style: axis, d: vLine }),
+      path({ style: axis, d: hRight }),
+      path({ style: axis, d: hLeft }),
+    ),
+    friendlyLayer,
+    hostileLayer,
+  )
+)
+
+// animate: advance, cull out-of-range, spawn new
+function tick(arr) {
+  const kept = []
+  for (const b of arr) {
+    const nx = b.x + b.dx, ny = b.y + b.dy
+    if (Math.sqrt((nx - 128) ** 2 + (ny - 128) ** 2) &lt; RANGE) {
+      kept.push({ ...b, x: nx, y: ny })
+    }
+  }
+  return kept
+}
+setInterval(() =&gt; {
+  const f = tick(xin.friendlies)
+  if (Math.random() &lt; 0.06) f.push(spawnFriendly())
+  xin.friendlies = f
+
+  const h = tick(xin.hostiles)
+  if (Math.random() &lt; 0.04) h.push(spawnHostile())
+  xin.hostiles = h
+}, 50)
+</code></pre>
+<h2>mathML</h2>
+<p><code>mathML</code> is a proxy just like <code>elements</code> but it products <strong>MathML</strong> elements in
+the appropriate namespace.</p>
+<blockquote>
+<h3>Caution</h3>
+<p>Both <code>svgElements</code> and <code>mathML</code> are experimental and do not have anything like  the
+degree of testing behind them as <code>elements</code>. In particular, the properties of
+SVG elements (and possible MathML elements) are quite different from ordinary
+elements, so the underlying <code>ElementCreator</code> will never try to set properties
+directly and will always use <code>setAttribute(...)</code>.</p>
+<p>E.g. <code>svgElements.svg({viewBox: &#39;0 0 100 100&#39;})</code> will call <code>setAttribute()</code> and
+not set the property directly, because the <code>viewBox</code> property is… weird, but
+setting the attribute works.</p>
+<p>Again, use with caution!</p>
+</blockquote>
+<h2><code>bindParts()</code></h2>
+<pre><code>bindParts(
+  root: Element,
+  bindingMap: Record&lt;string, ElementProps&gt;,
+  dataAttribute?: string  // default: &#39;part&#39;
+): void
+</code></pre>
+<p><code>bindParts()</code> applies <code>ElementProps</code> to elements inside <code>root</code> that are identified
+by a <code>data-</code> attribute. This lets you take an existing chunk of DOM — from <code>innerHTML</code>,
+a CMS, a server-rendered page, or an HTML <code>&lt;template&gt;</code> — and wire up bindings,
+event handlers, and properties without having to build the DOM programmatically.</p>
+<pre><code>const root = document.querySelector(&#39;.my-widget&#39;)
+root.innerHTML = `
+  &lt;h2 data-part=&quot;title&quot;&gt;&lt;/h2&gt;
+  &lt;input data-part=&quot;search&quot;&gt;
+  &lt;button data-part=&quot;submit&quot;&gt;Go&lt;/button&gt;
+`
+
+bindParts(root, {
+  title:  { bindText: app.title },
+  search: { bindValue: app.query },
+  submit: { onClick: () =&gt; performSearch() },
+})
+</code></pre>
+<p>Each key in <code>bindingMap</code> is matched against the value of <code>data-part</code> (or whatever
+<code>dataAttribute</code> you specify). Matching elements receive the full <code>ElementProps</code>
+treatment — the same logic used by element creators — so <code>bind</code>, <code>bindText</code>,
+<code>on*</code> handlers, <code>style</code>, <code>class</code>, <code>apply</code>, and proxy values all work.</p>
+<p>Elements are tracked via a <code>WeakSet</code> so calling <code>bindParts()</code> again on the same
+root is safe — already-bound elements are skipped.</p>
+<h3>Custom data attribute</h3>
+<p>Pass a third argument to use a different attribute name:</p>
+<pre><code>bindParts(root, map, &#39;role&#39;)  // matches data-role=&quot;...&quot;
+</code></pre>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/" aria-current="page" class="current">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

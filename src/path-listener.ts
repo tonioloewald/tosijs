@@ -1,5 +1,6 @@
+/*{ "parent": "tosi" }*/
 /*#
-# 1.2 path-listener
+# path-listener
 
 `path-listener` implements the `tosijs` observer model. Although these events
 are exported from `tosijs` they shouldn't need to be used very often. Mostly

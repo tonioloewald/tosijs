@@ -2,8 +2,6 @@
 
 ## work in progress
 
-<!--{ "pin": "bottom" }-->
-
 - change `MutationObserver` in Component if there's an `onDomChanged`
   or something handler to trigger it as appropriate
 - automated golden tests?

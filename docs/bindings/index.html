@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>bindings — tosijs</title>
+  <meta name="description" content="Bindings is simply a collection of common bindings." />
+  <link rel="canonical" href="https://tosijs.net/bindings/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="bindings — tosijs" />
+  <meta property="og:description" content="Bindings is simply a collection of common bindings." />
+  <meta property="og:url" content="https://tosijs.net/bindings/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"bindings","description":"Bindings is simply a collection of common bindings.","url":"https://tosijs.net/bindings/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>bindings</h1>
+<p><code>bindings</code> is simply a collection of common bindings.</p>
+<p>You can create your own bindings easily enough (and add them to <code>bindings</code> if so desired).</p>
+<p>A <code>binding</code> looks like this:</p>
+<pre><code>interface XinBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: XinObject) =&gt; void
+  fromDOM?: (element: HTMLElement) =&gt; any
+}
+</code></pre>
+<p>The <code>fromDOM</code> function is only needed for bindings to elements that trigger <code>change</code> or <code>input</code>
+events, typically <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, and <code>&lt;select&gt;</code> elements, and of course your
+own <a href="/component/">Custom Elements</a>.</p>
+<h2>value</h2>
+<p>The <code>value</code> binding syncs state from <code>xin</code> to the bound element&#39;s <code>value</code> property. In
+general this should only be used for binding simple things, like <code>&lt;input&gt;</code> and <code>&lt;textarea&gt;</code>
+elements.</p>
+<h2>text</h2>
+<p>The <code>text</code> binding copies state from <code>xin</code> to the bound element&#39;s <code>textContent</code> property.</p>
+<h2>enabled &amp; disabled</h2>
+<blockquote>
+<p><strong>Note:</strong> <code>bindEnabled</code> and <code>bindDisabled</code> are deprecated. Use bare proxy
+property bindings instead:</p>
+<pre><code>button({ disabled: proxy.flag })
+button({ disabled: proxy.items.tosi.take(list =&gt; !list.length) })
+</code></pre>
+</blockquote>
+<p>The <code>enabled</code> and <code>disabled</code> bindings allow you to make a widget&#39;s enabled status
+be determined by the truthiness of something in <code>xin</code>, e.g.</p>
+<pre><code>import { tosi, elements } from &#39;tosijs&#39;
+
+const { myDoc } = tosi({
+    myDoc: {
+        content: &#39;&#39;,
+        unsavedChanges: false
+    }
+})
+
+document.body.append(
+    elements.textarea({
+        bindValue: myDoc.content,
+        onInput() {
+            myDoc.unsavedChanges.value = true
+        }
+    }),
+    elements.button(
+        &#39;Save Changes&#39;,
+        {
+            disabled: myDoc.unsavedChanges.tosi.take(v =&gt; !v),
+            onClick() {
+                myDoc.unsavedChanges.value = false
+            }
+        }
+    )
+)
+</code></pre>
+<h2>list</h2>
+<p>The <code>list</code> binding makes a copy of a <code>template</code> element inside the bound element
+for every item in the bound <code>Array</code>.</p>
+<p>It uses the existing <strong>single</strong> child element it finds inside the bound element
+as its <code>template</code>. If the child is a <code>&lt;template&gt;</code> (which is a good idea) then it
+expects that <code>template</code> to have a <em>single child element</em>.</p>
+<p>E.g. if you have a simple unordered list:</p>
+<pre><code>&lt;ul&gt;
+  &lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</code></pre>
+<p>You can bind an array to the <code>&lt;ul&gt;</code> and it will make a copy of the <code>&lt;li&gt;</code> inside
+for each item in the source array.</p>
+<p>The <code>list</code> binding accepts as options:</p>
+<ul>
+<li><code>idPath: string</code></li>
+<li><code>initInstance: (element, item: any) =&gt; void</code></li>
+<li><code>updateInstance: (element, item: any) =&gt; void</code></li>
+<li><code>virtual: {width?: number, height: number}</code></li>
+<li><code>hiddenProp: symbol | string</code></li>
+<li><code>visibleProp: symbol | string</code></li>
+</ul>
+<p><code>initInstance</code> is called once for each element created, and is passed
+that element and the array value that it represents.</p>
+<p>Meanwhile, <code>updateInstance</code> is called once on creation and then any time the
+array value is updated.</p>
+<h3>Virtual List Binding</h3>
+<p>If you want to bind large arrays with minimal performance impact, you can make a list
+binding <code>virtual</code> by passing the <code>height</code> (and optionally <code>width</code>) of an item.
+Only visible elements will be rendered. Just make sure the values passed represent
+the <em>minimum</em> dimensions of the individual rendered items if they can vary in size.</p>
+<h3>Filtered Lists and Detail Views</h3>
+<p>You can <strong>filter</strong> the elements you wish to display in a bound list by using the
+<code>hiddenProp</code> (to hide elements of the list) and/or <code>visibleProp</code> (to show elements
+of the list).</p>
+<p>You can pass a <code>path</code> or a <code>symbol</code> as either the <code>hiddenProp</code> or <code>visibleProp</code>.</p>
+<p>Typically, you can use <code>hiddenProp</code> to power filters and <code>visibleProp</code> to power
+detail views. The beauty of using symbols is that it won&#39;t impact the serialized
+values of the array and different views of the array can use different selection
+and filtering criteria.</p>
+<blockquote>
+<p><strong>Note</strong> for a given list-binding, if you specify <code>hiddenProp</code> (but not <code>visibleProp</code>),
+then all items in the array will be shown <em>unless</em> <code>item[hiddenProp] === true</code>.</p>
+<p>Conversely, if you specify <code>visibleProp</code> (but not <code>hiddenProp</code>), then all items
+in the array will be ignored <em>unless</em> <code>item[visibleProp] === true</code>.</p>
+<p>If, for some reason, you specify both then an item will only be visible if
+it <code>item[visibleProp] === true</code> and <code>item[hiddenProp] !== true</code>.</p>
+</blockquote>
+<h3>Binding custom-elements using idPath</h3>
+<p>If you list-bind a custom-element with <code>bindValue</code> implemented and providing an
+<code>idPath</code> then the list-binding will bind the array items to the value of the
+custom-element.</p>
+<h3>xin-empty-list class</h3>
+<p>The <code>list</code> binding will automatically add the class <code>-xin-empty-list</code> to a
+container bound to an empty array, making it easier to conditionally render
+instructions or explanations when a list is empty.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/" aria-current="page" class="current">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

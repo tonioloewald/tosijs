@@ -44,6 +44,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
     private _valueChanged;
+    private _pendingAttrOps?;
     static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement;
     static elementCreator<C = Component>(this: new () => C, options?: ElementCreatorOptions): ElementCreator<C>;
     /**
@@ -61,6 +62,8 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      */
     attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null): void;
     constructor();
+    private _installAttributeQueue;
+    private _drainPendingAttrOps;
     /**
      * Sets up property accessors from static initAttributes.
      */
@@ -93,7 +96,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Called automatically in render() when value changes. Override to add custom validation.
      * Call super.validateValue() to include standard validation.
      *
-     * See [web-component-validation](/?web-component-validation) for details.
+     * See [web-component-validation](/form-validation/) for details.
      */
     validateValue(): void;
 }

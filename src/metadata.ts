@@ -1,5 +1,6 @@
+/*{ "parent": "tosi" }*/
 /*#
-# 1.3 metadata
+# metadata
 
 ## `tosiAccessor(x: any): TosiAccessor | undefined`
 

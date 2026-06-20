@@ -1,0 +1,54 @@
+# tosijs v1.6.2
+
+Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.
+
+- Docs: https://tosijs.net
+- Source: https://github.com/tonioloewald/tosijs
+- npm: https://www.npmjs.com/package/tosijs
+
+## Documentation
+
+Each component's full documentation (with live code examples) is
+embedded in its distributed JS file as inline comments. Read the
+relevant dist/*.js file for complete docs, usage examples, and API.
+
+## Components and Utilities
+
+- dist/bind.js — Binding
+  `bind()` lets you synchronize data / application state to the user-interface reliably,
+- dist/list-binding.js — binding arrays
+  The most likely source of complexity and performance issues in applications is
+- dist/bindings.js — bindings
+  `bindings` is simply a collection of common bindings.
+- dist/blueprint-loader.js — blueprints
+  One issue with standard web-components built with tosijs is that building them
+- dist/color.js — color
+  `tosijs` includes a lightweight, powerful `Color` class for manipulating colors.
+- dist/elements.js — Creating Elements
+  `tosijs` provides `elements` for easily and efficiently generating DOM elements
+- dist/css.js — CSS
+  `tosijs` provides a collection of utilities for working with CSS rules that
+- dist/hot-reload.js — hotReload
+  `hotReload()` persists any root-level paths in `xin` that its test function evaluates as true
+- dist/make-component.js — makeComponent
+  `makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
+- dist/metadata.js — metadata
+  `tosiAccessor` returns the collision-free accessor object from any boxed proxy,
+- dist/more-math.js — more-math
+  Some simple functions egregiously missing from the Javascript `Math`
+- dist/path-listener.js — path-listener
+  `path-listener` implements the `tosijs` observer model. Although these events
+- dist/share.js — share
+  `share()` synchronizes state across browser tabs and windows. Pass it
+- dist/sync.js — sync
+  `sync()` synchronizes state across the network in real-time. Pass it a
+- dist/xin.js — The tosi proxy
+  `tosi()` assigns an object passed to it to a global state object,
+- dist/throttle.js — throttle & debounce
+  Usage:
+- dist/xin-proxy.js — tosi, xin, and xinProxy
+  The key to managing application state with `tosijs` are its **observer** proxies, `tosi` and `xin`. These are documen...
+- dist/form-validation.js — Validation
+  Form validation for custom elements using `ElementInternals`.
+- dist/component.js — Web-Components
+  easier.

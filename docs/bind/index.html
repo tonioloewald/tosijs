@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>Binding — tosijs</title>
+  <meta name="description" content="Bind() lets you synchronize data / application state to the user-interface reliably, efficiently, and with a minimum of code." />
+  <link rel="canonical" href="https://tosijs.net/bind/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Binding — tosijs" />
+  <meta property="og:description" content="Bind() lets you synchronize data / application state to the user-interface reliably, efficiently, and with a minimum of code." />
+  <meta property="og:url" content="https://tosijs.net/bind/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Binding","description":"Bind() lets you synchronize data / application state to the user-interface reliably, efficiently, and with a minimum of code.","url":"https://tosijs.net/bind/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>Binding</h1>
+<p><code>bind()</code> lets you synchronize data / application state to the user-interface reliably,
+efficiently, and with a minimum of code.</p>
+<blockquote>
+<p>The design goal of <code>bind</code> is to eliminate most of the code used to sync state to and
+from the UI (DOM elements) making code simpler, faster, and more reliable.</p>
+</blockquote>
+<h2>An Aside on Reactive Programming vs. the Observer Model</h2>
+<p>A good deal of front-end code deals with keeping the application&#39;s
+state synchronized with the user-interface. One approach to this problem
+is <a href="https://en.wikipedia.org/wiki/Reactive_programming">Reactive Programming</a>
+as exemplified by <a href="https://reactjs.org">React</a> and its many imitators.</p>
+<p><code>tosijs</code> works very well with React via the <a href="https://github.com/tonioloewald/react-tosijs">useTosi</a> React &quot;hook&quot;.
+But <code>tosijs</code> is not designed for &quot;reactive programming&quot; and in fact &quot;hooks&quot; aren&#39;t
+&quot;reactive&quot; at all, so much as an example of the &quot;observer&quot; or &quot;pub/sub&quot; pattern.</p>
+<p><code>tosijs</code> is a &quot;path-observer&quot; in that it&#39;s an implementation of the
+<a href="https://en.wikipedia.org/wiki/Observer_pattern">Observer Pattern</a>
+where <strong>path strings</strong> serve as a level of <em>indirection</em> to the things observed.
+This allows data to be &quot;observed&quot; before it exists, which in particular <em>decouples</em> the setup
+of the user interface from the initialization of data and allows user interfaces
+built with <code>tosijs</code> to be <em>deeply asynchronous</em>.</p>
+<h2><code>bind()</code></h2>
+<pre><code>bind&lt;T = Element&gt;(
+  element: T,
+  what: XinTouchableType,
+  binding: XinBinding,
+  options: XinObject
+): T
+</code></pre>
+<p><code>bind()</code> binds a <code>path</code> to an element, syncing the value at the path to and/or from the DOM.</p>
+<pre><code class="language-js">import { bind, tosi } from &#39;tosijs&#39;
+
+const { simpleBindExample } = tosi({
+  simpleBindExample: {
+    showThing: true
+  }
+})
+
+bind(
+  preview.querySelector(&#39;b&#39;),
+  &#39;simpleBindExample.showThing&#39;,
+  {
+    toDOM(element, value) {
+      element.style.visibility = value ? &#39;visible&#39; : &#39;hidden&#39;
+    }
+  }
+)
+
+bind(
+  preview.querySelector(&#39;input[type=checkbox]&#39;),
+  // the tosi can be used instead of a string path
+  simpleBindExample.showThing,
+  // we could just use bindings.value here
+  {
+    toDOM(element, value) {
+      element.checked = value
+    },
+    fromDOM(element) {
+      return element.checked
+    }
+  }
+)
+</code></pre>
+<pre><code class="language-html">&lt;b&gt;The thing&lt;/b&gt;&lt;br&gt;
+&lt;label&gt;
+  &lt;input type=&quot;checkbox&quot;&gt;
+  Show the thing
+&lt;/label&gt;
+</code></pre>
+<p>The <code>bind</code> function is a simple way of tying an <code>HTMLElement</code>&#39;s properties to
+state via <code>path</code> using <a href="/bindings/">bindings</a></p>
+<pre><code>import {bind, bindings, xin, elements, updates} from &#39;tosijs&#39;
+const {div, input} = elements
+
+const divElt = div()
+bind(divElt, &#39;app.title&#39;, bindings.text)
+document.body.append(divElt)
+
+const inputElt = input()
+bind(inputElt, &#39;app.title&#39;, bindings.value)
+
+xin.app = {title: &#39;hello world&#39;}
+await updates()
+</code></pre>
+<p>What&#39;s happening is essentially the same as:</p>
+<pre><code>divElt.textContent = xin.app.title
+observe(&#39;app.title&#39;, () =&gt; divElt.textContent = xin.app.title)
+
+inputElt.value = xin.app.title
+observe(&#39;app.title&#39;, () =&gt; inputElt.value = xin.app.title)
+inputElt.addEventListener(&#39;change&#39;, () =&gt; { xin.app.title = inputElt.value })
+</code></pre>
+<p>Except:</p>
+<ol>
+<li>this code is harder to write</li>
+<li>it will fail if xin.app hasn&#39;t been initialized (which it hasn&#39;t been!)</li>
+<li>inputElt will also trigger <em>debounced</em> updates on <code>input</code> events</li>
+</ol>
+<p>After this. <code>div.textContent</code> and <code>inputElt.value</code> are &#39;hello world&#39;.
+If the user edits the value of <code>inputElt</code> then <code>xin.app.title</code> will
+be updated, and <code>app.title</code> will be listed as a changed path, and
+an update will be fired via <code>setTimout</code>. When that update fires,
+anything observer of the paths <code>app.text</code> and <code>app</code> will be fired.</p>
+<p>A <code>binding</code> looks like this:</p>
+<pre><code>interface XinBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: XinObject) =&gt; void
+  fromDOM?: (element: HTMLElement) =&gt; any
+}
+</code></pre>
+<p>Simply put the <code>toDOM</code> method updates the DOM based on changes in state
+while <code>fromDOM</code> updates state based on data in the DOM. Most bindings
+will have a <code>toDOM</code> method but no <code>fromDOM</code> method since <code>bindings.value</code>
+(which has both) covers most of the use-cases for <code>fromDOM</code>.</p>
+<p>It&#39;s easy to write your own <code>bindings</code> if those in <code>bindings</code> don&#39;t meet your
+need, e.g. here&#39;s a custom binding that toggles the visibility of an element
+based on whether the bound value is neither &quot;falsy&quot; nor an empty <code>Array</code>.</p>
+<pre><code>const visibility = {
+  toDOM(element, value) {
+    if (element.dataset.origDisplay === undefined &amp;&amp; element.style.display !== &#39;none&#39;) {
+      element.dataset.origDisplay = element.style.display
+    }
+    element.style.display = (value != null &amp;&amp; value.length &gt; 0) ? element.dataset.origDisplay : &#39;none&#39;
+  }
+}
+bind(listElement, &#39;app.bigList&#39;, visibility)
+</code></pre>
+<h2><code>on()</code></h2>
+<pre><code>on(element: Element, eventType: string, handler: XinEventHandler): VoidFunction
+
+export type XinEventHandler&lt;T extends Event = Event, E extends Element = Element&gt; =
+  | ((evt: T &amp; {target: E}) =&gt; void)
+  | ((evt: T &amp; {target: E}) =&gt; Promise&lt;void&gt;)
+  | string
+</code></pre>
+<pre><code class="language-js">import { elements, on, tosi } from &#39;tosijs&#39;
+import { postNotification } from &#39;tosijs-ui&#39;
+
+const makeHandler = (message) =&gt; () =&gt; {
+  postNotification({ message, duration: 2 })
+}
+
+const { onExample } = tosi({
+  onExample: {
+    clickHandler: makeHandler(&#39;Hello from onExample proxy&#39;)
+  }
+})
+
+const { button, div, h2 } = elements
+
+const hasListener = button(&#39;has listener&#39;)
+hasListener.addEventListener(&#39;click&#39;, makeHandler(&#39;Hello from addEventListener&#39;))
+
+preview.append(
+  div(
+    {
+      style: {
+        display: &#39;flex&#39;,
+        flexDirection: &#39;column&#39;,
+        padding: 10,
+        gap: 10
+      }
+    },
+    h2(&#39;Event Handler Examples&#39;),
+    hasListener,
+    button(&#39;just a callback&#39;, {onClick: makeHandler(&#39;just a callback&#39;)}),
+    button(&#39;via proxy&#39;, {onClick: onExample.clickHandler}),
+  )
+)
+</code></pre>
+<p><code>on()</code> binds event-handlers to DOM elements.</p>
+<p>More than syntax sugar for <code>addEventListener</code>, <code>on()</code> allows you to bind event
+handlers inside <code>xin</code> by path (e.g. allowing event-handling code to be loaded
+asynchronously or lazily, or simply allowing event-handlers to be switched dynamically
+without rebinding) and it uses event-bubbling to minimize the actual number of
+event handlers that need to be registered.</p>
+<p><code>on()</code> returns a function for removing the event handler.</p>
+<p>In essence, only one event handler of a given type is ever added to the
+DOM by <code>on()</code> (at <code>document.body</code> level), and then when that event is detected,
+that handler goes from the original target through to the DOM and fires off
+event-handlers, passing them an event proxy (so that <code>stopPropagation()</code> still
+works).</p>
+<h2><code>touchElement()</code></h2>
+<pre><code>touchElement(element: Element, changedPath?: string)
+</code></pre>
+<p>This is a low-level function for <em>immediately</em> updating a bound element. If you specifically
+want to force a render of an element (versus anything bound to a path), simply call
+<code>touchElement(element)</code>. Specifying a <code>changedPath</code> will only trigger bindings bound
+to paths staring with the provided path.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/bind/" aria-current="page" class="current">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

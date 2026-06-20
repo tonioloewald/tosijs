@@ -1,11 +1,35 @@
+/*{ "parent": "tosi" }*/
 /*#
-# 1.1 tosi, xin, and xinProxy
+# tosi, xin, and xinProxy
 
 > This documentation is mainly here for explanatory purposes. Just use `tosi()`
-> as described in section 1.
+> as described in the parent doc.
 
-The key to managing application state with `tosijs` is the `xin` proxy object
-(and `boxed`). These are documented [here](/?xin.ts).
+The key to managing application state with `tosijs` are its **observer** proxies, `tosi` and `xin`. These are documented [here](/xin/).
+
+The basic idea is pretty simple.
+
+If you assign a value to a proxy, things that are bound to that proxy will be updated. E.g.
+
+```
+import { elements, tosi } from 'tosijs'
+
+consy myProxy = tosi({
+  myProxy: {
+    foo: 'bar'
+  }
+})
+
+// create an element and bind its textContent to myProxy.foo
+//
+const myDiv = elements.div({ bindText: myProxy.foo })
+
+myProxy.foo = 'now it is updated'
+// wait until the next animation frame is rendered
+myDiv.textContent === 'now it is updated'
+```
+
+It's not magic. It's proxies. And the updates are surgical. The rest of the DOM isn't touched.
 
 ## `xinProxy()` and `tosi()`
 

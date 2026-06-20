@@ -1,8 +1,9 @@
+/*{ "parent": "component" }*/
 /*#
-# 4.3 makeComponent
+# makeComponent
 
 `makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
-hydrates [blueprints](/?blueprint-loader.ts) into usable [web-components](./?component.ts).
+hydrates [blueprints](/blueprint-loader/) into usable [web-components](/component/).
 
 Here are the relevant interfaces:
 

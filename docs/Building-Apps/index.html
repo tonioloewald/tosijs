@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>Building Apps — tosijs</title>
+  <meta name="description" content="In React, data flows &quot;uphill.&quot; A child component needs to tell a parent something happened, so you lift state up, pass callbacks down, drill props through…" />
+  <link rel="canonical" href="https://tosijs.net/Building-Apps/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Building Apps — tosijs" />
+  <meta property="og:description" content="In React, data flows &quot;uphill.&quot; A child component needs to tell a parent something happened, so you lift state up, pass callbacks down, drill props through…" />
+  <meta property="og:url" content="https://tosijs.net/Building-Apps/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Building Apps","description":"In React, data flows \"uphill.\" A child component needs to tell a parent something happened, so you lift state up, pass callbacks down, drill props through…","url":"https://tosijs.net/Building-Apps/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>Building Apps</h1>
+<!--{ "pin": "top", "order": 2 }-->
+
+<blockquote>
+<p>This guide explains how to think about building applications with tosijs.
+It&#39;s not an API reference — it&#39;s a mental model. If you&#39;re coming from React
+or another reactive framework, this is the most important thing to read first.</p>
+</blockquote>
+<h2>The Downhill Model</h2>
+<p>In React, data flows &quot;uphill.&quot; A child component needs to tell a parent something
+happened, so you lift state up, pass callbacks down, drill props through layers
+of components, and eventually something re-renders — often much more than needed.
+You fight the framework to avoid unnecessary work.</p>
+<p>tosijs works downhill. State changes at the top. The UI updates at the bottom.
+Nothing in between needs to know about it.</p>
+<pre><code>state changes → observers fire → bound DOM updates
+</code></pre>
+<p>There&#39;s no virtual DOM, no diffing, no reconciliation. When <code>user.name</code> changes,
+the one <code>&lt;span&gt;</code> bound to <code>user.name</code> updates. Nothing else re-renders.</p>
+<p>The key concept is the <strong>path</strong>. Where React thinks in terms of a component tree,
+tosijs thinks in terms of addresses: <code>app.user.name</code> is a path. Bindings watch
+paths. Mutations fire on paths. Everything in tosijs routes through paths — that&#39;s
+why binding to a specific scalar path is so much more efficient than binding to
+an object and diffing.</p>
+<h2>The Three Steps</h2>
+<h3>1. Put your state in a proxy</h3>
+<pre><code>const { app } = tosi({
+  app: {
+    user: { name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; },
+    messages: [],
+    prefs: { darkMode: false }
+  }
+})
+</code></pre>
+<p>This is your entire application state. It&#39;s a plain JavaScript object — your
+business logic doesn&#39;t know tosijs exists. You can add methods to it.
+You can pass pieces of it to functions. The proxy wrapping is invisible
+to your code.</p>
+<p>There&#39;s no <code>dispatch</code>, no <code>setState</code>, no action creators.
+To change state, just change it:</p>
+<pre><code>app.user.name.value = &#39;Bob&#39;
+</code></pre>
+<p>The proxy sees the mutation and notifies anyone who cares.</p>
+<blockquote>
+<p><strong>TypeScript note:</strong> <code>app.user.name</code> is a <code>BoxedScalar&lt;string&gt;</code>, not a
+raw string. Use <code>.value</code> to read or write the underlying primitive.
+At runtime, direct assignment works too, but TypeScript&#39;s type system
+can&#39;t express asymmetric get/set on mapped types.</p>
+</blockquote>
+<p>This also means <code>===</code> doesn&#39;t work on proxied scalars — JavaScript
+doesn&#39;t allow objects to be strictly equal to primitives:</p>
+<pre><code>app.user.name === &#39;Bob&#39;        // always false — comparing proxy to string
+app.user.name.value === &#39;Bob&#39;  // correct
+</code></pre>
+<p>Reach for <code>.value</code> whenever you need the raw primitive — for comparisons,
+assignments, or passing to external APIs.</p>
+<h3>2. Build your UI with bindings</h3>
+<pre><code>const { div, h1, input, ul } = elements
+
+const view = div(
+  h1(app.user.name),
+  input({ value: app.user.name }),
+  div({ class: &#39;status&#39;, hidden: app.loggedIn })
+)
+</code></pre>
+<p>This is real DOM — not a template, not JSX, not a virtual representation.
+You build it once. It doesn&#39;t re-render. You&#39;re writing a structure with
+live bindings, not a render function that gets called over and over.</p>
+<p><strong>Proxies become live bindings automatically.</strong> Pass a proxy as a child
+and it becomes a text-bound <code>&lt;span&gt;</code> — <code>h1(app.user.name)</code> just works
+(at the cost of one extra DOM element; use <code>textContent: app.user.name</code>
+if that bothers you). Pass a proxy as any property or attribute and tosijs
+detects it and binds it — <code>hidden: app.loggedIn</code> stays in sync with state.
+This eliminates the need for most custom bindings.</p>
+<p><code>bindText</code> and <code>bindValue</code> are shorthands that also handle <code>fromDOM</code>
+(two-way binding). For anything truly custom, use
+<code>bind: { value, binding: { toDOM, fromDOM } }</code>. A function is also
+accepted as shorthand for <code>{ toDOM: fn }</code>:</p>
+<pre><code>div({ bind: {
+  value: app.prefs.darkMode,
+  binding(el, isDark) {
+    el.classList.toggle(&#39;dark&#39;, isDark)
+  }
+}})
+</code></pre>
+<p><strong>Bind individual scalar values, not objects.</strong> This is the key insight.
+When you bind <code>app.user.name</code> to a <code>&lt;span&gt;</code>, tosijs sets up a listener
+on that exact path. When only the name changes, only that <code>&lt;span&gt;</code> updates.</p>
+<p>If you bound the entire <code>app.user</code> object and pulled out <code>.name</code> in a
+<code>toDOM</code> function, the binding would fire on <em>any</em> change to user — name,
+email, whatever. You&#39;d be doing React&#39;s job of figuring out what actually
+changed. Don&#39;t. Let the path system do it for you.</p>
+<p><strong><code>fromDOM</code> bindings flow user input back to state</strong> — an <code>&lt;input&gt;</code> with
+<code>bindValue: app.user.name</code> writes directly to <code>app.user.name</code> when the
+user types. Two-way binding with zero boilerplate.</p>
+<p><strong>Conditional UI?</strong> Don&#39;t think <code>condition ? &lt;A/&gt; : &lt;B/&gt;</code>. Instead,
+build both and bind visibility:</p>
+<pre><code>div(
+  loginForm({ bind: {
+    value: app.loggedIn,
+    binding(el, loggedIn) { el.hidden = loggedIn }
+  }}),
+  dashboard({ bind: {
+    value: app.loggedIn,
+    binding(el, loggedIn) { el.hidden = !loggedIn }
+  }})
+)
+</code></pre>
+<p>Both elements exist in the DOM. Bindings show/hide them. No teardown,
+no re-creation, no lost state.</p>
+<p>For large, expensive UI branches you don&#39;t want in the initial DOM at all,
+just append them when needed — it&#39;s standard DOM manipulation:</p>
+<pre><code>const container = div()
+app.showFeature.observe(() =&gt; {
+  if (app.showFeature.value &amp;&amp; !container.children.length) {
+    container.append(buildExpensiveFeature())
+  }
+})
+</code></pre>
+<p>No lazy-loading API, no <code>Suspense</code>, no dynamic imports. A function returns
+an element, you put it in the DOM, bindings activate. That&#39;s it.</p>
+<h3>3. Use list bindings for collections</h3>
+<pre><code>ul(
+  ...app.messages.listBinding(
+    ({li, span}, msg) =&gt; li(
+      span({ bindText: msg.sender }),
+      span({ bindText: msg.body })
+    ),
+    {
+      idPath: &#39;id&#39;,
+      virtual: { height: 60 }
+    }
+  )
+)
+</code></pre>
+<p>This looks like <code>...items.map(item =&gt; li(item.name))</code> — familiar one-shot
+rendering. It&#39;s not. The binding stays alive: additions, removals, and
+property changes on <code>app.messages</code> automatically update the DOM. The
+familiar mapping syntax is a Trojan horse for live list rendering.</p>
+<p>Virtual list bindings only render what&#39;s visible. A list of a million
+messages renders the same number of DOM nodes as a list of twenty.
+Scrolling is O(1) — the same virtual slice calculation runs regardless
+of list size.</p>
+<p><strong>Always specify <code>idPath</code> for arrays of objects.</strong> This enables surgical
+updates — changing one property on one item updates one DOM element.
+Without it, the list falls back to index-based paths that break on reorder.</p>
+<blockquote>
+<p><strong>Id values must not contain <code>]</code> characters.</strong> Paths are encoded as
+<code>list[id=value]</code>, so a <code>]</code> in the value breaks the parser. Characters
+like <code>[</code>, <code>=</code>, and <code>.</code> are safe. Use numeric ids or UUIDs and you&#39;ll
+never hit this.</p>
+</blockquote>
+<h3>Finding, updating, and removing list items</h3>
+<p>Proxied arrays have <code>listFind</code>, <code>listUpdate</code>, and <code>listRemove</code> methods
+that use the same selector pattern as <code>listBinding</code>:</p>
+<pre><code>// Find an item — returns proxied, so mutations trigger updates
+const item = app.items.listFind((item) =&gt; item.id, &#39;abc&#39;)
+if (item) item.name.value = &#39;Updated&#39;
+
+// Find by DOM element (in a click handler)
+const item = app.items.listFind(e.target)
+
+// Update in place — preserves object identity and DOM elements
+app.items.listUpdate((item) =&gt; item.id, {
+  id: &#39;abc&#39;, name: &#39;New Name&#39;, score: 100
+})
+
+// Remove
+app.items.listRemove((item) =&gt; item.id, &#39;abc&#39;)
+</code></pre>
+<p><code>listUpdate</code> is the key one: it mutates the existing object property by
+property through the proxy, so only changed properties fire observers and
+the DOM element is reused. If the item doesn&#39;t exist, it pushes a new one.</p>
+<h2>Proxied vs. Raw</h2>
+<p>The proxy is the core of tosijs, so understanding where it applies matters.</p>
+<h3><code>for...of</code> gives proxied items; callbacks give raw items</h3>
+<p><code>for...of</code> on a proxied array yields proxied items — mutations trigger
+observers. But <code>forEach</code>, <code>map</code>, and <code>filter</code> pass <em>raw</em> items to callbacks.
+Mutations inside these are invisible to tosijs.</p>
+<pre><code>// for...of gives proxied items — mutations trigger observers
+for (const item of app.items) {
+  item.score.value = 100  // observers fire
+}
+
+// forEach/map/filter pass raw items — mutations are silent
+app.items.forEach(item =&gt; {
+  item.score = 100  // no observer fires
+})
+touch(app.items)  // manual touch needed after raw mutations
+</code></pre>
+<h3><code>this</code> in proxied methods</h3>
+<p>Methods on proxied objects receive the proxy as <code>this</code>, which means
+property access goes through the proxy. This is usually what you want —
+mutations trigger observers automatically. But be aware that <code>this.items</code>
+returns a proxied array, not a raw one:</p>
+<pre><code>const todo = {
+  items: [],
+  add(text) {
+    // `this` is the proxy — this push triggers observers
+    this.items.push({ id: Date.now(), text, done: false })
+  }
+}
+</code></pre>
+<p>If you need the raw value (e.g. for serialization), use
+<code>tosiValue(this.items)</code> or <code>this.items.value</code>.</p>
+<h2>Why This Works</h2>
+<h3>No component tree means no prop drilling</h3>
+<p>State lives in the <code>tosi()</code> proxy. Any element anywhere can bind to any path. You don&#39;t
+need wrapper components to shuttle data through the hierarchy. A deeply
+nested <code>&lt;span&gt;</code> can bind directly to <code>app.user.name</code> without any of its
+ancestors knowing or caring.</p>
+<h3>Business logic stays clean</h3>
+<p>Your data objects are just objects. They can have methods:</p>
+<pre><code>const todo = {
+  items: [],
+  add(text) {
+    this.items.push({ id: Date.now(), text, done: false })
+  },
+  toggle(id) {
+    for (const item of this.items) {
+      if (item.id.value === id) {
+        item.done.value = !item.done.value
+        break
+      }
+    }
+  }
+}
+
+const { app } = tosi({ app: todo })
+</code></pre>
+<p>Note the <code>toggle</code> method uses <code>for...of</code> (which yields proxied items) and
+<code>.value</code> for reads and writes. This ensures mutations trigger observers.
+Array callbacks like <code>find</code> and <code>forEach</code> pass raw items — see
+&quot;Proxied vs. Raw&quot; below.</p>
+<p>No imports from tosijs needed in your business logic — though methods
+called through the proxy receive proxied <code>this</code>, so your code does need
+to be proxy-aware (using <code>.value</code> and <code>for...of</code>). You can test
+<code>todo.add()</code> and <code>todo.toggle()</code> with plain unit tests.</p>
+<h3>Deeply async by default</h3>
+<p>You can set up bindings before data exists. When data arrives — from a fetch,
+a websocket, user input — the bindings just start working:</p>
+<pre><code>const { app } = tosi({ app: { posts: [] } })
+
+// UI is already bound to app.posts
+// this just works whenever the fetch completes
+fetch(&#39;/api/posts&#39;)
+  .then(r =&gt; r.json())
+  .then(posts =&gt; { app.posts.value = posts })
+</code></pre>
+<p>No suspense boundaries, no effect hooks. The real UI is already mounted —
+an empty bound list is your loading state, and it fills in with no layout
+shift when data arrives. If you want an explicit loading indicator, bind one:</p>
+<pre><code>div({ class: &#39;spinner&#39;, hidden: app.loaded })
+</code></pre>
+<p>That&#39;s a real element with a real binding, not a parallel placeholder UI
+that gets swapped out. Other frameworks have you build two versions of your
+UI and orchestrate the handoff. tosijs just has the UI, and it fills in.</p>
+<p>Note the bare <code>hidden: app.loaded</code> — when you pass a proxy value as any
+element property, tosijs detects it and creates a live binding automatically.
+No <code>bind: { value, binding }</code> needed for simple property mappings.</p>
+<p>Bindings to paths that don&#39;t exist yet are safe — they render as empty/blank
+until data arrives. No <code>TypeError: cannot read property of undefined</code>.
+The proxy intercepts the access; tosijs simply waits for the path to
+materialize before firing the first update.</p>
+<h3><code>observe()</code> is for side effects, not rendering</h3>
+<p>In React you&#39;d use <code>useEffect</code> for everything. In tosijs, DOM rendering
+is handled by bindings. <code>observe()</code> is for <em>side effects</em> — things that
+aren&#39;t directly binding a value to a DOM property:</p>
+<pre><code>app.prefs.darkMode.observe(() =&gt; {
+  document.body.classList.toggle(&#39;dark&#39;, app.prefs.darkMode.value)
+})
+</code></pre>
+<p>The <code>.observe()</code> method on a boxed value watches that exact path. You can
+also use the standalone <code>observe()</code> function for pattern matching:</p>
+<pre><code>observe(&#39;app.prefs&#39;, () =&gt; { /* any pref changed */ })
+observe(/app\.user\./, path =&gt; { /* any user field changed */ })
+</code></pre>
+<p>Toggle a body class. Fire an analytics event. Persist to localStorage.
+That&#39;s what <code>observe()</code> is for.</p>
+<h2>Components</h2>
+<p>tosijs includes a <code>Component</code> base class for web components. A few things
+to know:</p>
+<h3><code>content()</code> vs <code>render()</code></h3>
+<ul>
+<li><p><strong><code>content()</code> runs once.</strong> It builds the DOM during hydration and never
+re-runs. Set up bindings here — they handle all data-driven updates
+automatically.</p>
+</li>
+<li><p><strong><code>render()</code> runs on attribute changes.</strong> It&#39;s for <em>structural</em> changes
+driven by attributes — showing/hiding sections, swapping an <code>&lt;input&gt;</code>
+from <code>type=&quot;text&quot;</code> to <code>type=&quot;password&quot;</code>, reconfiguring layout. It is
+<strong>not</strong> for updating text, values, or display state.</p>
+</li>
+</ul>
+<p>The separation: <strong>attributes drive structure, bindings drive content.</strong></p>
+<pre><code>class MessageBubble extends Component {
+  static initAttributes = { expanded: false }
+
+  content = ({div, span}) =&gt; [
+    span({ bindText: msg.sender }),
+    div({
+      class: &#39;body&#39;,
+      bind: {
+        // structure: show/hide based on attribute
+        value: this.expanded,
+        binding: (el, expanded) =&gt; { el.hidden = !expanded }
+      }
+    },
+      span({ bindText: msg.body })  // content: flows through binding
+    )
+  ]
+}
+</code></pre>
+<p><strong>The anti-pattern</strong> is writing an <code>updateDisplay()</code> method that manually
+sets <code>textContent</code>, toggles classes, and shows/hides elements — then
+calling it from event handlers. This recreates React&#39;s &quot;render on every
+change&quot; model inside what should be a binding-driven system. If you find
+yourself writing a method that walks the DOM and sets properties, those
+should be bindings set up in <code>content()</code>.</p>
+<p>When state lives in the <code>tosi()</code> proxy rather than in component instance
+variables, bindings can reach it directly. A component that stores
+<code>this.isExpanded = true</code> and manually propagates that to the DOM is
+doing extra work — store it in the proxy and let bindings handle it.</p>
+<h3>Light DOM is where the action is</h3>
+<p>From reading most web component documentation, you&#39;d think shadow DOM was
+the only option. It isn&#39;t. tosijs components use <strong>light DOM by default</strong>,
+and this is a deliberate choice, not a limitation.</p>
+<p>Shadow DOM gives you style encapsulation — great for word-processor-style
+isolated widgets, but a memory and performance hit for everything else.
+It also creates an encapsulation boundary that blocks path bindings,
+external styling, and the usual DOM query APIs.</p>
+<p>tosijs takes the one really valuable feature of shadow DOM components —
+<code>&lt;slot&gt;</code> composition — and makes it work in the light DOM. You get:</p>
+<ul>
+<li><strong>Path bindings work everywhere.</strong> No encapsulation boundary to cross.</li>
+<li><strong>CSS just works.</strong> Style your components the same way you style everything else.</li>
+<li><strong>Lighter weight.</strong> No shadow root overhead per instance.</li>
+<li><strong>Slot composition.</strong> tosijs rewrites <code>&lt;slot&gt;</code> elements in light DOM components.</li>
+</ul>
+<h4>How <code>&lt;xin-slot&gt;</code> works</h4>
+<p>Native <code>&lt;slot&gt;</code> elements only work inside a shadow root. tosijs solves this
+by automatically replacing any <code>&lt;slot&gt;</code> in a light DOM component with an
+<code>&lt;xin-slot&gt;</code> custom element that provides the same composition behavior:
+children with a matching <code>slot=&quot;name&quot;</code> attribute get moved into the
+corresponding <code>&lt;xin-slot name=&quot;name&quot;&gt;</code>, and unslotted children go into the
+default (unnamed) <code>&lt;xin-slot&gt;</code>.</p>
+<p>This happens during hydration — you write <code>&lt;slot&gt;</code> in your <code>content()</code> and
+tosijs handles the rewrite transparently. You can also use <code>xinSlot()</code>
+directly from the <code>elements</code> proxy if you need to set attributes like
+<code>class</code> or <code>style</code> on the slot container (plain <code>&lt;slot&gt;</code> elements lose
+non-<code>name</code> attributes during the rewrite).</p>
+<pre><code>class CardLayout extends Component {
+  content = ({ h3, xinSlot }) =&gt; [
+    h3(&#39;Header&#39;),
+    xinSlot({ name: &#39;top&#39;, style: { background: &#39;#eee&#39; } }),
+    h3(&#39;Body&#39;),
+    xinSlot(), // default slot
+    h3(&#39;Footer&#39;),
+    xinSlot({ name: &#39;bottom&#39; }),
+  ]
+}
+</code></pre>
+<p>Two things to keep in mind:</p>
+<ul>
+<li><strong><code>:slotted</code> doesn&#39;t apply</strong> — there&#39;s no shadow DOM, so style slotted
+children with normal CSS selectors. You can use <code>xin-slot</code> as a selector.</li>
+<li><strong>The rewrite is one-way.</strong> Once hydration runs, the DOM contains
+<code>&lt;xin-slot&gt;</code> elements. If you inspect the DOM, you&#39;ll see <code>&lt;xin-slot&gt;</code>,
+not <code>&lt;slot&gt;</code>.</li>
+</ul>
+<p>Components declare their styles via static properties:</p>
+<ul>
+<li><strong><code>static shadowStyleSpec</code></strong> — injected into the shadow DOM as a <code>&lt;style&gt;</code> element.
+Setting this causes the component to use shadow DOM.</li>
+<li><strong><code>static lightStyleSpec</code></strong> — appended to <code>document.head</code> as a global <code>&lt;style&gt;</code>.
+<code>:host</code> selectors are rewritten to the component&#39;s tag name, so
+<code>:host { display: flex }</code> becomes <code>my-tag { display: flex }</code>.</li>
+<li><strong><code>static preferredTagName</code></strong> — sets the tag name explicitly (survives minification).</li>
+</ul>
+<blockquote>
+<p>The older patterns — <code>static styleSpec</code> (alias for <code>shadowStyleSpec</code>) and
+passing <code>{ tag, styleSpec }</code> to <code>elementCreator()</code> — still work but are deprecated.</p>
+</blockquote>
+<p>Use light DOM unless you know <em>exactly</em> why you need shadow DOM.
+When you do, the mental model is:</p>
+<ul>
+<li><strong>Light DOM</strong> (default): bindings flow through naturally.</li>
+<li><strong>Shadow DOM</strong>: self-contained islands that receive data via
+attributes/properties and manage their own internals. You handle
+rendering inside the shadow root yourself.</li>
+</ul>
+<p>A good example: an email message bubble might use Shadow DOM for the
+HTML body (CSS isolation from untrusted email styles) but keep
+everything else — sender, subject, timestamps — in Light DOM with
+normal bindings.</p>
+<h2>Gotchas</h2>
+<h3>Observer callbacks receive paths, not values</h3>
+<p>Observer callbacks are called with the <em>path</em> that changed, not the new value:</p>
+<pre><code>app.prefs.darkMode.observe((path) =&gt; {
+  // path is a string like &#39;app.prefs.darkMode&#39;
+  // to get the value, read it explicitly:
+  const isDark = app.prefs.darkMode.value
+  document.body.classList.toggle(&#39;dark&#39;, isDark)
+})
+</code></pre>
+<p>This is true for both the <code>.observe()</code> method and the standalone <code>observe()</code> function.</p>
+<h3><code>touch()</code> is the escape hatch</h3>
+<p>When you mutate state behind the proxy&#39;s back — from a raw reference,
+inside a <code>forEach</code>, after a bulk operation — call <code>touch()</code> to
+tell tosijs to propagate updates. Most of the time the proxy handles
+this automatically. <code>touch()</code> is for when it can&#39;t.</p>
+<p>Every boxed proxy has a <code>.touch()</code> method, and there&#39;s also a standalone
+<code>touch()</code> function you can import:</p>
+<pre><code>app.user.name.touch()     // on a scalar
+app.items[2].touch()      // on a list item
+touch(app.items)          // standalone, on an array
+touch(&#39;app.user&#39;)         // standalone, by path string
+</code></pre>
+<p>For list items with <code>idPath</code>, <code>.touch()</code> automatically synthesizes the
+equivalent id-path touch, so DOM bindings update correctly even when you&#39;ve
+mutated the raw data behind the proxy&#39;s back.</p>
+<p><code>touch()</code> is also useful for <strong>batch optimization</strong>. If you need to make
+many mutations, you can bypass the proxy, mutate the raw data directly,
+and call <code>touch()</code> once at the end — one notification instead of N:</p>
+<pre><code>const raw = app.items.value
+for (let i = 0; i &lt; raw.length; i++) {
+  raw[i].score = computeScore(raw[i])
+}
+touch(app.items)  // single update for all mutations
+</code></pre>
+<h2>The React Comparison, In Short</h2>
+<table>
+<thead>
+<tr>
+<th>React</th>
+<th>tosijs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>useState</code> + <code>setState</code></td>
+<td>assign via <code>.value</code></td>
+</tr>
+<tr>
+<td><code>useEffect</code></td>
+<td><code>observe()</code> (but rarely needed)</td>
+</tr>
+<tr>
+<td><code>useMemo</code> / <code>useCallback</code></td>
+<td>not needed — no re-renders to avoid</td>
+</tr>
+<tr>
+<td>props / prop drilling</td>
+<td>bind directly to any path</td>
+</tr>
+<tr>
+<td>Context API</td>
+<td>everything is already global</td>
+</tr>
+<tr>
+<td><code>key</code> prop on lists</td>
+<td><code>idPath</code> on list bindings</td>
+</tr>
+<tr>
+<td>Virtual DOM diffing</td>
+<td>path-based direct DOM updates</td>
+</tr>
+<tr>
+<td>Component re-render</td>
+<td>individual binding updates</td>
+</tr>
+<tr>
+<td>~45kB gzipped</td>
+<td>~15kB gzipped (core)</td>
+</tr>
+</tbody></table>
+<p>The fundamental difference: React asks &quot;what changed?&quot; after every state update
+and works backwards to figure out the minimum DOM update. tosijs knows exactly
+what changed (the path) and updates exactly the DOM nodes bound to that path.
+React is O(tree size). tosijs is O(bindings on the changed path).</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/" aria-current="page" class="current">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

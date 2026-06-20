@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>more-math — tosijs</title>
+  <meta name="description" content="Some simple functions egregiously missing from the Javascript Math object. They are exported from tosijs as the MoreMath object." />
+  <link rel="canonical" href="https://tosijs.net/more-math/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="more-math — tosijs" />
+  <meta property="og:description" content="Some simple functions egregiously missing from the Javascript Math object. They are exported from tosijs as the MoreMath object." />
+  <meta property="og:url" content="https://tosijs.net/more-math/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"more-math","description":"Some simple functions egregiously missing from the Javascript Math object. They are exported from tosijs as the MoreMath object.","url":"https://tosijs.net/more-math/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>more-math</h1>
+<p>Some simple functions egregiously missing from the Javascript <code>Math</code>
+object. They are exported from <code>tosijs</code> as the <code>MoreMath</code> object.</p>
+<h2>Functions</h2>
+<p><code>clamp(min, v, max)</code> will return <code>v</code> if it&#39;s between <code>min</code> and <code>max</code>
+and the <code>min</code> or <code>max</code> otherwise.</p>
+<p>If min &gt; max, the function will return NaN.</p>
+<pre><code>clamp(0, 0.5, 1)        // produces 0.5
+clamp(0, -0.5, 1)       // produces 0
+clamp(-50, 75, 50)      // produces 50
+</code></pre>
+<p><code>lerp(a, b, t, clamped = true)</code> will interpolate linearly between <code>a</code> and <code>b</code> using
+parameter <code>t</code>. <code>t</code> will be clamped to the interval <code>[0, 1]</code>, so
+<code>lerp</code> will be clamped <em>between</em> a and b unless you pass <code>false</code> as the
+optional fourth parameter (allowing <code>lerp()</code> to extrapolate).</p>
+<pre><code>lerp(0, 10, 0.5)        // produces 5
+lerp(0, 10, 2)          // produces 10
+lerp(0, 10, 2, false)   // produces 20
+lerp(5, -5, 0.75)       // produces -2.5
+</code></pre>
+<h2>Constants</h2>
+<p><code>RADIANS_TO_DEGREES</code> and <code>DEGREES_TO_RADIANS</code> are values to multiply
+an angle by to convert between degrees and radians.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/" aria-current="page" class="current">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

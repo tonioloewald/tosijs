@@ -1,10 +1,10 @@
 # tosijs
 
-<!--{ "pin": "top" }-->
+<!--{ "pin": "top", "order": 1 }-->
 
 > `xinjs` has been renamed `tosijs`. Updating the documentation and links is a
 > work in progress. The goal is for the API to remain stable during the transition.
-> If/when you want to migrate from `xinjs` to `tosijs`, here's a [guide for migrating to tosijs](/?Migration.md)
+> If/when you want to migrate from `xinjs` to `tosijs`, here's a [guide for migrating to tosijs](/Migration/)
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 

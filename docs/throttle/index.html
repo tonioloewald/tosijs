@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>throttle &amp; debounce — tosijs</title>
+  <meta name="description" content="Usage" />
+  <link rel="canonical" href="https://tosijs.net/throttle/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="throttle &amp; debounce — tosijs" />
+  <meta property="og:description" content="Usage" />
+  <meta property="og:url" content="https://tosijs.net/throttle/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"throttle & debounce","description":"Usage","url":"https://tosijs.net/throttle/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>throttle &amp; debounce</h1>
+<p>Usage:</p>
+<pre><code>const debouncedFunc = debounce(func, 250)
+const throttledFunc = debounce(func, 250)
+</code></pre>
+<p><code>throttle(voidFunc, interval)</code> and <code>debounce(voidFunc, interval)</code> are utility functions for
+producing functions that filter out unnecessary repeated calls to a function, typically
+in response to rapid user input, e.g. from keystrokes or pointer movement.</p>
+<pre><code class="language-js">import { throttle, debounce, on } from &#39;tosijs&#39;
+
+function follow( element ) {
+  return ( event ) =&gt; {
+    element.style.top = event.offsetY + &#39;px&#39;
+    element.style.left = event.offsetX + &#39;px&#39;
+  }
+}
+on(preview, &#39;mousemove&#39;, follow(preview.querySelector(&#39;#unfiltered&#39;)))
+on(preview, &#39;mousemove&#39;, throttle(follow(preview.querySelector(&#39;#throttle&#39;))))
+on(preview, &#39;mousemove&#39;, debounce(follow(preview.querySelector(&#39;#debounce&#39;))))
+</code></pre>
+<pre><code class="language-html">&lt;h3&gt;Throttle &amp; Debounce in Action&lt;/h3&gt;
+&lt;p&gt;Move your mouse around in here…&lt;/p&gt;
+&lt;p style=&quot;color: blue&quot;&gt;follow function — triggers immediately&lt;/p&gt;
+&lt;p style=&quot;color: red&quot;&gt;throttled follow function — triggers every 250ms&lt;/p&gt;
+&lt;p style=&quot;color: green&quot;&gt;debounced follow function — stop moving for 250ms to trigger it&lt;/p&gt;
+&lt;div id=&quot;unfiltered&quot; class=&quot;follower&quot; style=&quot;height: 20px; width: 20px; border-color: blue&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;throttle&quot; class=&quot;follower&quot; style=&quot;height: 40px; width: 40px; border-color: red&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;debounce&quot; class=&quot;follower&quot; style=&quot;height: 60px; width: 60px; border-color: green&quot;&gt;&lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.preview * {
+  pointer-events: none;
+}
+.preview .follower {
+  top: 100px;
+  left: 400px;
+  position: absolute;
+  border-width: 4px;
+  border-style: solid;
+  background: transparent;
+  transform: translateX(-50%) translateY(-50%);
+}
+</code></pre>
+<p>The usual purpose of these functions is to prevent over-calling of a function based on
+rapidly changing data, such as keyboard event or scroll event handling.</p>
+<p><code>debounce</code>ed functions will only actually be called <code>interval</code> ms after the last time the
+wrapper is called.</p>
+<p>E.g. if the user types into a search field, you can call a <code>debounce</code>ed
+function to do the query, and it won&#39;t fire until the user stops typing for <code>interval</code> ms.</p>
+<p><code>throttle</code>ed functions will only called at most every <code>interval</code> ms.</p>
+<p>E.g. if the user types into a search field, you can call a <code>throttle</code>ed function
+every <code>interval</code> ms, including one last time after the last time the wrapper is called.</p>
+<blockquote>
+<p>In particular, both throttle and debounce are guaranteed to execute the
+wrapped function after the last call to the wrapper.</p>
+</blockquote>
+<p>Note that parameters will be passed to the wrapped function, and that <em>the last call always goes through</em>.
+However, parameters passed to skipped calls will <em>never</em> reach the wrapped function.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/" aria-current="page" class="current">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

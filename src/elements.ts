@@ -1,8 +1,12 @@
+/*{ "order": 2 }*/
 /*#
-# 3. elements
+# Creating Elements
 
 `tosijs` provides `elements` for easily and efficiently generating DOM elements
 without using `innerHTML` or other unsafe methods.
+
+> The design goal of `elements` was to make creating DOM elements using javascript simpler and faster than using HTML or
+JSX / TSX while requiring no build-time tooling and no DSLs.
 
 ```js
 import { elements } from 'tosijs'
@@ -130,7 +134,7 @@ turned into a `mouseup` listener.
 
 ## binding
 
-You can [bind](/?bind.ts) an element to state using [bindings](/?bindings.ts)
+You can [bind](/bind/) an element to state using [bindings](/bindings/)
 using convenient properties, e.g.
 
     import { elements } from 'tosijs'
@@ -182,7 +186,7 @@ as syntax sugar, e.g.
 
 There are some subtle but important differences between `on()` and
 `addEventListener` which are discussed in detail in the section on
-[bind](/?bind.ts).
+[bind](/bind/).
 
 ## apply
 
@@ -390,7 +394,7 @@ const elementStyle = (elt: HTMLElement, prop: string, value: any) => {
   if (processed.prop.startsWith('--')) {
     elt.style.setProperty(processed.prop, processed.value)
   } else {
-    (elt.style as unknown as { [key: string]: string })[prop] = processed.value
+    ;(elt.style as unknown as { [key: string]: string })[prop] = processed.value
   }
 }
 
@@ -440,14 +444,14 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
       ) {
         elt.setAttribute(key, value)
       } else {
-        (elt as { [key: string]: any })[key] = value
+        ;(elt as { [key: string]: any })[key] = value
       }
     } else if (attr === 'class') {
       value.split(' ').forEach((className: string) => {
         elt.classList.add(className)
       })
     } else if ((elt as { [key: string]: any })[attr] !== undefined) {
-      (elt as StringMap)[attr] = value
+      ;(elt as StringMap)[attr] = value
     } else if (typeof value === 'boolean') {
       value ? elt.setAttribute(attr, '') : elt.removeAttribute(attr)
     } else {
@@ -494,11 +498,15 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
     const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5)
     if (bindingType !== 'value') {
       const alt =
-        bindingType === 'text' ? 'textContent'
-        : bindingType === 'enabled' ? 'disabled (with .tosi.take(v => !v))'
-        : bindingType === 'disabled' ? 'disabled'
-        : bindingType === 'list' ? '.tosi.listBinding()'
-        : null
+        bindingType === 'text'
+          ? 'textContent'
+          : bindingType === 'enabled'
+          ? 'disabled (with .tosi.take(v => !v))'
+          : bindingType === 'disabled'
+          ? 'disabled'
+          : bindingType === 'list'
+          ? '.tosi.listBinding()'
+          : null
       if (alt) {
         warnDeprecated(
           `bind${bindingType}`,
@@ -514,7 +522,11 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
         `${key} is not allowed, bindings.${bindingType} is not defined`
       )
     }
-  } else if (value != null && typeof value === 'object' && value[TAKE_DESCRIPTOR]) {
+  } else if (
+    value != null &&
+    typeof value === 'object' &&
+    value[TAKE_DESCRIPTOR]
+  ) {
     // TakeDescriptor used as a bare property binding
     bind(elt, value, elementPropBinding(key))
   } else if (tosiPath(value)) {
@@ -579,7 +591,7 @@ export const elements = new Proxy(
     get(target, tagName: string) {
       tagName = tagName.replace(/[A-Z]/g, (c) => `-${c.toLocaleLowerCase()}`)
       if ((target as StringMap)[tagName] === undefined) {
-        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(tagName, ...contents)
       }
       return (target as StringMap)[tagName]
@@ -599,7 +611,7 @@ export const svgElements = new Proxy(
   {
     get(target, tagName: string) {
       if ((target as StringMap)[tagName] === undefined) {
-        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(`${tagName}|${SVG}`, ...contents)
       }
       return (target as StringMap)[tagName]
@@ -619,7 +631,7 @@ export const mathML = new Proxy(
   {
     get(target, tagName: string) {
       if ((target as StringMap)[tagName] === undefined) {
-        (target as StringMap)[tagName] = (...contents: ElementPart[]) =>
+        ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(`${tagName}|${MATH}`, ...contents)
       }
       return (target as StringMap)[tagName]

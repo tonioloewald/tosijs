@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>path-listener — tosijs</title>
+  <meta name="description" content="Path-listener implements the tosijs observer model. Although these events are exported from tosijs they shouldn&#39;t need to be used very often." />
+  <link rel="canonical" href="https://tosijs.net/path-listener/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="path-listener — tosijs" />
+  <meta property="og:description" content="Path-listener implements the tosijs observer model. Although these events are exported from tosijs they shouldn&#39;t need to be used very often." />
+  <meta property="og:url" content="https://tosijs.net/path-listener/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"path-listener","description":"Path-listener implements the tosijs observer model. Although these events are exported from tosijs they shouldn't need to be used very often.","url":"https://tosijs.net/path-listener/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>path-listener</h1>
+<p><code>path-listener</code> implements the <code>tosijs</code> observer model. Although these events
+are exported from <code>tosijs</code> they shouldn&#39;t need to be used very often. Mostly
+they&#39;re used to manage state.</p>
+<h2><code>touch(path: string)</code> and <code>.touch()</code></h2>
+<p>This is used to inform <code>xin</code> that a value at a path has changed. Remember that
+xin simply wraps an object, and if you change the object directly, <code>xin</code> won&#39;t
+necessarily know about it.</p>
+<p>The two most common uses for <code>touch()</code> are:</p>
+<ol>
+<li>You want to make lots of changes to a large data structure, possibly
+over a period of time (e.g. update hundreds of thousands of values
+in a table that involve service calls or heavy computation) and don&#39;t
+want to thrash the UI so you just change the object directly.</li>
+<li>You want to change the content of an object but need a something that
+is bound to the &quot;outer&quot; object to be refreshed.</li>
+</ol>
+<p>Every <code>BoxedProxy</code> also has a <code>.touch()</code> method, so you can call it directly
+on any proxied value:</p>
+<pre><code>app.user.name.touch()   // force update for this scalar
+app.user.touch()        // force update for the whole object
+app.items[2].touch()    // force update for a list item
+</code></pre>
+<h3>Id-path synthesis</h3>
+<p>When you touch a path that contains an array index (e.g. <code>items[2]</code> or
+<code>items[2].name</code>), <code>touch()</code> automatically synthesizes the equivalent id-path
+touches (e.g. <code>items[id=abc]</code> or <code>items[id=abc].name</code>). This means that
+<code>.touch()</code> on list items correctly updates DOM elements bound via <code>idPath</code>,
+even when you&#39;ve mutated the underlying data behind the proxy&#39;s back.</p>
+<h2><code>observe()</code> and <code>unobserve()</code></h2>
+<pre><code>const listener = observe(
+  path: string | RegExp | (path: string) =&gt; boolean,
+  (changedPath: string) =&gt; {
+    ...
+  }
+)
+
+// and later, when you&#39;re done
+unobserve(listener);
+</code></pre>
+<p><code>observe(…)</code> lets you call a function whenever a specified path changes. You&#39;ll
+be passed the path that changed and you can do whatever you like. It returns
+a reference to the listener to allow you to dispose of it later.</p>
+<p><code>unobserve(listener)</code> removes the listener.</p>
+<blockquote>
+<p>This is how binding works. When you bind a path to an interface element, an
+observer is created that knows when to update the interface element. (If the
+binding is &quot;two-way&quot; (i.e. provides a <code>fromDOM</code> callback) then an <code>input</code> or
+<code>change</code> event that hits that element will update the value at the bound
+path.</p>
+</blockquote>
+<h2><code>async updates()</code></h2>
+<p>You can <code>await updates()</code> or use <code>updates().then(…)</code> to execute code
+after any changes have been rendered to the DOM. Typically, you shouldn&#39;t
+have to mess with this, but sometimes—for example—you might need to know
+how large a rendered UI element is to adjust something else.</p>
+<p>It&#39;s also used a lot in unit tests. After you perform some logic, does
+it appear correctly in the UI?</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/" aria-current="page" class="current">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

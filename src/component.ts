@@ -1,8 +1,17 @@
+/*{ "order": 6 }*/
 /*#
-# 4. web-components
+# Web-Components
 
 **tosijs** provides the abstract `Component` class to make defining custom-elements
 easier.
+
+- `Component` leverages the [elements](/elements/) proxy and [css](/css/) to make
+defining elements very efficient.
+- `Component` makes it easy to create custom-elements with
+no shadowDOM but with slotting behavior so your elements are lighter weight and
+easier to style.
+- It solves friction points like allowing element tagNames to be changed on-the-fly to avoid registry clashes.
+- It allows you to deploy `Component` classes as zero dependency [blueprints](/blueprint-loader/) functions.
 
 ## Component
 
@@ -41,7 +50,7 @@ If omitted, it is derived from the class name (e.g. `ToolBar` → `tool-bar`),
 but this does not survive minification. `elementCreator()` returns an
 `ElementCreator` function that creates instances of the element.
 
-See [elements](/?elements.ts) for more information on `ElementCreator` functions.
+See [elements](/elements/) for more information on `ElementCreator` functions.
 
 ### Component properties
 
@@ -121,7 +130,7 @@ Only plain objects are treated as props — DOM nodes, strings, numbers, and pro
 values pass through as children.
 
 If you'd like to see a more complex example along the same lines, look at
-[form and field](https://ui.tosijs.net/?form.ts).
+[form and field](https://ui.tosijs.net/form/).
 
 ##### <slot> names and the `slot` attribute
 
@@ -390,7 +399,7 @@ Be sure to call `super.render()` if you implement `render` in the subclass.
 
     const {label, span, input} = Component.elements
 
-This is simply provided as a convenient way to get to [elements](/?elements.ts)
+This is simply provided as a convenient way to get to [elements](/elements/)
 
 #### static formAssociated: boolean
 
@@ -402,7 +411,7 @@ Form-associated components are automatically made focusable (`tabindex="0"`) unl
 you explicitly set a different `tabindex`. This is required for form validation to
 work correctly (the browser needs to focus invalid elements).
 
-See [web-component-validation](/?web-component-validation) for the complete validation
+See [web-component-validation](/form-validation/) for the complete validation
 API documentation, including:
 
 - Validation methods (`checkValidity()`, `reportValidity()`, `setValidity()`)
@@ -549,19 +558,19 @@ from the class's static properties.
 that provides the essential additions to standard HTML elements needed to build many
 user-interfaces.
 
-- [live-example](https://ui.tosijs.net/?live-example.ts) uses multiple named slots to implement
+- [live-example](https://ui.tosijs.net/live-example/) uses multiple named slots to implement
   powers the interactive examples used for this site.
-- [side-nav](https://ui.tosijs.net/?side-nav.ts) implements the sidebar navigation
+- [side-nav](https://ui.tosijs.net/side-nav/) implements the sidebar navigation
   used on this site.
-- [data-table](https://ui.tosijs.net/?data-table.ts) implements virtualized tables
+- [data-table](https://ui.tosijs.net/data-table/) implements virtualized tables
   with resizable, reorderable, sortable columns that can handle more data
   than you're probably willing to load.
-- [form and field](https://ui.tosijs.net/?form.ts) allow you to
+- [form and field](https://ui.tosijs.net/form/) allow you to
   quickly create forms that leverage all the built-in functionality of `<input>`
   elements (including powerful validation) even for custom-fields.
-- [markdown-viewer](https://ui.tosijs.net/?markdown-viewer.ts) uses `marked` to render
+- [markdown-viewer](https://ui.tosijs.net/markdown-viewer/) uses `marked` to render
   markdown.
-- [babylon-3d](https://ui.tosijs.net/?babylon-3d.ts) lets you easily embed 3d scenes
+- [babylon-3d](https://ui.tosijs.net/babylon-3d/) lets you easily embed 3d scenes
   in your application using [babylonjs](https://babylonjs.com/)
 */
 import { css } from './css'
@@ -1300,11 +1309,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
         if (existingChildren.length > 0) {
           const slotMap: { [key: string]: Element } = { '': this }
-          Array.from(
-            this.querySelectorAll('tosi-slot,xin-slot')
-          ).forEach((slot) => {
-            slotMap[(slot as TosiSlot).name] = slot
-          })
+          Array.from(this.querySelectorAll('tosi-slot,xin-slot')).forEach(
+            (slot) => {
+              slotMap[(slot as TosiSlot).name] = slot
+            }
+          )
           existingChildren.forEach((child) => {
             const defaultSlot = slotMap['']
             const destSlot =
@@ -1331,7 +1340,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * Called automatically in render() when value changes. Override to add custom validation.
    * Call super.validateValue() to include standard validation.
    *
-   * See [web-component-validation](/?web-component-validation) for details.
+   * See [web-component-validation](/form-validation/) for details.
    */
   validateValue(): void {
     if (!this.internals || this.value === undefined) return

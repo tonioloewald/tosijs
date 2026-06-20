@@ -1,5 +1,6 @@
+/*{ "parent": "utilities" }*/
 /*#
-# A.1 more-math
+# more-math
 
 Some simple functions egregiously missing from the Javascript `Math`
 object. They are exported from `tosijs` as the `MoreMath` object.

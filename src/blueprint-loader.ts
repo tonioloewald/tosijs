@@ -1,5 +1,6 @@
+/*{ "parent": "component" }*/
 /*#
-# 4.2 blueprints
+# blueprints
 
 One issue with standard web-components built with tosijs is that building them
 "sucks in" the version of `tosijs` you're working with. This isn't a huge problem

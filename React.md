@@ -1,10 +1,12 @@
-# A.4 Working with React
+# React and tosijs
 
 A lot of developers are going to be using React. Is `tosijs` relevant to React developers?
 
-Absolutely!
+Absolutely! The tiny [react-tosijs](https://react.tosijs.net) library provides:
 
-- [react-tosijs](https://react.tosijs.net) provides `useTosi()` to create hooks that
+- `useTosi()` to create hooks that
   connect any data into a React component.
-- [react-tosijs](https://react.tosijs.net) provides the `reactWebComponents` proxy
+- the `reactWebComponents` proxy
   that turn any web-component into a React functional component.
+
+<!--{ "pin": "bottom" }-->

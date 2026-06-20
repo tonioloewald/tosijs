@@ -1,5 +1,6 @@
+/*{ "parent": "utilities" }*/
 /*#
-# A.3 hotReload
+# hotReload
 
 `hotReload()` persists any root-level paths in `xin` that its test function evaluates as true
 to `localStorage`.

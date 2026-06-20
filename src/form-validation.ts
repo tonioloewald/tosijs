@@ -1,5 +1,6 @@
+/*{ "parent": "component" }*/
 /*#
-# 4.1. web-component-validation
+# Validation
 
 Form validation for custom elements using `ElementInternals`.
 
@@ -266,7 +267,7 @@ still works but won't participate in form submission or validation.
 
 ## See Also
 
-- [web-components](/?web-components) - Component class documentation
+- [web-components](/component/) - Component class documentation
 - [MDN: ElementInternals](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals)
 - [MDN: Form-associated custom elements](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/attachInternals)
 */

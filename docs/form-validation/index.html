@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <title>Validation — tosijs</title>
+  <meta name="description" content="Form validation for custom elements using ElementInternals." />
+  <link rel="canonical" href="https://tosijs.net/form-validation/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Validation — tosijs" />
+  <meta property="og:description" content="Form validation for custom elements using ElementInternals." />
+  <meta property="og:url" content="https://tosijs.net/form-validation/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Validation","description":"Form validation for custom elements using ElementInternals.","url":"https://tosijs.net/form-validation/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>Validation</h1>
+<p>Form validation for custom elements using <code>ElementInternals</code>.</p>
+<h2>Overview</h2>
+<p>When building form-associated custom elements, you want them to behave like native
+<code>&lt;input&gt;</code> elements - participating in form submission, validation, and lifecycle events.</p>
+<p>With <code>static formAssociated = true</code> and a <code>value</code> property, your Component subclass
+automatically gets:</p>
+<ul>
+<li>Form submission (value appears in FormData)</li>
+<li>Validation API (<code>checkValidity()</code>, <code>reportValidity()</code>, <code>setCustomValidity()</code>)</li>
+<li>Automatic validation for <code>required</code>, <code>minlength</code>, <code>maxlength</code>, <code>pattern</code> attributes</li>
+<li>Form lifecycle callbacks (reset, disabled state, browser restore)</li>
+<li>Focusability for validation UI</li>
+</ul>
+<h2>Quick Start</h2>
+<p>Here&#39;s a minimal form-associated component:</p>
+<pre><code class="language-js">import { Component, elements } from &#39;tosijs&#39;
+
+class SimpleInput extends Component {
+  static preferredTagName = &#39;simple-input&#39;
+  static formAssociated = true
+  value = &#39;&#39;
+
+  content = ({input}) =&gt; input({part: &#39;input&#39;, style: &#39;padding: 8px&#39;})
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.parts.input.addEventListener(&#39;input&#39;, (e) =&gt; {
+      this.value = e.target.value
+    })
+  }
+
+  render() {
+    super.render()
+    if (this.parts.input.value !== this.value) {
+      this.parts.input.value = this.value
+    }
+  }
+}
+
+const simpleInput = SimpleInput.elementCreator()
+const { form, button, div } = elements
+
+const output = div()
+const myForm = form(
+  simpleInput({name: &#39;username&#39;, required: true}),
+  button({type: &#39;submit&#39;}, &#39;Submit&#39;)
+)
+myForm.addEventListener(&#39;submit&#39;, (e) =&gt; {
+  e.preventDefault()
+  const fd = new FormData(e.target)
+  output.textContent = &#39;FormData: &#39; + [...fd.entries()].map(([k,v]) =&gt; `${k}=${v}`).join(&#39;, &#39;)
+})
+
+preview.append(myForm, output)
+</code></pre>
+<pre><code class="language-css">.preview form { display: flex; gap: 8px; align-items: center; }
+.preview simple-input { display: inline-block; }
+</code></pre>
+<h2>Validation API</h2>
+<p>Form-associated components expose the standard validation API:</p>
+<h3>Properties</h3>
+<ul>
+<li><code>validity: ValidityState</code> - Current validity state (readonly)</li>
+<li><code>validationMessage: string</code> - Current validation message (readonly)</li>
+<li><code>willValidate: boolean</code> - Whether element will be validated (readonly)</li>
+</ul>
+<h3>Methods</h3>
+<ul>
+<li><code>checkValidity()</code> - Returns <code>true</code> if valid; fires <code>invalid</code> event if not</li>
+<li><code>reportValidity()</code> - Like <code>checkValidity()</code> but shows browser validation UI</li>
+<li><code>setCustomValidity(message)</code> - Set custom error (empty string clears)</li>
+<li><code>setValidity(flags, message?, anchor?)</code> - Low-level validity control</li>
+<li><code>setFormValue(value, state?)</code> - Explicitly set form value</li>
+<li><code>validateValue()</code> - Run constraint validation (called automatically)</li>
+</ul>
+<h3>ValidityStateFlags</h3>
+<p>When calling <code>setValidity()</code>, you can set these flags:</p>
+<ul>
+<li><code>valueMissing</code> - required but empty</li>
+<li><code>typeMismatch</code> - wrong type (email, url, etc.)</li>
+<li><code>patternMismatch</code> - doesn&#39;t match pattern attribute</li>
+<li><code>tooLong</code> - exceeds maxlength</li>
+<li><code>tooShort</code> - below minlength</li>
+<li><code>rangeUnderflow</code> / <code>rangeOverflow</code> - outside min/max range</li>
+<li><code>stepMismatch</code> - doesn&#39;t match step</li>
+<li><code>badInput</code> - browser can&#39;t parse input</li>
+<li><code>customError</code> - custom error via setCustomValidity</li>
+</ul>
+<h2>Automatic Validation</h2>
+<p>Component automatically validates against standard HTML constraint attributes
+when <code>value</code> changes:</p>
+<ul>
+<li><code>required</code> - value cannot be empty</li>
+<li><code>minlength</code> - minimum string length</li>
+<li><code>maxlength</code> - maximum string length</li>
+<li><code>pattern</code> - regex pattern (anchored to full string)</li>
+</ul>
+<pre><code class="language-js">import { Component, elements } from &#39;tosijs&#39;
+
+class ValidatedInput extends Component {
+  static preferredTagName = &#39;validated-input&#39;
+  static formAssociated = true
+  value = &#39;&#39;
+
+  content = ({input}) =&gt; input({part: &#39;input&#39;, style: &#39;padding: 8px&#39;})
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.parts.input.addEventListener(&#39;input&#39;, (e) =&gt; {
+      this.value = e.target.value
+    })
+  }
+
+  render() {
+    super.render()
+    if (this.parts.input.value !== this.value) {
+      this.parts.input.value = this.value
+    }
+  }
+}
+
+const validatedInput = ValidatedInput.elementCreator()
+const { form, button, div } = elements
+
+const output = div()
+const myForm = form(
+  validatedInput({
+    name: &#39;code&#39;,
+    required: true,
+    minlength: &#39;3&#39;,
+    maxlength: &#39;10&#39;,
+    pattern: &#39;[a-z]+&#39;
+  }),
+  button({type: &#39;submit&#39;}, &#39;Submit&#39;)
+)
+myForm.addEventListener(&#39;submit&#39;, (e) =&gt; {
+  e.preventDefault()
+  output.textContent = &#39;Valid! Value: &#39; + e.target.elements.code.value
+})
+
+preview.append(div(&#39;Enter 3-10 lowercase letters:&#39;), myForm, output)
+</code></pre>
+<pre><code class="language-css">.preview form { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.preview validated-input { display: inline-block; }
+</code></pre>
+<h3>Custom Validation</h3>
+<p>Override <code>validateValue()</code> for custom logic. Call <code>super.validateValue()</code> first
+to include standard constraint validation:</p>
+<pre><code>validateValue() {
+  super.validateValue() // check required, minlength, etc.
+
+  // Add custom validation
+  if (this.value &amp;&amp; !/^[a-z][a-z0-9_]*$/.test(this.value)) {
+    this.setValidity(
+      { patternMismatch: true },
+      &#39;Must start with letter, only lowercase letters/numbers/underscores&#39;,
+      this
+    )
+  }
+}
+</code></pre>
+<h2>Form Lifecycle Callbacks</h2>
+<p>Component provides default implementations for form lifecycle callbacks:</p>
+<h3>formResetCallback()</h3>
+<p>Called when the containing <code>&lt;form&gt;</code> is reset. Default resets <code>value</code> to
+<code>defaultValue</code> or empty string.</p>
+<h3>formDisabledCallback(disabled: boolean)</h3>
+<p>Called when the form or a parent <code>&lt;fieldset&gt;</code> is disabled/enabled.
+Default syncs the <code>disabled</code> attribute.</p>
+<h3>formStateRestoreCallback(state)</h3>
+<p>Called when browser restores form state (back/forward navigation).
+Default restores string values.</p>
+<h2>Custom States</h2>
+<p>Use <code>this.internals.states</code> to expose component state to CSS via <code>:state()</code>:</p>
+<pre><code class="language-js">import { Component, elements } from &#39;tosijs&#39;
+
+class StatefulInput extends Component {
+  static preferredTagName = &#39;stateful-input&#39;
+  static formAssociated = true
+  value = &#39;&#39;
+
+  content = ({input}) =&gt; input({part: &#39;input&#39;, style: &#39;padding: 8px; border: 2px solid #ccc; border-radius: 4px;&#39;})
+
+  connectedCallback() {
+    super.connectedCallback()
+    const input = this.parts.input
+
+    input.addEventListener(&#39;input&#39;, () =&gt; {
+      this.value = input.value
+    })
+
+    input.addEventListener(&#39;focus&#39;, () =&gt; {
+      this.internals.states.add(&#39;focused&#39;)
+    })
+
+    input.addEventListener(&#39;blur&#39;, () =&gt; {
+      this.internals.states.delete(&#39;focused&#39;)
+      // Show validation state on blur
+      if (this.validity &amp;&amp; !this.validity.valid) {
+        this.internals.states.add(&#39;invalid&#39;)
+      } else {
+        this.internals.states.delete(&#39;invalid&#39;)
+      }
+    })
+  }
+
+  render() {
+    super.render()
+    if (this.parts.input.value !== this.value) {
+      this.parts.input.value = this.value
+    }
+  }
+}
+
+const statefulInput = StatefulInput.elementCreator()
+const { div } = elements
+
+preview.append(
+  div(&#39;Required, min 3 chars. Focus shows blue border, invalid on blur shows red:&#39;),
+  statefulInput({required: true, minlength: &#39;3&#39;})
+)
+</code></pre>
+<pre><code class="language-css">.preview stateful-input { display: block; margin-top: 8px; }
+.preview stateful-input:state(focused) input { border-color: #007bff !important; outline: none; }
+.preview stateful-input:state(invalid) input { border-color: #dc3545 !important; }
+</code></pre>
+<h2>Browser Support</h2>
+<p><code>ElementInternals</code> is supported in all modern browsers:</p>
+<ul>
+<li>Chrome 77+, Firefox 93+, Safari 16.4+, Edge 79+</li>
+</ul>
+<p>For older browsers, form-associated features gracefully degrade - the component
+still works but won&#39;t participate in form submission or validation.</p>
+<h2>See Also</h2>
+<ul>
+<li><a href="/component/">web-components</a> - Component class documentation</li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals">MDN: ElementInternals</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/attachInternals">MDN: Form-associated custom elements</a></li>
+</ul>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a href="/">tosijs</a></li>
+    <li><a href="/Building-Apps/">Building Apps</a></li>
+    <li><a href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a href="/css/">CSS</a></summary>
+    <ul>
+      <li><a href="/color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <ul>
+      <li><a href="/xin/">The tosi proxy</a></li>
+      <li><a href="/metadata/">metadata</a></li>
+      <li><a href="/path-listener/">path-listener</a></li>
+      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <ul>
+      <li><a href="/list-binding/">binding arrays</a></li>
+      <li><a href="/bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a href="/component/">Web-Components</a></summary>
+    <ul>
+      <li><a href="/blueprint-loader/">blueprints</a></li>
+      <li><a href="/make-component/">makeComponent</a></li>
+      <li><a href="/form-validation/" aria-current="page" class="current">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <ul>
+      <li><a href="/hot-reload/">hotReload</a></li>
+      <li><a href="/more-math/">more-math</a></li>
+      <li><a href="/share/">share</a></li>
+      <li><a href="/sync/">sync</a></li>
+      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a href="/React/">React and tosijs</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="/iife.js"></script>
+</body>
+</html>

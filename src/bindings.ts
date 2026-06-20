@@ -1,5 +1,6 @@
+/*{ "parent": "binding" }*/
 /*#
-# 2.2 bindings
+# bindings
 
 `bindings` is simply a collection of common bindings.
 
@@ -16,7 +17,7 @@ interface XinBinding {
 
 The `fromDOM` function is only needed for bindings to elements that trigger `change` or `input`
 events, typically `<input>`, `<textarea>`, and `<select>` elements, and of course your
-own [Custom Elements](/?components.ts).
+own [Custom Elements](/component/).
 
 ## value
 

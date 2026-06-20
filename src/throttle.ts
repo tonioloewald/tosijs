@@ -1,5 +1,6 @@
+/*{ "parent": "utilities" }*/
 /*#
-# A.2 throttle & debounce
+# throttle & debounce
 
 Usage:
 
