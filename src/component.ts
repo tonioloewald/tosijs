@@ -1015,13 +1015,36 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   private _installAttributeQueue(): void {
+    // Only mask setAttribute/removeAttribute for attribute NAMES declared in
+    // `static initAttributes`. Those are the names whose setAttribute calls
+    // can be auto-triggered by the property setters we generate — which is
+    // the only spec-violation surface we set out to fix. Anything else
+    // (Element.part assigning through to setAttribute, slot/name on
+    // composition primitives, internal platform reflection, user code
+    // calling setAttribute directly with some other name) goes straight
+    // through, because intercepting it broke composition in tosijs-ui
+    // (parts proxy couldn't find a `[part="…"]` whose attribute hadn't
+    // landed yet) and the spec violation it would have caused is just a
+    // Chrome warning — all browsers actually run the code.
+    const initAttrs = (this.constructor as typeof Component).initAttributes
+    if (!initAttrs) return
+    const guarded = new Set(Object.keys(initAttrs).map(camelToKabob))
     const queue: Array<['set', string, string] | ['remove', string]> = []
     this._pendingAttrOps = queue
+    const proto = HTMLElement.prototype
     ;(this as any).setAttribute = (name: string, value: any) => {
-      queue.push(['set', name, String(value)])
+      if (guarded.has(name)) {
+        queue.push(['set', name, String(value)])
+      } else {
+        proto.setAttribute.call(this, name, value)
+      }
     }
     ;(this as any).removeAttribute = (name: string) => {
-      queue.push(['remove', name])
+      if (guarded.has(name)) {
+        queue.push(['remove', name])
+      } else {
+        proto.removeAttribute.call(this, name)
+      }
     }
     queueMicrotask(() => this._drainPendingAttrOps())
   }
