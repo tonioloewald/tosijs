@@ -8,47 +8,57 @@ Path-based state management for web apps — proxy-based observers, no JSX, no v
 
 ## Documentation
 
-Each component's full documentation (with live code examples) is
-embedded in its distributed JS file as inline comments. Read the
-relevant dist/*.js file for complete docs, usage examples, and API.
+Full documentation, with live code examples, is at the links below.
 
-## Components and Utilities
+## Pages
 
-- dist/bind.js — Binding
-  `bind()` lets you synchronize data / application state to the user-interface reliably,
-- dist/list-binding.js — binding arrays
-  The most likely source of complexity and performance issues in applications is
-- dist/bindings.js — bindings
-  `bindings` is simply a collection of common bindings.
-- dist/blueprint-loader.js — blueprints
-  One issue with standard web-components built with tosijs is that building them
-- dist/color.js — color
-  `tosijs` includes a lightweight, powerful `Color` class for manipulating colors.
-- dist/elements.js — Creating Elements
-  `tosijs` provides `elements` for easily and efficiently generating DOM elements
-- dist/css.js — CSS
-  `tosijs` provides a collection of utilities for working with CSS rules that
-- dist/hot-reload.js — hotReload
-  `hotReload()` persists any root-level paths in `xin` that its test function evaluates as true
-- dist/make-component.js — makeComponent
-  `makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
-- dist/metadata.js — metadata
-  `tosiAccessor` returns the collision-free accessor object from any boxed proxy,
-- dist/more-math.js — more-math
-  Some simple functions egregiously missing from the Javascript `Math`
-- dist/path-listener.js — path-listener
-  `path-listener` implements the `tosijs` observer model. Although these events
-- dist/share.js — share
-  `share()` synchronizes state across browser tabs and windows. Pass it
-- dist/sync.js — sync
-  `sync()` synchronizes state across the network in real-time. Pass it a
-- dist/xin.js — The tosi proxy
-  `tosi()` assigns an object passed to it to a global state object,
-- dist/throttle.js — throttle & debounce
-  Usage:
-- dist/xin-proxy.js — tosi, xin, and xinProxy
-  The key to managing application state with `tosijs` are its **observer** proxies, `tosi` and `xin`. These are documen...
-- dist/form-validation.js — Validation
-  Form validation for custom elements using `ElementInternals`.
-- dist/component.js — Web-Components
-  easier.
+- https://tosijs.net/bind/ — Binding
+  bind() syncs application state to DOM elements via path-based observers. Plus on() for event handlers and touchElement() for forced updates.
+- https://tosijs.net/list-binding/ — binding arrays
+  Reactive list bindings: surgical updates via id-paths, virtualized rendering for million-row lists, sticky headers, filtering, and grids.
+- https://tosijs.net/bindings/ — bindings
+  The built-in collection of common bindings: value (two-way), text, enabled, disabled, list — plus how to write your own.
+- https://tosijs.net/blueprint-loader/ — blueprints
+  Dynamically load tosijs components as zero-dependency blueprints from CDN URLs, letting consumers choose tag names and avoid name collisions.
+- https://tosijs.net/Building-Apps/ — Building Apps
+  How to think about building applications with tosijs: state in a proxy, UI built with live bindings, list bindings for collections. Read this first.
+- https://tosijs.net/color/ — color
+  The Color class: parse CSS colors, do color math (brighten, saturate, blend, mix), convert between HSL and RGB, generate contrasting colors.
+- https://tosijs.net/elements/ — Creating Elements
+  The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required.
+- https://tosijs.net/css/ — CSS
+  Utilities for writing CSS as JS objects, generating stylesheets, and working with CSS variables and themes via css(), vars, and varDefault().
+- https://tosijs.net/hot-reload/ — hotReload
+  hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads.
+- https://tosijs.net/make-component/ — makeComponent
+  makeComponent() hydrates a blueprint function into a usable tosijs web-component class plus its elementCreator.
+- https://tosijs.net/tosi/ — Managing State
+  The tosi observer proxy: wraps your application state and surgically updates bound DOM elements when you change properties through it.
+- https://tosijs.net/metadata/ — metadata
+  Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely.
+- https://tosijs.net/Migration/ — Migrating from xinjs to tosijs
+  Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings.
+- https://tosijs.net/more-math/ — more-math
+  Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants.
+- https://tosijs.net/path-listener/ — path-listener
+  The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system.
+- https://tosijs.net/React/ — React and tosijs
+  Using tosijs with React via the useTosi hook, and how tosijs's path-observer model differs from React's reactive UI=f(state) model.
+- https://tosijs.net/share/ — share
+  share() synchronizes tosijs state across browser tabs and windows using BroadcastChannel and IndexedDB.
+- https://tosijs.net/sync/ — sync
+  sync() synchronizes tosijs state across the network in real-time via a pluggable transport (websocket, fetch, or your own).
+- https://tosijs.net/xin/ — The tosi proxy
+  How the tosi observer proxy works: an object wrapped in a proxy that surgically updates bound DOM elements when its properties change.
+- https://tosijs.net/throttle/ — throttle & debounce
+  Rate-limiting helpers: throttle() runs at most once per interval; debounce() delays calls until activity stops.
+- https://tosijs.net/xin-proxy/ — tosi, xin, and xinProxy
+  Background on the tosijs observer proxies: how tosi() and xinProxy() relate to xin and boxed, plus tosiUnique() for per-instance state.
+- https://tosijs.net/ — tosijs
+  tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic.
+- https://tosijs.net/utilities/ — Utilities
+  Lightweight helper libraries used internally by tosijs and exposed for general use: more-math, throttle, debounce, hotReload, share, and sync.
+- https://tosijs.net/form-validation/ — Validation
+  Form validation for tosijs form-associated custom elements via ElementInternals: validity, validation messages, and constraint helpers.
+- https://tosijs.net/component/ — Web-Components
+  The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association.

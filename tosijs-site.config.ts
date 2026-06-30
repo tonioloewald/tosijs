@@ -39,4 +39,5 @@ export default defineSiteConfig({
 
   host: 'github-pages',
   port: 8018,
+  epub: { author: 'Tonio Loewald' },
 })

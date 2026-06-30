@@ -45,6 +45,7 @@
   "license": "BSD-3-CLAUSE",
   "devDependencies": {
     "@happy-dom/global-registrator": "^18.0.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.19.43",
     "@types/react": "^19.2.17",
@@ -54,9 +55,9 @@
     "eslint": "^8.57.1",
     "marked": "^16.4.2",
     "prettier": "^2.8.8",
-    "tjs-lang": "0.6.45",
+    "tjs-lang": "0.8.6",
     "tosijs": "file:.",
-    "tosijs-ui": "1.6.6",
+    "tosijs-ui": "1.6.13",
     "typescript": "^5.9.3"
   },
   "files": [

@@ -267,7 +267,7 @@ label {
   position: relative;
 }
 
-svg {
+svg.tosi-icon, button svg {
   fill: currentColor;
   pointer-events: none;
 }
