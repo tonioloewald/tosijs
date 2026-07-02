@@ -138,3 +138,6 @@ convert-report.txt
 
 # docs source maps
 docs/*.map
+
+# Claude Code session transcripts
+.haltija/

@@ -139,6 +139,27 @@ not what was wanted.</p>
 </code></pre>
 <p>…produces <code>&lt;span style=&quot;border: 1px solid red; fon-size: 15px&gt;&lt;/span&gt;</code>
 which is probably what was wanted.</p>
+<h2>class property</h2>
+<p>The <code>class</code> property accepts three forms:</p>
+<ul>
+<li><p><strong>a string</strong> — one or more space-separated class names are added:</p>
+<pre><code>div({ class: &#39;card selected&#39; })   // adds both classes
+</code></pre>
+</li>
+<li><p><strong>an array</strong> — each entry is added (entries may themselves be space-separated):</p>
+<pre><code>div({ class: [&#39;card&#39;, &#39;selected&#39;] })
+</code></pre>
+</li>
+<li><p><strong>a boolean map</strong> — each key is toggled on/off by its (truthy) value, so you
+can add and remove classes conditionally in one place:</p>
+<pre><code>div({ class: { card: true, selected: isSelected, hidden: false } })
+</code></pre>
+<p>adds <code>card</code>, adds or removes <code>selected</code> depending on <code>isSelected</code>, and removes
+<code>hidden</code>.</p>
+</li>
+</ul>
+<p>Extra whitespace is tolerated, and an empty string (<code>{ class: &#39;&#39; }</code>) is ignored
+with a console warning rather than throwing.</p>
 <h2>event handlers</h2>
 <p>Properties starting with <code>on</code> (followed by an uppercase letter)
 will be converted into event-handlers, so <code>onMouseup</code> will be

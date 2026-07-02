@@ -99,6 +99,43 @@ test('class attribute handles space-separated classes', () => {
   expect(div.classList.contains('baz')).toBe(true)
 })
 
+test('class attribute tolerates extra whitespace without crashing', () => {
+  const div = elements.div({ class: '  foo   bar ' })
+  expect(div.classList.contains('foo')).toBe(true)
+  expect(div.classList.contains('bar')).toBe(true)
+  expect(div.classList.length).toBe(2)
+})
+
+test('class attribute accepts an array of classes', () => {
+  const div = elements.div({ class: ['foo', 'bar baz'] })
+  expect(div.classList.contains('foo')).toBe(true)
+  expect(div.classList.contains('bar')).toBe(true)
+  expect(div.classList.contains('baz')).toBe(true)
+})
+
+test('class attribute accepts a boolean map', () => {
+  const div = elements.div({ class: { foo: true, bar: false, baz: 1 } })
+  expect(div.classList.contains('foo')).toBe(true)
+  expect(div.classList.contains('bar')).toBe(false)
+  expect(div.classList.contains('baz')).toBe(true)
+  expect(div.classList.length).toBe(2)
+})
+
+test('empty class attribute is ignored and warns', () => {
+  const warn = console.warn
+  let warned = false
+  console.warn = () => {
+    warned = true
+  }
+  try {
+    const div = elements.div({ class: '' })
+    expect(div.classList.length).toBe(0)
+    expect(warned).toBe(true)
+  } finally {
+    console.warn = warn
+  }
+})
+
 test('boolean attributes work correctly', () => {
   const { input, button } = elements
   const disabledInput = input({ disabled: true })

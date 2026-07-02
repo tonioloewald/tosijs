@@ -126,6 +126,29 @@ not what was wanted.
 …produces `<span style="border: 1px solid red; fon-size: 15px></span>`
 which is probably what was wanted.
 
+## class property
+
+The `class` property accepts three forms:
+
+- **a string** — one or more space-separated class names are added:
+
+      div({ class: 'card selected' })   // adds both classes
+
+- **an array** — each entry is added (entries may themselves be space-separated):
+
+      div({ class: ['card', 'selected'] })
+
+- **a boolean map** — each key is toggled on/off by its (truthy) value, so you
+  can add and remove classes conditionally in one place:
+
+      div({ class: { card: true, selected: isSelected, hidden: false } })
+
+  adds `card`, adds or removes `selected` depending on `isSelected`, and removes
+  `hidden`.
+
+Extra whitespace is tolerated, and an empty string (`{ class: '' }`) is ignored
+with a console warning rather than throwing.
+
 ## event handlers
 
 Properties starting with `on` (followed by an uppercase letter)
@@ -447,9 +470,37 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
         ;(elt as { [key: string]: any })[key] = value
       }
     } else if (attr === 'class') {
-      value.split(' ').forEach((className: string) => {
-        elt.classList.add(className)
-      })
+      const splitClasses = (v: any): string[] =>
+        String(v)
+          .split(/\s+/)
+          .filter(Boolean)
+      if (Array.isArray(value)) {
+        // ['foo', 'bar'] (each entry may itself be space-separated)
+        for (const entry of value) {
+          for (const className of splitClasses(entry)) {
+            elt.classList.add(className)
+          }
+        }
+      } else if (value != null && typeof value === 'object') {
+        // { foo: true, bar: false } adds foo, removes bar
+        for (const [key, on] of Object.entries(value)) {
+          for (const className of splitClasses(key)) {
+            elt.classList.toggle(className, Boolean(on))
+          }
+        }
+      } else {
+        // 'foo bar baz'
+        const classNames = splitClasses(value)
+        if (classNames.length === 0) {
+          console.warn(
+            'ignoring empty class attribute passed to element factory',
+            elt
+          )
+        }
+        for (const className of classNames) {
+          elt.classList.add(className)
+        }
+      }
     } else if ((elt as { [key: string]: any })[attr] !== undefined) {
       ;(elt as StringMap)[attr] = value
     } else if (typeof value === 'boolean') {
