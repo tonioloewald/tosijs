@@ -132,18 +132,33 @@ So today `TjsEquals` **breaks** the `==` that plain JS already got right for box
 scalars.
 
 **The fix — box over a primitive wrapper (no tjs-lang change).** Change the proxy
-target from `{}` to a primitive wrapper. Because `Eq` unwraps on `instanceof` and
-*then* calls `valueOf()` (which the handler already implements live), the target
-only needs a wrapper *prototype* — a single shared `new Number(0)` target suffices
-for all scalar types; the handler's live `valueOf` still returns the real string/
-number/boolean. Verified end-to-end:
+target from `{}` to a primitive wrapper. `Eq` unwraps on `instanceof` and *then*
+calls `valueOf()` (which the handler implements live), so this makes `==` work
+while proxy navigation (binding/`observe`/path-extension) is preserved — because
+we proxy *over* the wrapper rather than replacing the proxy with a bare wrapper.
+Verified end-to-end: `box instanceof Number` -> true, `box == 42` -> true via `Eq`,
+stays **live** as state changes, `box.foo.path` still extends the path.
 
-- `proxyOverNumber instanceof Number` -> true
-- `box == 42` -> true via `Eq`, and stays **live** as state changes
-- **proxy navigation preserved** (`box.foo.path` still extends the path) — this
-  matters: boxed scalars are proxies precisely so binding/`observe`/path-extension
-  work. Boxing "in String etc." keeps that as long as you proxy *over* the wrapper
-  rather than replacing the proxy with a bare wrapper.
+**Do it per type — `Boolean` / `Number` / `String` — matched to `typeof`.** A
+single shared `new Number(0)` target is enough to make `Eq` unwrap *any* scalar
+(it unwraps on `instanceof Number|String|Boolean` then `valueOf`s), but then a
+string box reports `instanceof Number` — a lie that breaks `instanceof String`
+checks and `typeof`-style guards. Matched wrappers keep `instanceof` honest.
+Findings per type (tested):
+
+- **`Number`** — shared `new Number(0)` target. Clean; no own data properties, so
+  the handler can override everything. Value irrelevant (handler supplies live).
+- **`Boolean`** — shared `new Boolean(false)` target. Clean, same reason. Bonus:
+  `instanceof Boolean` also lets native `toBool` unwrap boxed booleans in `if()`.
+- **`String`** — the sharp edge. A `String` wrapper has **own non-configurable
+  `length` and index properties**, and the Proxy invariant requires the handler to
+  return the target's *exact* values for those. So: use a **value-holding**
+  `new String(currentValue)` target (not a shared empty one) and pass own props
+  through (`Reflect.get(target, prop)` for `length`/indices), delegating string
+  methods to the live value. Then `instanceof String`, `.length`, `b[0]`,
+  `.toUpperCase()`, `String(b)`, and `==` all work. Cost: a small per-access
+  `String` allocation, and `.length`/indices are a point-in-time snapshot (fine —
+  boxes are ephemeral, recreated per access; `valueOf` stays live via the handler).
 
 An alternative that also works but needs a tjs-lang change: have `Eq` do a real
 `ToPrimitive` (consult `Symbol.toPrimitive`/`valueOf` on objects), or add an
