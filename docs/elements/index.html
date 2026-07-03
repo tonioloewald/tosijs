@@ -158,8 +158,10 @@ can add and remove classes conditionally in one place:</p>
 <code>hidden</code>.</p>
 </li>
 </ul>
-<p>Extra whitespace is tolerated, and an empty string (<code>{ class: &#39;&#39; }</code>) is ignored
-with a console warning rather than throwing.</p>
+<p>Extra whitespace is tolerated. Falsy values — <code>&#39;&#39;</code>, <code>null</code>, <code>undefined</code>, and
+<code>false</code> (e.g. from <code>cond ? &#39;active&#39; : undefined</code> or <code>cond &amp;&amp; &#39;active&#39;</code>) — add no
+class, so conditional class expressions work without special-casing. Array
+entries are treated the same way (falsy entries are skipped).</p>
 <h2>event handlers</h2>
 <p>Properties starting with <code>on</code> (followed by an uppercase letter)
 will be converted into event-handlers, so <code>onMouseup</code> will be

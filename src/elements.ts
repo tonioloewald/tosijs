@@ -146,8 +146,10 @@ The `class` property accepts three forms:
   adds `card`, adds or removes `selected` depending on `isSelected`, and removes
   `hidden`.
 
-Extra whitespace is tolerated, and an empty string (`{ class: '' }`) is ignored
-with a console warning rather than throwing.
+Extra whitespace is tolerated. Falsy values — `''`, `null`, `undefined`, and
+`false` (e.g. from `cond ? 'active' : undefined` or `cond && 'active'`) — add no
+class, so conditional class expressions work without special-casing. Array
+entries are treated the same way (falsy entries are skipped).
 
 ## event handlers
 
@@ -470,8 +472,12 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
         ;(elt as { [key: string]: any })[key] = value
       }
     } else if (attr === 'class') {
+      // `v || ''` collapses null/undefined/false — idiomatic conditional
+      // "no class" (`cond ? 'active' : undefined`, `cond && 'active'`, or an
+      // explicit null) — to an empty string, so it adds NO class rather than a
+      // literal "null"/"undefined"/"false". Also tolerates extra whitespace.
       const splitClasses = (v: any): string[] =>
-        String(v)
+        String(v || '')
           .split(/\s+/)
           .filter(Boolean)
       if (Array.isArray(value)) {
@@ -489,15 +495,8 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
           }
         }
       } else {
-        // 'foo bar baz'
-        const classNames = splitClasses(value)
-        if (classNames.length === 0) {
-          console.warn(
-            'ignoring empty class attribute passed to element factory',
-            elt
-          )
-        }
-        for (const className of classNames) {
+        // 'foo bar baz' (and null/undefined/false/'' -> no class)
+        for (const className of splitClasses(value)) {
           elt.classList.add(className)
         }
       }

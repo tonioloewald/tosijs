@@ -121,19 +121,24 @@ test('class attribute accepts a boolean map', () => {
   expect(div.classList.length).toBe(2)
 })
 
-test('empty class attribute is ignored and warns', () => {
-  const warn = console.warn
-  let warned = false
-  console.warn = () => {
-    warned = true
-  }
-  try {
-    const div = elements.div({ class: '' })
+test('empty class attribute adds no class', () => {
+  const div = elements.div({ class: '' })
+  expect(div.classList.length).toBe(0)
+})
+
+test('falsy class values add no class (idiomatic conditionals)', () => {
+  // `cond ? 'active' : undefined`, `cond && 'active'` (-> false), explicit null.
+  // These must NOT become literal "undefined"/"false"/"null" classes.
+  for (const value of [undefined, null, false, 1 > 2 && 'active']) {
+    const div = elements.div({ class: value as any })
     expect(div.classList.length).toBe(0)
-    expect(warned).toBe(true)
-  } finally {
-    console.warn = warn
+    expect(div.className).toBe('')
   }
+})
+
+test('class array skips falsy entries', () => {
+  const div = elements.div({ class: ['foo', null, false, undefined, 'bar'] as any })
+  expect([...div.classList].sort()).toEqual(['bar', 'foo'])
 })
 
 test('boolean attributes work correctly', () => {

@@ -592,6 +592,10 @@ function anonElementTag(): string {
 }
 let instanceCount = 0
 
+// Marks a prototype whose connectedCallback has already been wrapped to drain
+// deferred constructor-time attribute ops before the subclass body runs.
+const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
+
 // Lazy shared MutationObserver for deprecated initAttributes
 let legacyAttributeObserver: MutationObserver | null = null
 
@@ -813,6 +817,32 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       const defineOptions: ElementDefinitionOptions | undefined = extendsTag
         ? { extends: extendsTag }
         : undefined
+
+      // Guarantee the deferred-attribute drain (see _installAttributeQueue)
+      // runs BEFORE the subclass's connectedCallback body — regardless of
+      // whether or when the subclass calls super.connectedCallback(). The
+      // platform invokes the most-derived connectedCallback, so wrap it on the
+      // concrete prototype to drain first. Without this, a subclass that reads
+      // an initAttributes-backed attribute (e.g. getAttribute('url')) or fires
+      // an event before calling super would observe the pre-drain default —
+      // the value set via `el.foo = …` between createElement and a synchronous
+      // append is queued, not yet reflected to the DOM.
+      const proto = (this as unknown as { prototype: any }).prototype
+      if (
+        proto != null &&
+        !Object.prototype.hasOwnProperty.call(proto, DRAIN_WRAPPED)
+      ) {
+        const inner = proto.connectedCallback as undefined | (() => void)
+        proto.connectedCallback = function (this: Component): void {
+          const self = this as unknown as { _drainPendingAttrOps(): void }
+          self._drainPendingAttrOps()
+          if (inner) inner.call(this)
+        }
+        Object.defineProperty(proto, DRAIN_WRAPPED, {
+          value: true,
+          enumerable: false,
+        })
+      }
 
       window.customElements.define(
         tagName,

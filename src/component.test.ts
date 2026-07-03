@@ -991,4 +991,82 @@ describe('constructor must not gain attributes', () => {
     await Promise.resolve()
     expect(el.getAttribute('foo')).toBe('parser-value')
   })
+
+  // Regression (1.6.x): an attribute set via its property between createElement
+  // and a *synchronous* append was queued (masked) but not yet reflected to the
+  // DOM when the subclass's connectedCallback ran — so early lifecycle work in
+  // the subclass (asset loading, `sceneReady`) that read the attribute saw the
+  // empty default and never retried. The drain must happen before the subclass
+  // connectedCallback body, regardless of when it calls super.
+  test('subclass connectedCallback sees attribute set before synchronous append', () => {
+    class NpcBiped extends Component {
+      static preferredTagName = 'npc-biped'
+      static initAttributes = { url: '' }
+      urlViaGetAttribute?: string
+      urlViaProperty?: string
+      connectedCallback() {
+        // Subclass reads the attribute BEFORE calling super — the regression
+        // surface. Both the DOM attribute and the property must be populated.
+        this.urlViaGetAttribute = this.getAttribute('url') ?? ''
+        this.urlViaProperty = (this as any).url
+        super.connectedCallback()
+      }
+    }
+    NpcBiped.elementCreator()
+
+    const el = document.createElement('npc-biped') as NpcBiped
+    // Queued during the masked window (mask not drained until connect/microtask)
+    ;(el as any).url = '/omnidude.glb'
+    expect(el.hasAttribute('url')).toBe(false) // still queued pre-connect
+    document.body.append(el) // synchronous connect
+
+    expect(el.urlViaGetAttribute).toBe('/omnidude.glb')
+    expect(el.urlViaProperty).toBe('/omnidude.glb')
+    expect(el.getAttribute('url')).toBe('/omnidude.glb')
+    el.remove()
+  })
+
+  // Even a subclass that does its work before (or without) calling super must
+  // see drained attributes — the wrap drains ahead of the subclass body.
+  test('drain precedes subclass connectedCallback even when super is not called first', () => {
+    const seen: string[] = []
+    class EarlyReader extends Component {
+      static preferredTagName = 'early-reader'
+      static initAttributes = { label: 'default-label' }
+      connectedCallback() {
+        seen.push(this.getAttribute('label') ?? '<null>')
+        super.connectedCallback()
+      }
+    }
+    EarlyReader.elementCreator()
+
+    const el = document.createElement('early-reader')
+    ;(el as any).label = 'set-before-append'
+    document.body.append(el)
+
+    expect(seen).toEqual(['set-before-append'])
+    el.remove()
+  })
+
+  // The wrap must not defeat the deferral: assigning during construction still
+  // does NOT reflect to the DOM synchronously (no Chrome "gained attributes"
+  // warning). Guards against a regression where the wrap drained too eagerly.
+  test('wrap does not cause constructor-time reflection', () => {
+    class StillDeferred extends Component {
+      static preferredTagName = 'still-deferred'
+      static initAttributes = { foo: 'default-foo' }
+      constructor() {
+        super()
+        ;(this as any).foo = 'ctor-value'
+      }
+    }
+    StillDeferred.elementCreator()
+
+    const { result: el, calls } = captureProtoSetAttribute(
+      (e) => e instanceof StillDeferred,
+      () => new StillDeferred()
+    )
+    expect(calls).toEqual([]) // nothing reflected during construction
+    expect((el as any).foo).toBe('ctor-value') // but readable via property
+  })
 })

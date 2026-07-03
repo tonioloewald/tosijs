@@ -1,4 +1,4 @@
-# tosijs v1.6.5
+# tosijs v1.6.6
 
 Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.
 

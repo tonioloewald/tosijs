@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.6.6] - 2026-07-03
+
+### Fixed
+
+- **Attribute-timing regression** in the constructor `setAttribute` deferral
+  (introduced in the 1.6.x line): a value assigned to an `initAttributes`-backed
+  property between `createElement` and a *synchronous* `append` was queued but
+  not yet reflected to the DOM when a subclass's `connectedCallback` ran. A
+  subclass that read the attribute early (e.g. `getAttribute('url')`, or asset
+  loading / `sceneReady` logic before calling `super.connectedCallback()`) saw
+  the empty default and never retried. The deferred-attribute drain now runs
+  before the subclass's `connectedCallback` body — regardless of whether or when
+  it calls `super` — by wrapping `connectedCallback` at registration.
+- Element factory `class` property: falsy values (`''`, `null`, `undefined`,
+  `false`) now add no class instead of the literal strings `"null"`/
+  `"undefined"`/`"false"` (regression from the 1.6.5 `class` rework). Conditional
+  expressions like `cond ? 'active' : undefined` and `cond && 'active'` now work
+  directly, and falsy array entries are skipped.
+
 ## [1.6.5] - 2026-07-02
 
 ### Added
