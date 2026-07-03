@@ -55,7 +55,7 @@
     "eslint": "^8.57.1",
     "marked": "^16.4.2",
     "prettier": "^2.8.8",
-    "tjs-lang": "0.8.6",
+    "tjs-lang": "0.8.7",
     "tosijs": "file:.",
     "tosijs-ui": "1.6.22",
     "typescript": "^5.9.3"
