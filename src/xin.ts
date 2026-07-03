@@ -907,16 +907,51 @@ const extendPath = (path = '', prop = ''): string => {
 // Single shared target for all boxed scalar proxies - the proxy handler
 // closure contains all the actual information (path), and values are
 // always read from/written to the registry
+// Boxed scalars proxy over a primitive-wrapper target so that
+// `instanceof Number/String/Boolean` is honest. That lets TJS's `Eq` (and plain
+// JS `==`) unwrap a boxed scalar via `valueOf` — no `.value` ceremony — while the
+// proxy keeps its navigation/binding behavior. `Number`/`Boolean` wrappers have
+// no own data properties, so a single shared target suffices (the live value
+// comes from the handler's `valueOf`, not the target). A `String` wrapper has
+// own non-configurable `length`/index properties, so each string box needs its
+// own value-holding target to satisfy the Proxy invariant. bigint/symbol/
+// undefined/null fall back to a plain shared object (not `Eq`-unwrappable, but
+// those are rarely compared by value).
 const boxedScalarTarget = {}
+const numberTarget = new Number(0)
+const booleanTarget = new Boolean(false)
+// Identifies targets WE created (vs. a `new String(...)` a user stored in state),
+// so `instanceof` can't be used for detection. Weak so ephemeral string targets
+// are collected.
+const boxedScalarTargets = new WeakSet<object>([
+  boxedScalarTarget,
+  numberTarget,
+  booleanTarget,
+])
 
 function box<T>(x: T, path: string): T {
   // Objects and functions don't need boxing - they get proxied directly
   if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
     return x
   }
-  // For scalars, use the shared target - path is captured in the handler closure
+  let target: object
+  switch (typeof x) {
+    case 'number':
+      target = numberTarget
+      break
+    case 'boolean':
+      target = booleanTarget
+      break
+    case 'string':
+      target = new String(x)
+      boxedScalarTargets.add(target)
+      break
+    default:
+      // bigint, symbol, undefined, null
+      target = boxedScalarTarget
+  }
   return new Proxy<XinProxyTarget, XinObject>(
-    boxedScalarTarget,
+    target as XinProxyTarget,
     regHandler(path, true)
   ) as T
 }
@@ -995,7 +1030,11 @@ function warnDeprecation() {
 
 // Check if target is a boxed scalar proxy
 const isBoxedScalar = (target: any): boolean => {
-  return target === boxedScalarTarget
+  return (
+    (typeof target === 'object' || typeof target === 'function') &&
+    target !== null &&
+    boxedScalarTargets.has(target)
+  )
 }
 
 // Accessor handler — wraps the same target, dispatches accessor API via get/set
@@ -1003,7 +1042,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
   get(_t, prop) {
     switch (prop) {
       case 'value':
-        return target === boxedScalarTarget
+        return isBoxedScalar(target)
           ? getByPath(registry, path)
           : target.valueOf
           ? target.valueOf()
@@ -1023,7 +1062,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
         }
       case 'on': {
         const val =
-          target === boxedScalarTarget
+          isBoxedScalar(target)
             ? getByPath(registry, path)
             : target.valueOf
             ? target.valueOf()
@@ -1171,6 +1210,22 @@ const regHandler = (
       if (mapped !== undefined) {
         warnDeprecation()
         return makeTosiAccessor(path, target)[mapped]
+      }
+
+      // Proxy invariant: a String wrapper target has own non-configurable
+      // length/index properties. The handler must return the target's exact
+      // value for those, or the engine throws. (No-op for Number/Boolean/object
+      // targets, which have no such own properties.)
+      if (typeof _prop === 'string') {
+        const descriptor = Object.getOwnPropertyDescriptor(target, _prop)
+        if (
+          descriptor &&
+          !descriptor.configurable &&
+          !descriptor.writable &&
+          'value' in descriptor
+        ) {
+          return descriptor.value
+        }
       }
 
       // Delegate to underlying primitive for unrecognized properties

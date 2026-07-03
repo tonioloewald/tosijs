@@ -153,12 +153,23 @@ Findings per type (tested):
 - **`String`** — the sharp edge. A `String` wrapper has **own non-configurable
   `length` and index properties**, and the Proxy invariant requires the handler to
   return the target's *exact* values for those. So: use a **value-holding**
-  `new String(currentValue)` target (not a shared empty one) and pass own props
-  through (`Reflect.get(target, prop)` for `length`/indices), delegating string
-  methods to the live value. Then `instanceof String`, `.length`, `b[0]`,
+  `new String(currentValue)` target (not a shared empty one) and return the
+  target's own value for those props via `getOwnPropertyDescriptor`, delegating
+  string methods to the live value. Then `instanceof String`, `.length`, `b[0]`,
   `.toUpperCase()`, `String(b)`, and `==` all work. Cost: a small per-access
   `String` allocation, and `.length`/indices are a point-in-time snapshot (fine —
   boxes are ephemeral, recreated per access; `valueOf` stays live via the handler).
+
+**Implemented & validated on the real library** (`src/xin.ts`, `box()` +
+`regHandler` + `accessorHandler`; tests in `src/boxed-scalar-eq.test.ts`). Full
+suite 573 pass. Gotchas hit while wiring it in:
+- `isBoxedScalar` can't use `instanceof` (a user might store a real `new String()`
+  in state) — detect via a `WeakSet` of targets *we* created.
+- `accessorHandler`'s `value`/`on` cases hard-coded `target === boxedScalarTarget`;
+  the new wrapper targets fell through to `target.valueOf()` (returning the shared
+  `new Number(0)`'s `0`). Switch those to `isBoxedScalar(target)`.
+- The invariant guard already existed in the non-boxed branch; the boxed branch
+  needed the same guard added ahead of its primitive-method delegation.
 
 An alternative that also works but needs a tjs-lang change: have `Eq` do a real
 `ToPrimitive` (consult `Symbol.toPrimitive`/`valueOf` on objects), or add an

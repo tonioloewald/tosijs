@@ -1,0 +1,11 @@
+// TJS equality helper — `TjsEquals` rewrites == / != to Eq / NotEq. Used by
+// boxed-scalar-eq.test.ts to prove tosijs boxed scalars unwrap through TJS's Eq
+// (via their primitive-wrapper target) with no `.value` ceremony.
+TjsEquals
+
+export function eq(a, b) {
+  return a == b
+}
+export function ne(a, b) {
+  return a != b
+}
