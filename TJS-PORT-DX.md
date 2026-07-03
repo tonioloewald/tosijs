@@ -208,6 +208,73 @@ change; `===` stays identity by design, so reach for `==` for value comparison.
 
 ---
 
+## Type-declaration exploration: DOM / CSS / Events (elements.ts, 2026-07-04)
+
+`elements.ts` is where the interesting typing lives, and where TS structurally
+can't win: DOM/CSS/Event value spaces are defined by **grammars and runtime
+registries**, not by enumerable literal types. TS can only approximate them with
+big hand-maintained unions that end in `| string` — which gives autocomplete but
+**zero validation**, and rots. TJS types are **predicates** (real functions), so
+they can validate the actual grammar/registry *and* mine autocomplete from the
+same source. This is the "real JS superset rather than pretending it's C#" payoff.
+
+Evidence gathered against the current TS decls and tjs-lang's (unreleased) CSS
+predicate module (`../tjs-lang/src/css`):
+
+**1. CSS values — `XinStyleRule` (css-types.ts).** ~250 properties, each a union
+of literal types **plus `| string`** on almost every one. The `| string` means
+the literals are autocomplete hints only; any string passes. TS *cannot* do
+better — CSS value grammars (`calc()`, `var()`, units) are context-free, not
+expressible in the type system. tjs-lang's predicates already do the real thing:
+
+```
+isColor('var(--brand)')      -> true      isColor('notacolor')        -> false
+isLength('calc(100% - 4px)') -> true      isLength('12')              -> false
+isGlobalKeyword('inherit')   -> true
+suggestColor('re', 8)        -> ['rebeccapurple', 'red']   // autocomplete, same source
+```
+
+Predicates are authored as verified (pure / synchronous / ReDoS-clean) source,
+compiled to a fast native validator **and** mined for suggestions — one source of
+truth for both check and complete. That's the thing TS can't give you.
+
+**2. `class` — TS says `class?: string`, which is already wrong.** Post-1.6.6 the
+runtime accepts `string | string[] | Record<string, boolean>`. A predicate both
+expresses and validates the real union (verified working):
+
+```
+isClassValue('a b') / ['a','b'] / {a:true,b:false} -> true
+isClassValue(42) / {a:'x'}                          -> false
+```
+
+**3. `on<Event>` — TS = a 20-line hand-maintained list + `[key: string]: any`.**
+The escape hatch lets `onClik` / `onFoo` through silently. A predicate derived
+from the real event map validates handler names and catches the typos (verified):
+
+```
+isEventHandlerKey('onClick' / 'onPointermove') -> true
+isEventHandlerKey('onClik' / 'onFoo')          -> false
+```
+
+**4. `[key: string]: any`** — the catch-all that ends `ElementProps`. It exists
+because "any valid attribute" isn't enumerable in TS. A predicate can accept the
+open set precisely: a known HTML attribute, `data-*`, `aria-*`, or a valid event
+handler — catching typos while staying open. TS catches nothing here.
+
+**Design for elements.ts 2.0 typing** (once the CSS predicate module ships):
+- `style`: validate values via the CSS predicates (`isStyleValue`/`isColor`/
+  `isLength`/…) instead of `Union | string`; keep autocomplete via `suggest*`.
+- `class`: the `isClassValue` predicate (fixes the wrong `class?: string`).
+- `on<Event>`: derive from the event map via a predicate (drop the hand-list).
+- catch-all: an attribute/`data-`/`aria-`/event predicate instead of
+  `[key: string]: any`.
+
+**Status:** design + evidence only; no mechanical port of elements.ts yet (its
+315 real lines + 5 TS importers are a separate task). The predicate module is
+unreleased, so this can't be wired into tosijs until it's a public export.
+
+---
+
 ## Feedback for tjs-lang
 
 Tracked here as it surfaces; also mirrored to the maintainer.
@@ -233,3 +300,15 @@ Tracked here as it surfaces; also mirrored to the maintainer.
    `Symbol.toPrimitive`/`valueOf` on objects — or an explicit `[TjsCompareValue]()`
    protocol — would let any value-like object opt into smart `==` without
    pretending to be a `Number`. Nice-to-have, not required.
+6. **CSS predicate module isn't shipped.** `src/css` (`isColor`, `isLength`,
+   `isStyleValue`, `suggestColor`, …) exists only in the repo — not in the
+   published 0.8.7 package, not a public export. It's the strongest argument for
+   TJS on DOM/CSS typing; getting it exported (`tjs-lang/css`) would let tosijs
+   actually adopt it.
+7. **`isCssProperty` is loose on property names.** `isCssProperty('align-kontent')`
+   returns `true` — it accepts typo'd/unknown property names. Property-name
+   validation should be a closed set (with `--custom` and vendor prefixes allowed).
+8. **`isStyleObject` doesn't import standalone.** Pulling it in drags
+   `src/css/shorthands.ts`, which fails to parse under bun on its own
+   (`Expected ";" but found "$predicate"`). The color/length/property predicates
+   import fine; the style-object cluster doesn't yet.
