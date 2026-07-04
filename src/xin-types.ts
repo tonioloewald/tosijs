@@ -258,6 +258,18 @@ export interface XinInlineBinding<T = Element> {
   binding: XinBinding<T> | XinBindingSetter<T> | string
 }
 
+// The `class` element-prop accepts (as of 1.6.6):
+// - a space-separated string:            'card selected'
+// - an array (falsy entries skipped):    ['card', isSel && 'selected']
+// - a boolean map (adds/removes):        { card: true, selected: isSel }
+// A top-level falsy value adds no class (idiomatic `cond ? 'x' : false`).
+export type XinClassSpec =
+  | string
+  | false
+  | null
+  | Array<string | false | null | undefined>
+  | Record<string, boolean>
+
 export interface ElementProps<T = Element> {
   onClick?: XinEventHandler<MouseEvent, T>
   onMousedown?: XinEventHandler<MouseEvent, T>
@@ -289,7 +301,7 @@ export interface ElementProps<T = Element> {
   /** @deprecated Use { disabled: proxy } instead */
   bindDisabled?: XinBindingShortcut
   style?: XinStyleRule
-  class?: string
+  class?: XinClassSpec
   apply?: (element: Element) => void | Promise<void>
   [key: string]: any
 }
