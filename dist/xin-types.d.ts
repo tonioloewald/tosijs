@@ -185,6 +185,7 @@ export interface XinInlineBinding<T = Element> {
     value: XinTouchableType;
     binding: XinBinding<T> | XinBindingSetter<T> | string;
 }
+export type XinClassSpec = string | false | null | Array<string | false | null | undefined> | Record<string, boolean>;
 export interface ElementProps<T = Element> {
     onClick?: XinEventHandler<MouseEvent, T>;
     onMousedown?: XinEventHandler<MouseEvent, T>;
@@ -216,7 +217,7 @@ export interface ElementProps<T = Element> {
     /** @deprecated Use { disabled: proxy } instead */
     bindDisabled?: XinBindingShortcut;
     style?: XinStyleRule;
-    class?: string;
+    class?: XinClassSpec;
     apply?: (element: Element) => void | Promise<void>;
     [key: string]: any;
 }

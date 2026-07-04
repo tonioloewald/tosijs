@@ -1124,6 +1124,20 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         continue
       }
 
+      // Boolean attributes are false-by-default in HTML: presence = true, absence
+      // = false. A reflected boolean attribute cannot default to true — the element
+      // would have to "gain" the attribute during construction (which the custom-
+      // elements spec forbids), so a true default silently reads back as false.
+      // Reject it loudly rather than surprise the developer.
+      if (defaultValue === true) {
+        throw new Error(
+          `${this.tagName}: static initAttributes.${attrName} defaults a boolean attribute to true, ` +
+            `but HTML boolean attributes are false-by-default (presence = true, absence = false) and ` +
+            `cannot reflect a true default — it would silently become false. Use { ${attrName}: false }, ` +
+            `or model it as a string/number attribute or a plain (non-attribute) property.`
+        )
+      }
+
       // Skip if already set up (e.g., by legacy initAttributes) or not configurable
       // Check prototype chain for non-configurable properties (e.g., 'name' on Element)
       let proto: object | null = this

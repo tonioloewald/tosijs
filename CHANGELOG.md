@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.6.7] - 2026-07-05
+
+### Fixed
+
+- **`ElementProps.class` type** widened to match the runtime (which has accepted
+  arrays and boolean maps since 1.6.5). It was still typed `class?: string`, so
+  TypeScript rejected `div({ class: ['a', 'b'] })` and
+  `div({ class: { active: isActive } })` — forcing a cast. The new `XinClassSpec`
+  type is `string | false | null | Array<string | false | null | undefined> |
+  Record<string, boolean>` (top-level and array falsy values add no class, matching
+  the runtime). Type-only change.
+
+### Changed
+
+- **`static initAttributes` now throws for a boolean attribute defaulting to
+  `true`.** HTML boolean attributes are false-by-default (presence = true, absence
+  = false), and a reflected boolean attribute cannot default to `true` — the
+  element would have to "gain" the attribute during construction (which the
+  custom-elements spec forbids), so a `true` default silently read back as `false`.
+  Rather than surprise you, this is now a hard error explaining the fix (`{ foo:
+  false }`, or a string/number attribute or a plain property). A `false` default is
+  unchanged.
+
 ## [1.6.6] - 2026-07-03
 
 ### Fixed

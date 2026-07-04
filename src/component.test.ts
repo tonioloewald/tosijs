@@ -525,6 +525,35 @@ describe('static initAttributes', () => {
       )
     ).toBe(true)
   })
+
+  test('boolean attribute defaulting to true throws with an explanation', () => {
+    // HTML boolean attributes are false-by-default; a true default silently
+    // becomes false, so declaring one is a hard error.
+    class BoolTrueComponent extends Component {
+      static preferredTagName = 'bool-true-component'
+      static initAttributes = { open: true }
+    }
+    const create = BoolTrueComponent.elementCreator()
+    expect(() => create()).toThrow(/boolean attribute to true/)
+    try {
+      create()
+    } catch (e) {
+      // the message should explain the HTML semantics and point at the fix
+      expect((e as Error).message).toContain('false-by-default')
+      expect((e as Error).message).toContain('{ open: false }')
+    }
+  })
+
+  test('boolean attribute defaulting to false is fine', () => {
+    class BoolFalseComponent extends Component {
+      static preferredTagName = 'bool-false-component'
+      static initAttributes = { open: false }
+    }
+    const el = BoolFalseComponent.elementCreator()() as any
+    document.body.appendChild(el)
+    expect(el.open).toBe(false)
+    el.remove()
+  })
 })
 
 // Tests for light DOM :host selector rewriting
