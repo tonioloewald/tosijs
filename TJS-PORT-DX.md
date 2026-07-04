@@ -91,6 +91,42 @@ plugin — 7/7 pass, full suite 568 pass.
 The native-mode tax is `__tjs.toBool(...)` wrapping *every* conditional and `Eq()`
 wrapping loose equality. `TjsCompat` removes both → parity.
 
+### string-case.ts → the `safety` axis (2026-07-04)
+
+A tiny, pure, hot module (`camelToKabob`/`kabobToCamel`, called on every attribute)
+— used to exercise **`safety inputs`**, the boundary-validation mode (everything
+before this was `safety none`/`TjsCompat`). Findings:
+
+- **`safety inputs` works and is monadic.** `function camelToKabob(s: '')` under
+  `safety inputs` validates the argument at the boundary and returns a clean
+  **`MonadicError` value** for bad input — it does *not* throw or crash:
+  ```
+  camelToKabob('fooBar') -> 'foo-bar'
+  camelToKabob(42)       -> MonadicError("Expected string for '…camelToKabob.s', got number")
+  camelToKabob(null)     -> MonadicError("… got null")
+  ```
+  It also propagates monadic errors (`if (s instanceof Error) return s`), so an
+  error flows through a pipeline instead of exploding.
+- **On a hot path the validation is perf-free.** `camelToKabob` is dominated by its
+  regex `.replace`, so plain-JS / `safety none` / `safety inputs` all clocked
+  **~0.5M/s** — the input check is invisible. Validation cost only shows up on
+  ultra-cheap operations; for anything doing real work, `safety inputs` at the
+  boundary is effectively free.
+- **Size cost is real but fixed.** `safety inputs` emitted **1315 B** vs
+  **273 B** for `safety none`+`TjsCompat` — the `MonadicError` class + call-stack
+  helpers + per-param validation. Fixed per-module overhead, amortized across a
+  module's functions.
+- **Behavior shift to remember:** monadic errors change the return contract.
+  `camelToKabob(42)` returns a `MonadicError` *value*, not a thrown exception, so a
+  caller that doesn't check will pass it along (e.g. into `setAttribute`, where it
+  stringifies to the error message). Good for composition, but it's a real
+  departure from throwing — public tosijs APIs adopting `safety inputs` need to
+  document the monadic contract.
+
+Policy refinement: `safety inputs` fits **public boundaries** (validate once, cheap
+relative to real work); keep `safety none` for the *inside* of hot loops. This
+matches the mode policy above but on the orthogonal safety axis.
+
 ---
 
 ## Assessment: the `.value` ceremony vs frictionless comparison (2026-07-03)
@@ -335,3 +371,12 @@ Tracked here as it surfaces; also mirrored to the maintainer.
    `src/css/shorthands.ts`, which fails to parse under bun on its own
    (`Expected ";" but found "$predicate"`). The color/length/property predicates
    import fine; the style-object cluster doesn't yet.
+9. **Predicate verification isn't surfaced by the `tjs()` transpile API.** A `Type`
+   with a pure predicate vs one calling `CSS.supports` (effectful) emit identically
+   through `tjs()`; `result.types`/`warnings`/`metadata` are empty, so there's no
+   signal for "did this predicate verify (fuel-bounded, safe on untrusted data) or
+   fall back to a plain function?" The verify/compile/suggest pipeline the `css`
+   module uses lives in a separate API (`verifyPredicate`/`compilePredicate`) — so
+   a consumer authoring `Type` blocks and transpiling gets no verification feedback.
+   Surfacing per-predicate verification status in the transpile result would let
+   tools warn on unverifiable predicates.
