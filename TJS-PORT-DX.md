@@ -238,6 +238,29 @@ Predicates are authored as verified (pure / synchronous / ReDoS-clean) source,
 compiled to a fast native validator **and** mined for suggestions — one source of
 truth for both check and complete. That's the thing TS can't give you.
 
+**1b. Better still — ask the browser (`CSS.supports`).** The strongest version of
+"grammar/registry, not literals": don't hand-author a CSS grammar at all, ask the
+environment that actually implements it. `CSS.supports(prop, value)` is the
+browser's own validator — exact, always current with the browser's real support
+(vendor prefixes, new features, full `calc()`/`var()` grammar), zero maintenance.
+It closes the exact gap the hand-authored predicate has (`isCssProperty` accepts
+`align-kontent`; `CSS.supports('align-kontent', …)` in a real browser returns
+`false`). Property names for autocomplete come from the same place — the keys of a
+throwaway element's `.style` (or `CSSStyleDeclaration.prototype`).
+
+The design implication is that the two approaches are **complementary**, split by
+*when* validation runs:
+- **Runtime, in a browser** → `CSS.supports` is ground truth (exact, free).
+- **Transpile-time / SSR / Node** → no browser, so a `CSS.supports`-based predicate
+  can't be statically *verified* (though it's predicate-safe to *run*). There the
+  hand-authored grammar predicates (`isColor`/`isLength`) are the portable fallback.
+
+So a CSS-value predicate should prefer `CSS.supports` when `typeof CSS !== 'undefined'`
+and fall back to the grammar predicate otherwise. Caveat worth flagging: **happy-dom
+stubs `CSS.supports` to return `true` for everything** (verified — even
+`align-kontent` and `width: banana`), so tests can't rely on it; the exact behavior
+needs a real browser or a headless CSS engine.
+
 **2. `class` — TS says `class?: string`, which is already wrong.** Post-1.6.6 the
 runtime accepts `string | string[] | Record<string, boolean>`. A predicate both
 expresses and validates the real union (verified working):
