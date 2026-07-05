@@ -11,6 +11,15 @@ right mode selection, native `.tjs` matches TS on both runtime and size for hot
 code; the ergonomic modes cost a little where you opt into them, which is exactly
 where you don't put hot paths. Nothing here blocks the port.
 
+**Framing principle (don't evaluate TJS as "a better `tsc`").** The goal is to
+*replace* TypeScript with a type system that's a natural part of the language —
+examples-as-types, predicates-as-functions — not to auto-emit TS-quality `.d.ts`.
+`.d.ts` is an expressly-controlled **migration bridge** (`declaration { … }` blocks,
+`// TS:`, or just keep `tsc` on un-migrated `.ts`). Judge TJS by its native type
+system (the predicate / `CSS.supports` work below), not by how close auto-inferred
+`.d.ts` gets to hand-written TS. Where auto-inference is used it should still be
+*correct* (see the required→optional bug), but its polish isn't the yardstick.
+
 ## Two independent axes (learn this first)
 
 TJS has two orthogonal knobs, and conflating them wasted time early on:
@@ -45,28 +54,43 @@ and per-conditional overhead come from the *modes*, not from safety.
   `foo-port.test.ts` that runs the original assertions against `./foo.tjs`
   through the plugin. Proves behavior-equivalence before swapping anything.
 
-## Phase-2 blockers for a full swap (not yet solved)
+## Phase-2: the full swap (and what `.d.ts` actually is)
 
-Replacing a `.ts` with a `.tjs` in the shipped build still needs:
+> **Design intent — read before treating any of this as a "blocker."** TJS's goal
+> is to **replace** TypeScript with a type system that's a *natural part of the
+> language* (examples-as-types, predicates-as-functions), **not to be a better
+> `tsc`**. So `.d.ts` emission is a **migration bridge you expressly control**, not
+> an auto-inference feature whose quality measures the system. You control it via:
+> - **`declaration { … }` blocks** — verbatim TS emitted into the `.d.ts`
+>   (confirmed: a `Generic BoxedProxy<T> { declaration { value: T; path: string;
+>   observe(cb: (path: string) => void): void } }` emits exactly that interface).
+> - **`// TS:` type comments** on `Type` declarations.
+> - or simply **keep `tsc`** emitting `.d.ts` for the `.ts` files you haven't
+>   migrated yet (tosijs already runs `tsc` for declarations via `libraryTsconfig`).
+>
+> The right lens for the port is TJS's **own** type system (the predicate / example
+> work above), not "how close does auto-inferred `.d.ts` get to hand-written TS."
+> Evaluating TJS as a `.d.ts` generator is evaluating a macro-assembler that wishes
+> it were a different language — which is exactly what it's trying not to be.
 
-1. **`.d.ts` emission** from the `.tjs` so the TS files that import it keep their
-   types (by-path has 6 importers). tjs-lang's `generateDTS(result, source)` works
-   — see findings below — but isn't exported from `tjs-lang/lang` (only from the
-   repo's `src/lang/index.ts`), so it can't be reached from the published package.
+Mechanically, replacing a `.ts` with a `.tjs` in the shipped build still needs:
+
+1. **`.d.ts` for the importers** — either express-controlled from the `.tjs`
+   (`declaration` block / `// TS:`), or keep `tsc` covering the still-`.ts` graph
+   during migration. tjs-lang's `generateDTS(result, source)` is the auto path;
+   it works but isn't exported from `tjs-lang/lang` (only the repo's
+   `src/lang/index.ts`) so it isn't reachable from the published package.
 2. **An `onResolve`** so a bare `import './foo'` picks `foo.tjs` in `Bun.build`
-   (Bun doesn't try the `.tjs` extension by default). Until then, imports need the
-   explicit `./foo.tjs`, which TS can't type.
+   (Bun doesn't try the `.tjs` extension by default).
 
-Until both exist, ported `.tjs` modules are validated in parallel but the `.ts`
-remains the shipped source.
+### `.d.ts` *auto-inference* findings (2026-07-05) — the convenience path
 
-### `.d.ts` emission findings (2026-07-05)
-
-Ran `generateDTS` on `by-path.tjs`. The stripped-annotation `TjsCompat` port emits
-a **uselessly loose** dts — every function `(...: any): any`, and required params
-marked **optional** (`path?: any`). That would *regress* the precise types the 6
-importers get from the hand-written `.ts` today. So a faithful port must **add TJS
-annotations back**, and that has consequences:
+These characterize the *auto* path (`generateDTS` with no express control). They're
+not swap blockers (express control / `tsc` cover the real need), but they show
+where the convenience path is rough. On the stripped-annotation `TjsCompat` port
+of `by-path`, the auto dts is loose — every function `(...: any): any`, required
+params marked **optional** (`path?: any`). Adding TJS annotations improves it, with
+these consequences:
 
 - **Annotations restore real types.** With `function getByPath(obj: {}, path: '')`
   etc. the dts becomes `getByPath(obj: Record<string, any>, path: string): any`,
@@ -85,10 +109,15 @@ annotations back**, and that has consequences:
   real limitation for union-heavy signatures. A `Type` alias would be the escape
   hatch.
 
-Net: the full swap is mechanically feasible (dts + onResolve), but "port = strip
-types" is wrong — it must be "port = re-express types as TJS annotations," trading
-a little bundle size for the dts, using `function` declarations, and accepting
-union narrowing (or `Type` aliases) at the boundary.
+Net (reframed): the full swap is mechanically feasible. The interesting types
+(`by-path`'s are all `any`/`string` at the boundary anyway) belong in TJS's native
+system, and for the *interop* `.d.ts` you either express-control it (`declaration`
+block / `// TS:`) or let `tsc` cover the un-migrated `.ts` graph. The auto-inference
+roughness above (loose types, union narrowing, arrow consts) is a convenience-path
+concern, not a reason the swap can't happen — and *not* the yardstick for TJS as a
+type system. The one item that's a genuine bug regardless of framing is the
+required→optional param mapping (feedback #11), because the auto path emits
+*invalid* TS, which no amount of "it's just a bridge" excuses.
 
 ---
 
