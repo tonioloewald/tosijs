@@ -50,13 +50,45 @@ and per-conditional overhead come from the *modes*, not from safety.
 Replacing a `.ts` with a `.tjs` in the shipped build still needs:
 
 1. **`.d.ts` emission** from the `.tjs` so the TS files that import it keep their
-   types (by-path has 6 importers). tjs-lang has a dts emitter; not yet wired in.
+   types (by-path has 6 importers). tjs-lang's `generateDTS(result, source)` works
+   — see findings below — but isn't exported from `tjs-lang/lang` (only from the
+   repo's `src/lang/index.ts`), so it can't be reached from the published package.
 2. **An `onResolve`** so a bare `import './foo'` picks `foo.tjs` in `Bun.build`
    (Bun doesn't try the `.tjs` extension by default). Until then, imports need the
    explicit `./foo.tjs`, which TS can't type.
 
 Until both exist, ported `.tjs` modules are validated in parallel but the `.ts`
 remains the shipped source.
+
+### `.d.ts` emission findings (2026-07-05)
+
+Ran `generateDTS` on `by-path.tjs`. The stripped-annotation `TjsCompat` port emits
+a **uselessly loose** dts — every function `(...: any): any`, and required params
+marked **optional** (`path?: any`). That would *regress* the precise types the 6
+importers get from the hand-written `.ts` today. So a faithful port must **add TJS
+annotations back**, and that has consequences:
+
+- **Annotations restore real types.** With `function getByPath(obj: {}, path: '')`
+  etc. the dts becomes `getByPath(obj: Record<string, any>, path: string): any`,
+  params correctly `required`, and a `: true` return annotation emits `: boolean`.
+- **Annotations add `.__tjs` metadata to the *runtime* output** even under
+  `TjsCompat`/`safety none` (params/`unsafe`/source blocks). Size cost, not a speed
+  cost — but it means "annotate for dts" enlarges the shipped bundle vs the bare
+  273 B stripped port. The two goals (small runtime vs good dts) pull opposite ways.
+- **`export const id = () => …` emits `id: any`.** The dts emitter only infers
+  signatures for `function` declarations, not arrow-function consts. Porting has to
+  prefer `export function` for anything that should keep a typed signature.
+- **Example-based annotations narrow unions.** `val: 0` → `val: number` (but
+  `setByPath` accepts any value); `path: string | PartArray` can't be expressed by
+  a single example at all. So the emitted types can be narrower or different from
+  the hand-written TS — fine for by-path (path is a string at the boundary), but a
+  real limitation for union-heavy signatures. A `Type` alias would be the escape
+  hatch.
+
+Net: the full swap is mechanically feasible (dts + onResolve), but "port = strip
+types" is wrong — it must be "port = re-express types as TJS annotations," trading
+a little bundle size for the dts, using `function` declarations, and accepting
+union narrowing (or `Type` aliases) at the boundary.
 
 ---
 
@@ -380,3 +412,16 @@ Tracked here as it surfaces; also mirrored to the maintainer.
    a consumer authoring `Type` blocks and transpiling gets no verification feedback.
    Surfacing per-predicate verification status in the transpile result would let
    tools warn on unverifiable predicates.
+10. **`generateDTS` isn't exported from `tjs-lang/lang`.** It's exported from the
+    repo's `src/lang/index.ts` but the package's `./lang` subpath maps to
+    `transpiler.ts`, which doesn't re-export it — so `import { generateDTS } from
+    'tjs-lang/lang'` fails in the published package. dts emission is essential for
+    migrating a `.ts` importer graph one module at a time; it needs a public export.
+11. **Unannotated params emit as optional `any` in the dts.** `function f(path)`
+    (no annotation) → `f(path?: any)`. Marking a required-but-untyped param
+    *optional* is unsound — a caller could omit it and TS wouldn't complain.
+    Untyped required params should emit `path: any`, not `path?: any`.
+12. **The dts emitter ignores arrow-function consts.** `export const id = () => …`
+    emits `id: any`; only `function` declarations get a typed signature. Inferring
+    (or at least honoring annotations on) arrow consts would avoid forcing a
+    `function`-declaration style purely to keep types.
