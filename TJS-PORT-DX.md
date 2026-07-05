@@ -417,10 +417,31 @@ Tracked here as it surfaces; also mirrored to the maintainer.
     `transpiler.ts`, which doesn't re-export it — so `import { generateDTS } from
     'tjs-lang/lang'` fails in the published package. dts emission is essential for
     migrating a `.ts` importer graph one module at a time; it needs a public export.
-11. **Unannotated params emit as optional `any` in the dts.** `function f(path)`
-    (no annotation) → `f(path?: any)`. Marking a required-but-untyped param
-    *optional* is unsound — a caller could omit it and TS wouldn't complain.
-    Untyped required params should emit `path: any`, not `path?: any`.
+11. **Bare (untyped) params are marked optional in metadata → unsound + invalid
+    `.d.ts`.** Root-caused. Behavior across param forms:
+
+    | source | dts | `__tjs` `required` | correct? |
+    | --- | --- | --- | --- |
+    | `f(a)` bare | `f(a?: any)` | `false` | ❌ should be required |
+    | `f(a: 0)` annotated | `f(a: number)` | `true` | ✅ |
+    | `f(a = 1)` default | `f(a?: number)` | `false` | ✅ |
+    | `f(a?: 0)` marker | `f(a?: number)` | `false` | ✅ |
+    | `f(a, b: 0)` mixed | `f(a?: any, b: number)` | — | ❌ **invalid TS** |
+
+    The mixed case emits an optional param **before** a required one, which is a
+    hard TS error (ts1016: "A required parameter cannot follow an optional
+    parameter") — so the generated `.d.ts` doesn't compile, not just loose.
+
+    **Root cause:** `emitters/js.ts:251` sets `required: requiredParams.has(param.name)`
+    for a plain `Identifier` param, and `requiredParams` only contains params that
+    used the `:` annotation — so a bare param is excluded and becomes `required:
+    false`. The emitter conflates "untyped" with "optional." (`dts.ts:114`,
+    `optional = !p.required`, is correct given a correct flag; the rest-param
+    `required: false` at js.ts:310–327 are also fine — rest params are optional.)
+
+    **Correct rule:** a plain `Identifier` param is **required** (`: any` when
+    untyped); optionality comes only from a default value (`AssignmentPattern`) or
+    an explicit `?` marker — a type annotation is irrelevant to required-ness.
 12. **The dts emitter ignores arrow-function consts.** `export const id = () => …`
     emits `id: any`; only `function` declarations get a typed signature. Inferring
     (or at least honoring annotations on) arrow consts would avoid forcing a
