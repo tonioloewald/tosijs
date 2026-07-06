@@ -399,6 +399,30 @@ unreleased, so this can't be wired into tosijs until it's a public export.
 
 Tracked here as it surfaces; also mirrored to the maintainer.
 
+### Status after tjs-lang 0.9.0 (verified 2026-07-06)
+
+Re-ran the items against 0.9.0. Strong response — the critical one and all the
+packaging gaps are fixed:
+
+| # | item | 0.9.0 |
+| --- | --- | --- |
+| 11 | required→optional dts (emitted **invalid TS**) | ✅ **fixed** — bare `f(a)` → `f(a: any)`; mixed emits valid TS |
+| 2 | plugin/runtime not exported | ✅ fixed — `./bun-plugin`, `./runtime`, `./css`, `./schema` now exported |
+| 6 | CSS predicate module not shipped | ✅ fixed — `tjs-lang/css` exports `isColor`/`isLength`/`isStyleObject`/… |
+| 8 | `isStyleObject` didn't import standalone | ✅ fixed — imports and validates (`{color:'nope'}` → false) |
+| 9 | predicate verification not surfaced | ✅ fixed — `result.predicates` has `{verified, reason}` per predicate |
+| 10 | `generateDTS` not exported from `tjs-lang/lang` | ✅ fixed — now exported |
+| 1 | native `toBool` hot-path tax | ▫️ unchanged (semantic-mode tradeoff; `TjsCompat` remains the hot-path answer) |
+| 7 | `isCssProperty` loose on names | ▫️ still `isCssProperty('align-kontent') → true` |
+| 12 | dts ignores arrow-function consts | ▫️ still `export const id = () => …` → `id: any` |
+| 3, 5 | TjsDate guidance / `Eq` ToPrimitive | (minor / optional; not re-checked or worked around) |
+
+Regression check: full tosijs suite **575 pass** and the `.tjs` port tests pass
+under 0.9.0. Bonus: `result.predicates` flags `CSS.supports` as
+`verified:false, reason:"method '.supports()' is not a known pure method"` — which
+*confirms* the CSS design split (effectful → runtime fallback) and now makes it
+tool-visible. Remaining open items below are minor; the blocking ones are resolved.
+
 1. **Native `toBool`-per-conditional is a hot-path tax** (~10% runtime, ~19% size
    on by-path). For modules that never handle boxed primitives it's pure overhead.
    Options: skip the wrap when an operand is provably primitive/typed; or document
