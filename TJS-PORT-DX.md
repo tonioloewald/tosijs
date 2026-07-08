@@ -154,9 +154,57 @@ is a **tosijs-ui build architecture** issue — see `../tosijs-ui/BUILD-TJS-HOOK
 leaf module outside that graph should clear buildSite. Swap reverted to keep the
 branch buildable; `by-path.tjs` stays validated-in-parallel.
 
-**Unblock paths:** (1) a `buildSite` hook to handle non-`.ts` suffixes (let the tjs
-plugin emit the right artifacts where tsc would) — the real fix; (2) swap only
-leaf modules until then; (3) wait for Bun runtime `onResolve` (helps blocker 1 only).
+**Unblock paths:** (1) a `buildSite` hook to replace/augment the tsc step (let the
+tjs build emit artifacts where tsc would) — the real fix; (2) wait for Bun runtime
+`onResolve` (helps blocker 1 only); (3) the bulk all-`.tjs` strategy below, which
+sidesteps blocker 1 entirely.
+
+**Leaf modules do NOT escape the wall (verified 2026-07-08).** Tried swapping the
+pure leaf `more-math` — buildSite failed the same way (`Cannot find module
+'./more-math.tjs' from dist/index.js`), because everything is reachable from
+`index`, which the CSS-extraction step evaluates. So per-file swaps are blocked for
+*any* module in the shipped graph, not just core ones.
+
+### Alternative strategy: bulk convert to all-`.tjs`, then improve (2026-07-08) — proven
+
+Instead of N per-file swaps (each fighting the mixed-graph toolchain), convert the
+**whole** codebase to `.tjs` at once, so there is no `.ts`/`.tjs` mixing — which is
+what caused *every* wall above. Verified end-to-end:
+
+- `tjs convert --emit-tjs src/` → **39 converted, 0 failed**, clean readable `.tjs`
+  source (doc blocks, comments, code preserved; just a `/* tjs <- foo.ts */` header).
+- Bundling the converted `index.tjs` (onResolve extensionless→`.tjs` + onLoad
+  transpile): **build succeeds**, all core exports present.
+- Smoke test on the bundle: `tosi(...)`, `boxed.x = 42` (assignment through the
+  proxy), `.value === 42`, `== 42` → true. The boxed-scalar wrapper work rode along
+  in the converted `xin.tjs`.
+
+Why it's less laborious and lower-risk: it's one bulk step to a baseline that
+already builds + passes tests (the debug/safe variants already ship a
+tjs-converted bundle), then unhurried per-module improvement. No mixed graph means
+no Bun `onResolve` problem and no `.ts`/`.tjs` resolution ambiguity.
+
+What it still needs / caveats:
+- **The same buildSite hook** — but the ask is now *cleaner*: replace the `tsc -p`
+  step wholesale with a tjs build (`--emit-tjs`/bundle for JS, `generateDTS` for
+  `.d.ts`), rather than interleave with tsc over a mixed graph.
+- **Mode policy still applies.** The convert/transpile defaults to native mode (all
+  Tjs* modes → `toBool`/`Eq` wrapping → larger + slightly slower). Apply `TjsCompat`
+  on hot paths (per the mode policy above) to keep parity; the proof used defaults.
+- **The bulk `.tjs` is TS-shaped, not idiomatic-2.0 yet.** It works from day one;
+  "improve" is where assignment/`==`/`safety`/monadic-error ergonomics get adopted,
+  per module, on a green baseline.
+
+### Two migration modes — a consumer chooses
+
+Both are legitimate; capture the friction of each:
+- **Incremental (per-file `.ts`→`.tjs`):** natural for a consumer who wants to move
+  one module at a time and keep the rest TS. **Blocked today** by the mixed-graph
+  walls (Bun `onResolve`, tsc, buildSite eval). This is annoying regardless of where
+  it's fixed — Bun (runtime onResolve), tjs (tooling/guidance), or tosijs-ui
+  (buildSite). Worth supporting because many consumers will prefer it.
+- **Bulk (all-`.tjs` at once):** proven above; sidesteps blocker 1; needs the
+  buildSite tsc-replacement hook. Best when you're committing to TJS wholesale.
 
 ---
 
