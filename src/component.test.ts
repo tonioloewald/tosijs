@@ -62,14 +62,14 @@ class ValueComponent extends Component {
   }
 }
 
-// Component with onResize
+// Component with handleResize (the current resize hook)
 class ResizableComponent extends Component {
   static preferredTagName = 'resizable-component'
   resizeCount = 0
 
   content = ({ div }: typeof elements) => div({ part: 'box' }, 'Resizable')
 
-  onResize() {
+  handleResize() {
     this.resizeCount++
   }
 }
@@ -1129,15 +1129,46 @@ describe('on<Event> member collision warning', () => {
     expect(w).toContain("'onMousedown'")
   })
 
-  test('does not warn for onResize (Component resize hook)', async () => {
-    class ResizeOkComponent extends Component {
-      static preferredTagName = 'resize-ok-component'
-      onResize(): void {}
+  test('does not warn for handleResize (current resize hook), and wires it', async () => {
+    let resized = 0
+    class HandleResizeComponent extends Component {
+      static preferredTagName = 'handle-resize-component'
+      handleResize(): void {
+        resized++
+      }
     }
-    const warnings = await captureWarnings(() =>
-      ResizeOkComponent.elementCreator()()
-    )
+    const create = HandleResizeComponent.elementCreator()
+    const warnings = await captureWarnings(() => create())
     expect(warnings.some((m) => m.includes('event-handler sugar'))).toBe(false)
+    expect(warnings.some((m) => m.includes('deprecated'))).toBe(false)
+    // wired: a resize event invokes the handler
+    const el = create()
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('resize'))
+    expect(resized).toBeGreaterThan(0)
+    el.remove()
+  })
+
+  test('onResize is deprecated (warns) but still wired', async () => {
+    let resized = 0
+    class LegacyResizeComponent extends Component {
+      static preferredTagName = 'legacy-resize-component'
+      onResize(): void {
+        resized++
+      }
+    }
+    const create = LegacyResizeComponent.elementCreator()
+    const warnings = await captureWarnings(() => create())
+    const w = warnings.find((m) => m.includes('deprecated'))
+    expect(w).toBeDefined()
+    expect(w).toContain("'onResize'")
+    expect(w).toContain('handleResize')
+    // legacy hook still works
+    const el = create()
+    document.body.appendChild(el)
+    el.dispatchEvent(new Event('resize'))
+    expect(resized).toBeGreaterThan(0)
+    el.remove()
   })
 
   test('does not warn for a component with no on<Event> members', async () => {

@@ -16,8 +16,15 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   listener rather than assigning the property — so such a member is shadowed and
   can't be set or read via the element creator. The warning (once per class,
   deferred to a microtask so it catches arrow-function class fields) names the
-  members and suggests renaming (e.g. `handleClick`). `onResize` is exempt —
-  Component wires it to a `ResizeObserver`.
+  members and points to the `handle<Event>` convention (e.g. `handleClick`).
+
+### Changed
+
+- **`Component` resize hook renamed `onResize` → `handleResize`.** Component
+  callbacks now use the `handle<Event>` convention, because the `on<Event>` prefix
+  is reserved for event-handler sugar in the elements factory (and is being
+  retired for component callbacks). `onResize` still works but is **deprecated**
+  and warns once per class, pointing to `handleResize`.
 
 ## [1.6.7] - 2026-07-05
 

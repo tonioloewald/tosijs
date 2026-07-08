@@ -375,9 +375,12 @@ a value (i.e. triggering a `change` events and `render` when the `value` changes
 
 #### connectedCallback(): void
 
-If the class has an `onResize` handler then a ResizeObserver will trigger `resize`
-events on the element when its size changes and `onResize` will be set up to respond
-to `resize` events.
+If the class has a `handleResize` handler then a ResizeObserver will trigger
+`resize` events on the element when its size changes and `handleResize` will be
+set up to respond to them. (The legacy name `onResize` still works but is
+deprecated — the `on<Event>` prefix is reserved for event-handler sugar in the
+[elements](/elements/) factory, so component callbacks use the `handle<Event>`
+convention instead.)
 
 Also, if the subclass has defined `value`, calls `initValue()`.
 
@@ -1071,17 +1074,29 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
         proto = Object.getPrototypeOf(proto)
       }
-      names.delete('onResize') // Component's own resize hook, wired specially
+      const tag = this.tagName.toLowerCase()
+      // onResize is the legacy resize hook — still honored, but deprecated in
+      // favor of handleResize (the on<Event> prefix is reserved for event sugar).
+      const usesLegacyOnResize =
+        names.delete('onResize') && this.handleResize === undefined
+      if (usesLegacyOnResize) {
+        console.warn(
+          `<${tag}> defines 'onResize', which is deprecated. Rename it to ` +
+            `'handleResize'. The on<Event> prefix is reserved for event-handler ` +
+            `sugar in the elements factory (creator({ onResize }) would attach a ` +
+            `'resize' listener) and is being retired for component callbacks in ` +
+            `favor of the handle<Event> convention.`
+        )
+      }
       if (names.size === 0) return
       const list = Array.from(names, (n) => `'${n}'`).join(', ')
       console.warn(
-        `<${this.tagName.toLowerCase()}> defines ${list}. The elements factory ` +
-          `treats on<Event> property names as event-handler sugar — e.g. ` +
-          `creator({ onClick }) attaches a 'click' listener rather than assigning ` +
-          `the property — so these members are shadowed and cannot be set or read ` +
-          `via the element creator. Rename them (e.g. 'handleClick') to keep them ` +
-          `usable as component members. (onResize is exempt — Component wires it ` +
-          `to a ResizeObserver.)`
+        `<${tag}> defines ${list}. The elements factory treats on<Event> property ` +
+          `names as event-handler sugar — e.g. creator({ onClick }) attaches a ` +
+          `'click' listener rather than assigning the property — so these members ` +
+          `are shadowed and cannot be set or read via the element creator. Rename ` +
+          `them with the handle<Event> convention (e.g. 'handleClick') to keep ` +
+          `them usable as component members.`
       )
     })
   }
@@ -1276,10 +1291,13 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     ) {
       this.setAttribute('tabindex', '0')
     }
-    if (this.onResize !== undefined) {
+    // handleResize is the current name; onResize is the deprecated legacy hook
+    // (the deprecation warning is emitted once per class in _warnOnHandlerCollisions).
+    const resizeHandler = this.handleResize ?? this.onResize
+    if (resizeHandler !== undefined) {
       resizeObserver.observe(this)
       if (this._onResize == null) {
-        this._onResize = this.onResize.bind(this)
+        this._onResize = resizeHandler.bind(this)
       }
       this.addEventListener('resize', this._onResize)
     }
