@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Added
+
+- **`Component` warns when a subclass defines an `on<Event>`-named member**
+  (e.g. `onClick`, `onMousedown`). The elements factory treats `on<Event>` prop
+  names as event-handler sugar — `creator({ onClick })` attaches a `click`
+  listener rather than assigning the property — so such a member is shadowed and
+  can't be set or read via the element creator. The warning (once per class,
+  deferred to a microtask so it catches arrow-function class fields) names the
+  members and suggests renaming (e.g. `handleClick`). `onResize` is exempt —
+  Component wires it to a `ResizeObserver`.
+
 ## [1.6.7] - 2026-07-05
 
 ### Fixed

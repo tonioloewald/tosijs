@@ -596,6 +596,9 @@ let instanceCount = 0
 // deferred constructor-time attribute ops before the subclass body runs.
 const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
 
+// Classes already checked for on<Event>-named member collisions (warn once each).
+const handlerCollisionChecked = new WeakSet<new () => Component>()
+
 // Lazy shared MutationObserver for deprecated initAttributes
 let legacyAttributeObserver: MutationObserver | null = null
 
@@ -1042,6 +1045,45 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
     this.instanceId = `${this.tagName.toLocaleLowerCase()}-${instanceCount}`
     this._value = deepClone(this.defaultValue)
+
+    this._warnOnHandlerCollisions()
+  }
+
+  // Warn (once per class) when a subclass defines an `on<Event>`-named member.
+  // The elements factory treats `on<Event>` prop names as event-handler sugar
+  // (`creator({ onClick })` attaches a `click` listener via `on()`), so such a
+  // member is shadowed and can never be assigned/read through the element
+  // creator. Deferred to a microtask because arrow-function class fields
+  // (`onClick = () => …`) are set AFTER the base constructor runs.
+  private _warnOnHandlerCollisions(): void {
+    const ctor = this.constructor as unknown as new () => Component
+    if (handlerCollisionChecked.has(ctor)) return
+    handlerCollisionChecked.add(ctor)
+    queueMicrotask(() => {
+      const names = new Set<string>()
+      for (const key of Object.keys(this)) {
+        if (/^on[A-Z]/.test(key)) names.add(key)
+      }
+      let proto = Object.getPrototypeOf(this)
+      while (proto && proto !== Component.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+          if (/^on[A-Z]/.test(key)) names.add(key)
+        }
+        proto = Object.getPrototypeOf(proto)
+      }
+      names.delete('onResize') // Component's own resize hook, wired specially
+      if (names.size === 0) return
+      const list = Array.from(names, (n) => `'${n}'`).join(', ')
+      console.warn(
+        `<${this.tagName.toLowerCase()}> defines ${list}. The elements factory ` +
+          `treats on<Event> property names as event-handler sugar — e.g. ` +
+          `creator({ onClick }) attaches a 'click' listener rather than assigning ` +
+          `the property — so these members are shadowed and cannot be set or read ` +
+          `via the element creator. Rename them (e.g. 'handleClick') to keep them ` +
+          `usable as component members. (onResize is exempt — Component wires it ` +
+          `to a ResizeObserver.)`
+      )
+    })
   }
 
   private _installAttributeQueue(): void {

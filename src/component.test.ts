@@ -1099,3 +1099,55 @@ describe('constructor must not gain attributes', () => {
     expect((el as any).foo).toBe('ctor-value') // but readable via property
   })
 })
+
+describe('on<Event> member collision warning', () => {
+  async function captureWarnings(fn: () => void): Promise<string[]> {
+    const warnings: string[] = []
+    const orig = console.warn
+    console.warn = (m: string) => warnings.push(m)
+    try {
+      fn()
+      await Promise.resolve() // let the deferred (microtask) scan run
+    } finally {
+      console.warn = orig
+    }
+    return warnings
+  }
+
+  test('warns when a component defines on<Event> members (shadowed by event sugar)', async () => {
+    class HandlerCollisionComponent extends Component {
+      static preferredTagName = 'handler-collision-component'
+      onClick = (): void => {} // arrow field
+      onMousedown(): void {} // prototype method
+    }
+    const warnings = await captureWarnings(() =>
+      HandlerCollisionComponent.elementCreator()()
+    )
+    const w = warnings.find((m) => m.includes('event-handler sugar'))
+    expect(w).toBeDefined()
+    expect(w).toContain("'onClick'")
+    expect(w).toContain("'onMousedown'")
+  })
+
+  test('does not warn for onResize (Component resize hook)', async () => {
+    class ResizeOkComponent extends Component {
+      static preferredTagName = 'resize-ok-component'
+      onResize(): void {}
+    }
+    const warnings = await captureWarnings(() =>
+      ResizeOkComponent.elementCreator()()
+    )
+    expect(warnings.some((m) => m.includes('event-handler sugar'))).toBe(false)
+  })
+
+  test('does not warn for a component with no on<Event> members', async () => {
+    class CleanComponent extends Component {
+      static preferredTagName = 'clean-component'
+      handleClick(): void {}
+    }
+    const warnings = await captureWarnings(() =>
+      CleanComponent.elementCreator()()
+    )
+    expect(warnings.some((m) => m.includes('event-handler sugar'))).toBe(false)
+  })
+})
