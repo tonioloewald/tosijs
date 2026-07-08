@@ -119,6 +119,45 @@ type system. The one item that's a genuine bug regardless of framing is the
 required→optional param mapping (feedback #11), because the auto path emits
 *invalid* TS, which no amount of "it's just a bridge" excuses.
 
+### Full-swap attempt: by-path (2026-07-06, tjs-lang 0.9.0) — reverted
+
+Attempted to actually ship `by-path.tjs` as the source (drop `by-path.ts`). **Not
+blocked by tjs-lang** — 0.9.0 transpiles, types, and bundles fine. Blocked by two
+things *outside* tjs, and by-path being the worst-case module to try.
+
+What worked, layer by layer:
+
+| layer | result | how |
+| --- | --- | --- |
+| runtime (`bun test`) | ✅ 575 pass | explicit `./by-path.tjs` imports + plugin `onLoad` |
+| types (`tsc`) | ✅ clean | `allowArbitraryExtensions` + hand-authored `by-path.d.tjs.ts` |
+| main library bundle (`Bun.build`) | ✅ 59 KB | plugin in `Bun.build({plugins})` |
+| debug/safe bundle | ✅ plumbing | copy `.tjs` into `tjs-out/` (convert skips it) + plugin |
+| **buildSite CSS extraction** | ❌ **blocker** | evaluates tsc-emitted per-file `dist/*.js`, which `import './by-path.tjs'` in a context without the plugin |
+
+**Blocker 1 — Bun runtime `onResolve`.** Bun's *runtime* module loader (bun test /
+bun run) does **not** invoke plugin `onResolve` for relative specifiers (verified:
+the callback never fires; it *does* fire in `Bun.build`). So `import './by-path'`
+can't be auto-redirected to `.tjs` at runtime — you must write the extension
+(`./by-path.tjs`). Workable but touches every importer. This is a **Bun** limit.
+
+**Blocker 2 — tosijs's own build.** `tosijs-ui/site`'s `buildSite` runs `tsc` to
+emit per-file `dist/*.js` and then **evaluates** them (the `generate-css` step;
+`bin/site.ts` even comments on keeping those `.js` "so generate-css could resolve
+`tosijs`"). Those tsc outputs contain `import './by-path.tjs'`, evaluated in a
+process/context where the tjs plugin isn't registered → `Cannot find module
+'./by-path.tjs' from dist/xin-proxy.js`. Staging the `.tjs` into `dist` didn't help
+(buildSite reorders/clears dist and the eval context still lacks the loader). This
+is a **tosijs-ui build architecture** issue — see `../tosijs-ui/BUILD-TJS-HOOK.md`.
+
+**Why by-path is worst-case:** it's core *and* in the CSS-extraction eval graph. A
+leaf module outside that graph should clear buildSite. Swap reverted to keep the
+branch buildable; `by-path.tjs` stays validated-in-parallel.
+
+**Unblock paths:** (1) a `buildSite` hook to handle non-`.ts` suffixes (let the tjs
+plugin emit the right artifacts where tsc would) — the real fix; (2) swap only
+leaf modules until then; (3) wait for Bun runtime `onResolve` (helps blocker 1 only).
+
 ---
 
 ## Per-module log
