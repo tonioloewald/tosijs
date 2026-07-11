@@ -250,8 +250,18 @@ falls back to the `typeof` primitive when a path has no declared schema.
 The schema-per-path idea points at a bigger one. `xin` isn't *actually* a singleton
 under the hood — the proxy machinery is per-target. So alongside `tosi` (one global
 observable state object, singleton *by conception*) we could offer an ancillary
-factory, tentatively **`schematic`**, that mints **independent** reactive contexts
-that are, by design:
+factory, tentatively **`schematic`**, that mints **independent** *observant*
+contexts that are, by design:
+
+> **Observant, not "reactive."** tosijs is not `UI = f(state)`. The DOM is a
+> **persistent, fixed structure** wired to state by bindings; observers watch
+> specific paths and **surgically update the specific bound elements** when those
+> paths change. Nothing is recomputed *from* state. This also distinguishes tosijs
+> from the whole render family: React/vdom recompute-and-diff, and even Lit — which
+> drops the vdom — still **render-rewrites** (its `render()` re-runs and lit-html
+> reconciles content from the returned template). tosijs has **no render-returns-UI
+> step at all**; observers update the bound nodes in place. Use "observant"
+> (observer / pub-sub), not "reactive," throughout.
 
 - **(a) not singletons** — each `schematic(...)` call yields its own isolated state
   proxy/context, not a slice of one global tree.
@@ -270,7 +280,7 @@ Payoff: **schematic components** — a component manages its internal state as a
 `schematic` proxy, including **automatic binding into its own shadow DOM** when
 needed. Because binding/events are context-scoped rather than routed through one
 global state tree, this is *even more scalable* than `tosi` already is — no global
-contention, fully encapsulated per-component reactive state.
+contention, fully encapsulated per-component observant state.
 
 Builds on: the boxed-scalar wrapper work (boxed-from-birth), schema-per-path
 (schema-driven), and the 2.0 boxed-only-proxy goal. A natural 2.0+ direction.
