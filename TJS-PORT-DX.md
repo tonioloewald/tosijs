@@ -208,6 +208,45 @@ Both are legitimate; capture the friction of each:
 
 ---
 
+## Port benefits shipped on the branch
+
+Low-hanging wins the port unlocks (or motivates), implemented on `tosijs-2.0`.
+
+### Assignment strictness (2026-07-11)
+
+`settings.strictness` (`'off' | 'warn' | 'throw'`, default `'warn'`) catches a bug
+class TypeScript structurally can't: **runtime type drift in loosely-typed state**
+(`count = '5'` from a fetch / form / dynamic path). When an assignment changes a
+path's coarse type (scalar `typeof`, plus null/array), it warns (permissive) /
+throws (blocks) / is silent. Exempt: new properties (no prior type) and nullish
+transitions; object→object reshapes aren't flagged (shape isn't tracked). The
+check sits in the one place all writes funnel through (set trap + accessor `.value`
+setter — both already read the current value), so it's ~free.
+
+Escape hatch: the `.valueAndType` **setter** — the deliberate counterpart to
+`.value` (`proxy.count.valueAndType = 'now a string'`) — changes value AND type
+without a warning, even in throw mode. (Setter, not a method, so it's symmetric
+with `.value`; a method would be `setValueAndType(v)`.)
+
+Doesn't strictly require TJS (warn/throw are plain JS — could ship in 1.x with
+default `'off'`). The **`'strict'`/monadic mode** is the genuine port payoff:
+a mismatched assignment returning a `MonadicError` needs a value-returning channel
+(a `trySet` method, or the TJS 2.0 assignment transform). Deferred until then.
+
+**Next layer — schemas per path (TJS-native).** The `typeof`-of-current check is
+the *primitive*; it infers the expected type from whatever's there now, so it
+can't validate a first assignment or express anything richer than a coarse kind.
+TJS has built-in schema/predicate support, so the richer version is: **declare a
+schema (a TJS `Type`/predicate) for a path**, validate assignments against *it*
+(covers first-set, and expresses "positive int", enums, object shapes, …), and
+allow the schema to be **updated explicitly** (a `.schema` setter — the "change
+the contract" op, distinct from `.valueAndType` which changes a value). This also
+delivers the 2.0 "JSON Schema emission — cross-language types from one source"
+goal. Sketch: a per-path schema map; `checkAssignmentType` consults it first and
+falls back to the `typeof` primitive when a path has no declared schema.
+
+---
+
 ## Per-module log
 
 ### by-path.ts → by-path.tjs (first module, 2026-07-03)
