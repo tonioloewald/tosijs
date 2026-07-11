@@ -22,11 +22,46 @@
   published artifacts under cover of a devDependency change. Fold it into the next real
   release, where the bundle diff belongs.
 
+## 2.0 port — state of play (branch `tosijs-2.0`)
+
+Full living log: `TJS-PORT-DX.md`. tjs-lang is at **0.9.0** (fixed the critical dts +
+export feedback; 3 minor items remain). Terminology: tosijs is **observant**, not
+"reactive" (UI ≠ f(state)).
+
+Done on the branch:
+- **Boxed-scalar equality** — boxed scalars proxy over `Number`/`String`/`Boolean`
+  wrappers, so `instanceof`/`Eq`/`==` work with no `.value`, live, navigation intact.
+- **Assignment strictness** — `settings.strictness` (`'off'|'warn'|'throw'`, default
+  warn) fires on runtime type-drift; `.valueAndType` setter is the deliberate bypass.
+
+Proven / characterized:
+- **Bulk all-`.tjs` baseline** builds + smoke-tests (`tjs convert --emit-tjs`).
+- **Per-file swap** (by-path) works for runtime/types/bundle but is blocked at
+  tosijs-ui `buildSite` (CSS-eval can't load `.tjs`) + Bun runtime `onResolve`.
+
+Next steps:
+- **Get tosijs-ui 1.7** (package.json still pins 1.6.13) — it ships the
+  `libraryBuild` + `generateCssPreload` seams (`../tosijs-ui/BUILD-TJS-HOOK.md`) that
+  unblock the swap.
+- **Pick a migration mode** (bulk vs incremental) and wire `tosijs-site.config.ts`
+  to the seams, then re-run the swap that died at buildSite.
+
+Deferred / ideas:
+- **Monadic `'strict'` strictness mode** — needs assignment to have a value-returning
+  channel (a `trySet`, or the TJS 2.0 assignment transform).
+- **Schema-per-path validation** — declare a TJS `Type`/predicate per path (richer
+  than the `typeof` primitive; covers first-set; a `.schema` setter to update it).
+- **`schematic`** — non-singleton, schema-first, boxed-from-birth observant-state
+  factory + schematic components (auto shadow-DOM binding). Recorded, not built.
+
 ## tjs-lang
 
 - `Boolean()` on proxied scalars always returns `true` (JS spec limitation —
-  `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
-  or by compiling boolean coercion checks to use `.valueOf()` instead
+  `Boolean(anyObject)` is always `true`). **Partially addressed on `tosijs-2.0`:**
+  boxed scalars now box over a real `Boolean` wrapper, so `instanceof Boolean` holds
+  and TJS's `toBool`/`Eq` unwrap them in TJS contexts — but plain-JS `Boolean(box)`
+  is still `true`. A full fix wants `TjsEquals`/`toBool` (or `.valueOf()`-based
+  coercion). See TJS-PORT-DX.md feedback list.
 
 ## 2.0 refactoring candidates
 
