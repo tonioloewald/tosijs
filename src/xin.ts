@@ -886,6 +886,35 @@ import { registry, setXinProxy } from './registry'
 
 const debugPaths = true
 
+// coarse runtime type: scalar `typeof`, plus null and array as distinct kinds.
+const typeName = (v: any): string =>
+  v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v
+
+// Enforce settings.strictness when an assignment changes a path's value type.
+// Fires only when both sides are non-nullish and their coarse types differ
+// (so number→string, boolean→number, array→object all trip; object→object with
+// a different shape does not — shape isn't tracked). Throw mode throws here,
+// blocking the write; warn mode logs and lets the write proceed. Use the proxy's
+// `.setValueAndType(...)` to change value AND type deliberately without a warning.
+const checkAssignmentType = (
+  fullPath: string,
+  existing: any,
+  value: any
+): void => {
+  const mode = settings.strictness
+  if (mode === 'off' || existing == null || value == null) return
+  const te = typeName(existing)
+  const tv = typeName(value)
+  if (te === tv) return
+  const message =
+    `tosijs: assigning type '${tv}' to '${fullPath}', which currently holds type ` +
+    `'${te}'. This changes the value's type — if intended, assign via ` +
+    `\`.valueAndType\` (e.g. \`proxy.${fullPath.split('.').pop()}.valueAndType = value\`) ` +
+    `to do it without warning. (settings.strictness = '${mode}')`
+  if (mode === 'throw') throw new Error(message)
+  console.warn(message)
+}
+
 // in essence this very liberally matches foo ( .bar | [17] | [id=123] ) *
 const validPath =
   /^\.?([^.[\](),])+(\.[^.[\](),]+|\[\d+\]|\[[^=[\](),]*=[^[\]()]+\])*$/
@@ -1118,9 +1147,12 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
     return undefined
   },
   set(_t, prop, v) {
-    if (prop === 'value') {
+    // `.value = x` is checked against strictness; `.valueAndType = x` is the
+    // deliberate value+type change that bypasses the check.
+    if (prop === 'value' || prop === 'valueAndType') {
       v = tosiValue(v)
       const existing = tosiValue(xin[path])
+      if (prop === 'value') checkAssignmentType(path, existing, v)
       if (existing !== v && setByPath(registry, path, v)) {
         touch(path)
       }
@@ -1378,17 +1410,23 @@ const regHandler = (
       }
     }
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
-    // (when boxScalars is true, .value should always set the underlying value)
+    // (when boxScalars is true, .value should always set the underlying value).
+    // `valueAndType` is the same, but is the deliberate value+type change that
+    // bypasses the strictness check.
+    const isValueAndTypeProp =
+      prop === 'valueAndType' && (isBoxedScalar(target) || boxScalars)
     const isValueProp =
       prop === XIN_VALUE ||
       prop === 'xinValue' ||
       prop === 'tosiValue' ||
       (prop === 'value' && (isBoxedScalar(target) || boxScalars))
-    const fullPath = isValueProp ? path : extendPath(path, prop as string)
+    const fullPath =
+      isValueProp || isValueAndTypeProp ? path : extendPath(path, prop as string)
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
     }
     const existing = tosiValue(xin[fullPath])
+    if (!isValueAndTypeProp) checkAssignmentType(fullPath, existing, value)
     if (existing !== value && setByPath(registry, fullPath, value)) {
       touch(fullPath)
     }
