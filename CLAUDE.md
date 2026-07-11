@@ -1,5 +1,17 @@
 # CLAUDE.md
 
+> **Shared engineering practices** live at
+> **https://github.com/tonioloewald/tosijs-coding-practices** — and, when checked out beside
+> this repo, at [`../tosijs-coding-practices`](../tosijs-coding-practices/README.md). Read that
+> index first for the cross-project defaults (development, testing, code quality, performance,
+> review, releasing, deployment, and the **observant** tosijs/tjs stack). This file records only
+> what is **specific to or divergent from** those defaults — when they conflict, this file wins.
+>
+> Those docs are **living, not graven in stone.** Don't rewrite them unprompted, but do speak up:
+> voice concerns, flag inconsistencies, and suggest improvements as you work. Continuous
+> improvement is the goal — see the repo's `CONTRIBUTING.md`.
+
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -88,7 +100,9 @@ State (xin) ──────────────────────�
 - `more-math.ts` - Math utilities (`clamp`, `lerp`, constants)
 - `share.ts` - Cross-tab state sync via `BroadcastChannel` + `IndexedDB`; delta-based `{ path, value }` messages
 - `sync.ts` - Network state sync via pluggable `SyncTransport`; throttled outbound batching, same delta/echo-prevention pattern as `share.ts`
-- `settings.ts` - Debug/performance flags (`settings.perf`, `settings.debug`)
+- `settings.ts` - Debug/performance/strictness flags (`settings.perf`, `settings.debug`, `settings.strictness`)
+- `make-error.ts` - Monadic error values (2.0 port; throw-free error handling)
+- `deep-clone.ts` / `string-case.ts` / `object-property-list.ts` - Supporting utilities
 
 ### Dual Proxy System (`xin` vs `boxed`)
 
@@ -104,6 +118,10 @@ Both are created in `xin.ts` via `regHandler(path, boxScalars)`. The `boxScalars
 Boxed proxies expose a `.tosi` accessor that provides the full reactive API (`value`, `path`, `touch`, `observe`, `bind`, `on`, `binding`, `listBinding`, `listFind`, `listUpdate`, `listRemove`) without risk of name collisions. The direct properties (`.value`, `.path`, etc.) delegate through the same accessor implementation but can theoretically be shadowed by target properties.
 
 For guaranteed collision-free access, use `tosiAccessor(proxy)` or `proxy[TOSI_ACCESSOR]` — these use a symbol key that cannot conflict with data properties. The accessor is implemented as a lightweight proxy over the same target (no object allocation beyond the proxy itself).
+
+### Assignment Strictness
+
+`settings.strictness` (`'off' | 'warn' | 'throw'`, default `'warn'`) governs what happens when you assign a value whose runtime type differs from what a path currently holds (e.g. a string over a number). `'warn'` logs but still assigns; `'throw'` blocks the assignment. To deliberately change both a value and its type, assign via the proxy's `.valueAndType` setter — the intentional counterpart to `.value` that bypasses the check. Covered by `src/strictness.test.ts`.
 
 ### Path-Based Observer System
 
@@ -132,7 +150,7 @@ When a list binding specifies `idPath: 'id'`, the proxy `set` handler in `xin.ts
 
 ## Testing
 
-Tests use Bun's test runner with Happy DOM for DOM environment (configured in `bunfig.toml` and `happydom.ts`). Test files follow the pattern `*.test.ts` in the `src/` directory.
+Tests use Bun's test runner with Happy DOM for DOM environment (configured in `bunfig.toml` and `happydom.ts`). Test files follow the pattern `*.test.ts` in the `src/` directory. `bunfig.toml` also preloads `src/bun-plugin/tjs-plugin.ts`, a Bun loader that transpiles native `.tjs` sources to JS on import — part of the incremental 2.0 TS→TJS port (the same plugin is passed to `Bun.build` in `bin/site.ts`).
 
 **Async updates:** After state changes in tests, use `await updates()` to wait for all pending observer callbacks and DOM updates to complete before asserting on UI state.
 
