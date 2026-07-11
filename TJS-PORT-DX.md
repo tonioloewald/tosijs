@@ -245,6 +245,36 @@ delivers the 2.0 "JSON Schema emission — cross-language types from one source"
 goal. Sketch: a per-path schema map; `checkAssignmentType` consults it first and
 falls back to the `typeof` primitive when a path has no declared schema.
 
+### Idea (recorded, not built): `schematic` — non-singleton, schema-first, boxed-from-birth contexts
+
+The schema-per-path idea points at a bigger one. `xin` isn't *actually* a singleton
+under the hood — the proxy machinery is per-target. So alongside `tosi` (one global
+observable state object, singleton *by conception*) we could offer an ancillary
+factory, tentatively **`schematic`**, that mints **independent** reactive contexts
+that are, by design:
+
+- **(a) not singletons** — each `schematic(...)` call yields its own isolated state
+  proxy/context, not a slice of one global tree.
+- **(b) schema-driven from birth** — you declare a schema (a TJS `Type`/predicate)
+  up front; it's validated from the *first* assignment (not inferred from whatever's
+  currently there, the way the `typeof` primitive is).
+- **(c) boxed proxies from birth** — the boxed-only model (the 2.0 direction), with
+  no dual `xin`/`boxed` split.
+
+This is *fundamentally cleaner than `tosi`*, which was born a singleton conceptually
+and carries those assumptions. The **core mechanics stay shared** (by-path parsing,
+`path-listener`/observers, surgical id-path updates); what changes is that **event
+handling and binding are isolated to the `schematic` context**, not global.
+
+Payoff: **schematic components** — a component manages its internal state as a
+`schematic` proxy, including **automatic binding into its own shadow DOM** when
+needed. Because binding/events are context-scoped rather than routed through one
+global state tree, this is *even more scalable* than `tosi` already is — no global
+contention, fully encapsulated per-component reactive state.
+
+Builds on: the boxed-scalar wrapper work (boxed-from-birth), schema-per-path
+(schema-driven), and the 2.0 boxed-only-proxy goal. A natural 2.0+ direction.
+
 ---
 
 ## Per-module log
