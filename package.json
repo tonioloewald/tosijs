@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",

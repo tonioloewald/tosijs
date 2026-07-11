@@ -62,6 +62,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      */
     attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null): void;
     constructor();
+    private _warnOnHandlerCollisions;
     private _installAttributeQueue;
     private _drainPendingAttrOps;
     /**

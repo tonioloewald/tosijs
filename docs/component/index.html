@@ -338,9 +338,12 @@ a value (i.e. triggering a <code>change</code> events and <code>render</code> wh
 <h4>private hydrate(): void</h4>
 <p><strong>Don&#39;t call this</strong> Appends <code>content</code> to the element (or its <code>shadowRoot</code> if it has a <code>styleNode</code>)</p>
 <h4>connectedCallback(): void</h4>
-<p>If the class has an <code>onResize</code> handler then a ResizeObserver will trigger <code>resize</code>
-events on the element when its size changes and <code>onResize</code> will be set up to respond
-to <code>resize</code> events.</p>
+<p>If the class has a <code>handleResize</code> handler then a ResizeObserver will trigger
+<code>resize</code> events on the element when its size changes and <code>handleResize</code> will be
+set up to respond to them. (The legacy name <code>onResize</code> still works but is
+deprecated — the <code>on&lt;Event&gt;</code> prefix is reserved for event-handler sugar in the
+<a href="/elements/">elements</a> factory, so component callbacks use the <code>handle&lt;Event&gt;</code>
+convention instead.)</p>
 <p>Also, if the subclass has defined <code>value</code>, calls <code>initValue()</code>.</p>
 <p><code>connectedCallback</code> is a great place to attach <strong>event-handlers</strong> to elements in your component.</p>
 <p>Be sure to call <code>super.connectedCallback()</code> if you implement <code>connectedCallback</code> in the subclass.</p>
