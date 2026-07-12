@@ -52,6 +52,12 @@ Next steps:
      review). We just hadn't taken them. See `UPSTREAM.md`.
 - **Pick a migration mode** (bulk vs incremental) and wire `tosijs-site.config.ts`
   to the seams, then re-run the swap that died at buildSite.
+- **Keep `dist/bun-plugin/` out of the published package.** The build now emits
+  `dist/bun-plugin/tjs-plugin.{js,d.ts}` from `src/bun-plugin/tjs-plugin.ts`, and
+  `files: ["/dist"]` ships it. It imports `tjs-lang/lang` — a *devDependency* — so it's
+  dev-only tooling riding along in a runtime package. Nothing in the exports map reaches
+  it (dead weight, not a live resolution break), but it should be excluded from the
+  library build before 2.0 ships. Pre-dates the tosijs-ui bump.
 
 Deferred / ideas:
 - **Monadic `'strict'` strictness mode** — needs assignment to have a value-returning
