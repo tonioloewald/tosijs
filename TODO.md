@@ -98,6 +98,42 @@ Deferred / ideas:
 - **`schematic`** — non-singleton, schema-first, boxed-from-birth observant-state
   factory + schematic components (auto shadow-DOM binding). Recorded, not built.
 
+## 2.0 release blocker: purge `xin` entirely
+
+**2.0 is not ready while the name `xin` survives anywhere.** tosijs is not xinjs; the
+old name leaking through the API, the types, and the filenames is the single most
+visible piece of unfinished business. Surface as of 2026-07-13: **1011 occurrences
+across 40 files**, plus 5 files *named* for it.
+
+This is not a rename — it's a **deletion**, and it should make the library smaller:
+
+- **Drop the unboxed `xin` proxy.** Everything is boxed (already the 2.0 plan). That
+  removes the dual-proxy system outright: **14 `boxScalars` branches** in the `get`/`set`
+  handlers and `regHandler` collapse to one path, and `BoxedScalarAPI`/`XinProps` stop
+  having to describe two shapes. This is the "simplify some code" win — it's real, and
+  it's the reason to do the purge as deletion rather than sed.
+- **84 internal `xin[...]` call sites** are the actual work. They read raw values; with
+  boxed-only they become `.value` reads (or `tosiValue(...)`). Mechanical but not
+  zero — and worth doing carefully, because a missed unwrap is a live bug, not a
+  compile error.
+- **Rename the 5 files:** `xin.ts`, `xin-proxy.ts`, `xin-types.ts` (+ their tests).
+- **Rename the public types:** `XinObject`, `XinArray`, `XinScalar`, `XinBinding`,
+  `XinProps`, … These are exported, so this is a breaking change — which is exactly
+  what a major is for.
+- **Retire the deprecated `xin*` exports** already listed under "2.0 refactoring
+  candidates": `xinPath`, `xinValue`, `xinProxy`, `xinSlot`, `boxedProxy`.
+
+Two traps worth knowing before starting:
+
+1. **`-xin-data` / `-xin-event` are DOM-visible CSS classes** (`metadata.ts`). They're
+   not just internal identifiers — anyone styling or querying them is coupled to the
+   name. Renaming is correct for 2.0, but it's a real breaking change for consumers,
+   and it needs a line in `Migration.md`, not a silent sed.
+2. **Don't do this with a global find-and-replace.** `xin` is a substring of nothing
+   useful, but it appears in doc blocks, live examples, and prose where the *history*
+   matters (Migration.md explains the xinjs→tosijs rename and must keep saying "xin").
+   The purge is of the *code surface*, not of every occurrence of the letters.
+
 ## tjs-lang
 
 - `Boolean()` on proxied scalars always returns `true` (JS spec limitation —
