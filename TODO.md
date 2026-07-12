@@ -76,23 +76,30 @@ Next steps:
   Kept for now because 5 of its 7 assertions have no same-named counterpart in
   `by-path.test.ts`; fold the unique ones in and delete it.
 
-Deferred / ideas:
-- **⭐ Use the assignment sugar the moment tjs-lang ships it.** The mode ladder is
-  silent / warn / **monadic error** / throw, and monadic needs the write to have a
-  value-returning channel. **The Proxy `set` trap can never be that channel** — verified
-  empirically: its return is coerced with `ToBoolean`, so a returned `MonadicError` is
-  truthy and reads as *success* (worse than useless — a failed write would report OK),
-  and returning `false` is just throw mode by another name (`TypeError`). A JS assignment
-  expression always evaluates to its RHS. So the channel must be a **call**.
-  - Built now, at the call layer: `setByPath` already returns a `boolean`, so it can
-    return a monad. An explicit `.tosi.trySet(v)` can too.
-  - **Not available yet:** the TJS assignment transform, which would rewrite `a.b = v`
-    into a call and give bare `=` a value channel. Confirmed absent in tjs-lang 0.9.0 —
-    the JS emitter never touches `AssignmentExpression`, and `bare-assignments.test.ts`
-    is auto-`const` for uppercase identifiers, *not* monadic propagation.
-  - **When it lands, adopt it** and desugar `=` onto the same `setByPath`/`trySet`
-    semantics — do not re-implement the mode logic in the emitter. Monadic-through-`=`
-    is a real reason to author in TJS rather than a mode nobody can reach.
+Next up — **monadic writes (no tjs-lang changes needed).** Ladder: silent / warn /
+monadic / throw. The Proxy `set` trap's *return* is `ToBoolean`-coerced so it can never
+carry an error (a returned `MonadicError` is truthy → reports a failed write as
+**success**), but a trap can **throw**, and a thrown value escapes bare assignment
+intact. Throw is the channel. Verified.
+- **Make `setByPath` return `true | MonadicError`** instead of a bare `boolean`. It
+  already has the return channel; this is the whole of monadic mode at the call layer.
+  Callers (`xin.ts`'s two set traps) must then check `isMonadicError(r)` before
+  `touch()` — a truthy monad would otherwise fire observers on a failed write.
+- **Add `.tosi.trySet(v)`** — throw, catch the throw, return the monad. Throw-free for
+  JS/TS consumers with no language support at all.
+- **Bare `=` throws a `MonadicError` value** (structured, carries the path, stringifies
+  to the message) rather than an `Error`. Be blunt in the docs: for bare `=` *today*,
+  `monadic` and `throw` are the same mechanism and differ only in payload. Don't pretend
+  otherwise.
+- **⭐ Adopt the assignment sugar the moment tjs-lang ships it**, and desugar `=` onto
+  the same `trySet` semantics — do not re-implement mode logic in the emitter. Then bare
+  `=` becomes throw-free too and the ladder completes. Confirmed absent in tjs-lang
+  0.9.0: the JS emitter never touches `AssignmentExpression`, and
+  `bare-assignments.test.ts` is auto-`const` for uppercase identifiers, not monadic
+  propagation.
+- **Rejected: `MonadicError` falsy but `Error` not.** A workaround for a problem
+  throwing already solves, and an astonishing asymmetry. (No object can be falsy in JS
+  anyway — `ToBoolean` has no user hook. Same wall as the boxed-`Boolean` limitation.)
 - **Schema-per-path validation** — declare a TJS `Type`/predicate per path (richer
   than the `typeof` primitive; covers first-set; a `.schema` setter to update it).
 - **`schematic`** — non-singleton, schema-first, boxed-from-birth observant-state

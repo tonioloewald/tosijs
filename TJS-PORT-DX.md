@@ -61,36 +61,37 @@ have** (the JS emitter never touches `AssignmentExpression`; `bare-assignments.t
 is auto-`const`, not monadic propagation). Build the semantics at the call layer and
 desugar `=` onto it when the transform lands.
 
-**Proposal for tjs-lang: make `MonadicError` falsy — but NOT `Error`.** (Worth
-filing; not yet filed.)
+**Monadic errors: THROW is the channel that escapes the trap. (Resolved 2026-07-13.)**
 
-The hard fact first: **no object can be falsy in JavaScript.** `ToBoolean` has no user
-hook — `valueOf`, `toString` and `Symbol.toPrimitive` all fire for `==`, `+` and
-`String()`, and *none* of them are consulted for truthiness (verified empirically).
-`document.all` is the only falsy object, a legacy `[[IsHTMLDDA]]` quirk unavailable to
-user code. This is the same wall as the known boxed-`Boolean` limitation — one wall,
-two symptoms.
+A `set` trap's *return* is `ToBoolean`-coerced, so it can never carry an error (a
+returned `MonadicError` is truthy → reports the failed write as a **success**). But a
+trap can **throw**, and a thrown value escapes bare assignment fully intact — verified:
+`instanceof` holds, the payload survives, it stringifies to its message. So the channel
+existed all along; only the *return* path was blocked.
 
-So "falsy" can only mean *falsy inside TJS-compiled conditionals*, via `toBool`. TJS
-can do that. The question is whether it should:
+That gives a coherent ladder with no new language features:
 
-- **`Error` → no.** `if (err)` in a catch block is the most common error idiom in JS.
-  Making `Error` falsy silently inverts every one of them and breaks the `TJS ⊇ JS`
-  invariant (subset-legal code must not change meaning). All downside.
-- **`MonadicError` → yes, and it's elegant.** No legacy JS does `if (monadicError)`, so
-  nothing breaks. And it composes with the existing contract: `setByPath` already
-  returns a `boolean`, so a falsy `MonadicError` lets `if (setByPath(...))` keep working
-  as a success test *while carrying the error payload*. No new ceremony at call sites.
-- **The sharp edge to name in the proposal:** it only holds inside TJS. A plain-JS
-  consumer doing `if (result)` sees a truthy object and reads failure as **success** —
-  the identical expression means opposite things in the two dialects, and errors are the
-  worst place for a silent semantic flip. Defensible (TJS already does this with `Eq`,
-  and `TjsCompat` is the escape hatch), but it means the **JS-facing contract must be
-  `isMonadicError(r)`, never truthiness.**
+| write form | channel | mode behavior |
+| --- | --- | --- |
+| `setByPath()` / `trySet()` | a real call | **throw-free**: returns `true \| MonadicError`. Monadic mode proper. |
+| bare `x.y = v` | throw only | can't be throw-free (no return channel), but throws a **`MonadicError` value** — structured, carries the path, stringifies to the message. Better than an `Error`. |
+| bare `x.y = v`, once the TJS assignment transform lands | desugars to `trySet` | throw-free too. Monadic completes with no special-casing, *because the semantics live at the call layer*. |
 
-Note this does *not* rescue the Proxy `set` trap: its `ToBoolean` coercion happens
-inside the engine's `[[Set]]`, not in TJS source, so no transform reaches it. The trap
-can never be the monadic channel regardless.
+"Throw, catch the throw, return a monadic error" is exactly how `trySet` is built, and
+it works today.
+
+**Be blunt in the API:** for bare `=` *today*, `monadic` and `throw` are the same
+mechanism — they differ only in payload (an inspectable value vs an `Error`). Don't
+pretend they're distinct modes.
+
+**Rejected: making `MonadicError` falsy (and `Error` not).** It was a workaround for
+the return-channel problem that throwing already solves, and the asymmetry is
+astonishing — two things that both mean "something went wrong", behaving oppositely in
+a conditional, is a rule you memorize rather than derive. (Underlying constraint, since
+it recurs: **no object can be falsy in JS.** `ToBoolean` has no user hook — `valueOf`,
+`toString`, `Symbol.toPrimitive` all fire for `==`/`+`/`String()` and *none* for
+truthiness. `document.all` is the lone exception, a legacy `[[IsHTMLDDA]]` quirk. Same
+wall as the boxed-`Boolean` limitation — one wall, two symptoms.)
 
 **Performance is fine and the size regression is perfectly tolerable.** With the
 right mode selection, native `.tjs` matches TS on both runtime and size for hot
