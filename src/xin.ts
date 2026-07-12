@@ -841,6 +841,7 @@ import {
   updates,
 } from './path-listener'
 import { getByPath, setByPath } from './by-path.tjs'
+import { isMonadicError } from './make-error'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1153,8 +1154,13 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
       v = tosiValue(v)
       const existing = tosiValue(xin[path])
       if (prop === 'value') checkAssignmentType(path, existing, v)
-      if (existing !== v && setByPath(registry, path, v)) {
-        touch(path)
+      if (existing !== v) {
+        const result = setByPath(registry, path, v)
+        // A MonadicError is an OBJECT, and every object in JS is truthy — so
+        // `if (setByPath(...))` would fire observers on a write that was
+        // rejected and rolled back. Check the type, never the truthiness.
+        if (isMonadicError(result)) throw result
+        if (result) touch(path)
       }
       return true
     }
@@ -1427,8 +1433,15 @@ const regHandler = (
     }
     const existing = tosiValue(xin[fullPath])
     if (!isValueAndTypeProp) checkAssignmentType(fullPath, existing, value)
-    if (existing !== value && setByPath(registry, fullPath, value)) {
-      touch(fullPath)
+    if (existing !== value) {
+      const result = setByPath(registry, fullPath, value)
+      // A MonadicError is an OBJECT, and every object in JS is truthy — so
+      // `if (setByPath(...))` would fire observers on a write that was rejected
+      // and rolled back. Check the type, never the truthiness. Assignment has no
+      // return channel (a set trap's return is ToBoolean-coerced), so throwing
+      // the value is the only way to surface it to the caller.
+      if (isMonadicError(result)) throw result
+      if (result) touch(fullPath)
     }
     return true
   },

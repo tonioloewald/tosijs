@@ -10,7 +10,7 @@
 safety none
 TjsCompat
 
-import { makeError } from './make-error'
+import { makeError, MonadicError } from './make-error'
 import { settings } from './settings'
 
 // time component for id(): a monotonic number encoded base-36. Uses
@@ -212,6 +212,10 @@ function undoFabrication(first) {
   }
 }
 
+// Returns a MonadicError in 'monadic' mode (the write is rolled back first),
+// throws in 'throw' mode, reports to the console in 'warn', and is silent in
+// 'off'. Callers MUST check the result with isMonadicError — never truthiness,
+// since every object in JS is truthy and a returned error would read as success.
 function reportPathCreation(path, fabricated) {
   const mode = settings.pathCreation
   if (mode === 'off' || fabricated.length === 0) return
@@ -225,23 +229,35 @@ function reportPathCreation(path, fabricated) {
     : depth > 1
       ? `setByPath("${path}") fabricated ${depth} levels of structure (${trail}) — nothing is observing that branch. A write that has to invent this much structure is almost always a typo or missing initialization.`
       : `setByPath("${path}") fabricated the intermediate "${trail}" — nothing is observing that branch. If that wasn't intended, check the path spelling.`
-  if (mode === 'throw') {
-    // Undo the whole fabricated branch, then throw — a throw that left the
-    // invented structure behind would be worse than the warning it replaced.
+  if (mode === 'throw' || mode === 'monadic') {
+    // Undo the whole fabricated branch first — an error that left the invented
+    // structure behind would be worse than the warning it replaced.
     undoFabrication(fabricated[0])
-    throw makeError(detail, path)
+    const err = new MonadicError('path-creation', detail, path)
+    // 'monadic' hands the error back as a VALUE (throw-free). 'throw' throws the
+    // same value — bare `x.y = v` has no return channel, so for assignment the
+    // two modes are the same mechanism and differ only in what the caller sees.
+    if (mode === 'monadic') return err
+    throw err
   }
   // 'warn': keep the write, but say so — louder the deeper it went.
   if (depth > 1) console.error(detail)
   else console.warn(detail)
 }
 
+// Returns `true` (changed), `false` (no change), or a MonadicError (the write was
+// rejected and rolled back — 'monadic' mode). Callers MUST use isMonadicError()
+// rather than truthiness: a MonadicError is an object, every object is truthy, so
+// `if (setByPath(...))` reads a REJECTED write as a successful one.
 function setByPath(orig, path, val) {
   const fabricated = []
   const result = walkAndSet(orig, path, val, fabricated)
   // deleting through a path that doesn't exist isn't "fabrication" worth
   // reporting — deleteByPath already guards on the value being present.
-  if (val !== _delete_) reportPathCreation(path, fabricated)
+  if (val !== _delete_) {
+    const err = reportPathCreation(path, fabricated)
+    if (err !== undefined) return err
+  }
   return result
 }
 

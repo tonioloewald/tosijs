@@ -10,6 +10,7 @@ import { test, expect, describe, beforeEach, afterEach } from 'bun:test'
 // @ts-expect-error — .tjs has no ambient types; loaded via the tjs Bun plugin
 import { setByPath } from './by-path.tjs'
 import { settings } from './settings'
+import { isMonadicError } from './make-error'
 
 let warnings: string[] = []
 let errors: string[] = []
@@ -126,6 +127,42 @@ describe('arrays: writing past the end is the real hole', () => {
     // rollback, it's a different corruption
     expect(obj.list.length).toBe(2)
     expect(obj.list).toEqual([{ n: 1 }, { n: 2 }])
+  })
+})
+
+describe("'monadic' mode returns the error as a value", () => {
+  test('setByPath returns a MonadicError and rolls the write back', () => {
+    settings.pathCreation = 'monadic'
+    const obj: any = { app: { user: { name: 'ada' } } }
+    const result = setByPath(obj, 'app.usre.name', 'typo')
+
+    expect(isMonadicError(result)).toBe(true)
+    expect(result.kind).toBe('path-creation')
+    expect(result.path).toBe('app.usre.name')
+    expect(`${result}`).toContain('app.usre.name') // stringifies to its message
+
+    // rejected AND rolled back — no phantom branch
+    expect(obj.app.usre).toBeUndefined()
+    expect(obj.app.user.name).toBe('ada')
+  })
+
+  test('THE TRAP: a MonadicError is truthy, so `if (result)` reads failure as success', () => {
+    settings.pathCreation = 'monadic'
+    const obj: any = { app: {} }
+    const result = setByPath(obj, 'app.a.b.c', 1)
+
+    // this is why every call site must use isMonadicError, never truthiness —
+    // every object in JS is truthy, and ToBoolean has no user hook
+    expect(Boolean(result)).toBe(true) // <- looks like "the write succeeded"!
+    expect(isMonadicError(result)).toBe(true) // <- the truth
+  })
+
+  test('a successful write still returns plain true', () => {
+    settings.pathCreation = 'monadic'
+    const obj: any = { app: { user: {} } }
+    const result = setByPath(obj, 'app.user.email', 'ada@example.com')
+    expect(result).toBe(true)
+    expect(isMonadicError(result)).toBe(false)
   })
 })
 
