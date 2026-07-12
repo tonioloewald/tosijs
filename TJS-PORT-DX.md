@@ -20,6 +20,47 @@ still pointless) — it's to make the module idiomatic and then ask whether the 
 justifies whatever it then costs. **Don't benchmark a transpile against TS; that only
 measures transpiler overhead.**
 
+**Checks belong on WRITES, not reads.** Reads are self-limiting — `getByPath` on a
+bad path returns `undefined` and the caller copes; nothing is corrupted. Writes are
+the dangerous direction, because `setByPath` *creates* the structure it walks
+through, so a bad write doesn't fail: it silently grows a branch of state that no
+observer is bound to. This is also why the perf objection to `safety inputs`
+dissolves — bindings read constantly, writes are user actions and data arrival, so
+validation lands exactly where the traffic is low. (`settings.strictness`, the
+type-drift check, was already a write-path check. Same instinct.)
+
+**The full write-path policy** (implemented 2026-07-13, `path-creation.test.ts`):
+
+| leaf state | condition | behavior |
+| --- | --- | --- |
+| exists | correct type | silent |
+| exists | wrong type | per `settings.strictness` |
+| new leaf, parent exists | — | silent — that's how you grow state |
+| parent undefined | 1 level fabricated | `console.warn` |
+| ancestors undefined | ≥2 levels fabricated | `console.error` — sterner |
+
+`settings.pathCreation` is `'off' | 'warn' | 'throw'`; `'throw'` **rolls back the
+fabricated branch** before throwing (everything under the first invented node was
+also invented, so deleting it restores prior state exactly — a throw that left
+`app.usre` behind would be worse than the warning it replaced). It fires zero times
+across the library's real machinery; the only hits in our own suite were tests
+deliberately exercising structure creation, which now opt out.
+
+**Honest note:** this check needs no TJS — it's a runtime guard that would work
+identically in `by-path.ts`. It is the right feature regardless of the port. What TJS
+adds is a principled channel for it (a monadic error instead of an exception), and
+that channel is still missing (see below).
+
+**Monadic mode: the Proxy trap can never be the channel** (verified, not assumed). A
+`set` trap's return is coerced with `ToBoolean`, so returning a `MonadicError` is
+*truthy* → the engine reports the write as a success. Returning `false` throws a
+`TypeError`, i.e. it IS throw mode. And a JS assignment expression always evaluates to
+its RHS. So monadic writes require a **call**: `setByPath` (already returns a boolean),
+an explicit `trySet`, or the TJS assignment transform — which **tjs-lang 0.9.0 does not
+have** (the JS emitter never touches `AssignmentExpression`; `bare-assignments.test.ts`
+is auto-`const`, not monadic propagation). Build the semantics at the call layer and
+desugar `=` onto it when the transform lands.
+
 **Performance is fine and the size regression is perfectly tolerable.** With the
 right mode selection, native `.tjs` matches TS on both runtime and size for hot
 code; the ergonomic modes cost a little where you opt into them, which is exactly

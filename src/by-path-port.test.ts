@@ -1,9 +1,18 @@
 // Validates the native TJS port (by-path.tjs) is behavior-identical to the TS
 // original by running the same assertions through the real .tjs Bun plugin.
 // Imports the .tjs explicitly (Bun doesn't auto-resolve the extension yet).
-import { test, expect } from 'bun:test'
+import { test, expect, beforeAll, afterAll } from 'bun:test'
 // @ts-expect-error — .tjs has no ambient types; loaded via the tjs Bun plugin
 import { getByPath, setByPath, deleteByPath, pathParts } from './by-path.tjs'
+import { settings } from './settings'
+
+// These tests deliberately exercise setByPath's structure-creation semantics, so the write-path
+// fabrication check would fire on every one of them. It is validated on its
+// own terms in path-creation.test.ts; silence it here so the warning stream
+// stays meaningful.
+const _pathCreation = settings.pathCreation
+beforeAll(() => { settings.pathCreation = 'off' })
+afterAll(() => { settings.pathCreation = _pathCreation })
 
 const makeObj = () =>
   ({

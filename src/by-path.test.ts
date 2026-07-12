@@ -1,6 +1,15 @@
-import { test, expect } from 'bun:test'
+import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { getByPath, setByPath, deleteByPath, pathParts } from './by-path.tjs'
 import { XinObject } from './xin-types'
+import { settings } from './settings'
+
+// These tests deliberately exercise setByPath's structure-creation semantics, so the write-path
+// fabrication check would fire on every one of them. It is validated on its
+// own terms in path-creation.test.ts; silence it here so the warning stream
+// stays meaningful.
+const _pathCreation = settings.pathCreation
+beforeAll(() => { settings.pathCreation = 'off' })
+afterAll(() => { settings.pathCreation = _pathCreation })
 
 const obj = {
   foo: 17,

@@ -11,6 +11,7 @@ safety none
 TjsCompat
 
 import { makeError } from './make-error'
+import { settings } from './settings'
 
 // time component for id(): a monotonic number encoded base-36. Uses
 // performance.now() rather than Date (TjsDate mode forbids Date in native TJS);
@@ -178,7 +179,48 @@ function getByPath(obj, path) {
   return found
 }
 
+// A write only reaches an undefined path by *fabricating* the containers along
+// the way (see `byKey`). Adding a new leaf to an existing parent is normal —
+// that's how you grow state — so it is never reported. Inventing an intermediate
+// container almost never is: `app.usre.name = 'x'` invents `app.usre` and grows a
+// branch nothing is observing, which is precisely the bug that is expensive to
+// find. Depth grades the confidence: one invented level is suspicious, two or
+// more is a typo or missing initialization essentially every time.
+//
+// This is checked on writes only. Reads are self-limiting — getByPath on a bad
+// path returns undefined and the caller copes; nothing is corrupted.
+function reportPathCreation(path, fabricated) {
+  const mode = settings.pathCreation
+  if (mode === 'off' || fabricated.length === 0) return
+  const depth = fabricated.length
+  const trail = fabricated.map((f) => f.key).join(' → ')
+  const detail =
+    depth > 1
+      ? `setByPath("${path}") fabricated ${depth} levels of structure (${trail}) — nothing is observing that branch. A write that has to invent this much structure is almost always a typo or missing initialization.`
+      : `setByPath("${path}") fabricated the intermediate "${trail}" — nothing is observing that branch. If that wasn't intended, check the path spelling.`
+  if (mode === 'throw') {
+    // Undo the whole fabricated branch. Everything below the first invented node
+    // was invented too (it didn't exist), so removing that node restores the
+    // prior state exactly — including the leaf we were asked to write.
+    const first = fabricated[0]
+    delete first.parent[first.key]
+    throw makeError(detail, path)
+  }
+  // 'warn': keep the write, but say so — louder the deeper it went.
+  if (depth > 1) console.error(detail)
+  else console.warn(detail)
+}
+
 function setByPath(orig, path, val) {
+  const fabricated = []
+  const result = walkAndSet(orig, path, val, fabricated)
+  // deleting through a path that doesn't exist isn't "fabrication" worth
+  // reporting — deleteByPath already guards on the value being present.
+  if (val !== _delete_) reportPathCreation(path, fabricated)
+  return result
+}
+
+function walkAndSet(orig, path, val, fabricated) {
   let obj = orig
   if (path === '')
     throw new Error('setByPath cannot be used to set the root object')
@@ -223,6 +265,9 @@ function setByPath(orig, path, val) {
         const key = part.shift()
         if (part.length > 0 || parts.length > 0) {
           // if we're at the end of part.length then we need to insert an array
+          // `byKey` inserts when the key is missing — that insert IS the
+          // fabrication. Record the parent too, so 'throw' mode can undo it.
+          if (obj[key] === undefined) fabricated.push({ parent: obj, key })
           obj = byKey(obj, key, part.length > 0 ? {} : [])
         } else {
           if (val !== _delete_) {
