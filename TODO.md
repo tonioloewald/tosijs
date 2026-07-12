@@ -54,8 +54,17 @@ Next steps:
 - **Port the next module.** The machinery is generic: drop the `.tjs` in `src/`, add a
   hand-authored `x.d.tjs.ts`, point importers at `./x.tjs`. `bin/site.ts` stages and
   strips automatically. Candidates: `more-math` (pure leaf), `string-case`, `throttle`.
-- **Apply the mode policy.** `by-path` is a hot internal running in native mode
-  (`toBool`/`Eq` wrapping). Measure `TjsCompat` on it and take the win if it's real.
+- **Make `by-path.tjs` idiomatic — the value experiment.** As landed it's a mechanical
+  transpile: TS-shaped, no `safety` boundary, no examples-as-types, no inline tests, no
+  monadic errors. It costs +1.2% gzip and delivers nothing TS didn't. 2.0 ships pure TJS
+  regardless, so the question is never "can we afford TJS" — it's **"does this module now
+  do something TS couldn't?"** Give it `safety inputs` at the public boundary
+  (`getByPath`/`setByPath` take a path string + arbitrary object — a natural validation
+  seam), examples-as-types, inline tests, monadic errors instead of the `makeError`
+  import; *then* measure size/speed and whether the validation catches anything real.
+  Don't reach for `TjsCompat` first — shaving the 1.2% off a pointless module just makes
+  it cheap and pointless. Mode selection is a **budget** decision, applied after the
+  value is known.
 - **Keep `dist/bun-plugin/` out of the published package.** The build emits
   `dist/bun-plugin/tjs-plugin.{js,d.ts}` from `src/bun-plugin/tjs-plugin.ts`, and
   `files: ["/dist"]` ships it. It imports `tjs-lang/lang` — a *devDependency* — so it's

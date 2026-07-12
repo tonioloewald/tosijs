@@ -6,6 +6,20 @@ itself (patterns to follow) and `../tjs-lang` (feedback to fix).
 
 ## Takeaway so far
 
+**The bar is VALUE, not parity.** 2.0 ships pure TJS — that's settled, so "is TJS
+affordable?" is the wrong question and "not much bigger / not much slower" is not a
+passing grade. Each ported module has to *deliver something TypeScript couldn't*:
+runtime validation at the boundary (`safety inputs`), examples-as-types, inline
+tests, monadic errors. Size and speed are the **budget**, not the goal.
+
+Corollary — **a mechanical transpile is the worst possible outcome.** `by-path.tjs`
+as first landed (2026-07-13) is exactly that: TS-shaped, no safety boundary, no
+inline tests, no monadic errors. It costs +1.2% gzip and delivers *zero* value. The
+fix is not to shave the 1.2% off with `TjsCompat` (that just makes it cheap and
+still pointless) — it's to make the module idiomatic and then ask whether the value
+justifies whatever it then costs. **Don't benchmark a transpile against TS; that only
+measures transpiler overhead.**
+
 **Performance is fine and the size regression is perfectly tolerable.** With the
 right mode selection, native `.tjs` matches TS on both runtime and size for hot
 code; the ergonomic modes cost a little where you opt into them, which is exactly
