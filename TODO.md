@@ -14,6 +14,14 @@
   component/element, it could be auto-removed when the owner is GC'd (same pattern
   as `tosiUnique`'s owner-based cleanup).
 
+- **The committed `dist/` is stale.** A rebuild with *no source change* rewrites
+  `dist/module.debug.js` and `dist/module.safe.js` (~3.6KB smaller, different minified
+  symbol names) — the committed bundles were minified by an older Bun. Confirmed by
+  control build: it happens on `tosijs-ui@1.6.13` too, so it is not the 1.6.22 bump.
+  Deliberately **not** folded into the dev-only 1.6.22 patch, because that would change
+  published artifacts under cover of a devDependency change. Fold it into the next real
+  release, where the bundle diff belongs.
+
 ## tjs-lang
 
 - `Boolean()` on proxied scalars always returns `true` (JS spec limitation —
