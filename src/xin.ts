@@ -842,6 +842,7 @@ import {
 } from './path-listener'
 import { getByPath, setByPath } from './by-path.tjs'
 import { isMonadicError } from './make-error'
+import { checkPath } from './path-check'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1460,6 +1461,10 @@ const observe = (
       } is neither`
     )
   }
+
+  // only a literal path is checkable — a RegExp or predicate is *meant* to match
+  // paths that don't exist yet
+  if (typeof test === 'string') checkPath(test, 'observe')
 
   return _observe(test, func as ObserverCallbackFunction)
 }

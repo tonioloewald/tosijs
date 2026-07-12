@@ -366,4 +366,53 @@ function deleteByPath(orig, path) {
   }
 }
 
-export { getByPath, setByPath, deleteByPath, pathParts }
+// Diagnose a path against a root object WITHOUT touching or creating anything.
+// This is the READ-side counterpart to the write-side fabrication check: binding
+// or observing a path that will never exist is the same bug class as writing to
+// one, and just as invisible.
+//
+// Three outcomes, and the distinction between the last two is the whole point:
+//
+//   { ok: true }                     resolves, or passes through an array segment
+//                                    (index/id-path membership is too dynamic to
+//                                    judge — the item may legitimately arrive later)
+//
+//   { absent: 'usre', at: 'app' }    a key is MISSING from a container that exists
+//                                    and already has a shape. `app` is a populated
+//                                    object with no `usre` in it. That's a typo, and
+//                                    it is the strong signal.
+//
+//   { unresolved: true, at: 'app.user' }
+//                                    the walk hit a null/undefined stub, so we can't
+//                                    see any further. Weaker: could be data that
+//                                    hasn't arrived. But production code shape-stubs
+//                                    before fetching, so it's still worth saying.
+//
+// An EMPTY container is treated as unresolved, not as a typo — `{}` carries no shape
+// information, so there is nothing to contradict.
+function describePath(root, path) {
+  const parts = pathParts(path)
+  const walked = []
+  let obj = root
+  for (const part of parts) {
+    if (!Array.isArray(part)) {
+      // an index or id-path segment — stop judging here
+      return { ok: true }
+    }
+    for (const key of part) {
+      if (obj === null || obj === undefined || typeof obj !== 'object') {
+        return { unresolved: true, at: walked.join('.') }
+      }
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+        return Object.keys(obj).length > 0
+          ? { absent: key, at: walked.length > 0 ? walked.join('.') : '(root)' }
+          : { unresolved: true, at: walked.join('.') }
+      }
+      obj = obj[key]
+      walked.push(key)
+    }
+  }
+  return { ok: true }
+}
+
+export { getByPath, setByPath, deleteByPath, pathParts, describePath }

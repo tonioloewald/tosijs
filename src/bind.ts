@@ -230,6 +230,7 @@ to paths staring with the provided path.
 
 import { touch, observe } from './path-listener'
 import { getXinProxy, setBindFunctions } from './registry'
+import { checkPath } from './path-check'
 import {
   elementToBindings,
   elementToHandlers,
@@ -458,6 +459,10 @@ export function bind<T extends Element = Element>(
   if (path == null) {
     throw new Error('bind requires a path or object with xin Proxy')
   }
+
+  // `^`-prefixed paths are element-relative, not registry paths — nothing to check
+  if (!path.startsWith('^')) checkPath(path, 'bind')
+
   const { toDOM } = binding
 
   element.classList?.add(BOUND_CLASS)

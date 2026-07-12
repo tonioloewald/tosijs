@@ -28,16 +28,35 @@ export type Strictness = 'off' | 'warn' | 'throw'
 // - 'off'   no check
 // - 'warn'  report but keep the write (default); deeper fabrication reports louder
 // - 'throw' roll back the fabricated branch and throw, so the write is blocked
-export type PathCreation = 'off' | 'warn' | 'throw'
+export type PathCreation = 'off' | 'warn' | 'monadic' | 'throw'
+
+// Binding paths: what happens when you bind to — or observe — a path that will
+// never exist. Same bug class as a fabricated write, and just as invisible: the
+// boxed proxies never fail on the way down, so `boxed.appp.user` is a perfectly
+// happy path string whose binding simply never fires, forever.
+//
+// Two severities, and both report at any mode above 'off':
+// - a key ABSENT from an already-populated container (`appp`, or `usre` in a
+//   populated `app`) is a typo — nothing will ever put it there. Reported sternly.
+// - a path that stops at a null/undefined stub can't be judged; it may be data
+//   that hasn't arrived. Reported softly — but reported, because production code
+//   shape-stubs before it fetches, and silence here is how `appp.user` gets missed.
+//
+// Checked on a microtask: `tosi()` registration is synchronous and binding is
+// always async, so deferring lets all synchronous registration land first and
+// makes import-order false positives impossible.
+export type BindingPaths = 'off' | 'warn' | 'throw'
 
 export const settings: {
   debug: boolean
   perf: boolean
   strictness: Strictness
   pathCreation: PathCreation
+  bindingPaths: BindingPaths
 } = {
   debug: false,
   perf: false,
   strictness: 'warn',
   pathCreation: 'warn',
+  bindingPaths: 'warn',
 }
