@@ -189,21 +189,46 @@ function getByPath(obj, path) {
 //
 // This is checked on writes only. Reads are self-limiting — getByPath on a bad
 // path returns undefined and the caller copes; nothing is corrupted.
+// Undo one fabricated node. Everything below it was invented too (it didn't
+// exist), so removing it removes the whole invented branch.
+//
+// Arrays need care: `delete arr[3]` on a 2-long array leaves length at 4 with
+// holes — that's not a rollback, it's a different corruption. If the fabrication
+// grew the array, restore the original length instead; only delete in place when
+// we filled an existing hole.
+function undoFabrication(first) {
+  const parent = first.parent
+  if (Array.isArray(parent)) {
+    const idx = Number(first.key)
+    if (first.prevLength !== undefined && idx >= first.prevLength) {
+      parent.length = first.prevLength
+    } else {
+      delete parent[idx]
+    }
+    // the id-path index cache is keyed by array identity and is now stale
+    idPathMaps.delete(parent)
+  } else {
+    delete parent[first.key]
+  }
+}
+
 function reportPathCreation(path, fabricated) {
   const mode = settings.pathCreation
   if (mode === 'off' || fabricated.length === 0) return
   const depth = fabricated.length
-  const trail = fabricated.map((f) => f.key).join(' → ')
-  const detail =
-    depth > 1
+  const trail = fabricated
+    .map((f) => (f.isIndex ? `[${f.key}]` : f.key))
+    .join(' → ')
+  const gap = fabricated.find((f) => f.gap > 0)
+  const detail = gap
+    ? `setByPath("${path}") wrote past the end of an array — index ${gap.key} on a length-${gap.prevLength} array leaves ${gap.gap} empty slot(s) nothing is observing. Append with index ${gap.prevLength}, or push.`
+    : depth > 1
       ? `setByPath("${path}") fabricated ${depth} levels of structure (${trail}) — nothing is observing that branch. A write that has to invent this much structure is almost always a typo or missing initialization.`
       : `setByPath("${path}") fabricated the intermediate "${trail}" — nothing is observing that branch. If that wasn't intended, check the path spelling.`
   if (mode === 'throw') {
-    // Undo the whole fabricated branch. Everything below the first invented node
-    // was invented too (it didn't exist), so removing that node restores the
-    // prior state exactly — including the leaf we were asked to write.
-    const first = fabricated[0]
-    delete first.parent[first.key]
+    // Undo the whole fabricated branch, then throw — a throw that left the
+    // invented structure behind would be worse than the warning it replaced.
+    undoFabrication(fabricated[0])
     throw makeError(detail, path)
   }
   // 'warn': keep the write, but say so — louder the deeper it went.
@@ -238,6 +263,19 @@ function walkAndSet(orig, path, val, fabricated) {
         }
         const idPath = part.slice(0, equalsOffset)
         const idValue = part.slice(equalsOffset + 1)
+        // `byIdPath` fabricates only in the bare-index form (`list[3].x` where
+        // index 3 is empty) — it passes `_newObject_` and inserts `{}`. The
+        // id-path form (`list[id=nope].x`) does NOT invent: it fails to resolve
+        // and setByPath throws, which is already loud. So only the index form
+        // can grow a branch nobody is observing.
+        if (parts.length > 0 && idPath === '' && obj[idValue] === undefined) {
+          fabricated.push({
+            parent: obj,
+            key: idValue,
+            isIndex: true,
+            prevLength: Array.isArray(obj) ? obj.length : undefined,
+          })
+        }
         obj = byIdPath(obj, idPath, idValue, parts.length > 0 ? _newObject_ : val)
         if (parts.length === 0) {
           return true
@@ -246,11 +284,25 @@ function walkAndSet(orig, path, val, fabricated) {
         expectArray(obj)
         const idx = parseInt(part, 10)
         if (parts.length > 0) {
+          // a missing INTERMEDIATE index doesn't fabricate — obj goes undefined
+          // and the walk falls through to a throw. Already loud; nothing to report.
           obj = obj[idx]
         } else {
           if (val !== _delete_) {
             if (obj[idx] === val) {
               return false
+            }
+            // writing PAST the end grows the array with empty slots — `list[5] = x`
+            // on a 2-long list leaves holes at 2,3,4 that nothing is observing.
+            // idx === length is an append (legitimate); idx < length is an update.
+            if (idx > obj.length) {
+              fabricated.push({
+                parent: obj,
+                key: String(idx),
+                isIndex: true,
+                prevLength: obj.length,
+                gap: idx - obj.length,
+              })
             }
             obj[idx] = val
           } else {

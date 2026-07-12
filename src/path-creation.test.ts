@@ -74,6 +74,61 @@ describe('fabricated structure is reported, graded by depth', () => {
   })
 })
 
+// What arrays ACTUALLY do (probed, not assumed):
+//   list[3].n  — missing INTERMEDIATE index: does not fabricate, walk falls
+//                through to a throw. Already loud, nothing to add.
+//   list[id=x] — unresolvable id-path: throws too.
+//   list[5]=x  — LEAF write past the end: silently grows the array with empty
+//                slots. THIS is the array hole, and it's what we now report.
+describe('arrays: writing past the end is the real hole', () => {
+  test('a missing intermediate index throws — it never fabricates', () => {
+    const obj: any = { list: [{ n: 1 }, { n: 2 }] }
+    expect(() => setByPath(obj, 'list[3].n', 99)).toThrow()
+    expect(obj.list.length).toBe(2) // nothing invented
+  })
+
+  test('an unresolvable id-path throws — it never fabricates', () => {
+    const obj: any = { list: [{ id: 'a', n: 1 }] }
+    expect(() => setByPath(obj, 'list[id=nope].n', 5)).toThrow()
+    expect(obj.list.length).toBe(1)
+  })
+
+  test('writing past the end warns and names the empty slots', () => {
+    const obj: any = { list: [{ n: 1 }, { n: 2 }] }
+    setByPath(obj, 'list[5]', { n: 9 }) // leaves holes at 2, 3, 4
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain('past the end')
+    expect(warnings[0]).toContain('3 empty slot')
+    expect(obj.list.length).toBe(6)
+  })
+
+  test('appending at exactly length is legitimate — silent', () => {
+    const obj: any = { list: [{ n: 1 }, { n: 2 }] }
+    setByPath(obj, 'list[2]', { n: 3 })
+    expect(obj.list.length).toBe(3)
+    expect(warnings).toEqual([])
+    expect(errors).toEqual([])
+  })
+
+  test('updating an existing index is silent', () => {
+    const obj: any = { list: [{ n: 1 }, { n: 2 }] }
+    setByPath(obj, 'list[0].n', 42)
+    expect(obj.list[0].n).toBe(42)
+    expect(warnings).toEqual([])
+    expect(errors).toEqual([])
+  })
+
+  test("'throw' restores the array's length — no holes left behind", () => {
+    settings.pathCreation = 'throw'
+    const obj: any = { list: [{ n: 1 }, { n: 2 }] }
+    expect(() => setByPath(obj, 'list[5]', { n: 9 })).toThrow()
+    // `delete list[5]` alone would leave length at 6 with holes — that isn't a
+    // rollback, it's a different corruption
+    expect(obj.list.length).toBe(2)
+    expect(obj.list).toEqual([{ n: 1 }, { n: 2 }])
+  })
+})
+
 describe('modes', () => {
   test("'off' is silent even for a deep fabrication", () => {
     settings.pathCreation = 'off'

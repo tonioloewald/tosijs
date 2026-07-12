@@ -61,6 +61,37 @@ have** (the JS emitter never touches `AssignmentExpression`; `bare-assignments.t
 is auto-`const`, not monadic propagation). Build the semantics at the call layer and
 desugar `=` onto it when the transform lands.
 
+**Proposal for tjs-lang: make `MonadicError` falsy — but NOT `Error`.** (Worth
+filing; not yet filed.)
+
+The hard fact first: **no object can be falsy in JavaScript.** `ToBoolean` has no user
+hook — `valueOf`, `toString` and `Symbol.toPrimitive` all fire for `==`, `+` and
+`String()`, and *none* of them are consulted for truthiness (verified empirically).
+`document.all` is the only falsy object, a legacy `[[IsHTMLDDA]]` quirk unavailable to
+user code. This is the same wall as the known boxed-`Boolean` limitation — one wall,
+two symptoms.
+
+So "falsy" can only mean *falsy inside TJS-compiled conditionals*, via `toBool`. TJS
+can do that. The question is whether it should:
+
+- **`Error` → no.** `if (err)` in a catch block is the most common error idiom in JS.
+  Making `Error` falsy silently inverts every one of them and breaks the `TJS ⊇ JS`
+  invariant (subset-legal code must not change meaning). All downside.
+- **`MonadicError` → yes, and it's elegant.** No legacy JS does `if (monadicError)`, so
+  nothing breaks. And it composes with the existing contract: `setByPath` already
+  returns a `boolean`, so a falsy `MonadicError` lets `if (setByPath(...))` keep working
+  as a success test *while carrying the error payload*. No new ceremony at call sites.
+- **The sharp edge to name in the proposal:** it only holds inside TJS. A plain-JS
+  consumer doing `if (result)` sees a truthy object and reads failure as **success** —
+  the identical expression means opposite things in the two dialects, and errors are the
+  worst place for a silent semantic flip. Defensible (TJS already does this with `Eq`,
+  and `TjsCompat` is the escape hatch), but it means the **JS-facing contract must be
+  `isMonadicError(r)`, never truthiness.**
+
+Note this does *not* rescue the Proxy `set` trap: its `ToBoolean` coercion happens
+inside the engine's `[[Set]]`, not in TJS source, so no transform reaches it. The trap
+can never be the monadic channel regardless.
+
 **Performance is fine and the size regression is perfectly tolerable.** With the
 right mode selection, native `.tjs` matches TS on both runtime and size for hot
 code; the ergonomic modes cost a little where you opt into them, which is exactly
