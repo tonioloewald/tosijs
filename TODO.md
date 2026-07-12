@@ -39,25 +39,33 @@ Proven / characterized:
 - **Per-file swap** (by-path) works for runtime/types/bundle but is blocked at
   tosijs-ui `buildSite` (CSS-eval can't load `.tjs`) + Bun runtime `onResolve`.
 
+**The buildSite wall is down (2026-07-13).** `tosijs-ui` is on 1.6.22, the
+`libraryBuild` + `generateCssPreload` seams are wired in `bin/site.ts`, and
+**`by-path` now ships as native `.tjs`** — `by-path.ts` is deleted. 589 tests pass,
+build exits 0, the shipped bundle smoke-tests clean. Cost: +256 bytes gzipped (+1.2%).
+Details in `TJS-PORT-DX.md`.
+
 Next steps:
-- **Bump `tosijs-ui` 1.6.13 → 1.6.22.** Two reasons, and the first is urgent:
-  1. **Dev-server memory leak.** Through 1.6.21, `buildSite()` called `Bun.build()`
-     in-process and Bun's bundler never returns its native arena, so `bun start` leaks
-     tens of MB per rebuild for as long as it runs (a long watch session upstream hit
-     136GB RSS). 1.6.22 moves bundling + ePub to child processes and adds a watchdog.
-     The shared practices call this out as a priority update for every `tosijs-ui/site`
-     consumer. **We are that consumer, on 1.6.13.**
-  2. **The port is already unblocked.** The `libraryBuild` + `generateCssPreload` seams
-     shipped in **1.6.21** — they were never gated on 1.7 (which is still in adversarial
-     review). We just hadn't taken them. See `UPSTREAM.md`.
-- **Pick a migration mode** (bulk vs incremental) and wire `tosijs-site.config.ts`
-  to the seams, then re-run the swap that died at buildSite.
-- **Keep `dist/bun-plugin/` out of the published package.** The build now emits
+- **Pick a migration mode — now a real choice, not a forced one.** Incremental
+  per-file swaps are unblocked (proven by by-path). Bulk all-`.tjs` is also proven.
+  Incremental costs an explicit `.tjs` extension at every import site (Bun's runtime
+  loader ignores plugin `onResolve` for relative specifiers); bulk avoids that but
+  lands a TS-shaped codebase to be improved module-by-module afterwards.
+- **Port the next module.** The machinery is generic: drop the `.tjs` in `src/`, add a
+  hand-authored `x.d.tjs.ts`, point importers at `./x.tjs`. `bin/site.ts` stages and
+  strips automatically. Candidates: `more-math` (pure leaf), `string-case`, `throttle`.
+- **Apply the mode policy.** `by-path` is a hot internal running in native mode
+  (`toBool`/`Eq` wrapping). Measure `TjsCompat` on it and take the win if it's real.
+- **Keep `dist/bun-plugin/` out of the published package.** The build emits
   `dist/bun-plugin/tjs-plugin.{js,d.ts}` from `src/bun-plugin/tjs-plugin.ts`, and
   `files: ["/dist"]` ships it. It imports `tjs-lang/lang` — a *devDependency* — so it's
   dev-only tooling riding along in a runtime package. Nothing in the exports map reaches
   it (dead weight, not a live resolution break), but it should be excluded from the
   library build before 2.0 ships. Pre-dates the tosijs-ui bump.
+- **`by-path-port.test.ts` is now redundant** — it was the parity harness proving
+  `.tjs` matched `.ts`, and both it and `by-path.test.ts` now exercise the same module.
+  Kept for now because 5 of its 7 assertions have no same-named counterpart in
+  `by-path.test.ts`; fold the unique ones in and delete it.
 
 Deferred / ideas:
 - **Monadic `'strict'` strictness mode** — needs assignment to have a value-returning

@@ -114,7 +114,7 @@ This lets you write bindings that support autocomplete and lint. Yay!
 import { XinProxy, BoxedProxy } from './xin-types'
 import { xin, boxed } from './xin'
 import { warnDeprecated } from './metadata'
-import { id } from './by-path'
+import { id } from './by-path.tjs'
 
 export function tosi<T extends object>(obj: T): BoxedProxy<T> {
   Object.assign(boxed, obj)

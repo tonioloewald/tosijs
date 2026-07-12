@@ -172,9 +172,19 @@ The 2.0 effort is an incremental rewrite of `src/` from TypeScript to native TJS
   there's nothing extra to install.
 - **Import `.tjs` with the explicit extension** (`from './by-path.tjs'`) — Bun doesn't
   resolve the extension — and with `// @ts-expect-error`, since `.tjs` has no ambient types.
-- **A ported module keeps a parity test.** `by-path-port.test.ts` runs the TS original's
-  assertions through the `.tjs` version to prove behavior is identical; do the same for the
-  next module you port.
+- **Porting a module is mechanical**, and `bin/site.ts` handles the build side generically:
+  drop `x.tjs` in `src/`, hand-author `x.d.tjs.ts` (the TS type bridge — `allowArbitraryExtensions`
+  resolves `import './x.tjs'` to it; don't auto-emit it, `generateDTS` degrades arrow-const
+  exports to `any`), and point importers at `./x.tjs`. `by-path` is the worked example.
+- **Two `tosijs-ui` build seams make the mixed graph work** (needs >= 1.6.21). `libraryBuild`
+  replaces buildSite's `tsc -p` step: we run `tsc` for the `.ts` graph, then *stage the `.tjs`
+  sources into `dist`*, because tsc emits `import './x.tjs'` specifiers with no artifact behind
+  them — and buildSite then **evaluates** those emitted `dist/*.js` to extract CSS.
+  `generateCssPreload` registers the loader inside that eval subprocess. Staging is build-time
+  only: the `.tjs` are stripped from `dist` after bundling, so the published package ships none.
+- **A parity test is how you de-risk a port before swapping.** `by-path-port.test.ts` ran the TS
+  original's assertions through the `.tjs` version. Once the `.tjs` *is* the source, that test no
+  longer proves anything — fold its unique assertions into the module's real test and drop it.
 - **Two orthogonal knobs, easily conflated:** `safety` (`none | inputs | all`) controls
   runtime input validation; `Tjs*` modes (`TjsEquals`, `TjsClass`, …) control JS semantic
   transforms. `safety none` does *not* disable mode transforms. Hot internals (path parsing,

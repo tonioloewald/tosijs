@@ -141,7 +141,7 @@ preview.querySelector('.spawn').addEventListener('click', () => {
 */
 
 import { registry } from './registry'
-import { getByPath, setByPath } from './by-path'
+import { getByPath, setByPath } from './by-path.tjs'
 import { touch, observe, updates } from './path-listener'
 import { tosiPath } from './metadata'
 import { debounce } from './throttle'

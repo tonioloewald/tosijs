@@ -79,7 +79,7 @@ import {
 } from './xin-types'
 import { tosiPath, getArrayIdPaths } from './metadata'
 import { settings } from './settings'
-import { getByPath } from './by-path'
+import { getByPath } from './by-path.tjs'
 import { registry } from './registry'
 
 export const observerShouldBeRemoved = Symbol('observer should be removed')

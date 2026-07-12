@@ -159,6 +159,42 @@ tjs build emit artifacts where tsc would) — the real fix; (2) wait for Bun run
 `onResolve` (helps blocker 1 only); (3) the bulk all-`.tjs` strategy below, which
 sidesteps blocker 1 entirely.
 
+### ✅ Full-swap RE-RUN: by-path shipped as `.tjs` (2026-07-13, tosijs-ui 1.6.22) — landed
+
+Unblock path (1) arrived. The `libraryBuild` + `generateCssPreload` seams shipped in
+**tosijs-ui 1.6.21** (not the still-in-review 1.7 — we'd recorded the blocker against
+the wrong release and sat on 1.6.13 for nothing). Re-ran the exact swap that died, on
+1.6.22. **It clears.** `by-path.ts` is deleted; `by-path.tjs` is the source of truth
+and is compiled into every shipped bundle.
+
+How the two seams map onto the two blockers:
+
+| blocker | fix |
+| --- | --- |
+| **2 — buildSite CSS eval** | `libraryBuild` replaces the `tsc -p` step: we run tsc for the `.ts` graph, then **stage the `.tjs` sources into `dist`** so the emitted `import './by-path.tjs'` specifiers resolve. `generateCssPreload: './src/bun-plugin/tjs-plugin.ts'` registers the loader *inside* the CSS-extraction subprocess that evaluates them. |
+| **1 — Bun runtime `onResolve`** | Not fixed (still a Bun limit) — just paid: every importer writes the extension (`from './by-path.tjs'`). 5 source files + 3 tests. Mechanical, and honestly self-documenting. |
+
+Staging is **build-time only.** The `.tjs` sources are stripped from `dist` after the
+bundles are built (they're inlined by then), so the published package ships no `.tjs`
+— only the five bundles, the `.d.ts`, and the `by-path.d.tjs.ts` type bridge.
+
+Verified: 589 tests pass; `bun run build` exits 0; CSS extraction produces a real
+12.7KB stylesheet (i.e. the eval *ran*, it didn't skip); the shipped `dist/module.js`
+carries the `__tjs` runtime and a smoke test drives dotted paths, id-paths, mutation
+and observers through it.
+
+**Size cost of one core module in native TJS:** `module.js` +1560 bytes raw,
+**+256 bytes gzipped** (20567 → 20823, +1.2%). In line with the mode-policy
+expectation; `by-path` is a hot internal and is a candidate for `TjsCompat` if that
+1.2% ever matters.
+
+**Types:** `allowArbitraryExtensions` + a hand-authored `src/by-path.d.tjs.ts`.
+Hand-authored deliberately — `generateDTS` still degrades arrow-function consts to
+`any` (tjs-lang issue #4), so auto-emission would silently widen the public surface.
+
+**Consequence for the mode decision:** incremental per-file migration is no longer
+blocked, so bulk-vs-incremental is now a real choice made on merit, not a forced one.
+
 **Leaf modules do NOT escape the wall (verified 2026-07-08).** Tried swapping the
 pure leaf `more-math` — buildSite failed the same way (`Cannot find module
 './more-math.tjs' from dist/index.js`), because everything is reachable from

@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { getByPath, setByPath, deleteByPath, pathParts } from './by-path'
+import { getByPath, setByPath, deleteByPath, pathParts } from './by-path.tjs'
 import { XinObject } from './xin-types'
 
 const obj = {

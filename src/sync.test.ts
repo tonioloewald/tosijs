@@ -2,7 +2,7 @@ import { test, expect, describe, beforeEach } from 'bun:test'
 import { xin, updates } from './xin'
 import { tosi } from './xin-proxy'
 import { registry } from './registry'
-import { getByPath } from './by-path'
+import { getByPath } from './by-path.tjs'
 import { sync, type SyncTransport, type SyncMessage } from './sync'
 
 const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms))

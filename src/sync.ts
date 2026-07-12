@@ -155,7 +155,7 @@ The returned `disconnect()` removes all observers and calls
 */
 
 import { registry } from './registry'
-import { getByPath, setByPath } from './by-path'
+import { getByPath, setByPath } from './by-path.tjs'
 import { touch, observe, unobserve, updates } from './path-listener'
 import { tosiPath } from './metadata'
 import { throttle } from './throttle'

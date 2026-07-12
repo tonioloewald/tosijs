@@ -840,7 +840,7 @@ import {
   unobserve,
   updates,
 } from './path-listener'
-import { getByPath, setByPath } from './by-path'
+import { getByPath, setByPath } from './by-path.tjs'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1355,7 +1355,7 @@ const regHandler = (
         return boxScalars ? box(value, extendPath(path, prop)) : value
       }
     } else if (Array.isArray(target)) {
-      let value = target[prop as unknown as number]
+      const value = target[prop as unknown as number]
       return typeof value === 'function'
         ? (...items: any[]) => {
             // Unwrap any proxied/boxed values before passing to array methods
