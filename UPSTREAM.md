@@ -17,19 +17,32 @@ Newest at top. Mark `✅ RESOLVED (fixed in <pkg>@<version>)` and close the issu
 
 ## tosijs-ui
 
-### 🚧 BLOCKING — Release 1.7 with the `libraryBuild` + `generateCssPreload` seams
-**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/10
+### ✅ RESOLVED (fixed in tosijs-ui@1.6.21) — the `libraryBuild` + `generateCssPreload` seams
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/10 — **close it.**
 
-**Context.** `tosijs-ui/BUILD-TJS-HOOK.md` is marked ✅ IMPLEMENTED on the `1.7-*` branch
-(Option A + the eval-context/preload half), but the latest **published** release is 1.6.21.
-We still pin `tosijs-ui@1.6.13`.
+The seams never needed a 1.7: they shipped in **1.6.21** (`libraryBuild`,
+`generateCssPreload` — see its CHANGELOG and `site-config.d.ts`). This entry previously
+claimed they were stranded on an unreleased `1.7-*` branch, which was wrong — the 2.0 port
+has been unblocked at `buildSite` since 1.6.21, and we didn't notice because we pin 1.6.13.
 
-**Why it blocks us.** The 2.0 native-TJS port dies at `buildSite` without these seams (the
-CSS-eval step can't load `.tjs`), so native TJS modules can be validated but never shipped.
-Both migration modes (per-file swap, bulk all-`.tjs`) need them.
+**Action for us:** bump `tosijs-ui` 1.6.13 → **1.6.22** (see below), then wire
+`tosijs-site.config.ts` to the seams and re-run the swap that died at `buildSite`.
 
-**Suggestion.** Cut a 1.7 release containing the seams; no API change beyond what landed.
-This is the single highest-value item in our upstream backlog — see `TJS-PORT-DX.md`.
+### ⚠️ TAKE 1.6.22 — dev-server memory leak (fixed upstream, we're still exposed)
+
+Not our filed debt — a fix we haven't taken. Per
+[practices/development.md](https://github.com/tonioloewald/tosijs-coding-practices/blob/main/practices/development.md):
+**anything consuming `tosijs-ui/site` should update to ≥ 1.6.22 as a priority.**
+
+`buildSite()` called `Bun.build()` in-process, and Bun's bundler never returns its native
+arena — RSS grows monotonically per rebuild, invisible to `Bun.gc()` and to heap profilers
+(upstream: [oven-sh/bun#34053](https://github.com/oven-sh/bun/issues/34053)). `devServer()`
+rebuilds in a process that runs for days, so it compounds: a ~2-day watch session reached
+**136GB RSS** and took the machine down. **Our `bun start` is that dev server, on 1.6.13.**
+
+1.6.22 moves bundling and ePub generation into child processes (the OS reclaims the memory
+on exit) and adds a rebuild memory watchdog. Measured: baseline RSS 503MB → 150MB,
+per-rebuild growth 26–59MB → ~2.7MB. Bundle output is byte-for-byte identical.
 
 ---
 

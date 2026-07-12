@@ -40,9 +40,16 @@ Proven / characterized:
   tosijs-ui `buildSite` (CSS-eval can't load `.tjs`) + Bun runtime `onResolve`.
 
 Next steps:
-- **Get tosijs-ui 1.7** (package.json still pins 1.6.13) — it ships the
-  `libraryBuild` + `generateCssPreload` seams (`../tosijs-ui/BUILD-TJS-HOOK.md`) that
-  unblock the swap.
+- **Bump `tosijs-ui` 1.6.13 → 1.6.22.** Two reasons, and the first is urgent:
+  1. **Dev-server memory leak.** Through 1.6.21, `buildSite()` called `Bun.build()`
+     in-process and Bun's bundler never returns its native arena, so `bun start` leaks
+     tens of MB per rebuild for as long as it runs (a long watch session upstream hit
+     136GB RSS). 1.6.22 moves bundling + ePub to child processes and adds a watchdog.
+     The shared practices call this out as a priority update for every `tosijs-ui/site`
+     consumer. **We are that consumer, on 1.6.13.**
+  2. **The port is already unblocked.** The `libraryBuild` + `generateCssPreload` seams
+     shipped in **1.6.21** — they were never gated on 1.7 (which is still in adversarial
+     review). We just hadn't taken them. See `UPSTREAM.md`.
 - **Pick a migration mode** (bulk vs incremental) and wire `tosijs-site.config.ts`
   to the seams, then re-run the swap that died at buildSite.
 

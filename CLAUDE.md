@@ -161,6 +161,27 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 - `ListBinding` tests require proxied arrays from `xin['path.to.array']`, not raw arrays (raw arrays lack the `XIN_PATH` metadata)
 - Throttled event handlers are unreliable in tests; call methods like `lb.update()` directly
 
+## TJS Port (branch `tosijs-2.0`)
+
+The 2.0 effort is an incremental rewrite of `src/` from TypeScript to native TJS
+(`tjs-lang`, currently pinned at 0.9.0). Consequences for day-to-day work on this branch:
+
+- **`src/` is mixed `.ts` and `.tjs`.** `.tjs` files are transpiled on import by
+  `src/bun-plugin/tjs-plugin.ts` — preloaded for `bun test` via `bunfig.toml` and passed to
+  `Bun.build` in `bin/site.ts`. Transpiled output self-contains its `__tjs` runtime, so
+  there's nothing extra to install.
+- **Import `.tjs` with the explicit extension** (`from './by-path.tjs'`) — Bun doesn't
+  resolve the extension — and with `// @ts-expect-error`, since `.tjs` has no ambient types.
+- **A ported module keeps a parity test.** `by-path-port.test.ts` runs the TS original's
+  assertions through the `.tjs` version to prove behavior is identical; do the same for the
+  next module you port.
+- **Two orthogonal knobs, easily conflated:** `safety` (`none | inputs | all`) controls
+  runtime input validation; `Tjs*` modes (`TjsEquals`, `TjsClass`, …) control JS semantic
+  transforms. `safety none` does *not* disable mode transforms. Hot internals (path parsing,
+  touch queue, proxy traps) get `safety none`; public API gets `safety inputs`.
+- **`tjs-out/` and `convert-report.txt` are gitignored build artifacts** of `tjs convert` —
+  never edit or commit them.
+
 ## Component Conventions
 
 - **`static preferredTagName`** sets the custom element tag name explicitly. Survives minification. If omitted, derived from class name (unreliable when minified, falls back to anonymous tag).
@@ -200,7 +221,14 @@ Deprecated APIs emit a single `console.warn` per feature (tracked in a `Set` in 
 
 ## Issue Tracking
 
-Open tasks and known issues are tracked in `TODO.md` at the project root.
+Three documents at the project root, each with a distinct job:
+
+- **`TODO.md`** — open tasks, known issues, and the 2.0 state of play. New follow-ups go here.
+- **`TJS-PORT-DX.md`** — the living DX findings log for the 2.0 port. Records what porting each
+  module actually felt like, plus numbered feedback items for `../tjs-lang`.
+- **`UPSTREAM.md`** — a local mirror of dependency rough edges we've **filed as issues**
+  upstream (tjs-lang, tosijs-ui). An entry here without a filed issue is a complaint nobody
+  will read; the issue on the target repo is the real channel.
 
 ## Releasing
 
