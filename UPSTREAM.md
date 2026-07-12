@@ -48,6 +48,32 @@ per-rebuild growth 26–59MB → ~2.7MB. Bundle output is byte-for-byte identica
 
 ## tjs-lang
 
+### 📝 TO FILE — expose the error ring buffer so libraries can record domain errors
+
+**Not yet filed.** The runtime keeps a monadic-error ring buffer whose stated purpose is
+*"lets you catch monadic errors that were silently ignored"* — exactly the forensic trail
+a library wants. But **only `typeError()` writes to it.** The general `error(message,
+details)` returns a plain `{ $error: true, … }` and never touches the buffer, and there
+is no public recorder. So a library built on TJS — tosijs's path-creation and type-drift
+checks — cannot get its own monadic errors into the history that exists for them.
+
+**Ask:** a public `record(err)` (or make `error()` record). `MonadicError`'s shape is
+already permissive enough — `expected`, `actual` and `reason` are all optional, so
+`new MonadicError(message, path)` is valid for a domain error.
+
+**Why it matters:** it lets `'off'` mean **"recorded, not shouted"** rather than
+"undetected". A silent mode that still leaves a trail is the whole point of the buffer,
+and today only TJS's own type checks can use it.
+
+**Not an ask — already supported:** buffer *size* is configurable today via
+`configure({ maxErrors })` (`TJSConfig.maxErrors`, default 64). No issue needed for that.
+
+**Related tosijs-side decision (ours, not theirs):** the default tosijs bundle has no TJS
+runtime — the transpiled output falls back to a `{ Type }` stub, so there is no buffer at
+all outside the `debug`/`safe` builds. 2.0 is pure TJS, so the runtime will be present;
+at that point tosijs should drop its own `MonadicError` and use the runtime's, and every
+check lands in one history. See TJS-PORT-DX.md.
+
 Verified against **0.9.0** (0.9.0 fixed the critical dts + packaging items — #2, #6, #8, #9,
 #10, #11). Current published is 0.9.1; the below were **not** re-checked against it, so they
 may already be fixed.
