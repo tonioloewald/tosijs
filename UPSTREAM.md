@@ -48,31 +48,40 @@ per-rebuild growth 26–59MB → ~2.7MB. Bundle output is byte-for-byte identica
 
 ## tjs-lang
 
-### 📝 TO FILE — expose the error ring buffer so libraries can record domain errors
+### 🚧 Error ring buffer is write-closed — only `typeError()` can record
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/17 (filed upstream; we
+[commented](https://github.com/tonioloewald/tjs-lang/issues/17#issuecomment-4955716468)
+with the downstream evidence)
 
-**Not yet filed.** The runtime keeps a monadic-error ring buffer whose stated purpose is
-*"lets you catch monadic errors that were silently ignored"* — exactly the forensic trail
-a library wants. But **only `typeError()` writes to it.** The general `error(message,
-details)` returns a plain `{ $error: true, … }` and never touches the buffer, and there
-is no public recorder. So a library built on TJS — tosijs's path-creation and type-drift
-checks — cannot get its own monadic errors into the history that exists for them.
+The runtime keeps a monadic-error ring buffer whose stated purpose is *"catch monadic
+errors that were silently ignored"* — exactly the forensic trail a library wants. But
+**only `typeError()` writes to it.** The general `error(message, details)` returns a plain
+`{ $error: true, … }` and never records. So tosijs's three checks (path fabrication, type
+drift, dead bindings) cannot reach the history that exists for precisely them, and our
+`'off'` mode means *undetected* rather than **recorded, not shouted**.
 
-**Ask:** a public `record(err)` (or make `error()` record). `MonadicError`'s shape is
-already permissive enough — `expected`, `actual` and `reason` are all optional, so
-`new MonadicError(message, path)` is valid for a domain error.
+Three things we raised on the issue that it didn't cover:
 
-**Why it matters:** it lets `'off'` mean **"recorded, not shouted"** rather than
-"undetected". A silent mode that still leaves a trail is the whole point of the buffer,
-and today only TJS's own type checks can use it.
+1. **The consumers who need the recorder most have no runtime.** tosijs's *default*
+   published bundle has no `globalThis.__tjs` and no `createRuntime` — the transpiled
+   output only carries per-function metadata (`fn.__tjs = { params, unsafe, source }`).
+   The full runtime lives only in our `debug`/`safe` builds. So `record()` would be
+   absent from production, which is where the mystery happens. A minimal recorder should
+   probably ship in the always-emitted shim.
+2. **The sole existing writer breaks the recorder's own rule.** The issue says recording
+   must never change behavior; `typeError()` both `console.error`s (`logTypeErrors`) and
+   **throws** (`throwTypeErrors`), `runtime.ts:204-211`. `record()` must be pure.
+3. **"Record liberally" + a 64-slot ring evicts the one real error.** Severity *tags*
+   don't prevent eviction — filtering an already-overwritten ring returns nothing, and
+   you can't distinguish "no error" from "it scrolled off". Wants severity-aware
+   retention, not just labels.
 
-**Not an ask — already supported:** buffer *size* is configurable today via
-`configure({ maxErrors })` (`TJSConfig.maxErrors`, default 64). No issue needed for that.
+**Not an ask — already supported:** buffer *size* is configurable via
+`configure({ maxErrors })` (default 64).
 
-**Related tosijs-side decision (ours, not theirs):** the default tosijs bundle has no TJS
-runtime — the transpiled output falls back to a `{ Type }` stub, so there is no buffer at
-all outside the `debug`/`safe` builds. 2.0 is pure TJS, so the runtime will be present;
-at that point tosijs should drop its own `MonadicError` and use the runtime's, and every
-check lands in one history. See TJS-PORT-DX.md.
+**Related decision that's ours, not theirs:** 2.0 is pure TJS, so the runtime will be
+present in the default bundle. At that point tosijs should drop its own `MonadicError`
+and use the runtime's, and every check lands in one history. See TJS-PORT-DX.md.
 
 Verified against **0.9.0** (0.9.0 fixed the critical dts + packaging items — #2, #6, #8, #9,
 #10, #11). Current published is 0.9.1; the below were **not** re-checked against it, so they
