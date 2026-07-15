@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.6.9] - 2026-07-15
+
+### Fixed
+
+- **`Component.parts` no longer poisons itself when read before hydration.**
+  Content is instantiated on `connectedCallback` (via `hydrate()`), not at
+  construction — so on an uninserted element (e.g. one fresh from
+  `elementCreator()`) there is no shadow root yet and the `parts` proxy would
+  bind to the light-DOM root. Because the proxy was cached, that binding
+  persisted for the life of the element: after insertion `parts.host` still
+  threw `elementRef "host" does not exist!`, silently, forever. This bricked
+  components whose public getters read `parts` before insertion (e.g. reading
+  `el.showingDiff` on a detached `<tosi-code>` left CodeMirror unmounted with no
+  error). `hydrate()` now discards the cached proxy so the next access rebuilds
+  against the correct root. ([#13](https://github.com/tonioloewald/tosijs/issues/13))
+
+### Added
+
+- **`Component.hydrated: boolean` and `Component.whenHydrated: Promise<void>`.**
+  A supported way to ask whether an element is hydrated instead of probing
+  `parts` (which was itself the thing that poisoned the proxy). Gate
+  parts-dependent public getters on `this.hydrated`, or `await this.whenHydrated`
+  before doing parts-dependent work on an element that may not be inserted yet.
+  Already-hydrated elements resolve immediately.
+
 ## [1.6.8] - 2026-07-11
 
 ### Added

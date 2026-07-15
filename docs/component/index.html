@@ -264,6 +264,13 @@ a content element with <code>class=&quot;foo&quot;</code> while <code>this.parts
 <p><code>this.parts</code> will also remove a <code>data-ref</code> attribute once it has been used to find
 the element. This means that if you use all your refs in <code>render</code> or <code>connectedCallback</code>
 then no trace will remain in the DOM for a mounted element.</p>
+<p><code>parts</code> only resolves after <strong>hydration</strong> — the content it looks through is
+instantiated on <code>connectedCallback</code>, not at construction. Reading <code>parts</code> on an
+uninserted element (e.g. one just back from <code>elementCreator()</code>) has nothing to find.
+If a public getter needs a ref before the element is guaranteed inserted, gate it on
+<code>this.hydrated</code> or <code>await this.whenHydrated</code> first. (Prior to this you could not ask
+whether an element was hydrated without probing <code>parts</code>, and that probe permanently
+bound the proxy to the light DOM.)</p>
 <h3>Component properties</h3>
 <h4>content: ((elements: ElementsProxy) =&gt; ContentType) | null | ContentType = slot()</h4>
 <p>A component&#39;s content <code>property</code> can either be static content (it defaults to being a <code>&lt;slot&gt;</code> element) or an arrow function

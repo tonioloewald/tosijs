@@ -104,6 +104,15 @@ class DynamicComponent extends Component {
     div({ part: 'message' }, this.greeting)
 }
 
+// Shadow-DOM component with a part — for hydration / parts-poisoning coverage
+class ShadowPartComponent extends Component {
+  static preferredTagName = 'shadow-part-component'
+  static shadowStyleSpec = {
+    ':host': { display: 'block' },
+  }
+  content = ({ div }: typeof elements) => div({ part: 'box' }, 'boxed')
+}
+
 let testComponent: ReturnType<typeof TestComponent.elementCreator>
 let styledComponent: ReturnType<typeof StyledComponent.elementCreator>
 let valueComponent: ReturnType<typeof ValueComponent.elementCreator>
@@ -242,6 +251,52 @@ describe('Component', () => {
       const container1 = el.parts.container
       const container2 = el.parts.container
       expect(container1).toBe(container2)
+      el.remove()
+    })
+
+    test('an early parts read does not poison the proxy after hydration', () => {
+      const el = ShadowPartComponent.elementCreator()()
+      // Pre-hydration there is no shadow root and no content, so this read
+      // finds nothing and throws — but it must not permanently bind the proxy
+      // to the light DOM (the bug in tosijs#13).
+      expect(el.shadowRoot).toBeNull()
+      expect(() => el.parts.box).toThrow()
+      document.body.appendChild(el)
+      // Hydration attaches the shadow root; the part now resolves from it.
+      expect(el.shadowRoot).not.toBeNull()
+      expect(el.parts.box).toBeInstanceOf(HTMLDivElement)
+      el.remove()
+    })
+  })
+
+  describe('hydration', () => {
+    test('hydrated flips false -> true on connect', () => {
+      const el = ShadowPartComponent.elementCreator()()
+      expect(el.hydrated).toBe(false)
+      document.body.appendChild(el)
+      expect(el.hydrated).toBe(true)
+      el.remove()
+    })
+
+    test('whenHydrated resolves once connected', async () => {
+      const el = ShadowPartComponent.elementCreator()()
+      let resolved = false
+      const pending = el.whenHydrated.then(() => {
+        resolved = true
+      })
+      expect(resolved).toBe(false)
+      document.body.appendChild(el)
+      await pending
+      expect(resolved).toBe(true)
+      el.remove()
+    })
+
+    test('whenHydrated resolves immediately when already hydrated', async () => {
+      const el = ShadowPartComponent.elementCreator()()
+      document.body.appendChild(el)
+      expect(el.hydrated).toBe(true)
+      // Must not hang — an already-hydrated element resolves at once.
+      await el.whenHydrated
       el.remove()
     })
   })

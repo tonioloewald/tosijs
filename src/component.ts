@@ -278,6 +278,14 @@ a content element with `class="foo"` while `this.parts.h1` will find an `<h1>`.
 the element. This means that if you use all your refs in `render` or `connectedCallback`
 then no trace will remain in the DOM for a mounted element.
 
+`parts` only resolves after **hydration** — the content it looks through is
+instantiated on `connectedCallback`, not at construction. Reading `parts` on an
+uninserted element (e.g. one just back from `elementCreator()`) has nothing to find.
+If a public getter needs a ref before the element is guaranteed inserted, gate it on
+`this.hydrated` or `await this.whenHydrated` first. (Prior to this you could not ask
+whether an element was hydrated without probing `parts`, and that probe permanently
+bound the proxy to the light DOM.)
+
 ### Component properties
 
 #### content: ((elements: ElementsProxy) => ContentType) | null | ContentType = slot()
@@ -1373,6 +1381,35 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   private _hydrated = false
+  private _whenHydrated?: Promise<void>
+  private _resolveHydrated?: () => void
+
+  /**
+   * `true` once `hydrate()` has run (content instantiated, shadow root
+   * attached). Read this instead of probing `parts` to find out whether the
+   * element is ready — a pre-hydration `parts` read is meaningless (there is no
+   * content yet) and used to permanently poison the proxy.
+   */
+  get hydrated(): boolean {
+    return this._hydrated
+  }
+
+  /**
+   * Resolves once the element is hydrated. `await el.whenHydrated` before doing
+   * `parts`-dependent work on an element that may not be inserted yet (e.g. one
+   * fresh from `elementCreator()`), instead of hand-queuing pending operations.
+   * Already-hydrated elements resolve immediately.
+   */
+  get whenHydrated(): Promise<void> {
+    if (this._hydrated) return Promise.resolve()
+    if (this._whenHydrated == null) {
+      this._whenHydrated = new Promise((resolve) => {
+        this._resolveHydrated = resolve
+      })
+    }
+    return this._whenHydrated
+  }
+
   private hydrate(): void {
     if (!this._hydrated) {
       this.initValue()
@@ -1450,6 +1487,12 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       }
       this._hydrated = true
+      // Any `parts` read before this point built a proxy closed over the
+      // light-DOM root (`this`), because the shadow root did not exist yet.
+      // Discard it so the next access rebuilds against the now-correct root —
+      // otherwise one early read poisons `parts` for the life of the element.
+      this._parts = undefined
+      this._resolveHydrated?.()
     }
   }
 

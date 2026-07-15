@@ -90,6 +90,22 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private _renderQueued;
     queueRender(triggerChangeEvent?: boolean): void;
     private _hydrated;
+    private _whenHydrated?;
+    private _resolveHydrated?;
+    /**
+     * `true` once `hydrate()` has run (content instantiated, shadow root
+     * attached). Read this instead of probing `parts` to find out whether the
+     * element is ready — a pre-hydration `parts` read is meaningless (there is no
+     * content yet) and used to permanently poison the proxy.
+     */
+    get hydrated(): boolean;
+    /**
+     * Resolves once the element is hydrated. `await el.whenHydrated` before doing
+     * `parts`-dependent work on an element that may not be inserted yet (e.g. one
+     * fresh from `elementCreator()`), instead of hand-queuing pending operations.
+     * Already-hydrated elements resolve immediately.
+     */
+    get whenHydrated(): Promise<void>;
     private hydrate;
     render(): void;
     /**
