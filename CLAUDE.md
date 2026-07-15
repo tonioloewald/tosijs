@@ -13,6 +13,7 @@
 
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+`AGENTS.md` is a pointer to this file — keep agent guidance here, not there.
 
 ## Project Overview
 
@@ -81,7 +82,7 @@ State (xin) ──────────────────────�
 **Core modules:**
 
 - `xin.ts` / `xin-proxy.ts` - State management with path-based observers; `tosi()` and `xinProxy()` are the main entry points
-- `by-path.ts` - Path parsing and value access (e.g., `'app.user.name'`, `'list[id=123]'`)
+- `by-path.tjs` - Path parsing and value access (e.g., `'app.user.name'`, `'list[id=123]'`). **Native TJS** — the `.ts` is gone; import it as `./by-path.tjs` with `// @ts-expect-error`, types come from the hand-authored `by-path.d.tjs.ts`
 - `registry.ts` - Central state object; breaks circular dependency between `xin.ts` and `bind.ts`
 - `path-listener.ts` - Observer implementation (`touch()`, `observe()`, `unobserve()`, `updates()`)
 - `metadata.ts` - Proxy helpers (`tosiAccessor()`, `TOSI_ACCESSOR`, `tosiPath()`, `tosiValue()`), binding metadata storage
@@ -100,8 +101,9 @@ State (xin) ──────────────────────�
 - `more-math.ts` - Math utilities (`clamp`, `lerp`, constants)
 - `share.ts` - Cross-tab state sync via `BroadcastChannel` + `IndexedDB`; delta-based `{ path, value }` messages
 - `sync.ts` - Network state sync via pluggable `SyncTransport`; throttled outbound batching, same delta/echo-prevention pattern as `share.ts`
-- `settings.ts` - Debug/performance/strictness flags (`settings.perf`, `settings.debug`, `settings.strictness`)
-- `make-error.ts` - Monadic error values (2.0 port; throw-free error handling)
+- `settings.ts` - Debug/performance flags plus the three path-safety knobs (see below)
+- `make-error.ts` - `MonadicError` (an error as a *value*) and `isMonadicError()`
+- `path-check.ts` - Read-side path safety: warns when you bind/observe a path that will never exist
 - `deep-clone.ts` / `string-case.ts` / `object-property-list.ts` - Supporting utilities
 
 ### Dual Proxy System (`xin` vs `boxed`)
@@ -113,15 +115,51 @@ The library exposes two proxies over the same `registry` object:
 
 Both are created in `xin.ts` via `regHandler(path, boxScalars)`. The `boxScalars` flag controls whether primitives are wrapped. `tosi()` / `xinProxy()` in `xin-proxy.ts` are sugar for assigning to `xin` and returning from `boxed`.
 
+**On `tosijs-2.0`, `xin` is slated for deletion, not rename** — it's a release blocker in
+`TODO.md`. Boxed-only collapses the ~14 `boxScalars` branches in the `get`/`set` handlers into
+one path, so the dual-proxy system goes away entirely. Don't add new internal `xin[...]` call
+sites on this branch; there are already ~84 to unwind, and each one is a raw read that becomes a
+`.value` read. A missed unwrap is a live bug, not a compile error.
+
 ### Accessor API (`.tosi` / `TOSI_ACCESSOR`)
 
 Boxed proxies expose a `.tosi` accessor that provides the full reactive API (`value`, `path`, `touch`, `observe`, `bind`, `on`, `binding`, `listBinding`, `listFind`, `listUpdate`, `listRemove`) without risk of name collisions. The direct properties (`.value`, `.path`, etc.) delegate through the same accessor implementation but can theoretically be shadowed by target properties.
 
 For guaranteed collision-free access, use `tosiAccessor(proxy)` or `proxy[TOSI_ACCESSOR]` — these use a symbol key that cannot conflict with data properties. The accessor is implemented as a lightweight proxy over the same target (no object allocation beyond the proxy itself).
 
-### Assignment Strictness
+### Path Safety (three knobs in `settings.ts`)
 
-`settings.strictness` (`'off' | 'warn' | 'throw'`, default `'warn'`) governs what happens when you assign a value whose runtime type differs from what a path currently holds (e.g. a string over a number). `'warn'` logs but still assigns; `'throw'` blocks the assignment. To deliberately change both a value and its type, assign via the proxy's `.valueAndType` setter — the intentional counterpart to `.value` that bypasses the check. Covered by `src/strictness.test.ts`.
+Paths never fail on the way down — the proxies happily hand back `boxed.appp.user`, and
+`setByPath` *creates* whatever structure it walks through. So a typo doesn't error, it
+silently grows a branch nothing is bound to, or wires a binding that never fires. Three
+independent guards, all defaulting to `'warn'`:
+
+- **`settings.strictness`** (`'off' | 'warn' | 'throw'`) — assigning a value whose runtime
+  type differs from what the path currently holds (a string over a number). To change a
+  value *and* its type on purpose, assign via the proxy's `.valueAndType` setter — the
+  deliberate counterpart to `.value` that bypasses the check. Tests: `strictness.test.ts`.
+- **`settings.pathCreation`** (`'off' | 'warn' | 'monadic' | 'throw'`) — a write that had to
+  *fabricate* an intermediate container to reach its target (`app.usre.name = 'x'`). Adding a
+  leaf to an existing parent is normal and never reported; severity grades by how many levels
+  were invented. `'monadic'` and `'throw'` roll the fabricated branch back first. Tests:
+  `path-creation.test.ts`.
+- **`settings.bindingPaths`** (`'off' | 'warn' | 'throw'`) — binding to or observing a path
+  that will never exist. A key absent from an already-populated container is a typo (stern);
+  a path stopping at a null stub may just be data that hasn't arrived (soft). Checked on a
+  microtask so synchronous `tosi()` registration always lands first — import order can never
+  produce a false positive. Tests: `path-check.test.ts`.
+
+### Monadic Errors — throw *is* the channel
+
+`MonadicError` extends `Error` deliberately, and this is the one thing to get right:
+
+- **Never test a returned monad with truthiness.** It is an object, every object in JS is
+  truthy, so `if (result)` reads a failure as success. Use `isMonadicError(result)`.
+- **Bare assignment has no return channel.** A Proxy `set` trap's return value is
+  `ToBoolean`-coerced, so an error handed back from it also reads as success. A trap *can*
+  throw, and a thrown value escapes assignment intact — so the `set` traps in `xin.ts`
+  check `isMonadicError()` and re-`throw`. A value-returning channel needs a call
+  (`setByPath`, an explicit `trySet`, or a TJS assignment transform tjs-lang doesn't have yet).
 
 ### Path-Based Observer System
 
@@ -154,6 +192,22 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 
 **Async updates:** After state changes in tests, use `await updates()` to wait for all pending observer callbacks and DOM updates to complete before asserting on UI state.
 
+**`settings` is a mutable module singleton, and the path-safety guards default to `'warn'`.** A
+test that deliberately writes through paths that don't exist yet (most `setByPath` tests) trips
+`pathCreation` on every assertion and floods the output — so it stops being a signal anywhere
+else. Save the old value, set the knob, and restore it in `afterAll`; leaking a `'throw'` or
+`'off'` into the next file in the run is a real hazard, since Bun shares the module graph:
+
+```typescript
+const _pathCreation = settings.pathCreation
+beforeAll(() => { settings.pathCreation = 'off' })
+afterAll(() => { settings.pathCreation = _pathCreation })
+```
+
+Silence a guard only where its behavior is validated on its own terms elsewhere
+(`path-creation.test.ts`, `path-check.test.ts`, `strictness.test.ts`) — never to make a failing
+test quiet.
+
 **Happy DOM limitations:**
 
 - Does NOT support `:scope >` CSS selector — use manual child iteration instead
@@ -185,6 +239,7 @@ The 2.0 effort is an incremental rewrite of `src/` from TypeScript to native TJS
 - **A parity test is how you de-risk a port before swapping.** `by-path-port.test.ts` ran the TS
   original's assertions through the `.tjs` version. Once the `.tjs` *is* the source, that test no
   longer proves anything — fold its unique assertions into the module's real test and drop it.
+  (Still pending for `by-path`; see `TODO.md`.)
 - **Two orthogonal knobs, easily conflated:** `safety` (`none | inputs | all`) controls
   runtime input validation; `Tjs*` modes (`TjsEquals`, `TjsClass`, …) control JS semantic
   transforms. `safety none` does *not* disable mode transforms. Hot internals (path parsing,
