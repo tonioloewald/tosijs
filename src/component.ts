@@ -619,6 +619,9 @@ let instanceCount = 0
 // Component classes already warned about inert bind/on sugar in shadow content
 const warnedShadowContentBindings = new Set<string>()
 
+// Component classes already warned about class fields shadowing initAttributes
+const warnedFieldShadowedAttrs = new Set<string>()
+
 // Marks a prototype whose connectedCallback has already been wrapped to drain
 // deferred constructor-time attribute ops before the subclass body runs.
 const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
@@ -1191,9 +1194,17 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   /**
    * Sets up property accessors from static initAttributes.
    */
+  // initAttributes accessors actually installed on this instance — the set
+  // field-shadow recovery consults (names skipped for other reasons must not
+  // be "restored")
+  private _installedAttrAccessors?: Set<string>
+
   private _setupAttributeAccessors(initAttrs: Record<string, any>): void {
     if (!this._attrValues) {
       this._attrValues = new Map()
+    }
+    if (!this._installedAttrAccessors) {
+      this._installedAttrAccessors = new Set()
     }
 
     for (const attrName of Object.keys(initAttrs)) {
@@ -1249,69 +1260,124 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         continue
       }
 
-      Object.defineProperty(this, attrName, {
-        enumerable: false,
-        get: () => {
-          // DOM attribute wins over the in-memory fallback so external
-          // setAttribute calls remain observable. The fallback covers the
-          // window between a property assignment and its (possibly deferred)
-          // DOM reflection.
-          if (typeof defaultValue === 'boolean') {
-            if (this.hasAttribute(attrKabob)) return true
-            if (this._attrValues!.has(attrName))
-              return this._attrValues!.get(attrName)
-            return false
-          } else if (this.hasAttribute(attrKabob)) {
-            return typeof defaultValue === 'number'
-              ? parseFloat(this.getAttribute(attrKabob)!)
-              : this.getAttribute(attrKabob)
-          } else if (this._attrValues!.has(attrName)) {
+      this._installAttrAccessor(attrName, attrKabob, defaultValue)
+    }
+  }
+
+  private _installAttrAccessor(
+    attrName: string,
+    attrKabob: string,
+    defaultValue: any
+  ): void {
+    Object.defineProperty(this, attrName, {
+      enumerable: false,
+      // configurable, so a leftover subclass class field ([[Define]]
+      // semantics — the default for ES2022 targets) replaces the accessor
+      // instead of throwing a cryptic TypeError out of document.createElement.
+      // connectedCallback detects the replacement, warns, and restores the
+      // accessor, adopting the field's value (see _recoverShadowedAttrAccessors).
+      configurable: true,
+      get: () => {
+        // DOM attribute wins over the in-memory fallback so external
+        // setAttribute calls remain observable. The fallback covers the
+        // window between a property assignment and its (possibly deferred)
+        // DOM reflection.
+        if (typeof defaultValue === 'boolean') {
+          if (this.hasAttribute(attrKabob)) return true
+          if (this._attrValues!.has(attrName))
             return this._attrValues!.get(attrName)
-          } else {
-            return defaultValue
+          return false
+        } else if (this.hasAttribute(attrKabob)) {
+          return typeof defaultValue === 'number'
+            ? parseFloat(this.getAttribute(attrKabob)!)
+            : this.getAttribute(attrKabob)
+        } else if (this._attrValues!.has(attrName)) {
+          return this._attrValues!.get(attrName)
+        } else {
+          return defaultValue
+        }
+      },
+      set: (value: any) => {
+        if (typeof defaultValue === 'boolean') {
+          if (value !== this[attrName]) {
+            if (value) {
+              this.setAttribute(attrKabob, '')
+            } else {
+              this.removeAttribute(attrKabob)
+            }
+            this.queueRender()
+            this._attrValues!.set(attrName, !!value)
           }
-        },
-        set: (value: any) => {
-          if (typeof defaultValue === 'boolean') {
-            if (value !== this[attrName]) {
-              if (value) {
-                this.setAttribute(attrKabob, '')
-              } else {
-                this.removeAttribute(attrKabob)
-              }
-              this.queueRender()
-              this._attrValues!.set(attrName, !!value)
-            }
-          } else if (typeof defaultValue === 'number') {
-            if (value !== parseFloat(this[attrName])) {
-              this.setAttribute(attrKabob, value)
-              this.queueRender()
-              this._attrValues!.set(attrName, value)
-            }
-          } else {
+        } else if (typeof defaultValue === 'number') {
+          if (value !== parseFloat(this[attrName])) {
+            this.setAttribute(attrKabob, value)
+            this.queueRender()
+            this._attrValues!.set(attrName, value)
+          }
+        } else {
+          if (
+            typeof value === 'object' ||
+            `${value as string}` !== `${this[attrName] as string}`
+          ) {
             if (
-              typeof value === 'object' ||
-              `${value as string}` !== `${this[attrName] as string}`
+              value === null ||
+              value === undefined ||
+              typeof value === 'object'
             ) {
-              if (
-                value === null ||
-                value === undefined ||
-                typeof value === 'object'
-              ) {
-                this.removeAttribute(attrKabob)
-              } else {
-                this.setAttribute(attrKabob, value)
-              }
-              this.queueRender()
-              this._attrValues!.set(attrName, value)
+              this.removeAttribute(attrKabob)
+            } else {
+              this.setAttribute(attrKabob, value)
             }
+            this.queueRender()
+            this._attrValues!.set(attrName, value)
           }
-        },
-      })
+        }
+      },
+    })
+    this._installedAttrAccessors!.add(attrName)
+  }
+
+  // A subclass instance field named after a static initAttribute replaces the
+  // generated accessor with a plain data property (class fields use [[Define]]
+  // semantics), silently severing attribute reflection. Detect the
+  // replacement at connect, restore the accessor, and adopt the field's value
+  // as an ordinary property write. Idempotent: once restored, the own
+  // descriptor is an accessor again and the check passes it by.
+  private _recoverShadowedAttrAccessors(): void {
+    const installed = this._installedAttrAccessors
+    const initAttrs = (this.constructor as typeof Component).initAttributes
+    if (installed == null || initAttrs == null) return
+    const shadowed: string[] = []
+    for (const attrName of installed) {
+      const desc = Object.getOwnPropertyDescriptor(this, attrName)
+      if (desc == null || desc.get != null || desc.set != null) continue
+      const fieldValue = desc.value
+      delete (this as any)[attrName]
+      this._installAttrAccessor(
+        attrName,
+        camelToKabob(attrName),
+        initAttrs[attrName]
+      )
+      ;(this as any)[attrName] = fieldValue
+      shadowed.push(attrName)
+    }
+    if (shadowed.length > 0 && !warnedFieldShadowedAttrs.has(this.tagName)) {
+      warnedFieldShadowedAttrs.add(this.tagName)
+      const list = shadowed.map((n) => `'${n}'`).join(', ')
+      console.warn(
+        `<${this.tagName.toLowerCase()}> declares instance field(s) ${list} ` +
+          'that shadow static initAttributes accessors (class fields use ' +
+          '[[Define]] semantics). The field value was adopted and the ' +
+          'reactive accessor restored — delete the field declaration; ' +
+          'static initAttributes already defines the property.'
+      )
     }
   }
 
   connectedCallback(): void {
+    // Restore any initAttributes accessors clobbered by subclass class
+    // fields BEFORE draining/rendering (idempotent; warns once per class).
+    this._recoverShadowedAttrAccessors()
     // Apply any setAttribute/removeAttribute calls that were queued during
     // construction. Idempotent — if the microtask drain already ran, this
     // is a no-op.

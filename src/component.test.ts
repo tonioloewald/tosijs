@@ -1322,3 +1322,65 @@ describe('pending-attribute drain is last-write-wins (H-2)', () => {
     el.remove()
   })
 })
+
+describe('initAttributes vs class fields under [[Define]] semantics (H-3)', () => {
+  // A natively-evaluated class guarantees [[Define]] field semantics
+  // regardless of how the test file itself is transpiled.
+  const makeFieldShadowClass = new Function(
+    'Component',
+    `return class FieldShadowTest extends Component {
+      static preferredTagName = 'field-shadow-test'
+      static initAttributes = { label: 'default' }
+      label = 'from-field'
+    }`
+  )
+
+  test('leftover field: no TypeError, value adopted, accessor restored, warns once per class', () => {
+    const FieldShadowTest = makeFieldShadowClass(Component) as any
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    let el: any
+    let el2: any
+    try {
+      // before the fix this line threw:
+      // "TypeError: Attempting to change configurable attribute of unconfigurable property"
+      el = FieldShadowTest.elementCreator()()
+      document.body.append(el)
+      el2 = FieldShadowTest.elementCreator()()
+      document.body.append(el2)
+    } finally {
+      console.warn = origWarn
+    }
+    // the field's value was adopted and reflected
+    expect(el.label).toBe('from-field')
+    expect(el.getAttribute('label')).toBe('from-field')
+    // the accessor is live again: writes reflect to the attribute
+    el.label = 'changed'
+    expect(el.getAttribute('label')).toBe('changed')
+    // and attribute changes are readable through the property
+    el.setAttribute('label', 'external')
+    expect(el.label).toBe('external')
+    const shadowWarnings = warnings.filter((w) =>
+      w.includes('shadow static initAttributes')
+    )
+    expect(shadowWarnings.length).toBe(1) // once per class, not per instance
+    el.remove()
+    el2.remove()
+  })
+
+  test('components without shadowing fields are untouched', () => {
+    class NoFieldTest extends Component {
+      static preferredTagName = 'no-field-shadow-test'
+      static initAttributes = { caption: 'plain' }
+    }
+    const el = NoFieldTest.elementCreator()() as any
+    document.body.append(el)
+    expect(el.caption).toBe('plain')
+    el.caption = 'set'
+    expect(el.getAttribute('caption')).toBe('set')
+    el.remove()
+  })
+})
