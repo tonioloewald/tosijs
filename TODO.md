@@ -25,18 +25,20 @@ lands in 1.7. SB-1 resolved as design-boundary (warnings + composedPath events +
 custom-input docs doctrine). H-4 decided (experimental tjs-built subpath bundles,
 eval-order fixed, tjs-lang 0.10.1). H-6 shipped with its deepClone-Date prerequisite.
 
-⚠️ **Browser-lane checklist before 1.7 ships** (happy-dom structurally can't prove these):
-SB-2c (template cloning into `.content`), on()-in-shadow origin resolution (happy-dom
-doesn't retarget composed events). Note: H-10's observer-root-match change is a
-contract-alignment (deep writes already touch the root, so saves happened either way —
-not a reproducible bug); H-11's retry needed a `setModuleLoader` test seam because
-dynamic import() is unmockable.
+✅ **Browser-lane checks DONE** (2026-07-18): SB-2c (nested-list `<template>` cloning) and
+on()-in-shadow origin resolution now have in-browser regression coverage as doc `test`
+fences (bind.ts on() docs, list-binding.ts nested-list section), run via haltija through
+`bun run test:browser` (wired as `--test` in bin/site.ts). Verified locally: 3 passed,
+exit 0. This lane is reusable for any future happy-dom-blind behavior — just add a
+`test` fence. Notes: H-10's observer-root-match change is a contract-alignment (deep
+writes already touch the root, so saves happened either way — not a reproducible bug);
+H-11's retry needed a `setModuleLoader` test seam because dynamic import() is unmockable.
 
-**The 1.7 slate is code-complete.** Remaining before tagging: the browser-lane checks
-above, the medium/minor backlog triage (fix-where-cheap), the runnable shadow value-
-widget doc example, and the release mechanics (changelog with the behavior-change
-callouts, tosijs-ui verification against a packed 1.7, version bump, build, tag,
-publish, then rebase tosijs-2.0 onto v1.7.0).
+**The 1.7 slate is code-complete and browser-verified.** Remaining before tagging: the
+medium/minor backlog triage (fix-where-cheap), the runnable shadow value-widget doc
+example, and the release mechanics (changelog with the behavior-change callouts,
+tosijs-ui verification against a packed 1.7, version bump, build, tag, publish, then
+rebase tosijs-2.0 onto v1.7.0).
 
 Rebase policy (2026-07-17): `tosijs-2.0` is deliberately NOT rebased per-patch — one
 rebase after 1.7 finalizes. If 2.0 work resumes earlier, hand-port only the by-path
