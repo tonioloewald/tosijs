@@ -105,6 +105,72 @@ intact. Throw is the channel. Verified.
 - **`schematic`** — non-singleton, schema-first, boxed-from-birth observant-state
   factory + schematic components (auto shadow-DOM binding). Recorded, not built.
 
+## 2.0-only findings — 2026-07-17 whole-codebase review
+
+The five-lens review (findings verified by executed repros) split into two buckets. The
+**main-line bugs are planned as the 1.7 correctness release — see main's TODO.md** — and
+reach this branch via the post-1.7 rebase. ⚠️ Exception: `by-path.ts` is deleted here, so
+1.7's fix for the **stale id-path cache clobber** (main TODO SB-3; `buildIdPathValueMap`
+reuses the map object, `keyToIndex`'s fallback reads stale entries back — confirmed
+overwriting the wrong array item) will hit a delete/modify conflict on rebase and must be
+**hand-ported into `by-path.tjs:66-106`**, which inherited the bug verbatim.
+
+The bucket below exists only on this branch — the guards themselves have holes:
+
+- **HIGH: fabrication rollback is bypassed when the walk throws after fabricating.**
+  `by-path.tjs:252-262` — `reportPathCreation` runs only if `walkAndSet` *returns*, but the
+  walk can fabricate a container then throw (`setByPath(obj,'app.a[0].b',1)` on `{app:{}}`
+  fabricates `app.a = []`, then throws at the array hole). Confirmed: phantom branch
+  survives in `'throw'`/`'monadic'` (the exact guarantee those modes exist for), a plain
+  `Error` escapes in `'monadic'` (channel contract broken), and `'warn'` emits nothing.
+  Fix: try/finally so rollback-and-report always runs; monadic returns the MonadicError
+  even on aborted walks. Test gap: `path-creation.test.ts` only aborts walks with *no prior
+  fabrication*.
+- **HIGH: accessor `.observe()` bypasses `checkPath` entirely.** `xin.ts:1086-1089` calls
+  the path-listener `observe` directly; only the exported `observe()`/`bind()` are checked.
+  `boxed.acc.usre.observe(cb)` — the primary documented surface — is never checked at any
+  `bindingPaths` mode (confirmed: zero warnings). Wire `checkPath` into the accessor.
+- **share/sync ignore monadic results.** `share.ts` / `sync.ts` `applyInbound` never checks
+  `isMonadicError`: under `'monadic'` a rolled-back inbound write still fires `touch()`
+  (confirmed — observers see a change that never happened); under `'throw'` the escaped
+  error leaks `inboundPaths` (the `updates().then(delete)` cleanup never runs), so every
+  later local change on that path is treated as an echo — sync silently dies for that path
+  forever.
+- **`bindingPaths: 'throw'` semantics need a rethink before anyone uses it.** The throw
+  happens inside `queueMicrotask` (`path-check.ts:37-59`): uncatchable by the caller, the
+  binding/observer stays registered (blocks nothing — unlike the other two knobs), the soft
+  "unresolved stub" case throws identically to the stern typo case (the `:55` throw
+  precedes the severity branch), and escalating warn→throw between call and microtask
+  retroactively throws. As designed, `'throw'` is unusable with "deeply async by default".
+  Options: unregister-and-report instead of naked throw; only throw for the stern case.
+- **`describePath` false positives** (confirmed): prototype/getter properties report as
+  stern typos (`hasOwnProperty` vs `getByPath`'s getter-resolving walk — state holding
+  class instances is documented usage); scalar mid-paths (`user.name.length`) report
+  unresolved though they read fine; and the stern grading contradicts the write-side
+  doctrine — progressive population (`bind` now, `xin.app.user = {...}` in a later
+  fetch handler) gets "nothing will ever put it there" for a binding that works seconds
+  later. Consider demoting stern to the missing-root case only.
+- **`.valueAndType` doesn't exist on `xin`** — following the strictness error message's own
+  advice via `xin` writes a literal `valueAndType` key into the registry (confirmed
+  pollution); the message doesn't say the setter is boxed-only. Also inconsistent: strictness
+  `'throw'` throws a plain `Error`, while `make-error.ts` documents `'type-drift'` as a
+  MonadicError kind that is never constructed.
+- Minors (confirmed): `[=N]` writes past the array end create holes with only the generic
+  depth-1 warning (no `gap` field on the insert path — grading inconsistent with the leaf
+  case); writing `undefined` through a typo path fabricates containers then returns `false`
+  ("no change"); `list[0].nmae` is never checked even when item 0 exists and is judgeable.
+- **Guard-integration test gaps** (the highest-value 2.0 test investment): fabricate-then-
+  abort walks; `bindingPaths: 'throw'` has zero coverage (catchability, non-unregistration,
+  soft-vs-stern) including the accessor surface; share/sync inbound under
+  `'monadic'`/`'throw'`; `bindings.value` on number inputs under strictness (main's 1.7
+  `valueAsNumber` fix resolves the collision — verify after rebase); `describePath` against
+  class-instance/getter and scalar-leaf state.
+- **debug/safe subpath exports are inert as published** (main TODO H-4 has the disclosure
+  decision). The *real* fix is branch work: `tjs convert` currently emits zero checked
+  functions (132/132 `unsafe`), and the `index-debug`/`index-safe` entries configure
+  `__tjs` *after* ESM evaluation of the whole library — config must be consulted lazily
+  per call for the entry-point flags to ever matter.
+
 ## 2.0 release blocker: purge `xin` entirely
 
 **2.0 is not ready while the name `xin` survives anywhere.** tosijs is not xinjs; the
