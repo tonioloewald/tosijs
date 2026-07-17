@@ -103,9 +103,13 @@ By setting content to be a function that returns elements instead of a collectio
 of elements you can take customize elements based on the component's properties.
 In particular, you can use `onXxxx` syntax sugar to bind events.
 
-(Note that you cannot bind to xin paths reliably if your component uses a `shadowDOM`
-because `xin` cannot "see" elements there. As a general rule, you need to take care
-of anything in the `shadowDOM` yourself.)
+(Note that **data bindings do not operate inside a shadowDOM** — binding dispatch
+cannot "see" elements there, and a component that tries now gets a console warning
+instead of silent failure. As a general rule, take care of state inside the
+`shadowDOM` yourself: `observe()` the paths you care about and update `parts`
+directly, and `unobserve()` on disconnect. **Event sugar is the exception**: `on()`
+handlers work inside open shadow roots — composed events cross the boundary and the
+dispatcher resolves the true origin via `composedPath()`.)
 
 ##### ElementProps in content arrays
 
@@ -223,8 +227,9 @@ preview.append(
 > `<slot>` elements do not work as expected in shadowDOM-less components. This is
 > hugely annoying since it prevents components from composing nicely unless they
 > have a shadowDOM, and while the shadowDOM is great for small widgets, it's
-> terrible for composite views and breaks `tosijs`'s bindings (inside the shadow
-> DOM you need to do data- and event- binding manually).
+> terrible for composite views and excludes `tosijs`'s data bindings (inside the
+> shadow DOM you manage state updates yourself with `observe()` + `parts`;
+> `on()` event handlers do work there via `composedPath()`).
 
 #### styleNode: HTMLStyleElement
 
@@ -594,7 +599,7 @@ import { tosiPath } from './metadata'
 import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
-import { warnDeprecated, BOUND_SELECTOR, EVENT_SELECTOR } from './metadata'
+import { warnDeprecated, BOUND_SELECTOR } from './metadata'
 
 let anonymousElementCount = 0
 
@@ -1465,21 +1470,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         const shadow = this.attachShadow({ mode: 'open' })
         shadow.appendChild(styleNode.cloneNode(true))
         appendContentToElement(shadow, _content, cloneElements)
-        // Binding sugar in shadow content is inert by design (see the docs
-        // above: dispatch does not see into shadow roots; micro-manage with
-        // observe() + parts instead) — but bind() runs while content is still
-        // detached, so it cannot catch this itself. One query per shadow
-        // component at hydrate turns a silent brick into a named warning.
+        // Data-binding sugar in shadow content is inert by design (see the
+        // docs above: dispatch does not see into shadow roots; micro-manage
+        // with observe() + parts instead — on() event sugar DOES work, via
+        // composedPath). bind() runs while content is still detached, so it
+        // cannot catch this itself. One query per shadow component at hydrate
+        // turns a silent brick into a named warning.
         if (
           !warnedShadowContentBindings.has(this.tagName) &&
-          shadow.querySelector(`${BOUND_SELECTOR},${EVENT_SELECTOR}`) != null
+          shadow.querySelector(BOUND_SELECTOR) != null
         ) {
           warnedShadowContentBindings.add(this.tagName)
           console.warn(
-            `<${this.tagName.toLowerCase()}> has bind/on sugar in its shadow-DOM ` +
-              'content, where bindings do not operate (documented design ' +
-              'boundary). Inside shadow DOM, observe() state and update parts ' +
-              'directly (unobserve on disconnect). Warned once per component class.'
+            `<${this.tagName.toLowerCase()}> has data-binding sugar in its ` +
+              'shadow-DOM content, where bindings do not operate (documented ' +
+              'design boundary). Inside shadow DOM, observe() state and update ' +
+              'parts directly (unobserve on disconnect); on() event handlers ' +
+              'are fine. Warned once per component class.'
           )
         }
       } else if (_content !== null) {

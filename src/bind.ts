@@ -319,9 +319,49 @@ observe(
   }
 )
 
+// The true origin of an event: composed events cross open shadow boundaries
+// but are RETARGETED to the host, so event.target hides any origin inside a
+// shadow root. composedPath()[0] sees through open roots; closed roots stay
+// hidden (the path is truncated for outside listeners) — closed means closed.
+const eventOrigin = (event: Event): Element | null => {
+  const origin =
+    event.composedPath != null ? event.composedPath()[0] : event.target
+  return origin instanceof Element ? origin : null
+}
+
+// closest(), but hopping open-shadow boundaries: when the search exhausts an
+// element's tree, continue from the shadow host so delegation reaches
+// light-DOM ancestors of events that originate inside a shadow widget.
+const closestAcrossShadow = (
+  el: Element | null,
+  selector: string
+): Element | null => {
+  while (el != null) {
+    const found = el.closest(selector)
+    if (found != null) return found
+    const root = el.getRootNode()
+    el =
+      typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot
+        ? root.host
+        : null
+  }
+  return null
+}
+
+// the upward delegation step from a handled element
+const nextAcrossShadow = (el: Element, selector: string): Element | null => {
+  if (el.parentElement != null) {
+    return closestAcrossShadow(el.parentElement, selector)
+  }
+  const root = el.getRootNode()
+  if (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot) {
+    return closestAcrossShadow(root.host, selector)
+  }
+  return null
+}
+
 const handleChange = (event: Event): void => {
-  // @ts-expect-error event.target may be null but closest handles it
-  let target = event.target?.closest(BOUND_SELECTOR)
+  let target = closestAcrossShadow(eventOrigin(event), BOUND_SELECTOR)
   while (target != null) {
     const dataBindings = elementToBindings.get(target) as DataBindings
     for (const dataBinding of dataBindings) {
@@ -354,7 +394,7 @@ const handleChange = (event: Event): void => {
         }
       }
     }
-    target = target.parentElement.closest(BOUND_SELECTOR)
+    target = nextAcrossShadow(target, BOUND_SELECTOR)
   }
 }
 
@@ -418,9 +458,10 @@ function bindTake<T extends Element>(
   return element
 }
 
-// Binding inside shadow DOM is a documented design boundary (see Component's
-// docs): dispatch cannot see into shadow roots, so bindings and event sugar
-// there are inert. The failure used to be SILENT — warn at the point of
+// DATA binding inside shadow DOM is a documented design boundary (see
+// Component's docs): dispatch cannot see into shadow roots, so bind() there
+// is inert. (Event sugar is different: on() works across open shadow roots
+// via composedPath.) The failure used to be SILENT — warn at the point of
 // misuse instead. Once per session: the trap, not every element in it.
 let warnedShadowedBinding = false
 export const warnIfShadowed = (element: Element, what: string): void => {
@@ -432,8 +473,8 @@ export const warnIfShadowed = (element: Element, what: string): void => {
   ) {
     warnedShadowedBinding = true
     console.warn(
-      `tosijs: ${what} targets an element inside a shadow root, where bindings ` +
-        'and event sugar do not operate (documented Component design boundary). ' +
+      `tosijs: ${what} targets an element inside a shadow root, where data ` +
+        'bindings do not operate (documented Component design boundary). ' +
         'Inside shadow DOM, observe() state and update parts directly ' +
         '(unobserve on disconnect). Warned once per session.',
       element
@@ -518,8 +559,7 @@ export function bind<T extends Element = Element>(
 const handledEventTypes: Set<string> = new Set()
 
 const handleBoundEvent = (event: Event): void => {
-  // @ts-expect-error event.target may be null but closest handles it
-  let target = event?.target?.closest(EVENT_SELECTOR)
+  let target = closestAcrossShadow(eventOrigin(event), EVENT_SELECTOR)
   let propagationStopped = false
 
   const wrappedEvent = new Proxy(event, {
@@ -554,10 +594,7 @@ const handleBoundEvent = (event: Event): void => {
         continue
       }
     }
-    target =
-      target.parentElement != null
-        ? target.parentElement.closest(EVENT_SELECTOR)
-        : null
+    target = nextAcrossShadow(target, EVENT_SELECTOR)
   }
 }
 
@@ -568,7 +605,6 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventType: K,
   eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
-  warnIfShadowed(element, 'on()')
   let eventBindings = elementToHandlers.get(element)
   element.classList.add(EVENT_CLASS)
   if (eventBindings == null) {

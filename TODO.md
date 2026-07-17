@@ -40,10 +40,13 @@ that lookup).
   1. ✅ **Warn at the point of misuse** — `bind()`/`on()` on an element inside a shadow
      root warns once per session, pointing at the documented pattern. The silent brick was
      the only genuinely broken part.
-  2. **1.7 candidate: `on()` via `composedPath()[0]`.** Composed events already bubble to
-     the body listener; only target retargeting hides the origin. O(1) per event, no
-     registry, zero per-widget cost, closed roots stay closed. Changelog callout (dead
-     handlers start firing).
+  2. ✅ **`on()` (and fromDOM change/input handling) works in open shadow roots via
+     `composedPath()[0]`** — approved and landed 2026-07-17. Delegation also hops shadow
+     boundaries upward (a click inside a shadow widget reaches light-DOM ancestors'
+     handlers). O(1) per event, no registry, closed roots stay closed. Changelog callout:
+     previously-dead handlers start firing. ⚠️ Browser-lane: happy-dom does NOT retarget
+     composed events, so the retargeting half (composedPath vs event.target) is pinned
+     only by the boundary-hop test — verify origin resolution in a real browser.
   3. **Path-indexed bind dispatch: WITHDRAWN — tried before, rejected again (2026-07-17).**
      Recorded so it stays dead: virtual list bindings keep the DOM at O(visible) by
      recycling elements and *reassigning their binding paths in place* every scroll frame

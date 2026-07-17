@@ -414,3 +414,37 @@ test('bind() on an element already inside a shadow root warns', () => {
     ).toBe(true)
     host.remove()
 })
+
+test('on() works inside an open shadow root (composedPath origin)', () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const button = document.createElement('button')
+  shadow.append(button)
+
+  let clicks = 0
+  on(button, 'click', () => {
+    clicks++
+  })
+  button.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  expect(clicks).toBe(1)
+  host.remove()
+})
+
+test('delegation crosses the shadow boundary to light-DOM ancestors', () => {
+  const outer = document.createElement('div')
+  document.body.append(outer)
+  const host = document.createElement('div')
+  outer.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const inner = document.createElement('span')
+  shadow.append(inner)
+
+  let outerHeard = 0
+  on(outer as HTMLElement, 'click', () => {
+    outerHeard++
+  })
+  inner.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  expect(outerHeard).toBe(1)
+  outer.remove()
+})
