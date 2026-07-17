@@ -63,10 +63,12 @@ function buildIdPathValueMap(array: XinObject[], idPath: string): IdPathMap {
   if (idPathMaps.get(array) === undefined) {
     idPathMaps.set(array, {})
   }
-  if (idPathMaps.get(array)[idPath] === undefined) {
-    idPathMaps.get(array)[idPath] = {}
-  }
-  const map = idPathMaps.get(array)[idPath]
+  // Always rebuild into a FRESH map. Merging into the existing one preserves
+  // stale keys for items removed outside setByPath (proxied splice/pop, direct
+  // mutation + touch), and keyToIndex's validation fallback reads those stale
+  // entries back — so a read returns, and a write clobbers, the wrong item.
+  const map: IdPathMap = {}
+  idPathMaps.get(array)[idPath] = map
 
   if (idPath === '_auto_') {
     array.forEach((item, idx) => {
@@ -119,8 +121,12 @@ function byIdPath(
 ): any {
   let idx = idPath !== '' ? keyToIndex(array as any[], idPath, idValue) : idValue
   if (valueToInsert === _delete_) {
-    array.splice(idx as number, 1)
-    idPathMaps.delete(array)
+    // splice(undefined, 1) coerces to splice(0, 1) — deleting a nonexistent
+    // id must be a no-op, not the silent removal of the first item
+    if (idx !== undefined) {
+      array.splice(idx as number, 1)
+      idPathMaps.delete(array)
+    }
     return Symbol('deleted')
   } else if (valueToInsert === _newObject_) {
     if (idPath === '' && array[idx as number] === undefined) {
