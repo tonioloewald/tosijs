@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.6.10",
+  "version": "1.7.0-beta.1",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
@@ -58,7 +58,7 @@
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
-    "tosijs-ui": "1.6.23",
+    "tosijs-ui": "1.7.0-beta.5",
     "typescript": "^5.9.3"
   },
   "files": [

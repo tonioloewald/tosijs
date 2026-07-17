@@ -38,6 +38,7 @@
   --h3-scale: 1.25;
   --touch-size: 32px;
   --header-height: calc( var(--line-height) * var(--h2-scale) + var(--spacing) * 2 );
+  --doc-content-max-width: 44em;
 }
 
 .darkmode {
@@ -96,6 +97,63 @@ tosi-doc-system {
 
 tosi-doc-system tosi-sidenav::part(nav) {
   background: var(--nav-bg);
+}
+
+tosi-doc-system:not(:defined) {
+  display: block;
+  position: fixed;
+  inset: var(--header-height) 0 0 0;
+  overflow: auto;
+}
+
+tosi-doc-system:not(:defined)::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--brand-color);
+}
+
+tosi-doc-system:not(:defined) .doc-content {
+  display: block;
+  max-width: var(--doc-content-max-width);
+  margin: auto;
+  padding: 0 1em;
+  overflow: hidden;
+}
+
+tosi-doc-system:not(:defined) .doc-navbar {
+  display: none;
+}
+
+tosi-doc-system:not(:defined) pre:has(> code.language-test) {
+  display: none;
+}
+
+tosi-doc-system:not(:defined) .doc-nav {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  tosi-doc-system:not(:defined) {
+    left: 200px;
+  }
+  tosi-doc-system:not(:defined) .doc-nav {
+    display: block;
+    position: fixed;
+    left: 0;
+    top: var(--header-height);
+    bottom: 0;
+    width: 200px;
+    overflow: auto;
+    background: var(--nav-bg);
+    padding: 0;
+  }
+  tosi-doc-system:not(:defined) .doc-nav summary {
+    cursor: pointer;
+  }
 }
 
 .center {

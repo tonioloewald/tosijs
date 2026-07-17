@@ -6,6 +6,83 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.0-beta.1] - 2026-07-18
+
+First beta of the **1.7 correctness release** — the outcome of a whole-codebase
+review (~45 verified defects, every one passing the previous happy-path suite).
+Published under the `beta` npm dist-tag so `latest` stays on 1.6.10. Intended
+for integration testing (notably by tosijs-ui) ahead of a synchronous 1.7.0.
+
+### ⚠️ Behavior changes (observable — the reason this is a minor, and a beta)
+
+- **`on()` handlers now fire inside open shadow roots.** Composed events cross
+  the shadow boundary and the dispatcher resolves the true origin via
+  `composedPath()`, continuing delegation up through shadow hosts to light-DOM
+  ancestors. Handlers that were silently dead will now run. (Data bindings still
+  do not operate inside shadow DOM — by design; a shadow component is bound like
+  an `<input>`, via its `value`.)
+- **Path matching is now segment-exact.** An observer on `'foo'` no longer hears
+  `'foobar'`; `touch('foo')` no longer swallows a later `touch('foobar')`; and a
+  bound element no longer re-renders when an unrelated sibling-prefix path (e.g.
+  `list[50]` vs `list[5]`) changes. Hierarchical matching (parent hears child,
+  child hears parent) is unchanged.
+- **`getValue()` returns typed values for typed controls.** `number`/`range`
+  inputs return numbers; the date family (`date`, `datetime-local`, `month`,
+  `week`) returns `Date` objects (was an ISO string for `type=date`); `time`
+  returns ms-since-midnight. Bound numeric state now stays numeric across edits
+  instead of silently becoming a string.
+- **List updates no longer re-insert every item element** on every change, so
+  focus/selection in list inputs and CSS animations survive unrelated updates.
+- **`deepClone()` now preserves `Date`, `Map`, and `Set`** (were becoming `{}`
+  or shallow) and no longer stack-overflows on circular references.
+- **Data-binding sugar inside shadow-DOM content now warns** (once per class /
+  session) instead of failing silently.
+
+### Fixed
+
+- **Nested list bindings** — a `bindList` inside another list's item template now
+  renders and updates: options pass through to the inner binding, compound
+  id-paths no longer double-bracket (`list[[id=x]]`), and `<template>` cloning
+  targets `.content` per spec (verified in a real browser).
+- **`Component` attribute drain is last-write-wins** — the second of two
+  pre-connect property writes is no longer dropped.
+- **`initAttributes` accessors survive class-field shadowing** — a leftover
+  subclass field of the same name no longer throws a cryptic `TypeError` at
+  element creation under modern class-field semantics; the value is adopted, the
+  accessor restored, and a once-per-class warning points at the fix.
+- **Boxed `.value` assignment respects shadowing** — assigning `.value` on an
+  object that has a real `value` property writes the property instead of
+  replacing the whole object.
+- **`share()`** no longer re-broadcasts its (possibly stale) restored snapshot
+  over live tabs, and doesn't clobber a delta that arrives mid-restore.
+- **`sync()`** requeues outbound deltas when `transport.send()` throws instead of
+  losing them silently.
+- **`hotReload()`** restores saved state wholesale (was `Object.assign`, which
+  dropped root scalars and left stale array tails) and saves on deep writes.
+- **Blueprint loader** — one failing blueprint no longer wedges the loader:
+  failures are evicted from the cache (so a retry re-imports) and the loader uses
+  `Promise.allSettled`, reporting failures while still firing `allLoaded()`.
+- **Events on `cloneNode` copies** of bound elements no longer throw in the
+  global dispatchers (and no longer abort ancestor delegation).
+
+### Added
+
+- **`Component.hydrated` / `Component.whenHydrated`** (from 1.6.9) and the
+  shadow-DOM value doctrine, documented throughout.
+- **Experimental `tosijs/debug` and `tosijs/safe` bundles** — the config
+  eval-order bug is fixed (they now ship complete per-function `__tjs` runtime
+  type metadata and wired config; runtime enforcement arrives with native-TJS
+  modules in 2.0). Flagged experimental; the debug bundle announces itself.
+  Built with tjs-lang 0.10.1.
+- **`setModuleLoader()`** (blueprint loader) and **`setShareStore()`** test seams.
+- **In-browser doc test lane** — `bun run test:browser` drives the doc `test`
+  fences through a real browser (haltija) for behaviors happy-dom can't observe.
+
+### Changed
+
+- Build host is **tosijs-ui 1.7.0-beta.5**.
+- `dist/` bundles regenerated under the current Bun toolchain.
+
 ## [1.6.10] - 2026-07-17
 
 ### Fixed

@@ -1,4 +1,4 @@
-# tosijs v1.6.10
+# tosijs v1.7.0-beta.1
 
 Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.
 
@@ -9,6 +9,13 @@ Path-based state management for web apps — proxy-based observers, no JSX, no v
 ## Documentation
 
 Full documentation, with live code examples, is at the links below.
+
+Live examples run inline on the shared page by default (not sandboxed):
+each has its own `preview` element, but they share one tosijs module, so
+`tosi()` state singletons are shared across every example on a page. This is
+deliberate (it shows tosi isolation and lets you drive demos via the global
+singleton). Namespace example state with unique top-level keys so examples
+don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 
 ## Pages
 
