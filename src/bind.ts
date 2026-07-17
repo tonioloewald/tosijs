@@ -371,8 +371,11 @@ const nextAcrossShadow = (el: Element, selector: string): Element | null => {
 const handleChange = (event: Event): void => {
   let target = closestAcrossShadow(eventOrigin(event), BOUND_SELECTOR)
   while (target != null) {
-    const dataBindings = elementToBindings.get(target) as DataBindings
-    for (const dataBinding of dataBindings) {
+    // plain cloneNode(true) copies the marker class but not the WeakMap
+    // metadata — skip such elements instead of crashing the dispatcher
+    // (which would also abort ancestor traversal for this event)
+    const dataBindings = elementToBindings.get(target)
+    for (const dataBinding of dataBindings ?? []) {
       const { binding, path } = dataBinding
       const { fromDOM } = binding
       if (fromDOM != null) {
@@ -586,8 +589,9 @@ const handleBoundEvent = (event: Event): void => {
   })
   const nohandlers = new Set<XinEventHandler>()
   while (!propagationStopped && target != null) {
-    const eventBindings = elementToHandlers.get(target) as XinEventBindings
-    const handlers = eventBindings[event.type] || nohandlers
+    // see handleChange: clones carry the class but no metadata — skip, don't crash
+    const eventBindings = elementToHandlers.get(target)
+    const handlers = eventBindings?.[event.type] ?? nohandlers
     for (const handler of handlers) {
       if (typeof handler === 'function') {
         handler(wrappedEvent as Event & { target: Element })

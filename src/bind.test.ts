@@ -470,3 +470,38 @@ test('bound elements do not re-render for name-prefix sibling paths (H-1)', asyn
   expect(renders).toBe(base + 1)
   el.remove()
 })
+
+test('events on cloneNode copies of bound elements do not crash dispatch (H-12)', async () => {
+  tosi({ h12clone: { label: 'x' } })
+  // an on()-bound button, cloned: the clone carries -xin-event but no handlers
+  let outerHeard = 0
+  let buttonHeard = 0
+  const outer = document.createElement('div')
+  document.body.append(outer)
+  on(outer as HTMLElement, 'click', () => {
+    outerHeard++
+  })
+  const button = document.createElement('button')
+  on(button as HTMLElement, 'click', () => {
+    buttonHeard++
+  })
+  const clone = button.cloneNode(true) as HTMLElement
+  outer.append(clone)
+  // before the fix: TypeError inside the document-level listener, and the
+  // outer handler never ran
+  clone.dispatchEvent(new Event('click', { bubbles: true }))
+  expect(outerHeard).toBe(1)
+  expect(buttonHeard).toBe(0)
+
+  // a value-bound input, cloned: the clone carries -xin-data but no bindings
+  const input = document.createElement('input')
+  document.body.append(input)
+  bind(input, 'h12clone.label', bindings.value)
+  await updates()
+  const inputClone = input.cloneNode(true) as HTMLElement
+  document.body.append(inputClone)
+  inputClone.dispatchEvent(new Event('input', { bubbles: true })) // no crash
+  outer.remove()
+  input.remove()
+  inputClone.remove()
+})
