@@ -6,6 +6,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.6.10] - 2026-07-17
+
+### Fixed
+
+- **Stale id-path cache could read — and overwrite — the wrong array item.** The
+  id→index map for `list[id=…]` paths merged fresh entries over stale ones, so an item
+  removed outside `setByPath` (a proxied `splice`/`pop`, or direct mutation plus
+  `touch`) left its old key behind: `getByPath('arr[id=2]')` could return a different
+  item, and `setByPath('arr[id=2].v', …)` could silently overwrite it. Maps are now
+  rebuilt fresh, so removed ids resolve to `undefined`. Relatedly, deleting a
+  nonexistent id no longer removes the *first* item (`splice(undefined, 1)` coerces to
+  `splice(0, 1)`).
+- **`await updates()` could hang forever when an observer wrote state.** A write
+  inside an observer callback re-arms the update queue mid-drain, which replaced the
+  module-level promise resolver: earlier awaiters were orphaned (hung), and the next
+  round's promise resolved before its round had run. Each round now resolves exactly
+  the promise that belongs to it. The one-`await`-per-settling-round semantics are
+  unchanged (and now pinned by a regression test). This also fixes a silent-death mode
+  in `share()`/`sync()`, whose inbound echo-suppression cleanup waits on `updates()` —
+  an orphaned promise left paths suppressed forever, permanently stopping outbound
+  sync for that subtree.
+- **A throwing observer *test* function no longer aborts the whole dispatch batch.**
+  It was rethrown after the touched-path queue had already been cleared, silently
+  dropping every remaining notification and hanging `updates()`. Now logged and
+  skipped, matching how callback exceptions are handled.
+- **`throttle()` fired the wrapped function twice per isolated call** — an
+  uncancelled trailing timer duplicated every leading-edge call. A lone call now fires
+  exactly once; the documented "the last call always goes through" trailing behavior
+  for suppressed calls is preserved.
+
+### Changed
+
+- `dist/` bundles regenerated with the current Bun toolchain (smaller minified
+  output; deferred from the dev-only tosijs-ui bump so published artifacts wouldn't
+  change under a devDependency patch).
+
 ## [1.6.9] - 2026-07-15
 
 ### Fixed
