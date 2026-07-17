@@ -261,6 +261,7 @@ import {
   XinBindingSpec,
   TakeDescriptor,
   EventType,
+  ValueElement,
 } from './xin-types'
 import { ListBinding, getListItem } from './list-binding'
 
@@ -390,15 +391,48 @@ const handleChange = (event: Event): void => {
           const xin = getXinProxy()
           const existing = xin[path]
           if (existing == null) {
+            // bootstrap: no state type to consult — the typed-control read
+            // (getValue) already gave the control's native type
             xin[path] = value
           } else {
             const existingActual =
               existing[XIN_PATH] != null
                 ? (existing as XinProps)[XIN_VALUE]
                 : existing
-            const valueActual =
+            let valueActual =
               value[XIN_PATH] != null ? value[XIN_VALUE] : value
-            if (existingActual !== valueActual) {
+            // State-driven coercion (H-6 layer 2): the type state currently
+            // holds is authoritative — DOM controls speak string, state
+            // speaks typed values, and the binding layer owns conversion.
+            if (
+              typeof existingActual === 'number' &&
+              typeof valueActual === 'string'
+            ) {
+              // covers controls that don't declare a type: text inputs,
+              // selects with numeric option values, radios. Only coerce a
+              // clean, non-empty parse — Number('') is 0, and genuinely
+              // non-numeric input writes raw so type-drift stays visible.
+              const trimmed = valueActual.trim()
+              if (trimmed !== '') {
+                const n = Number(trimmed)
+                if (!Number.isNaN(n)) valueActual = n
+              }
+            } else if (valueActual instanceof Date) {
+              // state picks the temporal representation
+              if (typeof existingActual === 'number') {
+                valueActual = valueActual.getTime()
+              } else if (typeof existingActual === 'string') {
+                // the control's own serialization (e.g. 'yyyy-mm-dd')
+                valueActual = (target as unknown as ValueElement).value
+              }
+            }
+            const bothDates =
+              existingActual instanceof Date && valueActual instanceof Date
+            const changed = bothDates
+              ? (existingActual as Date).getTime() !==
+                (valueActual as Date).getTime()
+              : existingActual !== valueActual
+            if (changed) {
               xin[path] = valueActual
             }
           }

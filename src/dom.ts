@@ -19,27 +19,133 @@ const valueType = (element: Element): string => {
   }
 }
 
+// DOM controls speak string; state speaks typed values. The binding layer is
+// the type boundary, in two layers (H-6, decided 2026-07-17):
+//   1. typed-control reads (below): a control that DECLARES its type is read
+//      natively — number/range as numbers, the date family as Dates, time as
+//      ms-since-midnight — independent of state. This keeps the FIRST write
+//      correctly typed when state is still undefined (deeply-async pattern),
+//      and keeps getValue honest as a standalone utility.
+//   2. state-driven coercion (bind.ts handleChange): for controls that don't
+//      declare a type, the type state currently holds is authoritative.
+// Empty/partial entry never fabricates a value: NaN/null falls back to the
+// control's raw string.
+
+const pad = (n: number, len = 2): string => String(n).padStart(len, '0')
+
+// the string serialization each date-family control expects. type=date /
+// month use UTC fields (matching valueAsDate semantics); datetime-local is
+// local time per spec.
+const dateToControlString = (type: string, d: Date): string => {
+  switch (type) {
+    case 'date':
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+        d.getUTCDate()
+      )}`
+    case 'month':
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`
+    case 'datetime-local':
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+        d.getDate()
+      )}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    default:
+      return d.toISOString()
+  }
+}
+
+const msToTimeString = (ms: number): string => {
+  const seconds = Math.floor(ms / 1000)
+  const hhmm = `${pad(Math.floor(seconds / 3600))}:${pad(
+    Math.floor(seconds / 60) % 60
+  )}`
+  // platform normalization omits zero seconds
+  return seconds % 60 === 0 ? hhmm : `${hhmm}:${pad(seconds % 60)}`
+}
+
+const timeStringToMs = (value: string): number => {
+  const match = value.match(/^(\d\d):(\d\d)(?::(\d\d)(?:\.(\d+))?)?$/)
+  if (match == null) return NaN
+  const [, h, m, sec, frac] = match
+  return (
+    (Number(h) * 60 + Number(m)) * 60000 +
+    Number(sec ?? 0) * 1000 +
+    Number(frac ?? 0)
+  )
+}
+
+const DATEISH = ['date', 'datetime-local', 'month', 'week']
+
 export const setValue = (element: Element, newValue: any): void => {
-  switch (valueType(element)) {
+  const type = valueType(element)
+  switch (type) {
     case 'radio':
+      // String() the state side: numeric state 5 must check value="5"
       (element as HTMLInputElement).checked =
-        (element as HTMLInputElement).value === newValue
+        newValue != null &&
+        (element as HTMLInputElement).value === String(newValue)
       break
     case 'checkbox':
       (element as HTMLInputElement).checked = !!newValue
       break
     case 'date':
-      (element as HTMLInputElement).valueAsDate = new Date(newValue)
+    case 'datetime-local':
+    case 'month':
+    case 'week': {
+      const input = element as HTMLInputElement
+      if (newValue == null || newValue === '') {
+        // clear the field — new Date(null) used to render 1970-01-01
+        input.value = ''
+      } else if (newValue instanceof Date || typeof newValue === 'number') {
+        const d = newValue instanceof Date ? newValue : new Date(newValue)
+        if (type === 'week') {
+          // no portable string serialization for ISO weeks — lean on the
+          // platform, and leave the field alone where it isn't supported
+          try {
+            input.valueAsDate = d
+          } catch (_e) {
+            // ignore: setter unsupported in this environment
+          }
+        } else {
+          input.value = dateToControlString(type, d)
+        }
+      } else {
+        input.value = String(newValue)
+      }
       break
+    }
+    case 'time': {
+      const input = element as HTMLInputElement
+      if (newValue == null || newValue === '') {
+        input.value = ''
+      } else if (typeof newValue === 'number') {
+        input.value = msToTimeString(newValue)
+      } else if (newValue instanceof Date) {
+        input.value = `${pad(newValue.getHours())}:${pad(
+          newValue.getMinutes()
+        )}:${pad(newValue.getSeconds())}`
+      } else {
+        input.value = String(newValue)
+      }
+      break
+    }
     case 'multi-select':
       for (const option of Array.from(
         (element as HTMLSelectElement).querySelectorAll('option')
       ) as HTMLOptionElement[]) {
-        option.selected = newValue[option.value]
+        // accept the natural array-of-selected-values shape as well as the
+        // PickMap; undefined (bound before data exists) selects nothing
+        // instead of throwing inside the observer flush
+        option.selected = Array.isArray(newValue)
+          ? newValue.map(String).includes(option.value)
+          : newValue != null
+          ? !!newValue[option.value]
+          : false
       }
       break
     default:
-      (element as HTMLInputElement).value = newValue
+      // binding before the data exists must render an empty control, not
+      // the literal string "undefined"
+      (element as HTMLInputElement).value = newValue == null ? '' : newValue
   }
 }
 
@@ -47,7 +153,8 @@ interface PickMap {
   [key: string]: boolean
 }
 export const getValue = (element: ValueElement): any => {
-  switch (valueType(element)) {
+  const type = valueType(element)
+  switch (type) {
     case 'radio': {
       const radio = element.parentElement?.querySelector(
         `[name="${element.name}"]:checked`
@@ -56,8 +163,32 @@ export const getValue = (element: ValueElement): any => {
     }
     case 'checkbox':
       return (element as HTMLInputElement).checked
+    case 'number':
+    case 'range': {
+      const input = element as HTMLInputElement
+      const n =
+        typeof input.valueAsNumber === 'number'
+          ? input.valueAsNumber
+          : Number(input.value)
+      return Number.isNaN(n) ? input.value : n
+    }
     case 'date':
-      return (element as HTMLInputElement).valueAsDate?.toISOString()
+    case 'datetime-local':
+    case 'month':
+    case 'week': {
+      const input = element as HTMLInputElement
+      const d =
+        input.valueAsDate ??
+        (input.value !== '' ? new Date(input.value) : null)
+      return d != null && !Number.isNaN(d.getTime()) ? d : input.value
+    }
+    case 'time': {
+      const input = element as HTMLInputElement
+      let n =
+        typeof input.valueAsNumber === 'number' ? input.valueAsNumber : NaN
+      if (Number.isNaN(n)) n = timeStringToMs(input.value)
+      return Number.isNaN(n) ? input.value : n
+    }
     case 'multi-select':
       return Array.from(element.querySelectorAll('option')).reduce(
         (map: PickMap, option: HTMLOptionElement): PickMap => {
@@ -70,6 +201,8 @@ export const getValue = (element: ValueElement): any => {
       return element.value
   }
 }
+
+export { DATEISH }
 
 const { ResizeObserver } = globalThis
 export const resizeObserver =

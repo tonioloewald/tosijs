@@ -1,4 +1,4 @@
-import { test, expect } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, bindParts } from './elements'
 import { updates, touch } from './path-listener'
@@ -504,4 +504,81 @@ test('events on cloneNode copies of bound elements do not crash dispatch (H-12)'
   outer.remove()
   input.remove()
   inputClone.remove()
+})
+
+describe('state-driven value coercion (H-6)', () => {
+  test('number input keeps numeric state numeric across keystrokes', async () => {
+    tosi({ h6num: { count: 42 } })
+    const input = document.createElement('input')
+    input.type = 'number'
+    document.body.append(input)
+    bind(input, 'h6num.count', bindings.value)
+    await updates()
+    expect(input.value).toBe('42')
+    input.value = '43'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6num.count).toBe(43) // was '43' — string — before H-6
+  })
+
+  test('a TEXT input bound to numeric state coerces clean numeric strings', async () => {
+    tosi({ h6text: { count: 7 } })
+    const input = document.createElement('input')
+    document.body.append(input)
+    bind(input, 'h6text.count', bindings.value)
+    await updates()
+    input.value = '8'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6text.count).toBe(8)
+    // non-numeric input writes raw — drift stays visible, not hidden
+    input.value = 'not a number'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    expect((xin as any).h6text.count).toBe('not a number')
+  })
+
+  test('empty input never coerces to zero', async () => {
+    tosi({ h6empty: { count: 5 } })
+    const input = document.createElement('input')
+    document.body.append(input)
+    bind(input, 'h6empty.count', bindings.value)
+    await updates()
+    input.value = ''
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6empty.count).toBe('') // raw, NOT 0
+  })
+
+  test('date input bound to string state keeps the string representation', async () => {
+    tosi({ h6date: { day: '2026-01-01' } })
+    const input = document.createElement('input')
+    input.type = 'date'
+    document.body.append(input)
+    bind(input, 'h6date.day', bindings.value)
+    await updates()
+    input.value = '2026-07-18'
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6date.day).toBe('2026-07-18') // string in, string stays
+  })
+
+  test('date input bootstrap (no state yet) writes a Date', async () => {
+    const input = document.createElement('input')
+    input.type = 'date'
+    document.body.append(input)
+    bind(input, 'h6dateBoot.day', bindings.value)
+    await updates()
+    input.value = '2026-07-18'
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    const day = (xin as any).h6dateBoot.day
+    expect(day).toBeInstanceOf(Date)
+    expect(day.toISOString()).toContain('2026-07-18')
+  })
 })
