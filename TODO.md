@@ -90,19 +90,38 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
   invocations.
 - **H-6: `getValue`/`setValue` value handling.** `dom.ts:49-72` — number/range inputs
   return strings, so numeric state silently becomes string state on first keystroke.
-  **Decision (2026-07-17): fix with STATE-DRIVEN coercion, not `valueAsNumber`.** The
-  binding layer is the type boundary — DOM speaks string, state speaks typed values, and
-  state's type is authoritative. In `handleChange`, when the path currently holds a number
-  and the control yields a numeric string, coerce with `Number()` before writing. This
-  fixes every control bound to numeric state (text inputs, selects with numeric option
-  values, radios), not just `type=number`. Guard: coerce only non-empty strings that parse
-  cleanly (`Number('')` is 0 — never coerce empty to zero silently); genuinely non-numeric
-  input writes raw, so on 2.0 strictness flags it honestly instead of the coercion hiding
-  it. toDOM direction, same doctrine: radio `checked` uses strict equality so numeric state
-  never matches `value="5"` — compare `String(state)` to `element.value`; radio group
-  lookup only searches `parentElement`. `setValue`: binding a text input to a missing path
-  renders literal `"undefined"` (contradicts "bind before data exists"), multi-select with
-  `undefined` throws inside the observer flush, `date` with null becomes 1970-01-01.
+  **Decision (2026-07-17): two layers.** The binding layer is the type boundary — DOM
+  speaks string, state speaks typed values — and both of these hold at once:
+  1. **Typed-control reads (input-driven):** a control that declares its type is read
+     natively by `getValue`, independent of state. `type=number`/`range` →
+     `valueAsNumber`; the date family (`date`, `datetime-local`, `month`, `week`) →
+     `valueAsDate`, `time` → `valueAsNumber` (ms since midnight); checkbox stays boolean.
+     NaN/null (empty or partial entry) falls back to the raw string — never fabricate a
+     number or a 1970 date from an empty field. This covers the **bind-before-data
+     bootstrap**: when state is still undefined (deeply-async pattern) there is no state
+     type to consult, and the control's declaration is what keeps the *first* write
+     correctly typed. It also keeps `getValue` honest as a public standalone utility.
+  2. **State-driven coercion (the general net):** in `handleChange`, state's type is
+     authoritative for controls that *don't* declare one. Path holds a number + control
+     yields a clean numeric string → coerce with `Number()` before writing (fixes text
+     inputs, selects with numeric option values, radios). Guard: only non-empty strings
+     that parse cleanly (`Number('')` is 0 — never coerce empty to zero); non-numeric
+     input writes raw so 2.0 strictness flags it honestly instead of the coercion hiding
+     it. For temporal state the same rule picks the **representation**: state holds a
+     Date → write `valueAsDate`; holds a number → `valueAsNumber` (epoch ms); holds a
+     string → keep the control's ISO string. Bootstrap default for empty state under a
+     date-family control: the `Date` from layer 1.
+  ⚠️ Dependency: Date objects in state require the `deepClone` Date fix (medium backlog —
+  currently `deepClone(new Date())` → `{}`, and Component deep-clones `value` through
+  it) landing in the SAME release; and document that JSON-based share/sync serializes
+  Dates to ISO strings (inherent to JSON — don't pretend otherwise).
+  toDOM direction, same doctrine: `setValue` accepts the union (Date | epoch number |
+  ISO string) for date-family controls and sets via the matching native property; radio
+  `checked` uses strict equality so numeric state never matches `value="5"` — compare
+  `String(state)` to `element.value`; radio group lookup only searches `parentElement`.
+  `setValue` guards: binding a text input to a missing path renders literal `"undefined"`
+  (contradicts "bind before data exists" — render `''`), multi-select with `undefined`
+  throws inside the observer flush, `date` with null must clear the field, not 1970-01-01.
 - **H-7: `share()` restore re-broadcasts a stale snapshot over live tabs.**
   `share.ts:328-357` — restore does `setByPath` + `touch`, then registers the outbound
   observer synchronously; since touch is async-batched, the observer sees the restored
