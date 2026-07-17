@@ -18,16 +18,25 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
 
 ### Ship-blockers
 
-Progress: **all ship-blockers resolved; H-1 ✅, H-2 ✅, H-3 ✅, H-5 ✅, H-12 ✅ fixed on
-main** (2026-07-17/18, each with regression tests verified failing against the prior
-code; suite 598 green). SB-3/SB-4/H-5 shipped in **v1.6.10**; SB-2/SB-5, the SB-1
-resolution (warnings + composedPath events + docs doctrine), and H-1/H-2/H-3/H-12 land
-in 1.7. ⚠️ Browser-lane checklist before 1.7 ships: SB-2c (template cloning into
-.content — happy-dom masks it), on()-in-shadow origin resolution (happy-dom doesn't
-retarget). Remaining High tier: **H-4** (debug/safe decision — user's call), **H-6**
-(two-layer typed-value binding + deepClone-Date dependency), **H-7/H-8** (share/sync),
-**H-9** (boxed value-write shadowing), **H-10** (hotReload), **H-11** (blueprint
-caching).
+Progress: **ALL ship-blockers and the entire High tier (H-1…H-12) are fixed on main**
+(2026-07-17/18, each with regression tests verified failing against the prior code where
+distinguishable; suite 624 green). SB-3/SB-4/H-5 shipped in **v1.6.10**; everything else
+lands in 1.7. SB-1 resolved as design-boundary (warnings + composedPath events + the
+custom-input docs doctrine). H-4 decided (experimental tjs-built subpath bundles,
+eval-order fixed, tjs-lang 0.10.1). H-6 shipped with its deepClone-Date prerequisite.
+
+⚠️ **Browser-lane checklist before 1.7 ships** (happy-dom structurally can't prove these):
+SB-2c (template cloning into `.content`), on()-in-shadow origin resolution (happy-dom
+doesn't retarget composed events). Note: H-10's observer-root-match change is a
+contract-alignment (deep writes already touch the root, so saves happened either way —
+not a reproducible bug); H-11's retry needed a `setModuleLoader` test seam because
+dynamic import() is unmockable.
+
+**The 1.7 slate is code-complete.** Remaining before tagging: the browser-lane checks
+above, the medium/minor backlog triage (fix-where-cheap), the runnable shadow value-
+widget doc example, and the release mechanics (changelog with the behavior-change
+callouts, tosijs-ui verification against a packed 1.7, version bump, build, tag,
+publish, then rebase tosijs-2.0 onto v1.7.0).
 
 Rebase policy (2026-07-17): `tosijs-2.0` is deliberately NOT rebased per-patch — one
 rebase after 1.7 finalizes. If 2.0 work resumes earlier, hand-port only the by-path
