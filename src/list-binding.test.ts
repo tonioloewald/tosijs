@@ -1027,3 +1027,99 @@ describe('itemsPerRow grid layout', () => {
     expect(container.contains(header)).toBe(true)
   })
 })
+
+describe('update stability (no gratuitous reinsertion)', () => {
+  test('a no-op update moves zero elements; item identity and order survive', () => {
+    document.body.textContent = ''
+    tosi({
+      stableList: {
+        items: [
+          { id: 'a', label: 'alpha' },
+          { id: 'b', label: 'beta' },
+          { id: 'c', label: 'gamma' },
+        ],
+      },
+    })
+    const proxiedArray = xin['stableList.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    const before = Array.from(container.children).filter(
+      (el) => !el.classList.contains('virtual-list-padding')
+    )
+    expect(before.length).toBe(3)
+
+    // count every DOM insertion during a no-op update — before the fix the
+    // null insertion anchor judged the first item "moved" and the cascade
+    // re-inserted the entire list on every update
+    let insertions = 0
+    const origInsertBefore = container.insertBefore.bind(container)
+    const origAppend = container.append.bind(container)
+    ;(container as any).insertBefore = (...args: any[]) => {
+      insertions++
+      return origInsertBefore(...(args as [Node, Node | null]))
+    }
+    ;(container as any).append = (...args: any[]) => {
+      insertions++
+      return origAppend(...args)
+    }
+
+    lb.update(proxiedArray)
+
+    expect(insertions).toBe(0)
+    const after = Array.from(container.children).filter(
+      (el) => !el.classList.contains('virtual-list-padding')
+    )
+    expect(after.length).toBe(3)
+    for (let i = 0; i < 3; i++) {
+      expect(after[i]).toBe(before[i]) // identity preserved, not recreated
+    }
+  })
+
+  test('a genuine reorder still lands elements in the right order', () => {
+    document.body.textContent = ''
+    tosi({
+      reorderList: {
+        items: [
+          { id: 'a', label: 'alpha' },
+          { id: 'b', label: 'beta' },
+          { id: 'c', label: 'gamma' },
+        ],
+      },
+    })
+    const proxiedArray = xin['reorderList.items'] as any[]
+
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+    lb.update(proxiedArray)
+    const itemsBefore = Array.from(container.children).filter(
+      (el) => !el.classList.contains('virtual-list-padding')
+    )
+
+    xin['reorderList.items'] = [
+      { id: 'c', label: 'gamma' },
+      { id: 'b', label: 'beta' },
+      { id: 'a', label: 'alpha' },
+    ]
+    ;(getListBinding(container) ?? lb).update(xin['reorderList.items'] as any[])
+
+    const itemsAfter = Array.from(container.children).filter(
+      (el) => !el.classList.contains('virtual-list-padding')
+    )
+    expect(itemsAfter.map((el) => el.textContent)).toEqual([
+      'gamma',
+      'beta',
+      'alpha',
+    ])
+    // reused by id, not recreated
+    expect(itemsAfter[0]).toBe(itemsBefore[2])
+    expect(itemsAfter[2]).toBe(itemsBefore[0])
+  })
+})

@@ -1504,8 +1504,14 @@ export class ListBinding {
       elements.push(...group)
     }
 
-    // make sure all the elements are in the DOM and in the correct location
-    let insertionPoint: Element | null = null
+    // make sure all the elements are in the DOM and in the correct location.
+    // The anchor starts at listTop (not null): in any non-table list the first
+    // item's previousElementSibling is listTop, so a null anchor judged every
+    // first item "moved" and the comparison cascaded — every element was
+    // re-inserted on every update (killing focus/selection in list inputs and
+    // restarting animations), even for a no-op touch. In table mode listTop
+    // is null and the null anchor remains correct.
+    let insertionPoint: Element | null = this.listTop
     for (const element of elements) {
       if (element.previousElementSibling !== insertionPoint) {
         moved++
