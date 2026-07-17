@@ -88,13 +88,21 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
   after a leading-edge run. Doubles every non-idempotent throttled handler and every
   ListBinding slice/filter update. Fix: schedule the trailing call only for suppressed
   invocations.
-- **H-6: `getValue`/`setValue` value handling.** `dom.ts:49-72` — number/range inputs return
-  strings (use `valueAsNumber` with a NaN guard), so numeric state silently becomes string
-  state on first keystroke; radio `checked` uses strict equality so numeric state never
-  matches `value="5"`; radio group lookup only searches `parentElement`. `setValue`: binding
-  a text input to a missing path renders literal `"undefined"` (contradicts "bind before
-  data exists"), multi-select with `undefined` throws inside the observer flush, `date` with
-  null becomes 1970-01-01.
+- **H-6: `getValue`/`setValue` value handling.** `dom.ts:49-72` — number/range inputs
+  return strings, so numeric state silently becomes string state on first keystroke.
+  **Decision (2026-07-17): fix with STATE-DRIVEN coercion, not `valueAsNumber`.** The
+  binding layer is the type boundary — DOM speaks string, state speaks typed values, and
+  state's type is authoritative. In `handleChange`, when the path currently holds a number
+  and the control yields a numeric string, coerce with `Number()` before writing. This
+  fixes every control bound to numeric state (text inputs, selects with numeric option
+  values, radios), not just `type=number`. Guard: coerce only non-empty strings that parse
+  cleanly (`Number('')` is 0 — never coerce empty to zero silently); genuinely non-numeric
+  input writes raw, so on 2.0 strictness flags it honestly instead of the coercion hiding
+  it. toDOM direction, same doctrine: radio `checked` uses strict equality so numeric state
+  never matches `value="5"` — compare `String(state)` to `element.value`; radio group
+  lookup only searches `parentElement`. `setValue`: binding a text input to a missing path
+  renders literal `"undefined"` (contradicts "bind before data exists"), multi-select with
+  `undefined` throws inside the observer flush, `date` with null becomes 1970-01-01.
 - **H-7: `share()` restore re-broadcasts a stale snapshot over live tabs.**
   `share.ts:328-357` — restore does `setByPath` + `touch`, then registers the outbound
   observer synchronously; since touch is async-batched, the observer sees the restored
