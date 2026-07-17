@@ -245,4 +245,34 @@ describe('sync', () => {
     expect(getByPath(registry, 's12a')).toEqual({ x: 10 })
     expect(getByPath(registry, 's12b')).toEqual({ y: 20 })
   })
+
+  test('a throwing transport.send requeues deltas instead of losing them (H-8)', async () => {
+    // a transport that fails the first send, then recovers
+    class FlakyTransport extends MockTransport {
+      failNext = true
+      send(messages: SyncMessage[]) {
+        if (this.failNext) {
+          this.failNext = false
+          throw new Error('socket closed')
+        }
+        super.send(messages)
+      }
+    }
+    const flaky = new FlakyTransport()
+    const { s13 } = tosi({ s13: { x: 1 } })
+    await sync(flaky, { throttleInterval: 10 }, s13)
+
+    xin['s13'] = { x: 2 } // first flush throws — deltas must survive
+    await updates()
+    await tick(40)
+    expect(flaky.sent.length).toBe(0) // nothing delivered yet
+
+    xin['s13'] = { x: 3 } // next flush retries the requeued batch
+    await updates()
+    await tick(40)
+
+    // both deltas eventually delivered, in order, none lost
+    const allSent = flaky.sent.flat()
+    expect(allSent.map((m) => m.value)).toEqual([{ x: 2 }, { x: 3 }])
+  })
 })
