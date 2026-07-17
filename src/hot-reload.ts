@@ -25,11 +25,12 @@ export const hotReload = (test: PathTestFunction = () => true): void => {
   if (savedState != null) {
     const state = JSON.parse(savedState)
     for (const key of Object.keys(state).filter(test)) {
-      if (xin[key] !== undefined) {
-        Object.assign(xin[key], state[key])
-      } else {
-        xin[key] = state[key]
-      }
+      // Wholesale replace, never Object.assign: assigning onto a scalar
+      // default (xin[key] === 0) silently dropped the saved value, and
+      // merging a saved array over a longer default left stale tail
+      // elements (['a'] over ['x','y','z'] => ['a','y','z']). A plain
+      // assignment through the proxy restores the saved value exactly.
+      xin[key] = state[key]
     }
   }
 
@@ -43,5 +44,14 @@ export const hotReload = (test: PathTestFunction = () => true): void => {
     console.log('xin state saved to localStorage')
   }, 500)
 
-  observe(test, saveState as ObserverCallbackFunction)
+  // The observer fires with the FULL changed path (e.g. 'app.user.name'),
+  // but `test` judges ROOT keys ('app'). Match on the path's root segment so
+  // a deep write still triggers a save — a raw `test(fullPath)` only saved
+  // when a root key itself was reassigned.
+  const rootMatches = (changedPath: string): boolean => {
+    const root = changedPath.split(/[.[]/)[0]
+    return test(root)
+  }
+
+  observe(rootMatches, saveState as ObserverCallbackFunction)
 }
