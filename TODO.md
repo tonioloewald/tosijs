@@ -18,6 +18,11 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
 
 ### Ship-blockers
 
+Progress: **SB-3 ✅, SB-4 ✅, H-5 ✅ fixed on main** (2026-07-17, with regression tests
+verified failing against the prior code; suite 579 green). SB-4's fix preserves the
+one-await-per-settling-round semantics — the historical double-await idiom is pinned by
+a test. Remaining below.
+
 - **SB-1: `bind()` and `on()` are dead inside shadow DOM.** Dispatch queries
   `document.querySelectorAll(BOUND_SELECTOR)` and the MutationObserver watches
   `document.body` — neither pierces shadow roots; `on()`'s body-level listener sees only the
