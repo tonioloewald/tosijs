@@ -18,10 +18,18 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
 
 ### Ship-blockers
 
-Progress: **SB-3 ✅, SB-4 ✅, H-5 ✅ fixed on main** (2026-07-17, with regression tests
-verified failing against the prior code; suite 579 green). SB-4's fix preserves the
-one-await-per-settling-round semantics — the historical double-await idiom is pinned by
-a test. Remaining below.
+Progress: **SB-2 ✅, SB-3 ✅, SB-4 ✅, SB-5 ✅, H-5 ✅ fixed on main** (2026-07-17, each
+with regression tests verified failing against the prior code; suite 583 green).
+SB-3/SB-4/H-5 shipped in **v1.6.10**; SB-2/SB-5 land in 1.7. SB-4's fix preserves the
+one-await-per-settling-round semantics — the historical double-await idiom is pinned by a
+test. ⚠️ SB-2c (template cloning into .content) is fixed but happy-dom can't prove it —
+needs a browser-lane regression test before 1.7 ships. Remaining: **SB-1** (needs a
+design decision on shadow-root dispatch) and the High tier.
+
+Rebase policy (2026-07-17): `tosijs-2.0` is deliberately NOT rebased per-patch — one
+rebase after 1.7 finalizes. If 2.0 work resumes earlier, hand-port only the by-path
+fixes into `by-path.tjs` first (data corruption; the monadic-write machinery sits on
+that lookup).
 
 - **SB-1: `bind()` and `on()` are dead inside shadow DOM.** Dispatch queries
   `document.querySelectorAll(BOUND_SELECTOR)` and the MutationObserver watches
