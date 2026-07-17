@@ -1,12 +1,7 @@
-// Debug build: type errors throw immediately with full stack traces
-const g = globalThis as any
-if (g.__tjs?.configure) {
-  g.__tjs.configure({ throwTypeErrors: true, logTypeErrors: true })
-} else {
-  g.__tjs = {
-    ...g.__tjs,
-    getConfig: () => ({ throwTypeErrors: true, logTypeErrors: true }),
-  }
-}
+// EXPERIMENTAL tjs-built debug bundle: type errors throw immediately with
+// full stack traces (once runtime enforcement exists — see configure module).
+// The configure import MUST come first: ESM evaluates it before './index',
+// so the __tjs config is in place before any library module captures it.
+import './configure-tjs-debug'
 
 export * from './index'

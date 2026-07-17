@@ -122,13 +122,20 @@ that lookup).
   TypeError from `document.createElement` under modern `[[Define]]` class-field semantics
   (ES2022/Vite/esbuild default). Fix: `configurable: true` + a helpful warn when an own
   field shadows an initAttribute.
-- **H-4: the published `tosijs/debug` and `tosijs/safe` bundles are inert.** Committed
-  `dist/module.debug.js`: 132 functions marked unsafe, zero checked, `throwTypeErrors`
-  referenced once in a shim nothing calls; ESM evaluation order runs the whole library
-  before the entry's configure block regardless. Decide for 1.7: make them real (convert
-  emitting checked functions + `__tjs` config consulted lazily per call — coordinate with
-  the 2.0 branch, where the tjs machinery lives) or pull the subpath exports until they are.
-  Either way, disclose in the changelog.
+- **H-4 — DECIDED (2026-07-18): keep the tjs-built subpath bundles as the toe-dip,
+  flagged EXPERIMENTAL.** ✅ Landed: the eval-order bug is fixed (config now lives in
+  `configure-tjs-{debug,safe}.ts`, imported FIRST from the entries, so it evaluates
+  before any library module captures `__tjs` — previously `export * from './index'`
+  evaluated the whole library before the config block ran); the debug bundle announces
+  itself as experimental via console.info (safe stays silent — production-facing);
+  tjs-lang upgraded 0.8.6 → **0.10.1** on main (includes the memory-leak fix).
+  Plainly-documented current state: `tjs convert` marks all converted-from-TS functions
+  unsafe by design (TS is presumed tsc-checked; safety is opt-in in native TJS — the
+  emitted TJS stamps `:!` on every signature), so **no runtime checks fire on this line
+  yet**; what ships is complete per-function `__tjs` runtime type metadata plus config
+  plumbing that's genuinely wired for enforcement as modules go native in 2.0.
+  Changelog for 1.7: describe exactly that — experimental, metadata now, enforcement
+  with 2.0.
 - **H-5: `throttle()` fires the wrapped function twice per isolated call.**
   `throttle.ts:91-106` — the trailing timer is scheduled unconditionally and never cancelled
   after a leading-edge run. Doubles every non-idempotent throttled handler and every
