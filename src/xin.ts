@@ -1329,12 +1329,18 @@ const regHandler = (
       }
     }
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
-    // (when boxScalars is true, .value should always set the underlying value)
+    // (when boxScalars is true, .value should always set the underlying value) —
+    // UNLESS the target has a real 'value' member, mirroring the get side's
+    // shadowing rule: with { slider: { value: 5, … } }, boxed.slider.value
+    // reads 5, so assigning it must write slider.value — not replace the
+    // whole slider object with the scalar. The symbol key (XIN_VALUE) remains
+    // the unshadowable escape hatch for the boxed-value write.
     const isValueProp =
       prop === XIN_VALUE ||
       prop === 'xinValue' ||
       prop === 'tosiValue' ||
-      (prop === 'value' && (isBoxedScalar(target) || boxScalars))
+      (prop === 'value' &&
+        (isBoxedScalar(target) || (boxScalars && !('value' in target))))
     const fullPath = isValueProp ? path : extendPath(path, prop as string)
     if (debugPaths && !isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
