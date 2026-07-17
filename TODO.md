@@ -44,16 +44,20 @@ that lookup).
      the body listener; only target retargeting hides the origin. O(1) per event, no
      registry, zero per-widget cost, closed roots stay closed. Changelog callout (dead
      handlers start firing).
-  3. **Spike, evidence-gated: path-indexed bind dispatch.** Today's dispatch is
-     `document.querySelectorAll` + full scan per changed path — that architecture is why
-     shadow binding is costly to add and why dispatch is O(paths × all bound elements)
-     (the review's efficiency finding). Inverting it (bind() maintains a path→elements
-     index; dispatch never traverses the DOM) makes shadow DOM work FOR FREE and dispatch
-     proportional to affected bindings only. Benchmark: table of N shadow-DOM input
-     widgets, N = 10²…10⁵. Lands in 1.7 only if boringly clean; otherwise it is the 2.0
-     substrate for schematic components' auto shadow-DOM binding. Lifecycle: isConnected
-     check at dispatch + FinalizationRegistry sweep (converges with the observer-cleanup
-     idea under "work in progress").
+  3. **Path-indexed bind dispatch: WITHDRAWN — tried before, rejected again (2026-07-17).**
+     Recorded so it stays dead: virtual list bindings keep the DOM at O(visible) by
+     recycling elements and *reassigning their binding paths in place* every scroll frame
+     (`updateRelativeBindings` rewrites `binding.path`), so any path-keyed index turns
+     scroll into per-element index churn on the exact hot path virtual scrolling keeps
+     flat; and a leak-free path→element map is genuinely hard (element churn; strong refs
+     leak subtrees, WeakRefs leak key entries). The current DOM-as-registry design is
+     leak-free by construction, retargets recycled elements in O(1), and its
+     querySelectorAll scan is bounded *because* virtual lists cap live DOM size — the
+     architecture and virtual lists are co-designed. The review's "O(paths × all bound
+     elements)" efficiency finding should be read with that bound in mind. The only
+     surviving bind-side shadow idea is an explicit **opt-in** per-root dispatch
+     registration (developer owns the per-root query cost; nothing automatic) — parked,
+     not planned.
 - **SB-2: nested list bindings broken three ways.** (a) `list-binding.ts:1036` —
   `updateRelativeBindings` calls `toDOM` without the options argument, so a nested list's
   `idPath`/`virtual`/filter are discarded and the cached instance can never be repaired;
