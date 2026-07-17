@@ -6,6 +6,7 @@ import {
   tosiLoader,
   blueprint,
   blueprintLoader,
+  setModuleLoader,
 } from './blueprint-loader'
 import {
   makeComponent,
@@ -233,6 +234,66 @@ describe('tosi-loader (canonical)', () => {
       el.remove()
     } finally {
       console.warn = origWarn
+    }
+  })
+
+  test('a failing blueprint does not wedge the loader; allLoaded still fires (H-11)', async () => {
+    const errors: any[] = []
+    const origError = console.error
+    console.error = (...args: any[]) => errors.push(args)
+    let loadedCalled = false
+    try {
+      const el = tosiLoader(
+        {
+          allLoaded() {
+            loadedCalled = true
+          },
+        },
+        // an unresolvable module — import() rejects
+        tosiBlueprint({ tag: 'broken-bp', src: './does-not-exist-xyz.js' })
+      ) as InstanceType<typeof BlueprintLoader>
+      document.body.appendChild(el)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Promise.all would have rejected here, leaving allLoaded unfired
+      expect(loadedCalled).toBe(true)
+      expect(errors.length).toBeGreaterThan(0)
+      el.remove()
+    } finally {
+      console.error = origError
+    }
+  })
+
+  test('a failed blueprint is not cached as rejected — a later load re-imports (H-11)', async () => {
+    const origError = console.error
+    console.error = () => {}
+    let attempts = 0
+    setModuleLoader(async (_src: string) => {
+      attempts++
+      throw new Error('transient 404')
+    })
+    try {
+      const bp1 = tosiBlueprint({
+        tag: 'retry-tag',
+        src: './retry-src.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(bp1)
+      await bp1.packaged().catch(() => {})
+      bp1.remove()
+
+      const bp2 = tosiBlueprint({
+        tag: 'retry-tag',
+        src: './retry-src.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(bp2)
+      await bp2.packaged().catch(() => {})
+      bp2.remove()
+
+      // old code cached the rejected promise, so the 2nd load reused it:
+      // attempts would stay 1. Eviction means the 2nd load re-imported.
+      expect(attempts).toBe(2)
+    } finally {
+      console.error = origError
+      setModuleLoader((src: string) => import(src))
     }
   })
 })

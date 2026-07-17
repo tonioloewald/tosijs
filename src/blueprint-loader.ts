@@ -247,7 +247,15 @@ const HIDDEN_STYLE = { ':host': { display: 'none' } }
 
 const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
 
-const loadModule = (src: string): Promise<any> => import(src)
+let loadModule = (src: string): Promise<any> => import(src)
+
+/**
+ * Replace the module loader (mainly for testing failure/retry paths — the
+ * default uses dynamic `import()`, which tests cannot intercept).
+ */
+export function setModuleLoader(loader: (src: string) => Promise<any>): void {
+  loadModule = loader
+}
 
 // --- Canonical classes (tosi-*) ---
 
@@ -270,7 +278,16 @@ export class Blueprint extends Component {
       } else {
         console.log(`using cached ${tag} with signature ${signature}`)
       }
-      this.loaded = await loadedBlueprints[signature]
+      try {
+        this.loaded = await loadedBlueprints[signature]
+      } catch (e) {
+        // Do NOT leave a rejected promise in the cache: it would make every
+        // future <tosi-blueprint> with this signature fail instantly with no
+        // retry. Evict so a later attempt can re-import (the src may have
+        // 404'd transiently, or been fixed).
+        delete loadedBlueprints[signature]
+        throw e
+      }
       this.blueprintLoaded(this.loaded)
     }
     return this.loaded!
@@ -290,8 +307,22 @@ export class BlueprintLoader extends Component {
         this.querySelectorAll('tosi-blueprint, xin-blueprint')
       ) as Blueprint[]
     ).filter((elt) => elt.src)
-    const promises = blueprintElements.map((elt) => elt.packaged())
-    await Promise.all(promises)
+    // allSettled, not all: one blueprint that fails to load must not reject
+    // the batch and leave allLoaded() unfired (nor surface as an unhandled
+    // rejection — load() is called fire-and-forget). Report failures; still
+    // signal completion for the blueprints that did load.
+    const results = await Promise.allSettled(
+      blueprintElements.map((elt) => elt.packaged())
+    )
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      if (result.status === 'rejected') {
+        console.error(
+          `<tosi-loader> failed to load blueprint from "${blueprintElements[i].src}":`,
+          result.reason
+        )
+      }
+    }
     this.allLoaded()
   }
 
@@ -337,8 +368,20 @@ class DeprecatedLoader extends Component {
     const blueprintElements = (
       Array.from(this.querySelectorAll('xin-blueprint')) as Blueprint[]
     ).filter((elt) => elt.src)
-    const promises = blueprintElements.map((elt) => elt.packaged())
-    await Promise.all(promises)
+    // allSettled: see BlueprintLoader.load — a failed blueprint must not wedge
+    // the batch or fire an unhandled rejection.
+    const results = await Promise.allSettled(
+      blueprintElements.map((elt) => elt.packaged())
+    )
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      if (result.status === 'rejected') {
+        console.error(
+          `<xin-loader> failed to load blueprint from "${blueprintElements[i].src}":`,
+          result.reason
+        )
+      }
+    }
     this.allLoaded()
   }
 
