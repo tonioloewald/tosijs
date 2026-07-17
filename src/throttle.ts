@@ -87,21 +87,20 @@ export const debounce = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
 export const throttle = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
   let debounceId: number
   let previousCall = Date.now() - minInterval
-  let inFlight = false
   return (...args: any[]) => {
     clearTimeout(debounceId)
-    debounceId = setTimeout(() => {
-      origFn(...args)
+    const elapsed = Date.now() - previousCall
+    if (elapsed >= minInterval) {
+      // leading edge — no trailing timer: a lone call fires exactly once
       previousCall = Date.now()
-    }, minInterval) as unknown as number
-    if (!inFlight && Date.now() - previousCall >= minInterval) {
-      inFlight = true
-      try {
-        origFn(...args)
+      origFn(...args)
+    } else {
+      // suppressed — schedule the trailing call ("the last call always goes
+      // through") for the moment the interval elapses, with the latest args
+      debounceId = setTimeout(() => {
         previousCall = Date.now()
-      } finally {
-        inFlight = false
-      }
+        origFn(...args)
+      }, minInterval - elapsed) as unknown as number
     }
   }
 }
