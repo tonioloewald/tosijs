@@ -418,6 +418,29 @@ function bindTake<T extends Element>(
   return element
 }
 
+// Binding inside shadow DOM is a documented design boundary (see Component's
+// docs): dispatch cannot see into shadow roots, so bindings and event sugar
+// there are inert. The failure used to be SILENT — warn at the point of
+// misuse instead. Once per session: the trap, not every element in it.
+let warnedShadowedBinding = false
+export const warnIfShadowed = (element: Element, what: string): void => {
+  if (warnedShadowedBinding) return
+  if (
+    typeof ShadowRoot !== 'undefined' &&
+    element.getRootNode != null &&
+    element.getRootNode() instanceof ShadowRoot
+  ) {
+    warnedShadowedBinding = true
+    console.warn(
+      `tosijs: ${what} targets an element inside a shadow root, where bindings ` +
+        'and event sugar do not operate (documented Component design boundary). ' +
+        'Inside shadow DOM, observe() state and update parts directly ' +
+        '(unobserve on disconnect). Warned once per session.',
+      element
+    )
+  }
+}
+
 export function bind<T extends Element = Element>(
   element: T,
   what: XinTouchableType | XinBindingSpec | TakeDescriptor,
@@ -427,6 +450,7 @@ export function bind<T extends Element = Element>(
   if (element instanceof DocumentFragment) {
     throw new Error('bind cannot bind to a DocumentFragment')
   }
+  warnIfShadowed(element, 'bind()')
 
   // TakeDescriptor — multi-path reactive transform
   if (
@@ -544,6 +568,7 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventType: K,
   eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
+  warnIfShadowed(element, 'on()')
   let eventBindings = elementToHandlers.get(element)
   element.classList.add(EVENT_CLASS)
   if (eventBindings == null) {

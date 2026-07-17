@@ -31,14 +31,29 @@ rebase after 1.7 finalizes. If 2.0 work resumes earlier, hand-port only the by-p
 fixes into `by-path.tjs` first (data corruption; the monadic-write machinery sits on
 that lookup).
 
-- **SB-1: `bind()` and `on()` are dead inside shadow DOM.** Dispatch queries
-  `document.querySelectorAll(BOUND_SELECTOR)` and the MutationObserver watches
-  `document.body` — neither pierces shadow roots; `on()`'s body-level listener sees only the
-  retargeted host as `event.target`. Any binding sugar in `shadowStyleSpec` component content
-  is silently inert (confirmed: bound span in an open shadow root never renders, even
-  initially). Fix shape: registry of bound shadow roots (register on first bind inside a
-  root), per-root MutationObserver + per-root query on dispatch; for events use
-  `composedPath()` instead of `target`. Needs the browser test lane — happy-dom can't see it.
+- **SB-1 — RECLASSIFIED (2026-07-17): not a bug, a documented design boundary that fails
+  silently.** Binding inside shadow DOM is documented as unsupported (`component.ts:106`,
+  `:226`) — shadow-DOM users are expected to micro-manage bindings/updates. The review's
+  registry-of-shadow-roots sketch is REJECTED: per-root MutationObserver + per-root
+  querySelectorAll decays exactly in the stress case that matters (a table of custom input
+  widgets — N shadow roots each taxing every dispatch). Deliverables instead:
+  1. ✅ **Warn at the point of misuse** — `bind()`/`on()` on an element inside a shadow
+     root warns once per session, pointing at the documented pattern. The silent brick was
+     the only genuinely broken part.
+  2. **1.7 candidate: `on()` via `composedPath()[0]`.** Composed events already bubble to
+     the body listener; only target retargeting hides the origin. O(1) per event, no
+     registry, zero per-widget cost, closed roots stay closed. Changelog callout (dead
+     handlers start firing).
+  3. **Spike, evidence-gated: path-indexed bind dispatch.** Today's dispatch is
+     `document.querySelectorAll` + full scan per changed path — that architecture is why
+     shadow binding is costly to add and why dispatch is O(paths × all bound elements)
+     (the review's efficiency finding). Inverting it (bind() maintains a path→elements
+     index; dispatch never traverses the DOM) makes shadow DOM work FOR FREE and dispatch
+     proportional to affected bindings only. Benchmark: table of N shadow-DOM input
+     widgets, N = 10²…10⁵. Lands in 1.7 only if boringly clean; otherwise it is the 2.0
+     substrate for schematic components' auto shadow-DOM binding. Lifecycle: isConnected
+     check at dispatch + FinalizationRegistry sweep (converges with the observer-cleanup
+     idea under "work in progress").
 - **SB-2: nested list bindings broken three ways.** (a) `list-binding.ts:1036` —
   `updateRelativeBindings` calls `toDOM` without the options argument, so a nested list's
   `idPath`/`virtual`/filter are discarded and the cached instance can never be repaired;

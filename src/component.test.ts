@@ -1237,3 +1237,58 @@ describe('on<Event> member collision warning', () => {
     expect(warnings.some((m) => m.includes('event-handler sugar'))).toBe(false)
   })
 })
+
+describe('shadow-DOM binding boundary warning', () => {
+  test('bind/on sugar in shadow content warns once per class at hydrate', async () => {
+    class ShadowBoundComponent extends Component {
+      static preferredTagName = 'shadow-bound-warn'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      content = ({ div }: typeof elements) =>
+        div({ bindText: 'shadowWarnTest.label' })
+    }
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    try {
+      const create = ShadowBoundComponent.elementCreator()
+      const el = create()
+      document.body.append(el)
+      const el2 = create()
+      document.body.append(el2)
+      el.remove()
+      el2.remove()
+    } finally {
+      console.warn = origWarn
+    }
+    const boundaryWarnings = warnings.filter((w) =>
+      w.includes('shadow-DOM content, where bindings do not operate')
+    )
+    expect(boundaryWarnings.length).toBe(1) // once per class, not per instance
+    expect(boundaryWarnings[0]).toContain('shadow-bound-warn')
+  })
+
+  test('light-DOM binding sugar does not warn', async () => {
+    class LightBoundComponent extends Component {
+      static preferredTagName = 'light-bound-nowarn'
+      content = ({ div }: typeof elements) =>
+        div({ bindText: 'lightNoWarnTest.label' })
+    }
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    try {
+      const el = LightBoundComponent.elementCreator()()
+      document.body.append(el)
+      el.remove()
+    } finally {
+      console.warn = origWarn
+    }
+    expect(
+      warnings.some((w) => w.includes('where bindings do not operate'))
+    ).toBe(false)
+  })
+})

@@ -594,7 +594,7 @@ import { tosiPath } from './metadata'
 import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
-import { warnDeprecated } from './metadata'
+import { warnDeprecated, BOUND_SELECTOR, EVENT_SELECTOR } from './metadata'
 
 let anonymousElementCount = 0
 
@@ -602,6 +602,9 @@ function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
 }
 let instanceCount = 0
+
+// Component classes already warned about inert bind/on sugar in shadow content
+const warnedShadowContentBindings = new Set<string>()
 
 // Marks a prototype whose connectedCallback has already been wrapped to drain
 // deferred constructor-time attribute ops before the subclass body runs.
@@ -1462,6 +1465,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         const shadow = this.attachShadow({ mode: 'open' })
         shadow.appendChild(styleNode.cloneNode(true))
         appendContentToElement(shadow, _content, cloneElements)
+        // Binding sugar in shadow content is inert by design (see the docs
+        // above: dispatch does not see into shadow roots; micro-manage with
+        // observe() + parts instead) — but bind() runs while content is still
+        // detached, so it cannot catch this itself. One query per shadow
+        // component at hydrate turns a silent brick into a named warning.
+        if (
+          !warnedShadowContentBindings.has(this.tagName) &&
+          shadow.querySelector(`${BOUND_SELECTOR},${EVENT_SELECTOR}`) != null
+        ) {
+          warnedShadowContentBindings.add(this.tagName)
+          console.warn(
+            `<${this.tagName.toLowerCase()}> has bind/on sugar in its shadow-DOM ` +
+              'content, where bindings do not operate (documented design ' +
+              'boundary). Inside shadow DOM, observe() state and update parts ' +
+              'directly (unobserve on disconnect). Warned once per component class.'
+          )
+        }
       } else if (_content !== null) {
         const existingChildren = Array.from(this.childNodes)
         appendContentToElement(this as HTMLElement, _content, cloneElements)
