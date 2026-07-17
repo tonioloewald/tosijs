@@ -105,11 +105,19 @@ In particular, you can use `onXxxx` syntax sugar to bind events.
 
 (Note that **data bindings do not operate inside a shadowDOM** — binding dispatch
 cannot "see" elements there, and a component that tries now gets a console warning
-instead of silent failure. As a general rule, take care of state inside the
-`shadowDOM` yourself: `observe()` the paths you care about and update `parts`
-directly, and `unobserve()` on disconnect. **Event sugar is the exception**: `on()`
-handlers work inside open shadow roots — composed events cross the boundary and the
-dispatcher resolves the true origin via `composedPath()`.)
+instead of silent failure. The semantically correct model: **a component with a
+shadowDOM is bound like an `<input>` or `<textarea>` — its `value` is the binding
+surface.** Bind the component itself (e.g. `bindings.value`) from outside; setting
+`value` automatically queues `render()` and emits `change`, so implement `render()`
+to reflect `value` into the shadow DOM and let `change` events carry edits back out.
+How the component represents its value internally is the implementer's business —
+which also means shadow components don't compose *bindings* internally: wiring
+nested widgets inside a shadow tree is manual (set their `value` in `render()`,
+listen to their events). A shadowDOM component is materially a different thing than
+a lightDOM component. For non-value internal state, `observe()` + `parts`, with
+`unobserve()` on disconnect. **Event sugar is the exception**: `on()` handlers work
+inside open shadow roots — composed events cross the boundary and the dispatcher
+resolves the true origin via `composedPath()`.)
 
 ##### ElementProps in content arrays
 
@@ -1483,10 +1491,12 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           warnedShadowContentBindings.add(this.tagName)
           console.warn(
             `<${this.tagName.toLowerCase()}> has data-binding sugar in its ` +
-              'shadow-DOM content, where bindings do not operate (documented ' +
-              'design boundary). Inside shadow DOM, observe() state and update ' +
-              'parts directly (unobserve on disconnect); on() event handlers ' +
-              'are fine. Warned once per component class.'
+              'shadow-DOM content, where bindings do not operate. A shadow-DOM ' +
+              'component is bound like an <input>: bind its VALUE from outside ' +
+              '(bindings.value) and implement render() to reflect value into ' +
+              'the shadow DOM — setting value queues render() and emits change ' +
+              'automatically. on() event handlers are fine. Warned once per ' +
+              'component class.'
           )
         }
       } else if (_content !== null) {

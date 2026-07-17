@@ -475,8 +475,9 @@ export const warnIfShadowed = (element: Element, what: string): void => {
     console.warn(
       `tosijs: ${what} targets an element inside a shadow root, where data ` +
         'bindings do not operate (documented Component design boundary). ' +
-        'Inside shadow DOM, observe() state and update parts directly ' +
-        '(unobserve on disconnect). Warned once per session.',
+        'A shadow-DOM component is bound like an <input>: bind its VALUE from ' +
+        'outside (bindings.value) and implement render() to reflect value ' +
+        'into the shadow DOM. Warned once per session.',
       element
     )
   }

@@ -33,7 +33,15 @@ that lookup).
 
 - **SB-1 — RECLASSIFIED (2026-07-17): not a bug, a documented design boundary that fails
   silently.** Binding inside shadow DOM is documented as unsupported (`component.ts:106`,
-  `:226`) — shadow-DOM users are expected to micro-manage bindings/updates. The review's
+  `:226`). **The semantic model (decided 2026-07-17): a shadow-DOM component is bound
+  like an `<input>`/`<textarea>` — its `value` is the binding surface.** Bind the
+  component itself with `bindings.value`; setting `value` queues `render()` and emits
+  `change` automatically; `render()` reflects value into the shadow DOM; internal
+  representation is the implementer's business. Bindings do not compose *through* a
+  shadow tree (nested widgets are wired manually in `render()`) — a shadow component is
+  materially different from a light-DOM component. Docs and warning text teach this
+  model. (This is deliberate, original design — light-DOM-first with `tosi-slot`
+  composition; don't re-litigate it against shadow-DOM-mandatory conventions.) The review's
   registry-of-shadow-roots sketch is REJECTED: per-root MutationObserver + per-root
   querySelectorAll decays exactly in the stress case that matters (a table of custom input
   widgets — N shadow roots each taxing every dispatch). Deliverables instead:
