@@ -18,13 +18,16 @@ copies of `component.ts`/`list-binding.ts`/`path-listener.ts` are identical and 
 
 ### Ship-blockers
 
-Progress: **SB-2 ✅, SB-3 ✅, SB-4 ✅, SB-5 ✅, H-5 ✅ fixed on main** (2026-07-17, each
-with regression tests verified failing against the prior code; suite 583 green).
-SB-3/SB-4/H-5 shipped in **v1.6.10**; SB-2/SB-5 land in 1.7. SB-4's fix preserves the
-one-await-per-settling-round semantics — the historical double-await idiom is pinned by a
-test. ⚠️ SB-2c (template cloning into .content) is fixed but happy-dom can't prove it —
-needs a browser-lane regression test before 1.7 ships. Remaining: **SB-1** (needs a
-design decision on shadow-root dispatch) and the High tier.
+Progress: **all ship-blockers resolved; H-1 ✅, H-2 ✅, H-3 ✅, H-5 ✅, H-12 ✅ fixed on
+main** (2026-07-17/18, each with regression tests verified failing against the prior
+code; suite 598 green). SB-3/SB-4/H-5 shipped in **v1.6.10**; SB-2/SB-5, the SB-1
+resolution (warnings + composedPath events + docs doctrine), and H-1/H-2/H-3/H-12 land
+in 1.7. ⚠️ Browser-lane checklist before 1.7 ships: SB-2c (template cloning into
+.content — happy-dom masks it), on()-in-shadow origin resolution (happy-dom doesn't
+retarget). Remaining High tier: **H-4** (debug/safe decision — user's call), **H-6**
+(two-layer typed-value binding + deepClone-Date dependency), **H-7/H-8** (share/sync),
+**H-9** (boxed value-write shadowing), **H-10** (hotReload), **H-11** (blueprint
+caching).
 
 Rebase policy (2026-07-17): `tosijs-2.0` is deliberately NOT rebased per-patch — one
 rebase after 1.7 finalizes. If 2.0 work resumes earlier, hand-port only the by-path
