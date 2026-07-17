@@ -162,11 +162,13 @@ The bucket below exists only on this branch — the guards themselves have holes
 - **Guard-integration test gaps** (the highest-value 2.0 test investment): fabricate-then-
   abort walks; `bindingPaths: 'throw'` has zero coverage (catchability, non-unregistration,
   soft-vs-stern) including the accessor surface; share/sync inbound under
-  `'monadic'`/`'throw'`; `bindings.value` bound to numeric state under strictness (main's
-  1.7 fix is **state-driven coercion** — handleChange coerces clean numeric strings to
-  Number when the path holds a number, decision recorded in main's TODO H-6; after the
-  rebase, verify the coercion and strictness read the same current-type source of truth);
-  `describePath` against class-instance/getter and scalar-leaf state.
+  `'monadic'`/`'throw'`; `bindings.value` bound to numeric/temporal state under strictness
+  (main's 1.7 fix is **two-layer**: typed controls — number/range/date family — are read
+  natively by getValue, and handleChange state-driven-coerces the rest; decision recorded
+  in main's TODO H-6. After the rebase, verify the coercion and strictness read the same
+  current-type source of truth, and that Date-holding state doesn't trip strictness when a
+  date control round-trips it); `describePath` against class-instance/getter and
+  scalar-leaf state.
 - **debug/safe subpath exports are inert as published** (main TODO H-4 has the disclosure
   decision). The *real* fix is branch work: `tjs convert` currently emits zero checked
   functions (132/132 `unsafe`), and the `index-debug`/`index-safe` entries configure
