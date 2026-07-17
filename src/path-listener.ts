@@ -112,6 +112,18 @@ export function synthesizeIdPathTouches(
   return synthesized
 }
 
+// True when `path` IS `prefix` or lies under it — the character after the
+// prefix must be a segment boundary ('.' or '['). A raw startsWith matched
+// name-prefix SIBLINGS: observers on 'foo' heard 'foobar', touch dedupe
+// swallowed 'foobar' after 'foo', and bound elements re-rendered for
+// unrelated paths like list[50] when list[5] changed.
+export const extendsPath = (prefix: string, path: string): boolean => {
+  if (!path.startsWith(prefix)) return false
+  if (path.length === prefix.length) return true
+  const c = path.charAt(prefix.length)
+  return c === '.' || c === '['
+}
+
 export class Listener {
   description: string
   test: PathTestFunction
@@ -130,7 +142,7 @@ export class Listener {
       this.test = (t) =>
         typeof t === 'string' &&
         t !== '' &&
-        (test.startsWith(t) || t.startsWith(test))
+        (extendsPath(t, test) || extendsPath(test, t))
       testDescription = `test = "${test}"`
     } else if (test instanceof RegExp) {
       this.test = test.test.bind(test)
@@ -243,7 +255,7 @@ export const touch = (touchable: XinTouchableType): void => {
   }
 
   if (
-    touchedPaths.find((touchedPath) => path.startsWith(touchedPath)) == null
+    touchedPaths.find((touchedPath) => extendsPath(touchedPath, path)) == null
   ) {
     touchedPaths.push(path)
   }
@@ -263,8 +275,9 @@ export const touch = (touchable: XinTouchableType): void => {
       )
       for (const idTouch of idPathTouches) {
         if (
-          touchedPaths.find((touchedPath) => idTouch.startsWith(touchedPath)) ==
-          null
+          touchedPaths.find((touchedPath) =>
+            extendsPath(touchedPath, idTouch)
+          ) == null
         ) {
           touchedPaths.push(idTouch)
         }

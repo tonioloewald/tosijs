@@ -228,7 +228,7 @@ want to force a render of an element (versus anything bound to a path), simply c
 to paths staring with the provided path.
 */
 
-import { touch, observe } from './path-listener'
+import { touch, observe, extendsPath } from './path-listener'
 import { getXinProxy, setBindFunctions } from './registry'
 import {
   elementToBindings,
@@ -285,7 +285,7 @@ export const touchElement = (element: Element, changedPath?: string): void => {
           continue
         }
       }
-      if (changedPath == null || path.startsWith(changedPath)) {
+      if (changedPath == null || extendsPath(changedPath, path)) {
         toDOM(element, getXinProxy()[path], options)
       }
     }

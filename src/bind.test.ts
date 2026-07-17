@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, bindParts } from './elements'
-import { updates } from './path-listener'
+import { updates, touch } from './path-listener'
 import { on, bind, touchElement } from './bind'
 import { bindings } from './bindings'
 
@@ -447,4 +447,26 @@ test('delegation crosses the shadow boundary to light-DOM ancestors', () => {
   inner.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
   expect(outerHeard).toBe(1)
   outer.remove()
+})
+
+test('bound elements do not re-render for name-prefix sibling paths (H-1)', async () => {
+  tosi({ h1bind: { ab: 'hello', a: 'x' } })
+  let renders = 0
+  const el = document.createElement('div')
+  document.body.append(el)
+  bind(el, 'h1bind.ab', {
+    toDOM(element, value) {
+      renders++
+      element.textContent = String(value)
+    },
+  })
+  await updates()
+  const base = renders
+  touch('h1bind.a') // name-prefix sibling of the bound path
+  await updates()
+  expect(renders).toBe(base)
+  touch('h1bind.ab')
+  await updates()
+  expect(renders).toBe(base + 1)
+  el.remove()
 })
