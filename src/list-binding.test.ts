@@ -1,5 +1,5 @@
 import { test, expect, describe } from 'bun:test'
-import { xin } from './xin'
+import { xin, updates } from './xin'
 import { tosi } from './xin-proxy'
 import { elements } from './elements'
 import {
@@ -1121,5 +1121,85 @@ describe('update stability (no gratuitous reinsertion)', () => {
     // reused by id, not recreated
     expect(itemsAfter[0]).toBe(itemsBefore[2])
     expect(itemsAfter[2]).toBe(itemsBefore[0])
+  })
+})
+
+describe('nested list bindings (SB-2)', () => {
+  test('a bindList inside a list item template renders, with options intact', async () => {
+    document.body.textContent = ''
+    tosi({
+      nested1: {
+        groups: [
+          {
+            gid: 'g1',
+            subs: [
+              { sid: 's1', label: 'one' },
+              { sid: 's2', label: 'two' },
+            ],
+          },
+          { gid: 'g2', subs: [{ sid: 's3', label: 'three' }] },
+        ],
+      },
+    })
+    const { div, span, template } = elements
+    const container = div(
+      template(
+        div(
+          { class: 'group' },
+          div(
+            { class: 'subs', bindList: { value: '^.subs', idPath: 'sid' } },
+            template(span({ bindText: '^.label' }))
+          )
+        )
+      ),
+      { bindList: { value: xin['nested1.groups'], idPath: 'gid' } }
+    )
+    document.body.append(container)
+    await updates()
+
+    const labels = Array.from(container.querySelectorAll('span')).map(
+      (el) => el.textContent
+    )
+    expect(labels).toEqual(['one', 'two', 'three'])
+
+    // the inner ListBinding must have been constructed WITH its options —
+    // before the fix updateRelativeBindings dropped them, so idPath was lost
+    const innerContainers = Array.from(container.querySelectorAll('.subs'))
+    expect(innerContainers.length).toBe(2)
+    const innerLb = getListBinding(innerContainers[0])
+    expect(innerLb?.options?.idPath).toBe('sid')
+  })
+
+  test('surgical updates reach into a nested list (paths are well-formed)', async () => {
+    document.body.textContent = ''
+    tosi({
+      nested2: {
+        groups: [
+          {
+            gid: 'a',
+            subs: [{ sid: 'x', label: 'before' }],
+          },
+        ],
+      },
+    })
+    const { div, span, template } = elements
+    const container = div(
+      template(
+        div(
+          { class: 'subs', bindList: { value: '^.subs', idPath: 'sid' } },
+          template(span({ bindText: '^.label' }))
+        )
+      ),
+      { bindList: { value: xin['nested2.groups'], idPath: 'gid' } }
+    )
+    document.body.append(container)
+    await updates()
+    expect(container.querySelector('span')?.textContent).toBe('before')
+
+    // before the extendPath fix the inner bindings' paths were malformed
+    // ('nested2.groups[[gid=a]].subs[0].label') so this write never rendered
+    xin['nested2.groups[gid=a].subs[sid=x].label'] = 'after'
+    await updates()
+    expect(container.querySelector('span')?.textContent).toBe('after')
   })
 })

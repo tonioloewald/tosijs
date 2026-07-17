@@ -1033,7 +1033,14 @@ function updateRelativeBindings(element: Element, path: string): void {
         binding.path = `${path}${binding.path.substring(1)}`
       }
       if (binding.binding.toDOM != null) {
-        binding.binding.toDOM(boundElement as Element, xin[binding.path])
+        // pass the binding's stored options through: a nested list binding
+        // constructed without them silently loses idPath/virtual/filter, and
+        // getListBinding caches the instance so later calls can't repair it
+        binding.binding.toDOM(
+          boundElement as Element,
+          xin[binding.path],
+          binding.options
+        )
       }
     }
   }

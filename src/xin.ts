@@ -896,7 +896,13 @@ const extendPath = (path = '', prop = ''): string => {
   if (path === '') {
     return prop
   } else {
-    if (prop.match(/^\d+$/) !== null || prop.includes('=')) {
+    if (prop.startsWith('[') && prop.endsWith(']')) {
+      // already a bracketed segment — the compound-path branch hands us
+      // basePaths like '[0]' or '[id=x]'. Append verbatim: re-bracketing
+      // produced 'list[[id=x]]' and dot-joining produced 'list.[0]', either
+      // way a malformed path whose bindings never resolve or fire
+      return `${path}${prop}`
+    } else if (prop.match(/^\d+$/) !== null || prop.includes('=')) {
       return `${path}[${prop}]`
     } else {
       return `${path}.${prop}`
