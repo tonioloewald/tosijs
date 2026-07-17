@@ -166,4 +166,9 @@ await buildDocsBundle()
 
 if (buildOnly) process.exit(0)
 
-await devServer(config, { build: rebuild })
+// --test drives the doc `test` fences through a real browser (haltija) and
+// exits on a real pass/fail code — the lane for behaviors happy-dom can't
+// observe (composed-event retargeting, real <template> cloning).
+const testMode = process.argv.includes('--test')
+
+await devServer(config, { build: rebuild, test: testMode })

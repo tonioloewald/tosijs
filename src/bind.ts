@@ -224,6 +224,40 @@ closed. (Note that *data* bindings deliberately do not operate inside shadow
 DOM — a shadow-DOM component is bound like an `<input>`, via its `value`; see
 the Component docs.)
 
+This behavior needs a real browser to observe (a composed event is only
+*retargeted* to its shadow host outside jsdom/happy-dom), so it is verified
+in-browser here:
+
+```test
+import { elements, on } from 'tosijs'
+const { button } = elements
+
+test('on() fires for a click originating inside an open shadow root', () => {
+  const host = document.createElement('div')
+  preview.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const b = button('inside shadow')
+  shadow.append(b)
+  let clicks = 0
+  on(b, 'click', () => { clicks++ })
+  b.click()
+  expect(clicks).toBe(1)
+})
+
+test('delegation crosses the shadow boundary to a light-DOM ancestor', () => {
+  const outer = document.createElement('div')
+  preview.append(outer)
+  const host = document.createElement('div')
+  outer.append(host)
+  const inner = button('inner')
+  host.attachShadow({ mode: 'open' }).append(inner)
+  let heard = 0
+  on(outer, 'click', () => { heard++ })
+  inner.click()
+  expect(heard).toBe(1)
+})
+```
+
 ## `touchElement()`
 
 ```

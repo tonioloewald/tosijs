@@ -39,6 +39,7 @@
     "tls": "tosijs-dev-certs",
     "format": "bun eslint src --fix && bun prettier --write .",
     "test": "bun test",
+    "test:browser": "bun bin/site.ts --test",
     "latest": "rm -rf node_modules && bun update"
   },
   "author": "Tonio Loewald",

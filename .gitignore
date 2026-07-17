@@ -141,3 +141,4 @@ docs/*.map
 
 # Claude Code session transcripts
 .haltija/
+.browser-tests.json

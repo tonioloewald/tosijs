@@ -149,6 +149,45 @@ just direct, surgical updates.
 (in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
 virtualized grid example below. Only the cells whose values actually change will flash.
 
+## Nested lists
+
+A `bindList` can live inside another list's item template — the inner list's
+relative path (`^.subs`) resolves against each outer item. This depends on
+cloning a `<template>` that itself contains a `<template>`, which only behaves
+correctly in a real browser (jsdom/happy-dom put cloned children in the wrong
+place), so it is verified in-browser here:
+
+```test
+import { tosi, elements, xin, updates } from 'tosijs'
+const { div, span, template } = elements
+
+test('a bindList nested in a list item template renders each inner item', async () => {
+  tosi({
+    nestedListDoc: {
+      groups: [
+        { gid: 'g1', subs: [{ sid: 's1', label: 'one' }, { sid: 's2', label: 'two' }] },
+        { gid: 'g2', subs: [{ sid: 's3', label: 'three' }] },
+      ],
+    },
+  })
+  const container = div(
+    template(
+      div(
+        div(
+          { class: 'subs', bindList: { value: '^.subs', idPath: 'sid' } },
+          template(span({ bindText: '^.label' }))
+        )
+      )
+    ),
+    { bindList: { value: xin['nestedListDoc.groups'], idPath: 'gid' } }
+  )
+  preview.append(container)
+  await updates()
+  const labels = [...container.querySelectorAll('span')].map((s) => s.textContent)
+  expect(labels).toEqual(['one', 'two', 'three'])
+})
+```
+
 ## Iterating and Searching Arrays
 
 Proxied arrays have specific semantics around which iteration patterns
