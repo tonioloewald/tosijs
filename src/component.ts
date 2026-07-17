@@ -1166,12 +1166,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this._pendingAttrOps = undefined
     delete (this as any).setAttribute
     delete (this as any).removeAttribute
+    // Snapshot which attributes exist BEFORE replay: those were set by the
+    // parser (pre-upgrade markup) and win over queued default reflections.
+    // The guard must consult this snapshot, not live hasAttribute() — an
+    // attribute landed by an EARLIER op in this same queue would otherwise
+    // block later ops, making the drain first-write-wins and silently
+    // dropping the second of two pre-connect property writes.
+    const preExisting = new Set<string>()
+    for (const op of queue) {
+      if (this.hasAttribute(op[1])) preExisting.add(op[1])
+    }
     for (const op of queue) {
       if (op[0] === 'set') {
-        // hasAttribute guard: anything already on the element (e.g. set by
-        // the parser before upgrade) wins over a queued default reflection.
-        if (!this.hasAttribute(op[1])) this.setAttribute(op[1], op[2])
+        if (!preExisting.has(op[1])) this.setAttribute(op[1], op[2])
       } else {
+        // an explicit remove consciously discards the parser-set value, so
+        // a later queued set for the same attribute must land
+        preExisting.delete(op[1])
         this.removeAttribute(op[1])
       }
     }

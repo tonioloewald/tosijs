@@ -1292,3 +1292,33 @@ describe('shadow-DOM binding boundary warning', () => {
     ).toBe(false)
   })
 })
+
+describe('pending-attribute drain is last-write-wins (H-2)', () => {
+  test('two pre-connect property writes: the second wins', () => {
+    class DrainOrderTest extends Component {
+      static preferredTagName = 'drain-order-test'
+      static initAttributes = { caption: 'default' }
+    }
+    const el = DrainOrderTest.elementCreator()() as any
+    el.caption = 'first'
+    el.caption = 'second' // was silently dropped: first landed, guard blocked this
+    document.body.append(el)
+    expect(el.getAttribute('caption')).toBe('second')
+    expect(el.caption).toBe('second')
+    el.remove()
+  })
+
+  test('pre-connect remove-then-set lands the set', () => {
+    class DrainRemoveSetTest extends Component {
+      static preferredTagName = 'drain-remove-set-test'
+      static initAttributes = { caption: 'default' }
+    }
+    const el = DrainRemoveSetTest.elementCreator()() as any
+    el.setAttribute('caption', 'a')
+    el.removeAttribute('caption')
+    el.setAttribute('caption', 'b')
+    document.body.append(el)
+    expect(el.getAttribute('caption')).toBe('b')
+    el.remove()
+  })
+})
