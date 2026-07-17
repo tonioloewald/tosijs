@@ -244,6 +244,19 @@ that lookup).
   conditions match in order, so `types` may never be reached; move it first. Also keep
   `dist/bun-plugin/` and `dist/tsconfig.build.tsbuildinfo` out of the published package.
 
+### Docs surfacing for 1.7
+
+The shadow-DOM doctrine (component = custom input, value is the binding surface) is now
+in: Component's doc block (two passages), both warning texts, `bind()`'s doc block
+(`on()` section), and Building-Apps.md's mental-model section — all of which feed the
+doc site and llms.txt at build. Still wanted:
+- **A live doc example of a shadow value-widget**: `shadowStyleSpec` component with a
+  `value`, `render()` reflecting it into the shadow DOM, bound from outside with
+  `bindings.value` — the canonical pattern, runnable.
+- README has no shadow-DOM guidance beyond one `shadowStyleSpec` code sample — fine
+  (README stays lean), but verify llms.txt picks up the Building-Apps section after the
+  next build.
+
 ### Test infrastructure for 1.7
 
 - **Browser test lane** (we have browser-based testing available) for the class of bug

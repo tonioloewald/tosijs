@@ -448,9 +448,21 @@ Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:
 
 - **Light DOM** (default): bindings flow through naturally.
-- **Shadow DOM**: self-contained islands that receive data via
-  attributes/properties and manage their own internals. You handle
-  rendering inside the shadow root yourself.
+- **Shadow DOM**: the component is a *custom input*. Think of it exactly like
+  an `<input>` or `<textarea>`: **its `value` is the binding surface**. Bind
+  the component itself (e.g. `bindings.value`) from outside; setting `value`
+  automatically queues `render()` and emits `change`, so implement `render()`
+  to reflect `value` into the shadow DOM, and let `change` events carry edits
+  back out. How the component represents its value internally is your business
+  as the implementer — and that includes wiring any nested widgets manually in
+  `render()`, because **bindings do not compose through a shadow tree**. A
+  shadow DOM component is materially a different kind of thing than a light
+  DOM component.
+
+Data-binding sugar inside shadow content doesn't operate — and as of 1.7 it
+warns instead of failing silently. Event sugar is the exception: `on()`
+handlers work inside open shadow roots (composed events cross the boundary,
+and the dispatcher resolves the true origin via `composedPath()`).
 
 A good example: an email message bubble might use Shadow DOM for the
 HTML body (CSS isolation from untrusted email styles) but keep

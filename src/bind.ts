@@ -216,6 +216,14 @@ that handler goes from the original target through to the DOM and fires off
 event-handlers, passing them an event proxy (so that `stopPropagation()` still
 works).
 
+`on()` handlers work inside **open shadow roots** too: composed events cross
+shadow boundaries, and the dispatcher resolves the true origin via
+`composedPath()` (retargeting would otherwise hide it) and continues delegation
+up through shadow hosts to light-DOM ancestors. Closed shadow roots stay
+closed. (Note that *data* bindings deliberately do not operate inside shadow
+DOM — a shadow-DOM component is bound like an `<input>`, via its `value`; see
+the Component docs.)
+
 ## `touchElement()`
 
 ```
