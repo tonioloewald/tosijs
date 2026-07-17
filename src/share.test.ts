@@ -373,4 +373,26 @@ describe('share', () => {
     sender.close()
     echoListener.close()
   })
+
+  test('restoring from store does not re-broadcast the snapshot (H-7)', async () => {
+    // seed the store as if a prior tab persisted state
+    await memStore.set('t99', { color: 'blue' })
+
+    let broadcasts = 0
+    const listener = new BroadcastChannel(CHANNEL_NAME)
+    listener.onmessage = (e) => {
+      if (e.data?.path && String(e.data.path).startsWith('t99')) broadcasts++
+    }
+
+    const { t99 } = tosi({ t99: { color: 'red' } })
+    const { restored } = await share(t99)
+    // let the restore's touch drain through the (now-registered) observer
+    await updates()
+    await tick(100)
+
+    expect(restored).toContain(t99)
+    expect(xin['t99'].color).toBe('blue') // inherited the stored value
+    expect(broadcasts).toBe(0) // but must NOT have rebroadcast it over live tabs
+    listener.close()
+  })
 })

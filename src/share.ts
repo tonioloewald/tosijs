@@ -161,6 +161,12 @@ interface ShareMessage {
 // Module-level state
 const sharedPaths = new Set<string>()
 const inboundPaths = new Set<string>()
+// Paths whose stored snapshot is being read during share() setup. If a live
+// delta arrives (via the channel) while we're awaiting the store read, it is
+// fresher than the snapshot — record it so the stale snapshot doesn't clobber
+// it on restore.
+const restoringPaths = new Set<string>()
+const freshDuringRestore = new Set<string>()
 const debouncedSaves = new Map<string, () => void>()
 let channel: BroadcastChannel | null = null
 let origin = ''
@@ -253,6 +259,12 @@ function isInbound(changedPath: string): boolean {
 }
 
 function applyInbound(path: string, value: any): void {
+  // a live delta landing while a path's snapshot is still being read is
+  // fresher than that snapshot — flag it so restore won't overwrite it
+  const root = findSharedRoot(path)
+  if (root !== undefined && restoringPaths.has(root)) {
+    freshDuringRestore.add(root)
+  }
   inboundPaths.add(path)
   setByPath(registry, path, value)
   touch(path)
@@ -325,15 +337,24 @@ export async function share(...proxies: any[]): Promise<{ restored: any[] }> {
 
     // Idempotent — skip if already shared
     if (sharedPaths.has(path)) continue
+    // Claim the path immediately (idempotency + so inbound deltas that arrive
+    // during the async store read below are recognized as under a shared root)
     sharedPaths.add(path)
+    restoringPaths.add(path)
 
     // Restore from store or seed it
     const stored = await s.get(path)
-    if (stored !== undefined) {
-      setByPath(registry, path, stored)
-      touch(path)
+    const gotFresh = freshDuringRestore.has(path)
+    restoringPaths.delete(path)
+    freshDuringRestore.delete(path)
+    if (stored !== undefined && !gotFresh) {
+      // Restore THROUGH applyInbound: it marks the path inbound so the
+      // outbound observer (registered just below) treats the restore touch
+      // as an echo and does NOT broadcast the stored — possibly up-to-500ms-
+      // stale — snapshot back over any live tab's fresher state.
+      applyInbound(path, stored)
       restored.push(proxy)
-    } else {
+    } else if (stored === undefined) {
       const value = getByPath(registry, path)
       await s.set(path, value)
     }
