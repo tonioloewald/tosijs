@@ -1579,8 +1579,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       } else if (_content !== null) {
         const existingChildren = Array.from(this.childNodes)
         appendContentToElement(this as HTMLElement, _content, cloneElements)
+        // querySelector returns null (never undefined) when there's no match,
+        // so `!== undefined` was always true
         this.isSlotted =
-          this.querySelector('slot,tosi-slot,xin-slot') !== undefined
+          this.querySelector('slot,tosi-slot,xin-slot') !== null
         const slots = Array.from(this.querySelectorAll('slot'))
         if (slots.length > 0) {
           slots.forEach(TosiSlot.replaceSlot)

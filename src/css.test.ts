@@ -321,3 +321,16 @@ test('Color.registerComputedColor registers computed color variables', () => {
   // Color should have registered this for computation
   // (We can't easily test the internal state, but the reference format is correct)
 })
+
+test('unitless custom properties do not get a px suffix (H medium)', () => {
+  const sheet = css({ ':root': { _opacity: 0.5, _zIndex: 10, _flexGrow: 1 } })
+  expect(sheet).toContain('--opacity: 0.5;')
+  expect(sheet).toContain('--z-index: 10;')
+  expect(sheet).toContain('--flex-grow: 1;')
+  expect(sheet).not.toContain('px')
+})
+
+test('length custom properties still get px', () => {
+  const sheet = css({ ':root': { _margin: 10 } })
+  expect(sheet).toContain('--margin: 10px;')
+})

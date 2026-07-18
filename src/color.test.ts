@@ -275,3 +275,9 @@ describe('Color toString', () => {
     expect(color.toString()).toBe(color.html)
   })
 })
+
+test('alpha hex is rounded, not floored (medium backlog)', () => {
+  const c = Color.fromCss('rgba(0, 0, 0, 0.5)')
+  // 0.5 * 255 = 127.5 -> round -> 128 -> 0x80 (floor gave 7f)
+  expect(c.toString().toLowerCase()).toBe('#00000080')
+})

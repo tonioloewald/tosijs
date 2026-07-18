@@ -1384,3 +1384,25 @@ describe('initAttributes vs class fields under [[Define]] semantics (H-3)', () =
     el.remove()
   })
 })
+
+test('isSlotted is false for a light-DOM component with no slot (medium backlog)', () => {
+  class NoSlotComp extends Component {
+    static preferredTagName = 'no-slot-comp'
+    content = ({ div }: typeof elements) => div('no slot here')
+  }
+  const el = NoSlotComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.isSlotted).toBe(false) // was always true (querySelector null !== undefined)
+  el.remove()
+})
+
+test('isSlotted is true when the component has a slot', () => {
+  class SlottedComp extends Component {
+    static preferredTagName = 'yes-slot-comp'
+    content = ({ div, slot }: typeof elements) => div(slot())
+  }
+  const el = SlottedComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.isSlotted).toBe(true)
+  el.remove()
+})

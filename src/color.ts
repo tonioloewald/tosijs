@@ -443,7 +443,9 @@ export class Color {
           hex2(this.r) +
           hex2(this.g) +
           hex2(this.b) +
-          hex2(Math.floor(255 * this.a))
+          // round (hex2 already rounds) to match the r/g/b channels — floor
+          // biased alpha down (0.5 -> 7f instead of 80)
+          hex2(255 * this.a)
   }
 
   brighten(amount: number): Color {

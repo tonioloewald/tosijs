@@ -400,7 +400,11 @@ export const processProp = (
   prop: string,
   value: string | number
 ): { prop: string; value: string } => {
-  if (typeof value === 'number' && !unitless.test(prop)) {
+  // Test the unitless list against the bare CSS property name — a custom
+  // property arrives here still prefixed (`_opacity`), so testing `prop`
+  // directly never matched and appended `px` to unitless values
+  // (`--opacity: 0.5px`). prop is already kebab-cased by the caller.
+  if (typeof value === 'number' && !unitless.test(prop.replace(/^_+/, ''))) {
     value = `${value}px`
   }
   if (prop.startsWith('_')) {
