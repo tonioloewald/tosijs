@@ -219,61 +219,61 @@ that lookup).
 
 ### Medium backlog (fix in 1.7 where cheap; otherwise carry, don't drop)
 
-- xin/by-path: compound boxed paths malformed (`boxed['a.list[0].name']` → path
-  `a.list.[0].name`, value undefined — extendPath dot-joins bracket segments); id values
-  containing `=` resolve to the wrong item via the proxy get trap (`split('=')` keeps first
-  segment); numeric-string object keys readable but unwritable (extendPath brackets
-  `/^\d+$/` props, setByPath then expects an array); no `deleteProperty` trap — `delete
-  proxy.x` mutates silently with no touch; symbol-keyed assignment throws (`prop.match` on a
-  symbol); `tosiValue` doesn't unwrap function proxies (guard excludes `typeof
-  'function'`) → proxy-on-proxy on reassignment; `deleteByPath` can't delete a `null` value;
-  id-path touch synthesis only handles the innermost bracket.
-- component: stale `_attrValues` fallback masks external `removeAttribute` forever (clear it
-  in `attributeChangedCallback`); `value` attribute beats a later `value` property write at
-  hydration (property should win); `TosiSlot.replaceSlot` drops `<slot>` fallback children;
-  `isSlotted` compares `querySelector` to `undefined` — always true; `parts` docs describe a
-  `data-ref` lookup that isn't implemented (and the vestigial `removeAttribute('data-ref')`);
-  no `parts` invalidation after a DOM-replacing `render()`; `formResetCallback` ignores the
-  captured class-field default; a `change` listener that mutates `value` swallows the second
-  change event; dead `_value` stores (never read — remove or wire up).
-- binding/lists: bound `class` accumulates instead of replacing (needs record-and-diff of
-  applied classes); `bind: { value, binding: 'name' }` string form is a silent no-op (passes
-  the raw string to bind, `elements.ts:531-543`); duplicate list ids silently drop a row —
-  add a one-time console.error; changing an item's id in place orphans its bindings and
-  leaks the old strong-Map entry; ListBinding has no teardown at all — `scrollContainer:
-  'window'` leaks the whole detached list forever (converges with the FinalizationRegistry
-  idea below); `bind()` mutates the caller's spec (`delete options.value` — reusing one
-  bindList spec for two containers throws); shipping debug `console.log` in the filter path
-  (`bind.ts:488`); scalar list items are unconditionally destroyed/recreated every update;
-  O(n²) removal scan without idPath.
-- css/color/utils: `deepClone` turns Map/Date into `{}` and blows the stack on cycles — and
-  `component.ts` deep-clones `value`/`defaultValue` through it; unitless numbers on
-  `_`-prefixed custom props get `px` (`--opacity: 0.5px` — prefix is stripped after the
-  unit check, `css.ts:399-418`); `vars.gray50` parses trailing digits as calc sugar —
-  collides with standard design-token naming (escape hatch or loud docs);
-  `invertLuminance` drops named colors and modern color syntax; `Color.fromCss` named
-  colors need a live DOM (parse to transparent black otherwise) while the complete
-  `css-colors.ts` table sits unimported — wire it in; alpha hex uses `Math.floor` (use
-  round like r/g/b); `StyleSheet()` returns nothing so callers can't remove/update;
-  `debounce`/`throttle` lose `this` and offer no cancel/flush.
-- share/sync minors: prefix+time-window echo suppression can swallow legitimate local
-  changes made during the inbound window; overlapping shared roots double-broadcast;
-  `sync.ts`'s `inboundPaths` is module-level — shared across independent `sync()`
-  instances; the `share()` doc example (`restored.includes(app.user)`) can't work — boxed
-  proxies aren't identity-stable.
-- packaging: in package.json `exports`, `types` is listed after `import`/`default` —
-  conditions match in order, so `types` may never be reached; move it first. Also keep
-  `dist/bun-plugin/` and `dist/tsconfig.build.tsbuildinfo` out of the published package.
+**✅ FIXED in 1.7 (2026-07-18 triage pass, each with a regression test):**
+- packaging: `types`-first in exports; excluded `*.tsbuildinfo` + `dist/bun-plugin` from
+  the tarball.
+- binding/lists: reactive `class` now replaces (not accumulates); `bind()` no longer
+  mutates the caller's spec; `bind: { value, binding: 'name' }` string form resolves and
+  renders; duplicate list ids warn once; removed the debug `console.log` in the filter path.
+- css/color: unitless custom props no longer get `px`; alpha hex rounds (not floors);
+  `deepClone` preserves Date/Map/Set + handles cycles (H-6 prereq).
+- component: stale `_attrValues` cleared on external `removeAttribute`; `isSlotted` compares
+  to `null`; `TosiSlot.replaceSlot` preserves `<slot>` fallback children; **Component
+  `change` now bubbles + composes** (was non-bubbling — ancestor listeners never heard a
+  component's value change, breaking the bound-like-an-input contract for user code).
+- xin/by-path: symbol-keyed assignment stores on target (was throwing in extendPath);
+  compound boxed paths already fixed by SB-2b; `deleteByPath` null already fixed by SB-3.
+
+**⏸ DEFERRED / carried (not cheap, or better in 2.0):**
+- `tosiValue` function-proxy unwrap — partial fix only (identity already lost to
+  `.bind()`-per-access), and taxes the hot path; needs function-identity caching (2.0).
+- no `deleteProperty` trap — `delete proxy.x` mutates silently with no touch. Design
+  decision (should delete touch? synthesize a removal?) — 2.0.
+- ListBinding has no teardown — `scrollContainer: 'window'` leaks the detached list
+  forever. Converges with the `FinalizationRegistry` observer-cleanup idea (2.0).
+- id values containing `=` resolve to the wrong item via the proxy get trap
+  (`split('=')`); numeric-string object keys readable but unwritable (setByPath expects an
+  array); id-path touch synthesis only handles the innermost bracket. Niche path edge
+  cases — carry.
+- `value` attribute beats a later `value` property write at hydration (property should
+  win); no `parts` invalidation after a DOM-replacing `render()`; a `change` listener that
+  mutates `value` swallows the second change event; `formResetCallback` ignores the
+  captured class-field default; dead `_value` stores. Component edge cases — carry.
+- changing an item's id in place orphans its bindings + leaks the strong-Map entry; scalar
+  list items recreated every update; O(n²) removal scan without idPath. List perf/edge —
+  carry.
+- `vars.gray50` digit-suffix calc-sugar collision (escape hatch or loud docs);
+  `invertLuminance` drops named/modern colors; `Color.fromCss` named colors need a live DOM
+  while `css-colors.ts` sits unimported (wire it in); `StyleSheet()` returns nothing;
+  `debounce`/`throttle` lose `this` + no cancel/flush. css/util polish — carry.
+- share/sync minors: echo-window can swallow local changes; overlapping roots
+  double-broadcast; `sync.ts` `inboundPaths` module-level across instances; the `share()`
+  doc example (`restored.includes(app.user)`) can't work (boxed proxies aren't
+  identity-stable) — fix the doc. Mostly design tradeoffs — carry.
+- `parts` docs describe a `data-ref` lookup that isn't implemented — docs fix, carry.
 
 ### Docs surfacing for 1.7
 
 The shadow-DOM doctrine (component = custom input, value is the binding surface) is now
 in: Component's doc block (two passages), both warning texts, `bind()`'s doc block
 (`on()` section), and Building-Apps.md's mental-model section — all of which feed the
-doc site and llms.txt at build. Still wanted:
-- **A live doc example of a shadow value-widget**: `shadowStyleSpec` component with a
-  `value`, `render()` reflecting it into the shadow DOM, bound from outside with
-  `bindings.value` — the canonical pattern, runnable.
+doc site and llms.txt at build. ✅ **Shadow value-widget live example DONE** (2026-07-18): a runnable star-rating widget
+in Building-Apps.md, bound by value alongside a plain number input on the same path, with
+an in-browser companion `test`. Writing it surfaced the non-bubbling `change` bug (fixed).
+⚠️ confirm the new doc `test` fence on a CLEAN browser run before 1.7 final (the last
+`test:browser` run reused a stale haltija window and timed out — environment, not the
+test; the widget logic is unit-verified in happy-dom).
+Still wanted:
 - README has no shadow-DOM guidance beyond one `shadowStyleSpec` code sample — fine
   (README stays lean), but verify llms.txt picks up the Building-Apps section after the
   next build.
