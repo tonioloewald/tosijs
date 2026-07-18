@@ -582,3 +582,21 @@ describe('state-driven value coercion (H-6)', () => {
     expect(day.toISOString()).toContain('2026-07-18')
   })
 })
+
+test('bind() does not mutate the caller spec — a bindList spec is reusable', () => {
+  const spec = { value: 'reuseSpec.items', idPath: 'id' }
+  const { div } = elements
+  const a = div()
+  const b = div()
+  document.body.append(a, b)
+  tosi({ reuseSpec: { items: [] } })
+  // both binds must succeed; the first must not delete `value` from `spec`
+  bind(a, { ...spec } as any, bindings.list)
+  expect((spec as any).value).toBe('reuseSpec.items') // spec intact
+  // and binding with the SAME object twice must not throw
+  const spec2 = { value: 'reuseSpec.items', idPath: 'id' }
+  bind(a, spec2 as any, bindings.list)
+  expect(() => bind(b, spec2 as any, bindings.list)).not.toThrow()
+  a.remove()
+  b.remove()
+})

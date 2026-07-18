@@ -595,7 +595,10 @@ export function bind<T extends Element = Element>(
   ) {
     const { value } = what as XinBindingSpec
     path = typeof value === 'string' ? value : value[XIN_PATH]
-    options = what as XinObject
+    // Copy the spec rather than mutating the caller's object: deleting `value`
+    // from `what` in place broke reusing one bindList spec for two containers
+    // (the second call saw no `value` and threw "bind requires a path").
+    options = { ...(what as XinObject) }
     delete options.value
   } else {
     path = typeof what === 'string' ? what : (what as XinProps)[XIN_PATH]
@@ -625,7 +628,6 @@ export function bind<T extends Element = Element>(
   if (options?.filter && options?.needle) {
     bind(element, options.needle, {
       toDOM(element, value) {
-        console.log({ needle: value })
         ;(element as { [LIST_BINDING_REF]?: ListBinding })[
           LIST_BINDING_REF
         ]?.filter(value)

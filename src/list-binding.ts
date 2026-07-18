@@ -1085,6 +1085,9 @@ function updateRelativeBindings(element: Element, path: string): void {
   }
 }
 
+// warned once per session about duplicate id-path values in a list binding
+let warnedDuplicateListId = false
+
 export class ListBinding {
   boundElement: Element
   listTop: HTMLElement | null
@@ -1478,10 +1481,29 @@ export class ListBinding {
 
     // build a complete new set of elements in the right order
     const elements: Element[] = []
+    const seenIds = idPath != null ? new Set<string>() : null
     for (let i = firstItem; i <= lastItem; i++) {
       const item = slice.items[i]
       if (item === undefined) {
         continue
+      }
+      if (seenIds != null && idPath != null) {
+        // duplicate idPath values silently collapse to one row (both items
+        // map to the same element group) — warn once rather than lose data
+        // without a trace
+        const id = String(item[idPath])
+        if (seenIds.has(id)) {
+          if (!warnedDuplicateListId) {
+            warnedDuplicateListId = true
+            console.error(
+              `tosijs list binding: duplicate idPath value "${id}" (idPath: "${idPath}"). ` +
+                'id-path values must be unique — items sharing an id collapse to a single ' +
+                'row and updates target the wrong item. Warned once per session.'
+            )
+          }
+        } else {
+          seenIds.add(id)
+        }
       }
       let group = this.itemToElement.get(tosiValue(item))
       // When WeakMap misses (new object ref) but idPath matches an

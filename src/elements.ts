@@ -431,6 +431,10 @@ const elementStyleBinding = (prop: string): XinBinding => {
   }
 }
 
+// per-element record of the classes the `class` prop binding last applied,
+// so a reactive class binding can replace (not accumulate) on each update
+const appliedClasses = new WeakMap<Element, Set<string>>()
+
 const elementProp = (elt: HTMLElement, key: string, value: any) => {
   if (key === 'style') {
     if (typeof value === 'object') {
@@ -480,26 +484,31 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
         String(v || '')
           .split(/\s+/)
           .filter(Boolean)
+      // classes this binding wants ON, and (boolean-map only) explicitly OFF
+      const on = new Set<string>()
+      const off = new Set<string>()
       if (Array.isArray(value)) {
         // ['foo', 'bar'] (each entry may itself be space-separated)
-        for (const entry of value) {
-          for (const className of splitClasses(entry)) {
-            elt.classList.add(className)
-          }
-        }
+        for (const entry of value)
+          for (const c of splitClasses(entry)) on.add(c)
       } else if (value != null && typeof value === 'object') {
         // { foo: true, bar: false } adds foo, removes bar
-        for (const [key, on] of Object.entries(value)) {
-          for (const className of splitClasses(key)) {
-            elt.classList.toggle(className, Boolean(on))
-          }
-        }
+        for (const [key, isOn] of Object.entries(value))
+          for (const c of splitClasses(key)) (isOn ? on : off).add(c)
       } else {
         // 'foo bar baz' (and null/undefined/false/'' -> no class)
-        for (const className of splitClasses(value)) {
-          elt.classList.add(className)
-        }
+        for (const c of splitClasses(value)) on.add(c)
       }
+      // Diff against what THIS binding applied last time, so a reactive
+      // `class` binding REPLACES rather than accumulates (a change from
+      // 'red' to 'blue' must not leave 'red bl ue'). Only classes this
+      // binding previously added are candidates for removal — classes from
+      // other sources (a static `class`, `-xin-data`, etc.) are untouched.
+      const prev = appliedClasses.get(elt)
+      if (prev) for (const c of prev) if (!on.has(c)) elt.classList.remove(c)
+      for (const c of off) elt.classList.remove(c)
+      for (const c of on) elt.classList.add(c)
+      appliedClasses.set(elt, on)
     } else if ((elt as { [key: string]: any })[attr] !== undefined) {
       ;(elt as StringMap)[attr] = value
     } else if (typeof value === 'boolean') {
@@ -534,12 +543,13 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
         ? bindings[value.binding]
         : value.binding
     if (binding !== undefined && value.value !== undefined) {
+      // pass the RESOLVED binding, not value.binding — a string name
+      // (`binding: 'text'`) was passed through raw, so bind() got a string
+      // with no toDOM and silently did nothing
       bind(
         elt,
         value.value,
-        value.binding instanceof Function
-          ? { toDOM: value.binding }
-          : value.binding
+        binding instanceof Function ? { toDOM: binding } : binding
       )
     } else {
       throw new Error(`bad binding`)

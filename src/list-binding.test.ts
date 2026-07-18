@@ -1203,3 +1203,32 @@ describe('nested list bindings (SB-2)', () => {
     expect(container.querySelector('span')?.textContent).toBe('after')
   })
 })
+
+describe('duplicate id-path warning (medium backlog)', () => {
+  test('duplicate ids emit a console.error', () => {
+    document.body.textContent = ''
+    tosi({
+      dupIdList: {
+        items: [
+          { id: 'a', label: 'first' },
+          { id: 'a', label: 'second' }, // duplicate id
+        ],
+      },
+    })
+    const proxiedArray = xin['dupIdList.items'] as any[]
+    const { div, template } = elements
+    const container = div(template(div({ bindText: '^.label' })))
+    document.body.append(container)
+
+    const errors: string[] = []
+    const origError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      const lb = new ListBinding(container, proxiedArray, { idPath: 'id' })
+      lb.update(proxiedArray)
+    } finally {
+      console.error = origError
+    }
+    expect(errors.some((e) => e.includes('duplicate idPath value'))).toBe(true)
+  })
+})
