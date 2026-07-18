@@ -1036,6 +1036,12 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   ): void {
     // Convert kabob-case attribute to camelCase property name
     const propName = kabobToCamel(name)
+    // When the attribute is removed externally (el.removeAttribute), drop the
+    // in-memory fallback so the getter returns the default instead of the last
+    // property value — otherwise the fallback masked the removal forever.
+    if (_newValue === null && this._attrValues?.has(propName)) {
+      this._attrValues.delete(propName)
+    }
     // Only queue render if this isn't a legacy-tracked attr (those use MutationObserver)
     if (!this._legacyTrackedAttrs?.has(propName)) {
       this.queueRender(false)
@@ -1649,6 +1655,11 @@ class TosiSlot extends Component<SlotParts> {
     const _slot = document.createElement('tosi-slot')
     if (slot.name !== '') {
       _slot.setAttribute('name', slot.name)
+    }
+    // Preserve the slot's fallback content (its children) — they were being
+    // dropped, so a `slot('default text')` lost its default text on rewrite.
+    while (slot.firstChild != null) {
+      _slot.appendChild(slot.firstChild)
     }
     slot.replaceWith(_slot)
   }

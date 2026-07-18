@@ -1750,3 +1750,11 @@ describe('boxed value-write shadowing (H-9)', () => {
     expect((xin as any).h9plain.n).toBe(2)
   })
 })
+
+test('symbol-keyed assignment through the proxy does not throw (medium backlog)', () => {
+  const sym = Symbol('meta')
+  ;(xin as any).symTest = { a: 1 }
+  expect(() => {
+    ;(xin as any).symTest[sym] = 'x'
+  }).not.toThrow()
+})

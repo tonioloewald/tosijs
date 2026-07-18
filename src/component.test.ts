@@ -1406,3 +1406,28 @@ test('isSlotted is true when the component has a slot', () => {
   expect(el.isSlotted).toBe(true)
   el.remove()
 })
+
+test('external removeAttribute is not masked by the in-memory fallback (medium backlog)', () => {
+  class AttrMaskComp extends Component {
+    static preferredTagName = 'attr-mask-comp'
+    static initAttributes = { label: 'default' }
+  }
+  const el = AttrMaskComp.elementCreator()() as any
+  document.body.append(el)
+  el.label = 'custom'
+  expect(el.label).toBe('custom')
+  el.removeAttribute('label')
+  expect(el.label).toBe('default') // was stuck on 'custom' (stale fallback)
+  el.remove()
+})
+
+test('<slot> fallback children survive the tosi-slot rewrite (medium backlog)', () => {
+  class SlotFallbackComp extends Component {
+    static preferredTagName = 'slot-fallback-comp'
+    content = ({ slot }: typeof elements) => slot('fallback text')
+  }
+  const el = SlotFallbackComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.textContent).toContain('fallback text') // was dropped
+  el.remove()
+})

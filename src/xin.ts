@@ -1316,6 +1316,14 @@ const regHandler = (
   },
   set(target, prop: string | symbol, value: any) {
     value = tosiValue(value)
+    // A symbol key (other than the XIN_VALUE boxed-value escape hatch) is not
+    // a state path — store it on the target directly. extendPath would call
+    // prop.match() on it and throw. Mirrors the get trap, which passes
+    // symbols through.
+    if (typeof prop === 'symbol' && prop !== XIN_VALUE) {
+      ;(target as any)[prop] = value
+      return true
+    }
     // Shallow-unwrap proxied children (e.g. from { ...proxy } spreads)
     if (value !== null && typeof value === 'object') {
       if (Array.isArray(value)) {
