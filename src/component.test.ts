@@ -1431,3 +1431,68 @@ test('<slot> fallback children survive the tosi-slot rewrite (medium backlog)', 
   expect(el.textContent).toContain('fallback text') // was dropped
   el.remove()
 })
+
+describe('component change event bubbles (bound like a native input)', () => {
+  test('an ancestor bubble-phase change listener hears a component value change', async () => {
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    class BubbleWidget extends Component {
+      static preferredTagName = 'bubble-widget'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 0
+    }
+    BubbleWidget.elementCreator()
+    const container = document.createElement('div')
+    document.body.append(container)
+    const el = (elements as any).bubbleWidget() as any
+    container.append(el)
+
+    let heardOnAncestor = 0
+    // bubble phase (capture=false) — only fires if the change event bubbles,
+    // which native input change events do (and the delegated binding uses
+    // capture, so this is specifically the ancestor-listener semantics)
+    container.addEventListener('change', () => {
+      heardOnAncestor++
+    })
+    el.value = 7 // queues a change on the next frame
+    await raf()
+    expect(heardOnAncestor).toBe(1) // was 0 — change did not bubble
+    container.remove()
+  })
+
+  test('value binding round-trips through a component (works via capture too)', async () => {
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { xin, updates } = await import('./xin')
+    const { tosi } = await import('./xin-proxy')
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+
+    class ValueWidget extends Component {
+      static preferredTagName = 'value-widget-rt'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 0
+      content = ({ button }: any) => button({ part: 'inc' }, '+')
+      connectedCallback() {
+        super.connectedCallback()
+        ;(this.shadowRoot as any)
+          .querySelector('[part=inc]')
+          .addEventListener('click', () => {
+            this.value = Number(this.value) + 1
+          })
+      }
+    }
+    ValueWidget.elementCreator()
+    tosi({ vwRt: { n: 5 } })
+    const el = (elements as any).valueWidgetRt() as any
+    bind(el, 'vwRt.n', bindings.value)
+    document.body.append(el)
+    await updates()
+    await raf()
+    expect(Number(el.value)).toBe(5)
+    ;(el.shadowRoot as any).querySelector('[part=inc]').click()
+    await raf()
+    await updates()
+    expect(Number(el.value)).toBe(6)
+    expect((xin as any)['vwRt.n']).toBe(6)
+    el.remove()
+  })
+})

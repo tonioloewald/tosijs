@@ -1466,7 +1466,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         // TODO add mechanism to allow component developer to have more control over
         // whether input vs. change events are emitted
         if (this._changeQueued) {
-          dispatch(this, 'change')
+          // bubble + compose so bind()'s delegated change handler sees it,
+          // even when the component lives inside a shadow root
+          dispatch(this, 'change', { bubbles: true, composed: true })
           // Sync form value for formAssociated components
           if (this.internals && this.value !== undefined) {
             this.internals.setFormValue(this.value)

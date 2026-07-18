@@ -1,8 +1,17 @@
 import { cloneWithBindings } from './metadata'
 import { ContentType, ValueElement } from './xin-types'
 
-export const dispatch = (target: Element, type: string): void => {
-  const event = new Event(type)
+export const dispatch = (
+  target: Element,
+  type: string,
+  // change/input must bubble (and compose) so bind()'s delegated document.body
+  // listener sees them — a component bound like an <input> via bindings.value
+  // reports edits through its `change` event, and a non-bubbling event never
+  // reached the delegated fromDOM handler. Defaults preserve non-bubbling
+  // dispatch for internal events like 'resize'.
+  { bubbles = false, composed = false }: EventInit = {}
+): void => {
+  const event = new Event(type, { bubbles, composed })
   target.dispatchEvent(event)
 }
 

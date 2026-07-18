@@ -469,6 +469,97 @@ HTML body (CSS isolation from untrusted email styles) but keep
 everything else — sender, subject, timestamps — in Light DOM with
 normal bindings.
 
+#### A shadow value-widget, bound like an `<input>`
+
+Here's the canonical shape: a `shadowStyleSpec` component whose `value` is the
+binding surface. `render()` reflects `value` into the shadow DOM; a control
+inside the shadow root writes back to `this.value` (which emits `change`). From
+outside, it binds exactly like a native input — here a plain `<input>` and the
+widget share one state path and stay in sync, neither one reaching into the
+other's internals:
+
+```js
+const { Component, elements, bindings, tosi } = tosijs
+const { input, label } = elements
+
+class StarRating extends Component {
+  static preferredTagName = 'star-rating'
+  static shadowStyleSpec = {
+    ':host': { display: 'inline-flex', gap: '4px', cursor: 'pointer' },
+    '.star': { fontSize: '24px', color: '#ccc' },
+    '.star.on': { color: 'gold' },
+  }
+  value = 0
+  content = ({ span }) =>
+    [1, 2, 3, 4, 5].map((n) => span({ class: 'star', dataStar: n }, '★'))
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.shadowRoot.addEventListener('click', (event) => {
+      const star = event.target.closest('[data-star]')
+      if (star) this.value = Number(star.dataset.star) // emits `change`
+    })
+  }
+
+  render() {
+    super.render()
+    for (const star of this.shadowRoot.querySelectorAll('.star')) {
+      star.classList.toggle('on', Number(star.dataset.star) <= this.value)
+    }
+  }
+}
+StarRating.elementCreator()
+
+const { demo } = tosi({ demo: { rating: 3 } })
+
+preview.append(
+  // the widget: bound by VALUE, like an input
+  elements.starRating({ bind: { value: 'demo.rating', binding: bindings.value } }),
+  // a plain number input on the SAME path — they stay in sync
+  label(' rating: ', input({ type: 'number', min: 0, max: 5, bind: { value: 'demo.rating', binding: bindings.value } }))
+)
+```
+
+```test
+const { Component, elements, bindings, tosi, xin, updates } = tosijs
+
+test('a shadow value-widget round-trips through its value like an input', async () => {
+  class Knob extends Component {
+    static preferredTagName = 'knob-widget'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    value = 0
+    content = ({ button }) => button({ part: 'inc' }, '+')
+    connectedCallback() {
+      super.connectedCallback()
+      this.shadowRoot.querySelector('[part=inc]').addEventListener('click', () => {
+        this.value = Number(this.value) + 1
+      })
+    }
+    render() {
+      super.render()
+      this.setAttribute('aria-valuenow', String(this.value))
+    }
+  }
+  Knob.elementCreator()
+  tosi({ knobDemo: { level: 2 } })
+
+  const widget = elements.knobWidget({
+    bind: { value: 'knobDemo.level', binding: bindings.value },
+  })
+  preview.append(widget)
+  await updates()
+  // state -> widget.value (bound like an input)
+  expect(Number(widget.value)).toBe(2)
+  expect(widget.getAttribute('aria-valuenow')).toBe('2')
+
+  // interaction inside the shadow root -> value -> state (change event out)
+  widget.shadowRoot.querySelector('[part=inc]').click()
+  await updates()
+  expect(Number(widget.value)).toBe(3)
+  expect(xin['knobDemo.level']).toBe(3)
+})
+```
+
 ## Gotchas
 
 ### Observer callbacks receive paths, not values
