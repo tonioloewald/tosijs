@@ -6,21 +6,21 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/module.js",
       "require": "./dist/main.js",
       "browser": "./dist/index.js",
-      "default": "./dist/module.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/module.js"
     },
     "./debug": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/module.debug.js",
-      "default": "./dist/module.debug.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/module.debug.js"
     },
     "./safe": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/module.safe.js",
-      "default": "./dist/module.safe.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/module.safe.js"
     }
   },
   "homepage": "https://tosijs.net",
@@ -63,6 +63,8 @@
   },
   "files": [
     "/dist",
+    "!/dist/**/*.tsbuildinfo",
+    "!/dist/bun-plugin",
     "/LICENSE",
     "/README.md"
   ],
