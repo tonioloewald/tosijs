@@ -271,8 +271,13 @@ doc site and llms.txt at build. ✅ **Shadow value-widget live example DONE** (2
 in Building-Apps.md, bound by value alongside a plain number input on the same path, with
 an in-browser companion `test`. Writing it surfaced the non-bubbling `change` bug (fixed).
 ⚠️ confirm the new doc `test` fence on a CLEAN browser run before 1.7 final (the last
-`test:browser` run reused a stale haltija window and timed out — environment, not the
-test; the widget logic is unit-verified in happy-dom).
+`test:browser` run adopted a FOREIGN haltija — a tosijs-3d interactive session squatting
+the default port 8700 — navigated its window to our pages, and timed out. Environment +
+upstream, not our test; the widget logic is unit-verified in happy-dom). Root cause and
+fix filed: **haltija#1** — spawned (`-f`) automation runs should be a private, isolated
+instance (own server/port/Electron), never adopting the shared interactive browser;
+tosijs-ui's dev-server test mode is the consumer that adopts the shared server today.
+Until that lands, run `test:browser` when no other tosijs-ui project's haltija is on 8700.
 Still wanted:
 - README has no shadow-DOM guidance beyond one `shadowStyleSpec` code sample — fine
   (README stays lean), but verify llms.txt picks up the Building-Apps section after the
