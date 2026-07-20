@@ -314,6 +314,27 @@ Still wanted:
 - After shipping: rebase `tosijs-2.0` onto v1.7.0 (same dance as the v1.6.9 rebase); the
   branch's 2.0-only review findings are tracked in the branch's TODO.md.
 
+### State-change type checking / strictness — DEFERRED to post-1.7.0 (2026-07-20)
+
+Decision: do **not** backport `settings.strictness` / `pathCreation` / `bindingPaths` to
+the 1.7 line. They stay 2.0-only; state-change type checking ships when 2.0 does.
+
+Context (a consumer conflated two mechanisms — keep them straight):
+- **`settings.strictness` = state-update type checking** (assign a value whose runtime
+  type differs from what the path holds → warn/throw). Real, enforced, tested — but lives
+  **only on `tosijs-2.0`** (main's `settings.ts` is just `{ debug, perf }`). This is the
+  thing consumers actually want when they say "type checking on state updates."
+- **`tosijs/debug` + `__tjs` metadata = TJS function-signature checking** (H-4). A
+  *different axis*: ships per-function metadata now, enforcement arrives with native-TJS
+  modules in 2.0. Will never provide state-update checking no matter how enabled.
+- **"flight recording"** — no tosijs feature by that name; nearest is tjs-lang's monadic
+  error ring buffer (write-closed; filed upstream), surfaced only via the debug bundle's
+  `__tjs` runtime.
+
+So a consumer (e.g. an experimental tosijs-ui build) wanting strictness in 1.7 can't get
+it from any `tosijs@beta` release; the feature is on the 2.0 branch. Revisit when 2.0
+lands it on the release line.
+
 ## work in progress
 
 - change `MutationObserver` in Component if there's an `onDomChanged`
