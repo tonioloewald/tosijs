@@ -50,5 +50,27 @@ jobs:
           mkcert -install
           bun run tls
 
+      # Persistent virtual display so Electron survives across steps.
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 >/tmp/xvfb.log 2>&1 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          sleep 2
+
+      # Pre-provision haltija in Electron CI mode (sandbox off, waits for ready)
+      # so the dev-server test lane ADOPTS it instead of spawning `bunx haltija
+      # -f` (plain desktop app), which does not come up under xvfb within the
+      # dev server's 10s launch timeout. Root cause: tosijs-ui#18 — the test
+      # lane should request --ci/--private itself; this pre-provision is the
+      # workaround until it does.
+      - name: Pre-provision haltija (Electron CI mode)
+        run: |
+          bunx haltija --ci >/tmp/haltija.log 2>&1 &
+          for i in $(seq 1 60); do
+            if hj windows >/dev/null 2>&1; then echo "haltija reachable"; break; fi
+            sleep 1
+          done
+          hj windows || { echo "haltija never came up"; cat /tmp/haltija.log; exit 1; }
+
       - name: Browser doc-test lane
-        run: xvfb-run -a bun bin/site.ts --test
+        run: bun bin/site.ts --test

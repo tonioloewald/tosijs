@@ -25,6 +25,16 @@ Tested 1.4.0. A hidden tab may be unreachable by construction if `tabs focus` is
 tab-dispatched. Workaround: `hj eval '…' --window <id>` (after the subcommand)
 targets a specific tab regardless of focus.
 
+### 🚧 Engine modes aren't discoverable (`--headless` = Playwright; `--private`/`--ci` = Electron, no Playwright)
+**Issue:** https://github.com/tonioloewald/haltija/issues/6
+`--headless` drives Chromium **via Playwright** (needs it as a dep); `--private`/`--ci`
+use **Electron directly, no Playwright**. Both `--help` lines say "for CI", so an agent
+(this one) picked `--headless`, hit "Playwright not installed", and wrongly concluded
+haltija's CI path requires Playwright — pivoting a whole CI-lane design before being
+corrected. Ask: state the engine in `--help`/banner; the only real reason for
+`--headless`/Playwright is multi-engine (Firefox/WebKit) coverage. **This is why the
+tosijs CI browser lane uses `xvfb + bunx haltija -f` (Electron), not Playwright.**
+
 ### 🚧 A tab with no injected client is silently uncontrollable
 **Issue:** https://github.com/tonioloewald/haltija/issues/5
 `hj tabs` lists such a tab as healthy and commands silently retarget the focused
