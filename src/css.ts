@@ -346,6 +346,7 @@ Returns an unsubscribe function.
     unsub()
 */
 import { Color } from './color'
+import { cssColors } from './css-colors'
 import { elements } from './elements'
 import { camelToKabob } from './string-case'
 import { XinStyleSheet, XinStyleRule } from './css-types'
@@ -376,7 +377,12 @@ function notifyStylesheetChange(): void {
   }
 }
 
-export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
+// Returns the <style> element so callers can remove or further manipulate the
+// sheet they created (it used to return nothing, leaving no handle at all).
+export function StyleSheet(
+  id: string,
+  styleSpec: XinStyleSheet
+): HTMLStyleElement {
   const spec = tosiValue(styleSpec) as XinStyleSheet
   const element = elements.style(css(spec))
   element.id = id
@@ -390,6 +396,7 @@ export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
       notifyStylesheetChange()
     })
   }
+  return element as HTMLStyleElement
 }
 
 // CSS properties that accept unitless numbers (no px suffix)
@@ -497,7 +504,10 @@ export const invertLuminance = (map: XinStyleRule): XinStyleRule => {
       inverted[key] = value.inverseLuminance
     } else if (
       typeof value === 'string' &&
-      value.match(/^(#[0-9a-fA-F]{3}|rgba?\(|hsla?\()/)
+      // named CSS colors (now DOM-free parseable) were silently dropped from
+      // the inverted map — only #hex/rgb()/hsl() were recognized
+      (value.match(/^(#[0-9a-fA-F]{3}|rgba?\(|hsla?\()/) != null ||
+        cssColors[value.trim().toLowerCase()] !== undefined)
     ) {
       inverted[key] = Color.fromCss(value).inverseLuminance
     }

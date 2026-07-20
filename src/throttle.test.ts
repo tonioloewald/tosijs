@@ -165,3 +165,19 @@ describe('throttle single-fire contract', () => {
     expect(seen).toEqual([1, 3])
   })
 })
+
+test('debounce and throttle preserve `this` (medium backlog)', async () => {
+  const obj = {
+    n: 0,
+    bump(this: any) {
+      this.n += 1
+    },
+  } as any
+  obj.debounced = debounce(obj.bump, 20)
+  obj.throttled = throttle(obj.bump, 20)
+  obj.throttled() // leading edge, synchronous
+  expect(obj.n).toBe(1) // `this` was lost before -> TypeError or wrong target
+  obj.debounced()
+  await new Promise((r) => setTimeout(r, 60))
+  expect(obj.n).toBe(2)
+})

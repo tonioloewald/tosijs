@@ -1496,3 +1496,18 @@ describe('component change event bubbles (bound like a native input)', () => {
     el.remove()
   })
 })
+
+test('parts finds elements by data-ref, as documented (medium backlog)', () => {
+  class DataRefComp extends Component {
+    static preferredTagName = 'data-ref-comp'
+    content = ({ div, span }: typeof elements) => [
+      div({ dataRef: 'byRef' }, 'ref target'),
+      span({ part: 'byPart' }, 'part target'),
+    ]
+  }
+  const el = DataRefComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.parts.byPart.textContent).toBe('part target')
+  expect(el.parts.byRef.textContent).toBe('ref target') // docs promised this
+  el.remove()
+})

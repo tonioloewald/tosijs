@@ -15,10 +15,16 @@ const { app } = tosi({
 
 const { restored } = await share(app.user, app.settings)
 
-if (restored.includes(app.user)) {
-  // another tab was already running — we inherited its state
+if (restored.length > 0) {
+  // another tab had already stored state — we inherited it
 }
 ```
+
+> `restored` contains the arguments whose values were overwritten from the
+> store. Compare by **path**, not by proxy identity — boxed proxies are
+> created per access, so `restored.includes(app.user)` is `false` even when
+> `app.user` *was* restored. Use `share('app.user')` with string paths, or
+> `restored.map(tosiPath)`, if you need to know *which* ones.
 
 The first tab to call `share()` seeds the store. Subsequent tabs
 inherit that data, overwriting their `tosi()` defaults. After setup,

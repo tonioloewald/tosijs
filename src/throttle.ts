@@ -76,10 +76,12 @@ type VoidFunc = (...args: any[]) => void
 
 export const debounce = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
   let debounceId: number
-  return (...args: any[]) => {
+  // `function` (not an arrow) so `this` passes through to the wrapped
+  // function — a debounced method invoked as obj.method() used to lose it
+  return function (this: any, ...args: any[]) {
     if (debounceId !== undefined) clearTimeout(debounceId)
     debounceId = setTimeout(() => {
-      origFn(...args)
+      origFn.apply(this, args)
     }, minInterval) as unknown as number
   }
 }
@@ -87,19 +89,20 @@ export const debounce = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
 export const throttle = (origFn: VoidFunc, minInterval = 250): VoidFunc => {
   let debounceId: number
   let previousCall = Date.now() - minInterval
-  return (...args: any[]) => {
+  // `function` (not an arrow) so `this` passes through — see debounce
+  return function (this: any, ...args: any[]) {
     clearTimeout(debounceId)
     const elapsed = Date.now() - previousCall
     if (elapsed >= minInterval) {
       // leading edge — no trailing timer: a lone call fires exactly once
       previousCall = Date.now()
-      origFn(...args)
+      origFn.apply(this, args)
     } else {
       // suppressed — schedule the trailing call ("the last call always goes
       // through") for the moment the interval elapses, with the latest args
       debounceId = setTimeout(() => {
         previousCall = Date.now()
-        origFn(...args)
+        origFn.apply(this, args)
       }, minInterval - elapsed) as unknown as number
     }
   }

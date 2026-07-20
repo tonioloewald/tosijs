@@ -283,9 +283,10 @@ which will then penetrate the `shadowDOM`.
 is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).
 
-`this.parts.foo` will return a content element with `data-ref="foo"`. If no such
-element is found it tries it as a css selector, so `this.parts['.foo']` would find
-a content element with `class="foo"` while `this.parts.h1` will find an `<h1>`.
+`this.parts.foo` finds a content element by, in order: `part="foo"` (the preferred
+form — it's also what `::part()` styling targets), then `data-ref="foo"`, and
+finally `foo` as a css selector — so `this.parts['.foo']` finds a content element
+with `class="foo"` while `this.parts.h1` finds an `<h1>`.
 
 `this.parts` will also remove a `data-ref` attribute once it has been used to find
 the element. This means that if you use all your refs in `render` or `connectedCallback`
@@ -1007,8 +1008,17 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         {},
         {
           get(target: any, ref: string) {
+            // symbol keys (and thenable probing, e.g. Promise.resolve(parts))
+            // must not be treated as element refs
+            if (typeof ref !== 'string') return undefined
             if (target[ref] === undefined) {
               let element = root.querySelector(`[part="${ref}"]`)
+              if (element == null) {
+                // documented fallback: data-ref="foo" (the docs have always
+                // described this; only [part=] was implemented, so code
+                // following the docs threw "does not exist")
+                element = root.querySelector(`[data-ref="${ref}"]`)
+              }
               if (element == null) {
                 element = root.querySelector(ref)
               }

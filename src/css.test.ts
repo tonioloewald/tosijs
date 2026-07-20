@@ -334,3 +334,17 @@ test('length custom properties still get px', () => {
   const sheet = css({ ':root': { _margin: 10 } })
   expect(sheet).toContain('--margin: 10px;')
 })
+
+test('StyleSheet returns the style element (medium backlog)', () => {
+  const el = StyleSheet('lhf-sheet-test', { ':root': { color: 'red' } })
+  expect(el).toBeInstanceOf(HTMLStyleElement)
+  expect(el.id).toBe('lhf-sheet-test')
+  el.remove() // now removable — previously there was no handle at all
+  expect(document.getElementById('lhf-sheet-test')).toBeNull()
+})
+
+test('invertLuminance includes named colors (medium backlog)', () => {
+  const inverted = invertLuminance({ _fg: 'red', _size: '12px' })
+  expect(Object.keys(inverted)).toContain('_fg') // was dropped entirely
+  expect(Object.keys(inverted)).not.toContain('_size') // non-colors still omitted
+})

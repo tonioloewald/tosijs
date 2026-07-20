@@ -227,6 +227,7 @@ computations in rgb.
 import { lerp, clamp } from './more-math'
 import { getCssVar } from './get-css-var'
 import { CSSSystemColor } from './css-system-color'
+import { cssColors } from './css-colors'
 
 // http://www.itu.int/rec/R-REC-BT.601
 const bt601 = (r: number, g: number, b: number): number => {
@@ -278,6 +279,13 @@ export class Color {
   }
 
   static fromCss(spec: CSSSystemColor | string): Color {
+    // Named CSS colors resolve from the table, so they work with no DOM at all
+    // (SSR, workers, tests). Without this they fell through to the
+    // getComputedStyle path and, with no `span`, parsed as transparent black.
+    const named = cssColors[String(spec).trim().toLowerCase()]
+    if (named !== undefined) {
+      spec = named
+    }
     // Parse hex colors directly to avoid DOM roundtrip
     const hex = spec.match(/^#([0-9a-fA-F]+)$/)
     if (hex) {
