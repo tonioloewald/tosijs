@@ -1,5 +1,59 @@
 # todo
 
+## Post-1.7.0 follow-ups (from the 2026-07-20 pre-release review — GO_WITH_FOLLOWUPS)
+
+Review verdict: 0 blockers. Confirmed items already actioned: share() H-7 test added;
+`test:browser` gated in CLAUDE.md Releasing/Session-Completion; issues #14/#15 closed
+(enforced since 1.6.7/1.6.8); UPSTREAM.md created; Migration.md 1.7 section added; stale
+`package-lock.json` removed. Remaining (all non-blocking; **(unverified)** = sanity-check
+before acting):
+
+**Coverage (minor):**
+- [ ] Date-family control coverage — `getValue`/`setValue` round-trips for
+  `datetime-local`/`month`/`week`/time-from-`Date`, and a date-input-bound-to-numeric-epoch
+  `handleChange` test (guards UTC-vs-local field selection). (`dom.ts:48`)
+- [ ] Headless assertion for the css theme-recompute fix — after changing a themed proxy
+  var, assert the computed-colors `<style>` `textContent` regenerated (guard in `bun test`,
+  not only the in-browser fence). (`css.ts`) *(unverified)*
+
+**DRY / cleanup (nit):**
+- [ ] Extract one `loadBlueprintElements(elements, loaderTag)` for the copy-pasted
+  allSettled+report+allLoaded block (`blueprint-loader.ts:314/368`), and one
+  `configureTjs({throwTypeErrors, logTypeErrors})` shared by both `configure-tjs-*.ts`.
+- [ ] `DATEISH` in `dom.ts` is a dead export — delete it, or make it the single source of
+  truth (`if (DATEISH.includes(type))`) so switch labels can't drift. (`dom.ts:85`)
+- [ ] Centralize color recognition — an `isCssColor`/`tryParseColor` on `Color` so
+  `invertLuminance`'s regex and `Color.fromCss` don't drift (regex rejects 4/8-digit hex +
+  system colors that fromCss accepts). (`css.ts`)
+- [ ] Reword the `list-binding.ts` "table mode" comment — the null-anchor branch is the
+  SVG/MathML (namespaced) case; HTML-table list containers are unsupported. (`:1580`)
+
+**Efficiency micro-guards (nit, optional):** gate the shadow-content-binding diagnostic
+behind `settings.debug` or record tagName regardless of query outcome (`component.ts:1584`);
+short-circuit the `seenIds` build once `warnedDuplicateListId` (`list-binding.ts:1484`);
+only call `composedPath()` when `event.composed` (`bind.ts`).
+
+**Ecosystem / upstream:**
+- [ ] Give #9/#16/#17/#18 an explicit STILL-OPEN disposition — 1.7's list work is
+  nested-list + reorder, NOT #9's resize/hiddenProp; #16/#18 untouched. Don't let list
+  fixes imply #9 is done.
+- [ ] File the **tjs-lang post-eval reconfiguration seam** issue (recorded in UPSTREAM.md as
+  to-file) — the `configure-tjs-*` import-order workaround compensates for it; live footgun
+  when 2.0 enables enforcement.
+- [ ] Add #17's integrator note to README/Building-Apps: boxed proxies are minted per
+  access — never key change-detection/memo on proxy identity; `.map()` yields raw items.
+- [ ] (optional) File tosijs-ui issue: site builder should strip its `.tjs`/`bun-plugin`/
+  `*.tsbuildinfo` staging from `dist` after bundling so consumers don't need `files`
+  negations.
+
+**Practices / CLAUDE.md:**
+- [ ] Update CLAUDE.md Build System debug/safe description (~L38): the bundles are
+  EXPERIMENTAL and inert (no runtime checks fire yet); note the `configure-tjs-*`
+  import-first ESM-order fix and the "config must evaluate before the library captures
+  `__tjs`" gotcha. Consider a practices `tjs-lang.md` KB entry for that bug class.
+- [ ] Practices repo (`tosijs-coding-practices`): add "tosijs" to the haltija-port-squatting
+  "seen in" note (review.md ~L448), reference haltija#1 as the in-flight isolation fix.
+
 ## 1.7 — the correctness release (planned)
 
 Scope: fix all serious findings from the 2026-07-17 whole-codebase review (five parallel
