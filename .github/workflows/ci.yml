@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Fast, reliable: the happy-dom unit suite. This gates the build.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test
+
+  # Real-browser regression lane (behaviors happy-dom can't exercise: composed-
+  # event retargeting across shadow roots, spec-correct <template> cloning,
+  # getComputedStyle resolving derived CSS custom properties). Runs the doc
+  # `test` fences via haltija-Electron under xvfb — no Playwright.
+  #
+  # continue-on-error while the Linux/Electron/mkcert setup is being proven in
+  # real CI; flip to blocking once it's reliably green (see TODO / CI notes).
+  browser:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: System deps (xvfb, Electron runtime libs, mkcert)
+        run: |
+          sudo apt-get update
+          # Electron runtime libs + a virtual display. Package names target
+          # ubuntu-latest (24.04); libasound2t64 replaced libasound2 there.
+          sudo apt-get install -y \
+            xvfb libnss3-tools \
+            libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1 \
+            libatk-bridge2.0-0 libatk1.0-0 libdrm2 libxcomposite1 libxdamage1 \
+            libxrandr2 libxkbcommon0 libpango-1.0-0 libcairo2
+          curl -JLsO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+          chmod +x mkcert-v*-linux-amd64
+          sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+
+      - name: Trust store + dev TLS cert (dev server serves HTTPS on :8018)
+        run: |
+          mkcert -install
+          bun run tls
+
+      - name: Browser doc-test lane
+        run: xvfb-run -a bun bin/site.ts --test
