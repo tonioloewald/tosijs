@@ -252,15 +252,19 @@ that lookup).
 - changing an item's id in place orphans its bindings + leaks the strong-Map entry; scalar
   list items recreated every update; O(n²) removal scan without idPath. List perf/edge —
   carry.
-- `vars.gray50` digit-suffix calc-sugar collision (escape hatch or loud docs);
-  `invertLuminance` drops named/modern colors; `Color.fromCss` named colors need a live DOM
-  while `css-colors.ts` sits unimported (wire it in); `StyleSheet()` returns nothing;
-  `debounce`/`throttle` lose `this` + no cancel/flush. css/util polish — carry.
+- `vars.gray50` digit-suffix calc-sugar collision (escape hatch or loud docs) — carry.
+  `debounce`/`throttle` `cancel`/`flush` API — carry (additive surface).
+  ✅ FIXED 2026-07-20: `css-colors.ts` wired in (DOM-free named colors; killed 150 lines
+  of dead code), `invertLuminance` no longer drops named colors, `StyleSheet()` returns
+  its element, `debounce`/`throttle` preserve `this`. `invertLuminance` still skips
+  MODERN color syntax (oklch/color()) — carry.
 - share/sync minors: echo-window can swallow local changes; overlapping roots
   double-broadcast; `sync.ts` `inboundPaths` module-level across instances; the `share()`
   doc example (`restored.includes(app.user)`) can't work (boxed proxies aren't
   identity-stable) — fix the doc. Mostly design tradeoffs — carry.
-- `parts` docs describe a `data-ref` lookup that isn't implemented — docs fix, carry.
+- ✅ FIXED 2026-07-20: `parts` now honors the documented `data-ref` lookup (part= ->
+  data-ref= -> css selector) and ignores symbol keys; docs restated. The `share()` doc
+  example (proxy identity) also corrected.
 
 ### Docs surfacing for 1.7
 
