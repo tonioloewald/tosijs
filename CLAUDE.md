@@ -193,13 +193,16 @@ regenerated bundles). To cut a release:
 1. Bump `version` in `package.json` (semver).
 2. Add an entry to `CHANGELOG.md` (Keep a Changelog format) under the new version.
 3. `bun run build` — runs tests, stamps `src/version.ts`, and regenerates `dist/` + `docs/`.
-4. `bun run test:browser` — runs the doc `test` fences in a real browser (haltija).
-   **`bun run build` does NOT run this** (`--build` exits before the browser lane), so
-   it's a separate, mandatory gate for any release that touches DOM behavior. Prereq:
-   nothing else must be squatting haltija's port 8700 — if a second project's haltija is
-   up, target our own tab (`bun run start` in another shell, then
-   `hj eval '…' --window <id>` — id from `hj tabs`; `HALTIJA_DEV=1` injects the client).
-   See haltija#1/#4 for the cross-project routing friction.
+4. `bun run test:browser` — the Playwright doc-test lane (`playwright test`). Runs the
+   inline ```test doc fences through real Chromium + Firefox (behaviors happy-dom can't
+   do). Playwright starts its own dev server on a dedicated port (`playwright.config.ts`
+   webServer, `HALTIJA_DEV=0`), so no port collisions and no `bun start` needed. **`bun
+   run build` does NOT run this** — it's a separate, mandatory gate for any release that
+   touches DOM behavior. Also runs in CI (`.github/workflows/ci.yml`). First run
+   downloads browsers (`bunx playwright install chromium firefox`). The haltija
+   doc-fence lane (`bun bin/site.ts --test`) still exists for local living-docs, but is
+   not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` path
+   delegates to Playwright anyway).
 5. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
 6. `git push` and `git push --tags`.
 7. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).

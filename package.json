@@ -39,13 +39,14 @@
     "tls": "tosijs-dev-certs",
     "format": "bun eslint src --fix && bun prettier --write .",
     "test": "bun test",
-    "test:browser": "bun bin/site.ts --test",
+    "test:browser": "playwright test",
     "latest": "rm -rf node_modules && bun update"
   },
   "author": "Tonio Loewald",
   "license": "BSD-3-CLAUSE",
   "devDependencies": {
     "@happy-dom/global-registrator": "^18.0.1",
+    "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.19.43",

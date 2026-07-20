@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  # Fast, reliable: the happy-dom unit suite. This gates the build.
+  # Fast happy-dom unit suite.
   unit:
     runs-on: ubuntu-latest
     steps:
@@ -16,61 +16,42 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test
 
-  # Real-browser regression lane (behaviors happy-dom can't exercise: composed-
-  # event retargeting across shadow roots, spec-correct <template> cloning,
-  # getComputedStyle resolving derived CSS custom properties). Runs the doc
-  # `test` fences via haltija-Electron under xvfb — no Playwright.
-  #
-  # continue-on-error while the Linux/Electron/mkcert setup is being proven in
-  # real CI; flip to blocking once it's reliably green (see TODO / CI notes).
-  browser:
+  # Real-browser regression lane: runs the inline ```test doc fences through a
+  # real engine (behaviors happy-dom can't exercise — composed-event
+  # retargeting across shadow roots, spec-correct <template> cloning,
+  # getComputedStyle-resolved derived CSS vars). Playwright starts its own dev
+  # server (playwright.config.ts webServer) and one navigation gates the whole
+  # doc-test corpus via window.__docTestResults. Mirrors tosijs-ui's proven
+  # e2e lane. No haltija in CI (haltija's --headless path delegates to
+  # Playwright anyway; the doc fences remain the living-docs lane locally).
+  e2e:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
-      - name: System deps (xvfb, Electron runtime libs, mkcert)
+      # The dev server serves HTTPS and won't start without a cert. A throwaway
+      # self-signed one is enough — the tests run with ignoreHTTPSErrors, and
+      # mkcert would want sudo.
+      - name: Throwaway dev TLS cert
         run: |
-          sudo apt-get update
-          # Electron runtime libs + a virtual display. Package names target
-          # ubuntu-latest (24.04); libasound2t64 replaced libasound2 there.
-          sudo apt-get install -y \
-            xvfb libnss3-tools \
-            libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1 \
-            libatk-bridge2.0-0 libatk1.0-0 libdrm2 libxcomposite1 libxdamage1 \
-            libxrandr2 libxkbcommon0 libpango-1.0-0 libcairo2
-          curl -JLsO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-          chmod +x mkcert-v*-linux-amd64
-          sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+          mkdir -p tls
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout tls/key.pem -out tls/certificate.pem \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 
-      - name: Trust store + dev TLS cert (dev server serves HTTPS on :8018)
-        run: |
-          mkcert -install
-          bun run tls
+      - name: Install Playwright browsers (+ system deps)
+        run: bunx playwright install --with-deps chromium firefox
 
-      # Persistent virtual display so Electron survives across steps.
-      - name: Start Xvfb
-        run: |
-          Xvfb :99 -screen 0 1280x1024x24 >/tmp/xvfb.log 2>&1 &
-          echo "DISPLAY=:99" >> "$GITHUB_ENV"
-          sleep 2
+      - name: Playwright doc-test lane
+        run: bunx playwright test
 
-      # Pre-provision haltija in Electron CI mode (sandbox off, waits for ready)
-      # so the dev-server test lane ADOPTS it instead of spawning `bunx haltija
-      # -f` (plain desktop app), which does not come up under xvfb within the
-      # dev server's 10s launch timeout. Root cause: tosijs-ui#18 — the test
-      # lane should request --ci/--private itself; this pre-provision is the
-      # workaround until it does.
-      - name: Pre-provision haltija (Electron CI mode)
-        run: |
-          bunx haltija --ci >/tmp/haltija.log 2>&1 &
-          for i in $(seq 1 60); do
-            if hj windows >/dev/null 2>&1; then echo "haltija reachable"; break; fi
-            sleep 1
-          done
-          hj windows || { echo "haltija never came up"; cat /tmp/haltija.log; exit 1; }
-
-      - name: Browser doc-test lane
-        run: bun bin/site.ts --test
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
