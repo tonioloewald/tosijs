@@ -302,6 +302,25 @@ Still wanted:
 
 ### Release mechanics
 
+**Cross-project release sequence (decided 2026-07-20).** tosijs and tosijs-ui are
+mutually dependent — tosijs-ui runtime-depends on tosijs; tosijs build-depends on
+tosijs-ui (doc/build host, a **devDependency**, not in tosijs's shipped bundle). Unwind
+the cycle in this order:
+
+1. **tosijs-ui 1.7.0-fc** (npm-published pre-release, not a branch ref — tosijs must pin a
+   real version for a reproducible build). Settles the host: latest haltija (`--private`
+   test lane, `haltijaDev` surfacing — tosijs-ui#18) **and the tsc-fatal fix** (make
+   `libraryBuild` fail on `tsc` errors — a type error shipped in beta.1 because the build
+   exits 0 on tsc failure; this is the gating item, it protects tosijs 1.7.0's `.d.ts`).
+2. **tosijs 1.7.0 final** — bump the tosijs-ui host pin to the fc, consolidate the
+   beta.1+beta.2 changelog into one 1.7.0 section, rebuild, one clean `test:browser` run
+   (works now: `hj eval '…' --window <id>` targets our tab; `haltijaDev`/`HALTIJA_DEV=1`
+   injects the client — no haltija upstream fix needed), tag, publish to `latest`.
+3. **tosijs-ui 1.7.0 final** — bumps its tosijs dep to 1.7.0, closes the loop.
+   haltija#4/#5 are quality-of-life, NOT release blockers — do not gate on them.
+
+Then rebase `tosijs-2.0` onto v1.7.0 (see below).
+
 - Fold in the **stale committed `dist/`** rebuild (the debug/safe bundles re-minify ~3.6KB
   smaller under current Bun; deliberately deferred from the 1.6.22 devDep bump so published
   artifacts wouldn't change under cover of a dev-only patch — 1.7 is the "next real
