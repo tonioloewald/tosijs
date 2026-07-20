@@ -1,6 +1,6 @@
 import { XinStyleSheet, XinStyleRule } from './css-types';
 export declare function onStylesheetChange(callback: () => void): () => void;
-export declare function StyleSheet(id: string, styleSpec: XinStyleSheet): void;
+export declare function StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement;
 export declare const processProp: (prop: string, value: string | number) => {
     prop: string;
     value: string;

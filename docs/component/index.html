@@ -287,9 +287,10 @@ should you override them.</p>
 <p><code>this.parts</code> returns a proxy that provides elements conveniently and efficiently. It
 is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).</p>
-<p><code>this.parts.foo</code> will return a content element with <code>data-ref=&quot;foo&quot;</code>. If no such
-element is found it tries it as a css selector, so <code>this.parts[&#39;.foo&#39;]</code> would find
-a content element with <code>class=&quot;foo&quot;</code> while <code>this.parts.h1</code> will find an <code>&lt;h1&gt;</code>.</p>
+<p><code>this.parts.foo</code> finds a content element by, in order: <code>part=&quot;foo&quot;</code> (the preferred
+form — it&#39;s also what <code>::part()</code> styling targets), then <code>data-ref=&quot;foo&quot;</code>, and
+finally <code>foo</code> as a css selector — so <code>this.parts[&#39;.foo&#39;]</code> finds a content element
+with <code>class=&quot;foo&quot;</code> while <code>this.parts.h1</code> finds an <code>&lt;h1&gt;</code>.</p>
 <p><code>this.parts</code> will also remove a <code>data-ref</code> attribute once it has been used to find
 the element. This means that if you use all your refs in <code>render</code> or <code>connectedCallback</code>
 then no trace will remain in the DOM for a mounted element.</p>

@@ -6,6 +6,80 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.0-beta.2] - 2026-07-20
+
+Second 1.7 beta: the medium-severity backlog triage, plus documentation for
+proxy-driven theming (a feature that already worked but was undocumented — and
+whose docs said the opposite). Published under the `beta` dist-tag.
+
+### Fixed
+
+- **`tsc` error that shipped in beta.1.** `hot-reload.ts`'s observer predicate
+  was typed `boolean` but a `PathTestFunction` may return the
+  `observerShouldBeRemoved` symbol. Worth knowing: the build does **not** treat
+  a `tsc` failure as fatal, so beta.1's `.d.ts` output may be stale.
+- **`Component.change` now bubbles and composes.** It was dispatched
+  non-bubbling, so an ancestor `addEventListener('change', …)` never heard a
+  component's value change — breaking the "bound like a native `<input>`"
+  contract for user code. (The delegated binding was unaffected; it listens in
+  the capture phase.)
+- **`parts` honors the documented `data-ref="foo"` lookup.** Only `[part="foo"]`
+  was implemented, so code following the docs threw
+  `elementRef "foo" does not exist!`. Order is now `part=` → `data-ref=` → CSS
+  selector. Symbol keys are no longer treated as refs, so thenable-probing a
+  `parts` proxy no longer throws.
+- **Named CSS colors parse without a DOM.** `css-colors.ts` (a complete named
+  color table that was dead code) is now wired into `Color.fromCss`, so
+  `Color.fromCss('red')` works in SSR/workers/tests instead of parsing as
+  transparent black. Consequently `invertLuminance` no longer silently drops
+  named colors from inverted maps.
+- **Reactive `class` bindings replace instead of accumulating** — binding
+  `class` to state and changing `'red'` → `'blue'` no longer leaves `"red blue"`;
+  boolean-map bindings remove keys dropped from a later map. Classes from other
+  sources (a static `class`, `-xin-data`) are never touched.
+- **`bind()` no longer mutates the caller's spec**, so one `bindList` spec object
+  can bind two containers (the second used to throw).
+- **`bind: { value, binding: 'name' }`** (string binding name) resolves and
+  renders — it was passing the raw string through, a silent no-op.
+- **Unitless custom properties no longer get `px`** (`--opacity: 0.5`, not
+  `0.5px`) — the unitless check ran before the `_` prefix was stripped.
+- **`Color` alpha hex rounds** instead of flooring (`0.5` → `80`, not `7f`),
+  matching the r/g/b channels.
+- **External `removeAttribute` is observable again** — the in-memory
+  `initAttributes` fallback masked it permanently.
+- **`<slot>` fallback children survive** the `tosi-slot` rewrite.
+- **`Component.isSlotted`** compared `querySelector` to `undefined` (always
+  true); now compares to `null`.
+- **Symbol-keyed assignment** through a proxy stores on the target instead of
+  throwing.
+- **`debounce`/`throttle` preserve `this`** — a debounced method invoked as
+  `obj.method()` lost its receiver.
+- **Duplicate list `idPath` values** emit a once-per-session `console.error`
+  instead of silently collapsing rows. Removed a debug `console.log` that
+  shipped in the list filter path.
+
+### Added
+
+- **`StyleSheet()` returns its `<style>` element**, so a sheet you create can be
+  removed or updated (previously there was no handle at all).
+- **Documentation for observant stylesheets and dynamic theming** — the
+  previously-undocumented core of proxy-driven themes: pass a tosi proxy to
+  `StyleSheet()` and it regenerates in place on change, **and derived colors
+  from the `vars` sugar are recomputed with it**. Includes a runnable live
+  example (brand/page color inputs driving a themed card via derived shades) and
+  an in-browser test asserting the whole loop through `getComputedStyle`.
+  ⚠️ The old docs carried a Caution claiming computed colors "won't
+  automatically be recomputed on theme change" — **that was wrong** and is
+  corrected. Verified in a real browser: `--brand` `#3366cc` → `#cc3366` moves
+  `--brand_20b` from `rgba(41,82,163,1)` to `rgba(163,41,82,1)`, live DOM
+  following.
+
+### Changed
+
+- **Packaging:** `types` is now the **first** condition in every `exports` entry
+  (TypeScript matches conditions in order, so it could previously be skipped),
+  and `*.tsbuildinfo` / `dist/bun-plugin` are excluded from the tarball.
+
 ## [1.7.0-beta.1] - 2026-07-18
 
 First beta of the **1.7 correctness release** — the outcome of a whole-codebase

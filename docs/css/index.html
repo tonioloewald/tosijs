@@ -230,10 +230,17 @@ See <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/color-
 Where they meet your needs, I&#39;d suggest using them.</p>
 <p><a href="https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color">contrast-color()</a> is coming in Safari 26,
 but <a href="https://caniuse.com/?search=contrast-color">currently enjoys 0% upport</a>.</p>
-<p><strong>Caution</strong> although these look superficially like the <code>vars</code> syntax
-sugar for <code>calc()</code> performed on dimensional variables, they are in fact
-color calculations are performed on colors <em>evaluated</em> on <code>document.body</code> at
-execution time. (So they won&#39;b automatically be recomputed on theme change.)</p>
+<p><strong>Note</strong> although these look superficially like the <code>vars</code> syntax sugar for
+<code>calc()</code> on dimensional variables, they are in fact color calculations
+performed on colors <em>evaluated</em> on <code>document.body</code>, emitted into a dedicated
+<code>tosijs-computed-colors</code> stylesheet.</p>
+<p><strong>They ARE recomputed on theme change</strong> — every registered computed color is
+recalculated whenever an observant stylesheet regenerates (see
+<a href="#stylesheetid-string-stylespec-xinstylesheet">StyleSheet</a>), so a derived shade
+tracks its source variable automatically. (This documentation previously said
+the opposite; it was out of date.) Verified in-browser: changing <code>--brand</code>
+from <code>#3366cc</code> to <code>#cc3366</code> moves <code>--brand_20b</code> from <code>rgba(41,82,163,1)</code> to
+<code>rgba(163,41,82,1)</code> and the DOM restyles with it.</p>
 </blockquote>
 <p>You can write:</p>
 <pre><code>const styleSpec = {
@@ -319,6 +326,133 @@ declarations to <code>elements</code> and <code>css</code> has done wonders to r
 stuff like <code>const nameElement = this.parts.nameField as unknown as HTMLInputElement</code>
 and prevent css property typos without adding a single byte to the size of
 the javascript payload.</p>
+<h2>StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement</h2>
+<p>Creates a <code>&lt;style&gt;</code> element (with the given <code>id</code>) in <code>document.head</code> and returns
+it, so you can remove or otherwise manage it later.</p>
+<p><strong>If you pass a <code>tosi</code> proxy, the stylesheet is <em>observant</em>:</strong> change the proxy and
+the stylesheet regenerates <strong>in place</strong> — no re-rendering, no re-mounting, no
+manual plumbing. This is the intended way to build themes.</p>
+<pre><code>const { theme } = tosi({
+  theme: {
+    body: {
+      _brandColor: &#39;#3366cc&#39;,
+      _pageBg: &#39;white&#39;,
+    },
+  },
+})
+
+StyleSheet(&#39;theme&#39;, theme)
+
+// later — every rule derived from these variables updates immediately
+theme.body._brandColor = &#39;#cc3366&#39;
+</code></pre>
+<h3>Computed colors recompute too</h3>
+<p>Derived colors created through the <a href="#vars"><code>vars</code></a> sugar (<code>vars.brandColor50b</code>
+and friends) are <strong>registered</strong> when first referenced, and <strong>recomputed whenever
+an observant stylesheet changes</strong>. So a derived shade tracks its source variable
+without you wiring anything up: change <code>--brand-color</code> and every
+<code>--brand-colorNNb</code>/<code>s</code>/<code>h</code>/<code>o</code> derived from it is recalculated and rewritten
+(into a dedicated <code>tosijs-computed-colors</code> stylesheet).</p>
+<p>Change the brand color and <strong>everything derived from it follows</strong> — the shades,
+the borders, the hover states. Nothing here is re-rendered; one variable changes
+and the browser restyles:</p>
+<pre><code class="language-html">&lt;div class=&quot;theme-demo&quot;&gt;
+  &lt;label&gt;brand &lt;input type=&quot;color&quot; class=&quot;brand&quot; value=&quot;#3366cc&quot;&gt;&lt;/label&gt;
+  &lt;label&gt;page &lt;input type=&quot;color&quot; class=&quot;page&quot; value=&quot;#f4f4f8&quot;&gt;&lt;/label&gt;
+  &lt;div class=&quot;card&quot;&gt;
+    &lt;h4&gt;Card heading&lt;/h4&gt;
+    &lt;p&gt;Body text on a derived surface.&lt;/p&gt;
+    &lt;button class=&quot;primary&quot;&gt;Primary&lt;/button&gt;
+    &lt;button class=&quot;ghost&quot;&gt;Ghost&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+<pre><code class="language-js">import { tosi, StyleSheet, vars, elements } from &#39;tosijs&#39;
+
+const { demoTheme } = tosi({
+  demoTheme: {
+    body: {
+      _brand: &#39;#3366cc&#39;,
+      _page: &#39;#f4f4f8&#39;,
+    },
+  },
+})
+
+StyleSheet(&#39;dynamic-theme-demo&#39;, demoTheme)
+
+// every rule below is expressed in terms of the two variables above —
+// note the derived shades (brand_20b darker, brand30o alpha, page20b lighter)
+StyleSheet(&#39;dynamic-theme-demo-rules&#39;, {
+  &#39;.theme-demo&#39;: {
+    display: &#39;flex&#39;, flexDirection: &#39;column&#39;, gap: &#39;12px&#39;,
+    padding: &#39;16px&#39;, background: vars.page, borderRadius: &#39;8px&#39;,
+  },
+  &#39;.theme-demo label&#39;: { display: &#39;flex&#39;, gap: &#39;8px&#39;, alignItems: &#39;center&#39; },
+  &#39;.theme-demo .card&#39;: {
+    padding: &#39;16px&#39;, borderRadius: &#39;8px&#39;,
+    background: vars.page20b,
+    border: `2px solid ${vars.brand30o}`,
+    boxShadow: `0 2px 8px ${vars.brand30o}`,
+  },
+  &#39;.theme-demo h4&#39;: { margin: &#39;0 0 8px 0&#39;, color: vars.brand_20b },
+  &#39;.theme-demo button&#39;: {
+    padding: &#39;6px 14px&#39;, borderRadius: &#39;6px&#39;, cursor: &#39;pointer&#39;,
+    border: `1px solid ${vars.brand}`,
+  },
+  &#39;.theme-demo .primary&#39;: { background: vars.brand, color: vars.brand90b },
+  &#39;.theme-demo .ghost&#39;: { background: &#39;transparent&#39;, color: vars.brand_20b },
+})
+
+preview.querySelector(&#39;.brand&#39;).addEventListener(&#39;input&#39;, (event) =&gt; {
+  demoTheme.body._brand = event.target.value
+})
+preview.querySelector(&#39;.page&#39;).addEventListener(&#39;input&#39;, (event) =&gt; {
+  demoTheme.body._page = event.target.value
+})
+</code></pre>
+<p>This is the whole loop — proxy → stylesheet → derived colors → live DOM:</p>
+<pre><code class="language-test">const { tosi, StyleSheet, vars, elements, updates } = tosijs
+const { div } = elements
+
+test(&#39;changing a themed variable updates derived colors in the live DOM&#39;, async () =&gt; {
+  const { swatchTheme } = tosi({
+    swatchTheme: { body: { _swatchBase: &#39;#3366cc&#39; } },
+  })
+  const sheet = StyleSheet(&#39;swatch-theme-test&#39;, swatchTheme)
+
+  // referencing the derived var registers it for recomputation
+  const base = div({ style: { background: vars.swatchBase } })
+  const lighter = div({ style: { background: vars.swatchBase50b } })
+  preview.append(base, lighter)
+  await updates()
+  await waitMs(80) // let the microtask recompute + the browser restyle
+
+  const read = (el) =&gt; getComputedStyle(el).backgroundColor
+  const baseBefore = read(base)
+  const lighterBefore = read(lighter)
+
+  // the derived color resolved to a REAL color, and is not just the source
+  expect(lighterBefore).not.toBe(&#39;&#39;)
+  expect(lighterBefore).not.toBe(&#39;rgba(0, 0, 0, 0)&#39;)
+  expect(lighterBefore).not.toBe(baseBefore)
+
+  // now change the source variable through the proxy
+  swatchTheme.body._swatchBase = &#39;#cc3366&#39;
+  await updates()
+  await waitMs(80)
+
+  const baseAfter = read(base)
+  const lighterAfter = read(lighter)
+
+  expect(baseAfter).not.toBe(baseBefore) // the sheet regenerated in place
+  expect(lighterAfter).not.toBe(lighterBefore) // and the DERIVED color recomputed
+  expect(lighterAfter).not.toBe(baseAfter) // still a distinct shade
+
+  sheet.remove()
+  base.remove()
+  lighter.remove()
+})
+</code></pre>
 <h2>onStylesheetChange(callback: () =&gt; void): () =&gt; void</h2>
 <p>Registers a callback that fires whenever any observant stylesheet regenerates
 (i.e., when a proxy-backed <code>StyleSheet</code> detects a change and rewrites its CSS).
