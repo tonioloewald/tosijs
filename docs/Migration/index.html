@@ -59,6 +59,57 @@ should be the module names.</p>
 <blockquote>
 <p>Please <a href="https://discord.gg/ramJ9rgky5">let me know</a> if there are any issues.</p>
 </blockquote>
+<h1>Upgrading to 1.7.0</h1>
+<p>1.7.0 is the <strong>correctness release</strong> — a large batch of bug fixes. Most are pure
+fixes (things that were broken now work), but a few are <strong>observable behavior
+changes</strong>. If your code depended on the old (buggy) behavior, these are the ones
+to check. No API was removed or renamed.</p>
+<h2>Observer/touch matching is now segment-exact</h2>
+<p>Before 1.7, path matching used a raw prefix test, so an observer or binding on
+<code>foo</code> also heard <code>foobar</code>, and <code>touch(&#39;foo&#39;)</code> swallowed a later <code>touch(&#39;foobar&#39;)</code>.
+Now matching respects path segment boundaries.</p>
+<pre><code>// before 1.7: this observer fired for BOTH &#39;app.user&#39; and &#39;app.username&#39;
+observe(&#39;app.user&#39;, cb)
+// 1.7+: fires only for &#39;app.user&#39; and its children (&#39;app.user.name&#39;, …),
+// NOT the sibling &#39;app.username&#39;
+</code></pre>
+<p>Hierarchical matching is unchanged (a parent still hears its children and vice
+versa). <strong>If you relied on the sloppy prefix match</strong> — e.g. an observer on <code>item</code>
+that you expected to also fire for <code>items</code> — give it the exact path, a RegExp, or
+a filter function.</p>
+<h2><code>getValue()</code> returns typed values for typed inputs</h2>
+<p><code>getValue(element)</code> (and therefore <code>bindings.value</code>&#39;s <code>fromDOM</code>) now returns the
+control&#39;s native type instead of a string:</p>
+<ul>
+<li><code>type=&quot;number&quot;</code> / <code>type=&quot;range&quot;</code> → a <strong>number</strong> (was a string). Empty input
+still returns <code>&#39;&#39;</code>, never a fabricated <code>0</code>.</li>
+<li><code>type=&quot;date&quot;</code> / <code>datetime-local</code> / <code>month</code> / <code>week</code> → a <strong><code>Date</code></strong> (was an ISO
+string for <code>type=date</code>).</li>
+<li><code>type=&quot;time&quot;</code> → <strong>milliseconds since midnight</strong>.</li>
+</ul>
+<p>Bound numeric state now <em>stays</em> numeric across edits. <strong>If you read <code>getValue()</code>
+directly and expected a string</strong>, coerce explicitly (<code>String(getValue(el))</code>), or
+read <code>el.value</code>. If you bound a <code>type=date</code> input and stored the ISO string, note
+the stored value is now a <code>Date</code> — bind to string state and it keeps the control&#39;s
+ISO string (see <a href="/dom/">dom</a> H-6 two-layer coercion).</p>
+<h2><code>Component</code> <code>change</code> events now bubble (and compose)</h2>
+<p>A component&#39;s <code>change</code> event (fired when its <code>value</code> changes) now bubbles and
+crosses shadow boundaries — matching how native <code>&lt;input&gt;</code> <code>change</code> events behave.
+This makes a shadow-DOM component bindable <strong>like an <code>&lt;input&gt;</code></strong> (bind its
+<code>value</code>; see the <a href="/building-apps/">Building Apps</a> shadow-DOM section).</p>
+<p><strong>If you have a <code>change</code> listener on an ancestor</strong> of a tosijs component, it will
+now fire for the component&#39;s changes where before it did not. If that causes
+double-handling, scope the listener (check <code>event.target</code>) or use capture-phase
+delegation.</p>
+<h2>Other fixes worth a glance (not breaks, but visible)</h2>
+<ul>
+<li>Reactive <code>class</code> bindings now <strong>replace</strong> instead of accumulating.</li>
+<li><code>on()</code> handlers now fire inside <strong>open shadow roots</strong>.</li>
+<li>Named CSS colors (<code>Color.fromCss(&#39;red&#39;)</code>) now parse <strong>without a DOM</strong>.</li>
+<li>Component data-binding sugar placed <strong>inside shadow DOM</strong> now <strong>warns</strong> (it
+never operated there — bind the component by its <code>value</code> instead).</li>
+</ul>
+<p>See <code>CHANGELOG.md</code> for the complete list.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">

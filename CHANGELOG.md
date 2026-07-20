@@ -6,88 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.7.0-beta.2] - 2026-07-20
+## [1.7.0] - 2026-07-20
 
-Second 1.7 beta: the medium-severity backlog triage, plus documentation for
-proxy-driven theming (a feature that already worked but was undocumented — and
-whose docs said the opposite). Published under the `beta` dist-tag.
+The **correctness release** — the outcome of a whole-codebase review (~45 verified
+defects, every one of which passed the previous happy-path test suite). No API was
+removed or renamed; a handful of fixes are observable behavior changes (below), which
+is why this is a minor. Ships with a new multi-engine (Chromium + Firefox) real-browser
+CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
 
-### Fixed
+(Shipped incrementally as `1.7.0-beta.1`/`beta.2`; this is the consolidated stable entry.)
 
-- **`tsc` error that shipped in beta.1.** `hot-reload.ts`'s observer predicate
-  was typed `boolean` but a `PathTestFunction` may return the
-  `observerShouldBeRemoved` symbol. Worth knowing: the build does **not** treat
-  a `tsc` failure as fatal, so beta.1's `.d.ts` output may be stale.
-- **`Component.change` now bubbles and composes.** It was dispatched
-  non-bubbling, so an ancestor `addEventListener('change', …)` never heard a
-  component's value change — breaking the "bound like a native `<input>`"
-  contract for user code. (The delegated binding was unaffected; it listens in
-  the capture phase.)
-- **`parts` honors the documented `data-ref="foo"` lookup.** Only `[part="foo"]`
-  was implemented, so code following the docs threw
-  `elementRef "foo" does not exist!`. Order is now `part=` → `data-ref=` → CSS
-  selector. Symbol keys are no longer treated as refs, so thenable-probing a
-  `parts` proxy no longer throws.
-- **Named CSS colors parse without a DOM.** `css-colors.ts` (a complete named
-  color table that was dead code) is now wired into `Color.fromCss`, so
-  `Color.fromCss('red')` works in SSR/workers/tests instead of parsing as
-  transparent black. Consequently `invertLuminance` no longer silently drops
-  named colors from inverted maps.
-- **Reactive `class` bindings replace instead of accumulating** — binding
-  `class` to state and changing `'red'` → `'blue'` no longer leaves `"red blue"`;
-  boolean-map bindings remove keys dropped from a later map. Classes from other
-  sources (a static `class`, `-xin-data`) are never touched.
-- **`bind()` no longer mutates the caller's spec**, so one `bindList` spec object
-  can bind two containers (the second used to throw).
-- **`bind: { value, binding: 'name' }`** (string binding name) resolves and
-  renders — it was passing the raw string through, a silent no-op.
-- **Unitless custom properties no longer get `px`** (`--opacity: 0.5`, not
-  `0.5px`) — the unitless check ran before the `_` prefix was stripped.
-- **`Color` alpha hex rounds** instead of flooring (`0.5` → `80`, not `7f`),
-  matching the r/g/b channels.
-- **External `removeAttribute` is observable again** — the in-memory
-  `initAttributes` fallback masked it permanently.
-- **`<slot>` fallback children survive** the `tosi-slot` rewrite.
-- **`Component.isSlotted`** compared `querySelector` to `undefined` (always
-  true); now compares to `null`.
-- **Symbol-keyed assignment** through a proxy stores on the target instead of
-  throwing.
-- **`debounce`/`throttle` preserve `this`** — a debounced method invoked as
-  `obj.method()` lost its receiver.
-- **Duplicate list `idPath` values** emit a once-per-session `console.error`
-  instead of silently collapsing rows. Removed a debug `console.log` that
-  shipped in the list filter path.
-
-### Added
-
-- **`StyleSheet()` returns its `<style>` element**, so a sheet you create can be
-  removed or updated (previously there was no handle at all).
-- **Documentation for observant stylesheets and dynamic theming** — the
-  previously-undocumented core of proxy-driven themes: pass a tosi proxy to
-  `StyleSheet()` and it regenerates in place on change, **and derived colors
-  from the `vars` sugar are recomputed with it**. Includes a runnable live
-  example (brand/page color inputs driving a themed card via derived shades) and
-  an in-browser test asserting the whole loop through `getComputedStyle`.
-  ⚠️ The old docs carried a Caution claiming computed colors "won't
-  automatically be recomputed on theme change" — **that was wrong** and is
-  corrected. Verified in a real browser: `--brand` `#3366cc` → `#cc3366` moves
-  `--brand_20b` from `rgba(41,82,163,1)` to `rgba(163,41,82,1)`, live DOM
-  following.
-
-### Changed
-
-- **Packaging:** `types` is now the **first** condition in every `exports` entry
-  (TypeScript matches conditions in order, so it could previously be skipped),
-  and `*.tsbuildinfo` / `dist/bun-plugin` are excluded from the tarball.
-
-## [1.7.0-beta.1] - 2026-07-18
-
-First beta of the **1.7 correctness release** — the outcome of a whole-codebase
-review (~45 verified defects, every one passing the previous happy-path suite).
-Published under the `beta` npm dist-tag so `latest` stays on 1.6.10. Intended
-for integration testing (notably by tosijs-ui) ahead of a synchronous 1.7.0.
-
-### ⚠️ Behavior changes (observable — the reason this is a minor, and a beta)
+### ⚠️ Behavior changes (observable — the reason this is a minor)
 
 - **`on()` handlers now fire inside open shadow roots.** Composed events cross
   the shadow boundary and the dispatcher resolves the true origin via
@@ -109,6 +38,15 @@ for integration testing (notably by tosijs-ui) ahead of a synchronous 1.7.0.
   focus/selection in list inputs and CSS animations survive unrelated updates.
 - **`deepClone()` now preserves `Date`, `Map`, and `Set`** (were becoming `{}`
   or shallow) and no longer stack-overflows on circular references.
+- **`Component.change` now bubbles and composes** — it was dispatched
+  non-bubbling, so an ancestor `addEventListener('change', …)` never heard a
+  component's value change (breaking the "bound like a native `<input>`"
+  contract). It now behaves like a native input's `change`. (The delegated
+  binding was unaffected — it listens in the capture phase.)
+- **Reactive `class` bindings replace instead of accumulating** — binding
+  `class` to state and changing `'red'` → `'blue'` no longer leaves `"red blue"`.
+- **`getValue()` on the date family returns `Date`** (see above) — and named CSS
+  colors (`Color.fromCss('red')`) now parse without a DOM.
 - **Data-binding sugar inside shadow-DOM content now warns** (once per class /
   session) instead of failing silently.
 
@@ -138,6 +76,24 @@ for integration testing (notably by tosijs-ui) ahead of a synchronous 1.7.0.
   `Promise.allSettled`, reporting failures while still firing `allLoaded()`.
 - **Events on `cloneNode` copies** of bound elements no longer throw in the
   global dispatchers (and no longer abort ancestor delegation).
+- **`parts` honors the documented `data-ref="foo"` lookup** (order is now
+  `part=` → `data-ref=` → CSS selector); symbol keys are no longer treated as
+  refs, so thenable-probing a `parts` proxy no longer throws.
+- **`css-colors.ts` (a complete named-color table, previously dead code) is wired
+  into `Color.fromCss`**, so named colors parse with no DOM (SSR/workers/tests
+  got transparent black before); consequently `invertLuminance` no longer drops
+  named colors.
+- **`bind()` no longer mutates the caller's spec**, so one `bindList` spec can
+  bind two containers; and **`bind: { value, binding: 'name' }`** (string binding
+  name) resolves and renders instead of being a silent no-op.
+- **Unitless custom properties no longer get `px`** (`--opacity: 0.5`, not
+  `0.5px`); **`Color` alpha hex rounds** (`0.5` → `80`, not `7f`).
+- **External `removeAttribute` is observable again** (the in-memory
+  `initAttributes` fallback masked it); **`<slot>` fallback children survive** the
+  `tosi-slot` rewrite; **`Component.isSlotted`** no longer always-true.
+- **Symbol-keyed proxy assignment** stores on the target instead of throwing;
+  **`debounce`/`throttle` preserve `this`**; **duplicate list `idPath` values**
+  warn once instead of silently collapsing rows.
 
 ### Added
 
@@ -148,13 +104,27 @@ for integration testing (notably by tosijs-ui) ahead of a synchronous 1.7.0.
   type metadata and wired config; runtime enforcement arrives with native-TJS
   modules in 2.0). Flagged experimental; the debug bundle announces itself.
   Built with tjs-lang 0.10.1.
+- **`StyleSheet()` returns its `<style>` element** (previously nothing), so a
+  proxy-backed sheet you create can be removed or updated.
+- **Documented observant stylesheets & dynamic theming** — pass a tosi proxy to
+  `StyleSheet()` and it regenerates in place on change, **and derived colors from
+  the `vars` sugar recompute with it** (a runnable "change the brand color, the
+  whole card follows" live example, verified in-browser). The old docs' Caution
+  that computed colors "won't be recomputed on theme change" was wrong and is
+  corrected.
 - **`setModuleLoader()`** (blueprint loader) and **`setShareStore()`** test seams.
-- **In-browser doc test lane** — `bun run test:browser` drives the doc `test`
-  fences through a real browser (haltija) for behaviors happy-dom can't observe.
+- **Multi-engine real-browser CI lane** — `bun run test:browser` runs the inline
+  ```test doc fences through Chromium + Firefox via Playwright (behaviors
+  happy-dom can't observe: composed-event retargeting, spec-correct `<template>`
+  cloning, `getComputedStyle`-resolved derived CSS vars), gated in CI.
 
 ### Changed
 
-- Build host is **tosijs-ui 1.7.0-beta.5**.
+- **Packaging:** `types` is now the **first** condition in every `exports` entry
+  (TS matches conditions in order, so it could be skipped before), and
+  `*.tsbuildinfo` / `dist/bun-plugin` are excluded from the tarball.
+- Build host is **tosijs-ui 1.7.0-rc.1**; **tjs-lang 0.10.1**.
+- First **GitHub Actions CI** (unit suite + the Playwright browser lane).
 - `dist/` bundles regenerated under the current Bun toolchain.
 
 ## [1.6.10] - 2026-07-17

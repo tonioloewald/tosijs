@@ -524,14 +524,15 @@ test(&#39;a shadow value-widget round-trips through its value like an input&#39;
     bind: { value: &#39;knobDemo.level&#39;, binding: bindings.value },
   })
   preview.append(widget)
-  await updates()
-  // state -&gt; widget.value (bound like an input)
+  // render() reflects value into the DOM on an animation frame; poll for it
+  // rather than assume a fixed delay (headless browsers throttle rAF for a
+  // non-visible page). state -&gt; widget.value (bound like an input):
+  await waitFor(&#39;[aria-valuenow=&quot;2&quot;]&#39;, 3000)
   expect(Number(widget.value)).toBe(2)
-  expect(widget.getAttribute(&#39;aria-valuenow&#39;)).toBe(&#39;2&#39;)
 
-  // interaction inside the shadow root -&gt; value -&gt; state (change event out)
+  // interaction inside the shadow root -&gt; value -&gt; state (change event out):
   widget.shadowRoot.querySelector(&#39;[part=inc]&#39;).click()
-  await updates()
+  await waitFor(&#39;[aria-valuenow=&quot;3&quot;]&#39;, 3000)
   expect(Number(widget.value)).toBe(3)
   expect(xin[&#39;knobDemo.level&#39;]).toBe(3)
 })
