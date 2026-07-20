@@ -529,15 +529,15 @@ intact. Throw is the channel. Verified.
 
 ## 2.0-only findings — 2026-07-17 whole-codebase review
 
-The five-lens review (findings verified by executed repros) split into two buckets. The
-**main-line bugs are planned as the 1.7 correctness release — see main's TODO.md** — and
-reach this branch via the post-1.7 rebase. ⚠️ Exception: `by-path.ts` is deleted here, so
-1.7's fix for the **stale id-path cache clobber** (main TODO SB-3; `buildIdPathValueMap`
-reuses the map object, `keyToIndex`'s fallback reads stale entries back — confirmed
-overwriting the wrong array item) will hit a delete/modify conflict on rebase and must be
-**hand-ported into `by-path.tjs:66-106`**, which inherited the bug verbatim.
+✅ **v1.7.0 merged into this branch (2026-07-20).** All main-line 1.7.0 fixes are now on
+`tosijs-2.0`. The `by-path.ts`→`by-path.tjs` delete/modify was resolved by hand-porting
+SB-3 (fresh id-path map rebuild + guard delete against undefined index) into
+`by-path.tjs`; its regression tests import `./by-path.tjs` and pass. xin.ts merged keeping
+both H-9 shadowing and the `valueAndType` bypass. 697 tests pass. Toolchain bumped to
+tjs-lang 0.10.1 + tosijs-ui 1.7.0-rc.1; the Playwright browser lane came along too.
 
-The bucket below exists only on this branch — the guards themselves have holes:
+The bucket below exists only on this branch — the guards themselves have holes (these are
+2.0-branch work, NOT covered by the 1.7.0 merge):
 
 - **HIGH: fabrication rollback is bypassed when the walk throws after fabricating.**
   `by-path.tjs:252-262` — `reportPathCreation` runs only if `walkAndSet` *returns*, but the
