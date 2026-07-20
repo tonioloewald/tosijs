@@ -304,16 +304,29 @@ regenerated bundles). To cut a release:
 1. Bump `version` in `package.json` (semver).
 2. Add an entry to `CHANGELOG.md` (Keep a Changelog format) under the new version.
 3. `bun run build` — runs tests, stamps `src/version.ts`, and regenerates `dist/` + `docs/`.
-4. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
-5. `git push` and `git push --tags`.
-6. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).
+4. `bun run test:browser` — the Playwright doc-test lane (`playwright test`). Runs the
+   inline ```test doc fences through real Chromium + Firefox (behaviors happy-dom can't
+   do). Playwright starts its own dev server on a dedicated port (`playwright.config.ts`
+   webServer, `HALTIJA_DEV=0`), so no port collisions and no `bun start` needed. **`bun
+   run build` does NOT run this** — it's a separate, mandatory gate for any release that
+   touches DOM behavior. Also runs in CI (`.github/workflows/ci.yml`). First run
+   downloads browsers (`bunx playwright install chromium firefox`). The haltija
+   doc-fence lane (`bun bin/site.ts --test`) still exists for local living-docs, but is
+   not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` path
+   delegates to Playwright anyway).
+5. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
+6. `git push` and `git push --tags`.
+7. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).
+   For a **prerelease**, `npm publish --tag beta` (or `rc`) so `latest` is not moved.
 
 ## Session Completion ("Landing the Plane")
 
 When ending a work session, work is **not** complete until `git push` succeeds. Follow this workflow:
 
 1. **File remaining work** — add follow-ups to `TODO.md`.
-2. **Run quality gates** (if code changed) — tests, linters, build.
+2. **Run quality gates** (if code changed) — `bun test`, linters, `bun run build`. If the
+   change touches DOM/binding behavior, also `bun run test:browser` (the browser lane is
+   not part of `bun run build`).
 3. **Push to remote** — this step is mandatory:
    ```bash
    git pull --rebase

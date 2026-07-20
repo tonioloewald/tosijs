@@ -216,6 +216,48 @@ that handler goes from the original target through to the DOM and fires off
 event-handlers, passing them an event proxy (so that `stopPropagation()` still
 works).
 
+`on()` handlers work inside **open shadow roots** too: composed events cross
+shadow boundaries, and the dispatcher resolves the true origin via
+`composedPath()` (retargeting would otherwise hide it) and continues delegation
+up through shadow hosts to light-DOM ancestors. Closed shadow roots stay
+closed. (Note that *data* bindings deliberately do not operate inside shadow
+DOM — a shadow-DOM component is bound like an `<input>`, via its `value`; see
+the Component docs.)
+
+This behavior needs a real browser to observe (a composed event is only
+*retargeted* to its shadow host outside jsdom/happy-dom), so it is verified
+in-browser here:
+
+```test
+import { elements, on } from 'tosijs'
+const { button } = elements
+
+test('on() fires for a click originating inside an open shadow root', () => {
+  const host = document.createElement('div')
+  preview.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const b = button('inside shadow')
+  shadow.append(b)
+  let clicks = 0
+  on(b, 'click', () => { clicks++ })
+  b.click()
+  expect(clicks).toBe(1)
+})
+
+test('delegation crosses the shadow boundary to a light-DOM ancestor', () => {
+  const outer = document.createElement('div')
+  preview.append(outer)
+  const host = document.createElement('div')
+  outer.append(host)
+  const inner = button('inner')
+  host.attachShadow({ mode: 'open' }).append(inner)
+  let heard = 0
+  on(outer, 'click', () => { heard++ })
+  inner.click()
+  expect(heard).toBe(1)
+})
+```
+
 ## `touchElement()`
 
 ```
@@ -228,7 +270,7 @@ want to force a render of an element (versus anything bound to a path), simply c
 to paths staring with the provided path.
 */
 
-import { touch, observe } from './path-listener'
+import { touch, observe, extendsPath } from './path-listener'
 import { getXinProxy, setBindFunctions } from './registry'
 import { checkPath } from './path-check'
 import {
@@ -254,6 +296,7 @@ import {
   XinBindingSpec,
   TakeDescriptor,
   EventType,
+  ValueElement,
 } from './xin-types'
 import { ListBinding, getListItem } from './list-binding'
 
@@ -286,7 +329,7 @@ export const touchElement = (element: Element, changedPath?: string): void => {
           continue
         }
       }
-      if (changedPath == null || path.startsWith(changedPath)) {
+      if (changedPath == null || extendsPath(changedPath, path)) {
         toDOM(element, getXinProxy()[path], options)
       }
     }
@@ -320,12 +363,55 @@ observe(
   }
 )
 
+// The true origin of an event: composed events cross open shadow boundaries
+// but are RETARGETED to the host, so event.target hides any origin inside a
+// shadow root. composedPath()[0] sees through open roots; closed roots stay
+// hidden (the path is truncated for outside listeners) — closed means closed.
+const eventOrigin = (event: Event): Element | null => {
+  const origin =
+    event.composedPath != null ? event.composedPath()[0] : event.target
+  return origin instanceof Element ? origin : null
+}
+
+// closest(), but hopping open-shadow boundaries: when the search exhausts an
+// element's tree, continue from the shadow host so delegation reaches
+// light-DOM ancestors of events that originate inside a shadow widget.
+const closestAcrossShadow = (
+  el: Element | null,
+  selector: string
+): Element | null => {
+  while (el != null) {
+    const found = el.closest(selector)
+    if (found != null) return found
+    const root = el.getRootNode()
+    el =
+      typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot
+        ? root.host
+        : null
+  }
+  return null
+}
+
+// the upward delegation step from a handled element
+const nextAcrossShadow = (el: Element, selector: string): Element | null => {
+  if (el.parentElement != null) {
+    return closestAcrossShadow(el.parentElement, selector)
+  }
+  const root = el.getRootNode()
+  if (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot) {
+    return closestAcrossShadow(root.host, selector)
+  }
+  return null
+}
+
 const handleChange = (event: Event): void => {
-  // @ts-expect-error event.target may be null but closest handles it
-  let target = event.target?.closest(BOUND_SELECTOR)
+  let target = closestAcrossShadow(eventOrigin(event), BOUND_SELECTOR)
   while (target != null) {
-    const dataBindings = elementToBindings.get(target) as DataBindings
-    for (const dataBinding of dataBindings) {
+    // plain cloneNode(true) copies the marker class but not the WeakMap
+    // metadata — skip such elements instead of crashing the dispatcher
+    // (which would also abort ancestor traversal for this event)
+    const dataBindings = elementToBindings.get(target)
+    for (const dataBinding of dataBindings ?? []) {
       const { binding, path } = dataBinding
       const { fromDOM } = binding
       if (fromDOM != null) {
@@ -340,22 +426,55 @@ const handleChange = (event: Event): void => {
           const xin = getXinProxy()
           const existing = xin[path]
           if (existing == null) {
+            // bootstrap: no state type to consult — the typed-control read
+            // (getValue) already gave the control's native type
             xin[path] = value
           } else {
             const existingActual =
               existing[XIN_PATH] != null
                 ? (existing as XinProps)[XIN_VALUE]
                 : existing
-            const valueActual =
+            let valueActual =
               value[XIN_PATH] != null ? value[XIN_VALUE] : value
-            if (existingActual !== valueActual) {
+            // State-driven coercion (H-6 layer 2): the type state currently
+            // holds is authoritative — DOM controls speak string, state
+            // speaks typed values, and the binding layer owns conversion.
+            if (
+              typeof existingActual === 'number' &&
+              typeof valueActual === 'string'
+            ) {
+              // covers controls that don't declare a type: text inputs,
+              // selects with numeric option values, radios. Only coerce a
+              // clean, non-empty parse — Number('') is 0, and genuinely
+              // non-numeric input writes raw so type-drift stays visible.
+              const trimmed = valueActual.trim()
+              if (trimmed !== '') {
+                const n = Number(trimmed)
+                if (!Number.isNaN(n)) valueActual = n
+              }
+            } else if (valueActual instanceof Date) {
+              // state picks the temporal representation
+              if (typeof existingActual === 'number') {
+                valueActual = valueActual.getTime()
+              } else if (typeof existingActual === 'string') {
+                // the control's own serialization (e.g. 'yyyy-mm-dd')
+                valueActual = (target as unknown as ValueElement).value
+              }
+            }
+            const bothDates =
+              existingActual instanceof Date && valueActual instanceof Date
+            const changed = bothDates
+              ? (existingActual as Date).getTime() !==
+                (valueActual as Date).getTime()
+              : existingActual !== valueActual
+            if (changed) {
               xin[path] = valueActual
             }
           }
         }
       }
     }
-    target = target.parentElement.closest(BOUND_SELECTOR)
+    target = nextAcrossShadow(target, BOUND_SELECTOR)
   }
 }
 
@@ -419,6 +538,31 @@ function bindTake<T extends Element>(
   return element
 }
 
+// DATA binding inside shadow DOM is a documented design boundary (see
+// Component's docs): dispatch cannot see into shadow roots, so bind() there
+// is inert. (Event sugar is different: on() works across open shadow roots
+// via composedPath.) The failure used to be SILENT — warn at the point of
+// misuse instead. Once per session: the trap, not every element in it.
+let warnedShadowedBinding = false
+export const warnIfShadowed = (element: Element, what: string): void => {
+  if (warnedShadowedBinding) return
+  if (
+    typeof ShadowRoot !== 'undefined' &&
+    element.getRootNode != null &&
+    element.getRootNode() instanceof ShadowRoot
+  ) {
+    warnedShadowedBinding = true
+    console.warn(
+      `tosijs: ${what} targets an element inside a shadow root, where data ` +
+        'bindings do not operate (documented Component design boundary). ' +
+        'A shadow-DOM component is bound like an <input>: bind its VALUE from ' +
+        'outside (bindings.value) and implement render() to reflect value ' +
+        'into the shadow DOM. Warned once per session.',
+      element
+    )
+  }
+}
+
 export function bind<T extends Element = Element>(
   element: T,
   what: XinTouchableType | XinBindingSpec | TakeDescriptor,
@@ -428,6 +572,7 @@ export function bind<T extends Element = Element>(
   if (element instanceof DocumentFragment) {
     throw new Error('bind cannot bind to a DocumentFragment')
   }
+  warnIfShadowed(element, 'bind()')
 
   // TakeDescriptor — multi-path reactive transform
   if (
@@ -451,7 +596,10 @@ export function bind<T extends Element = Element>(
   ) {
     const { value } = what as XinBindingSpec
     path = typeof value === 'string' ? value : value[XIN_PATH]
-    options = what as XinObject
+    // Copy the spec rather than mutating the caller's object: deleting `value`
+    // from `what` in place broke reusing one bindList spec for two containers
+    // (the second call saw no `value` and threw "bind requires a path").
+    options = { ...(what as XinObject) }
     delete options.value
   } else {
     path = typeof what === 'string' ? what : (what as XinProps)[XIN_PATH]
@@ -485,7 +633,6 @@ export function bind<T extends Element = Element>(
   if (options?.filter && options?.needle) {
     bind(element, options.needle, {
       toDOM(element, value) {
-        console.log({ needle: value })
         ;(element as { [LIST_BINDING_REF]?: ListBinding })[
           LIST_BINDING_REF
         ]?.filter(value)
@@ -499,8 +646,7 @@ export function bind<T extends Element = Element>(
 const handledEventTypes: Set<string> = new Set()
 
 const handleBoundEvent = (event: Event): void => {
-  // @ts-expect-error event.target may be null but closest handles it
-  let target = event?.target?.closest(EVENT_SELECTOR)
+  let target = closestAcrossShadow(eventOrigin(event), EVENT_SELECTOR)
   let propagationStopped = false
 
   const wrappedEvent = new Proxy(event, {
@@ -518,8 +664,9 @@ const handleBoundEvent = (event: Event): void => {
   })
   const nohandlers = new Set<XinEventHandler>()
   while (!propagationStopped && target != null) {
-    const eventBindings = elementToHandlers.get(target) as XinEventBindings
-    const handlers = eventBindings[event.type] || nohandlers
+    // see handleChange: clones carry the class but no metadata — skip, don't crash
+    const eventBindings = elementToHandlers.get(target)
+    const handlers = eventBindings?.[event.type] ?? nohandlers
     for (const handler of handlers) {
       if (typeof handler === 'function') {
         handler(wrappedEvent as Event & { target: Element })
@@ -535,10 +682,7 @@ const handleBoundEvent = (event: Event): void => {
         continue
       }
     }
-    target =
-      target.parentElement != null
-        ? target.parentElement.closest(EVENT_SELECTOR)
-        : null
+    target = nextAcrossShadow(target, EVENT_SELECTOR)
   }
 }
 

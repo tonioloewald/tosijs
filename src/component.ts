@@ -103,9 +103,21 @@ By setting content to be a function that returns elements instead of a collectio
 of elements you can take customize elements based on the component's properties.
 In particular, you can use `onXxxx` syntax sugar to bind events.
 
-(Note that you cannot bind to xin paths reliably if your component uses a `shadowDOM`
-because `xin` cannot "see" elements there. As a general rule, you need to take care
-of anything in the `shadowDOM` yourself.)
+(Note that **data bindings do not operate inside a shadowDOM** — binding dispatch
+cannot "see" elements there, and a component that tries now gets a console warning
+instead of silent failure. The semantically correct model: **a component with a
+shadowDOM is bound like an `<input>` or `<textarea>` — its `value` is the binding
+surface.** Bind the component itself (e.g. `bindings.value`) from outside; setting
+`value` automatically queues `render()` and emits `change`, so implement `render()`
+to reflect `value` into the shadow DOM and let `change` events carry edits back out.
+How the component represents its value internally is the implementer's business —
+which also means shadow components don't compose *bindings* internally: wiring
+nested widgets inside a shadow tree is manual (set their `value` in `render()`,
+listen to their events). A shadowDOM component is materially a different thing than
+a lightDOM component. For non-value internal state, `observe()` + `parts`, with
+`unobserve()` on disconnect. **Event sugar is the exception**: `on()` handlers work
+inside open shadow roots — composed events cross the boundary and the dispatcher
+resolves the true origin via `composedPath()`.)
 
 ##### ElementProps in content arrays
 
@@ -223,8 +235,9 @@ preview.append(
 > `<slot>` elements do not work as expected in shadowDOM-less components. This is
 > hugely annoying since it prevents components from composing nicely unless they
 > have a shadowDOM, and while the shadowDOM is great for small widgets, it's
-> terrible for composite views and breaks `tosijs`'s bindings (inside the shadow
-> DOM you need to do data- and event- binding manually).
+> terrible for composite views and excludes `tosijs`'s data bindings (inside the
+> shadow DOM you manage state updates yourself with `observe()` + `parts`;
+> `on()` event handlers do work there via `composedPath()`).
 
 #### styleNode: HTMLStyleElement
 
@@ -270,9 +283,10 @@ which will then penetrate the `shadowDOM`.
 is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).
 
-`this.parts.foo` will return a content element with `data-ref="foo"`. If no such
-element is found it tries it as a css selector, so `this.parts['.foo']` would find
-a content element with `class="foo"` while `this.parts.h1` will find an `<h1>`.
+`this.parts.foo` finds a content element by, in order: `part="foo"` (the preferred
+form — it's also what `::part()` styling targets), then `data-ref="foo"`, and
+finally `foo` as a css selector — so `this.parts['.foo']` finds a content element
+with `class="foo"` while `this.parts.h1` finds an `<h1>`.
 
 `this.parts` will also remove a `data-ref` attribute once it has been used to find
 the element. This means that if you use all your refs in `render` or `connectedCallback`
@@ -594,7 +608,7 @@ import { tosiPath } from './metadata'
 import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
-import { warnDeprecated } from './metadata'
+import { warnDeprecated, BOUND_SELECTOR } from './metadata'
 
 let anonymousElementCount = 0
 
@@ -602,6 +616,12 @@ function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
 }
 let instanceCount = 0
+
+// Component classes already warned about inert bind/on sugar in shadow content
+const warnedShadowContentBindings = new Set<string>()
+
+// Component classes already warned about class fields shadowing initAttributes
+const warnedFieldShadowedAttrs = new Set<string>()
 
 // Marks a prototype whose connectedCallback has already been wrapped to drain
 // deferred constructor-time attribute ops before the subclass body runs.
@@ -988,8 +1008,17 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         {},
         {
           get(target: any, ref: string) {
+            // symbol keys (and thenable probing, e.g. Promise.resolve(parts))
+            // must not be treated as element refs
+            if (typeof ref !== 'string') return undefined
             if (target[ref] === undefined) {
               let element = root.querySelector(`[part="${ref}"]`)
+              if (element == null) {
+                // documented fallback: data-ref="foo" (the docs have always
+                // described this; only [part=] was implemented, so code
+                // following the docs threw "does not exist")
+                element = root.querySelector(`[data-ref="${ref}"]`)
+              }
               if (element == null) {
                 element = root.querySelector(ref)
               }
@@ -1017,6 +1046,12 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   ): void {
     // Convert kabob-case attribute to camelCase property name
     const propName = kabobToCamel(name)
+    // When the attribute is removed externally (el.removeAttribute), drop the
+    // in-memory fallback so the getter returns the default instead of the last
+    // property value — otherwise the fallback masked the removal forever.
+    if (_newValue === null && this._attrValues?.has(propName)) {
+      this._attrValues.delete(propName)
+    }
     // Only queue render if this isn't a legacy-tracked attr (those use MutationObserver)
     if (!this._legacyTrackedAttrs?.has(propName)) {
       this.queueRender(false)
@@ -1150,12 +1185,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this._pendingAttrOps = undefined
     delete (this as any).setAttribute
     delete (this as any).removeAttribute
+    // Snapshot which attributes exist BEFORE replay: those were set by the
+    // parser (pre-upgrade markup) and win over queued default reflections.
+    // The guard must consult this snapshot, not live hasAttribute() — an
+    // attribute landed by an EARLIER op in this same queue would otherwise
+    // block later ops, making the drain first-write-wins and silently
+    // dropping the second of two pre-connect property writes.
+    const preExisting = new Set<string>()
+    for (const op of queue) {
+      if (this.hasAttribute(op[1])) preExisting.add(op[1])
+    }
     for (const op of queue) {
       if (op[0] === 'set') {
-        // hasAttribute guard: anything already on the element (e.g. set by
-        // the parser before upgrade) wins over a queued default reflection.
-        if (!this.hasAttribute(op[1])) this.setAttribute(op[1], op[2])
+        if (!preExisting.has(op[1])) this.setAttribute(op[1], op[2])
       } else {
+        // an explicit remove consciously discards the parser-set value, so
+        // a later queued set for the same attribute must land
+        preExisting.delete(op[1])
         this.removeAttribute(op[1])
       }
     }
@@ -1164,9 +1210,17 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   /**
    * Sets up property accessors from static initAttributes.
    */
+  // initAttributes accessors actually installed on this instance — the set
+  // field-shadow recovery consults (names skipped for other reasons must not
+  // be "restored")
+  private _installedAttrAccessors?: Set<string>
+
   private _setupAttributeAccessors(initAttrs: Record<string, any>): void {
     if (!this._attrValues) {
       this._attrValues = new Map()
+    }
+    if (!this._installedAttrAccessors) {
+      this._installedAttrAccessors = new Set()
     }
 
     for (const attrName of Object.keys(initAttrs)) {
@@ -1222,69 +1276,124 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         continue
       }
 
-      Object.defineProperty(this, attrName, {
-        enumerable: false,
-        get: () => {
-          // DOM attribute wins over the in-memory fallback so external
-          // setAttribute calls remain observable. The fallback covers the
-          // window between a property assignment and its (possibly deferred)
-          // DOM reflection.
-          if (typeof defaultValue === 'boolean') {
-            if (this.hasAttribute(attrKabob)) return true
-            if (this._attrValues!.has(attrName))
-              return this._attrValues!.get(attrName)
-            return false
-          } else if (this.hasAttribute(attrKabob)) {
-            return typeof defaultValue === 'number'
-              ? parseFloat(this.getAttribute(attrKabob)!)
-              : this.getAttribute(attrKabob)
-          } else if (this._attrValues!.has(attrName)) {
+      this._installAttrAccessor(attrName, attrKabob, defaultValue)
+    }
+  }
+
+  private _installAttrAccessor(
+    attrName: string,
+    attrKabob: string,
+    defaultValue: any
+  ): void {
+    Object.defineProperty(this, attrName, {
+      enumerable: false,
+      // configurable, so a leftover subclass class field ([[Define]]
+      // semantics — the default for ES2022 targets) replaces the accessor
+      // instead of throwing a cryptic TypeError out of document.createElement.
+      // connectedCallback detects the replacement, warns, and restores the
+      // accessor, adopting the field's value (see _recoverShadowedAttrAccessors).
+      configurable: true,
+      get: () => {
+        // DOM attribute wins over the in-memory fallback so external
+        // setAttribute calls remain observable. The fallback covers the
+        // window between a property assignment and its (possibly deferred)
+        // DOM reflection.
+        if (typeof defaultValue === 'boolean') {
+          if (this.hasAttribute(attrKabob)) return true
+          if (this._attrValues!.has(attrName))
             return this._attrValues!.get(attrName)
-          } else {
-            return defaultValue
+          return false
+        } else if (this.hasAttribute(attrKabob)) {
+          return typeof defaultValue === 'number'
+            ? parseFloat(this.getAttribute(attrKabob)!)
+            : this.getAttribute(attrKabob)
+        } else if (this._attrValues!.has(attrName)) {
+          return this._attrValues!.get(attrName)
+        } else {
+          return defaultValue
+        }
+      },
+      set: (value: any) => {
+        if (typeof defaultValue === 'boolean') {
+          if (value !== this[attrName]) {
+            if (value) {
+              this.setAttribute(attrKabob, '')
+            } else {
+              this.removeAttribute(attrKabob)
+            }
+            this.queueRender()
+            this._attrValues!.set(attrName, !!value)
           }
-        },
-        set: (value: any) => {
-          if (typeof defaultValue === 'boolean') {
-            if (value !== this[attrName]) {
-              if (value) {
-                this.setAttribute(attrKabob, '')
-              } else {
-                this.removeAttribute(attrKabob)
-              }
-              this.queueRender()
-              this._attrValues!.set(attrName, !!value)
-            }
-          } else if (typeof defaultValue === 'number') {
-            if (value !== parseFloat(this[attrName])) {
-              this.setAttribute(attrKabob, value)
-              this.queueRender()
-              this._attrValues!.set(attrName, value)
-            }
-          } else {
+        } else if (typeof defaultValue === 'number') {
+          if (value !== parseFloat(this[attrName])) {
+            this.setAttribute(attrKabob, value)
+            this.queueRender()
+            this._attrValues!.set(attrName, value)
+          }
+        } else {
+          if (
+            typeof value === 'object' ||
+            `${value as string}` !== `${this[attrName] as string}`
+          ) {
             if (
-              typeof value === 'object' ||
-              `${value as string}` !== `${this[attrName] as string}`
+              value === null ||
+              value === undefined ||
+              typeof value === 'object'
             ) {
-              if (
-                value === null ||
-                value === undefined ||
-                typeof value === 'object'
-              ) {
-                this.removeAttribute(attrKabob)
-              } else {
-                this.setAttribute(attrKabob, value)
-              }
-              this.queueRender()
-              this._attrValues!.set(attrName, value)
+              this.removeAttribute(attrKabob)
+            } else {
+              this.setAttribute(attrKabob, value)
             }
+            this.queueRender()
+            this._attrValues!.set(attrName, value)
           }
-        },
-      })
+        }
+      },
+    })
+    this._installedAttrAccessors!.add(attrName)
+  }
+
+  // A subclass instance field named after a static initAttribute replaces the
+  // generated accessor with a plain data property (class fields use [[Define]]
+  // semantics), silently severing attribute reflection. Detect the
+  // replacement at connect, restore the accessor, and adopt the field's value
+  // as an ordinary property write. Idempotent: once restored, the own
+  // descriptor is an accessor again and the check passes it by.
+  private _recoverShadowedAttrAccessors(): void {
+    const installed = this._installedAttrAccessors
+    const initAttrs = (this.constructor as typeof Component).initAttributes
+    if (installed == null || initAttrs == null) return
+    const shadowed: string[] = []
+    for (const attrName of installed) {
+      const desc = Object.getOwnPropertyDescriptor(this, attrName)
+      if (desc == null || desc.get != null || desc.set != null) continue
+      const fieldValue = desc.value
+      delete (this as any)[attrName]
+      this._installAttrAccessor(
+        attrName,
+        camelToKabob(attrName),
+        initAttrs[attrName]
+      )
+      ;(this as any)[attrName] = fieldValue
+      shadowed.push(attrName)
+    }
+    if (shadowed.length > 0 && !warnedFieldShadowedAttrs.has(this.tagName)) {
+      warnedFieldShadowedAttrs.add(this.tagName)
+      const list = shadowed.map((n) => `'${n}'`).join(', ')
+      console.warn(
+        `<${this.tagName.toLowerCase()}> declares instance field(s) ${list} ` +
+          'that shadow static initAttributes accessors (class fields use ' +
+          '[[Define]] semantics). The field value was adopted and the ' +
+          'reactive accessor restored — delete the field declaration; ' +
+          'static initAttributes already defines the property.'
+      )
     }
   }
 
   connectedCallback(): void {
+    // Restore any initAttributes accessors clobbered by subclass class
+    // fields BEFORE draining/rendering (idempotent; warns once per class).
+    this._recoverShadowedAttrAccessors()
     // Apply any setAttribute/removeAttribute calls that were queued during
     // construction. Idempotent — if the microtask drain already ran, this
     // is a no-op.
@@ -1367,7 +1476,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         // TODO add mechanism to allow component developer to have more control over
         // whether input vs. change events are emitted
         if (this._changeQueued) {
-          dispatch(this, 'change')
+          // bubble + compose so bind()'s delegated change handler sees it,
+          // even when the component lives inside a shadow root
+          dispatch(this, 'change', { bubbles: true, composed: true })
           // Sync form value for formAssociated components
           if (this.internals && this.value !== undefined) {
             this.internals.setFormValue(this.value)
@@ -1462,11 +1573,34 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         const shadow = this.attachShadow({ mode: 'open' })
         shadow.appendChild(styleNode.cloneNode(true))
         appendContentToElement(shadow, _content, cloneElements)
+        // Data-binding sugar in shadow content is inert by design (see the
+        // docs above: dispatch does not see into shadow roots; micro-manage
+        // with observe() + parts instead — on() event sugar DOES work, via
+        // composedPath). bind() runs while content is still detached, so it
+        // cannot catch this itself. One query per shadow component at hydrate
+        // turns a silent brick into a named warning.
+        if (
+          !warnedShadowContentBindings.has(this.tagName) &&
+          shadow.querySelector(BOUND_SELECTOR) != null
+        ) {
+          warnedShadowContentBindings.add(this.tagName)
+          console.warn(
+            `<${this.tagName.toLowerCase()}> has data-binding sugar in its ` +
+              'shadow-DOM content, where bindings do not operate. A shadow-DOM ' +
+              'component is bound like an <input>: bind its VALUE from outside ' +
+              '(bindings.value) and implement render() to reflect value into ' +
+              'the shadow DOM — setting value queues render() and emits change ' +
+              'automatically. on() event handlers are fine. Warned once per ' +
+              'component class.'
+          )
+        }
       } else if (_content !== null) {
         const existingChildren = Array.from(this.childNodes)
         appendContentToElement(this as HTMLElement, _content, cloneElements)
+        // querySelector returns null (never undefined) when there's no match,
+        // so `!== undefined` was always true
         this.isSlotted =
-          this.querySelector('slot,tosi-slot,xin-slot') !== undefined
+          this.querySelector('slot,tosi-slot,xin-slot') !== null
         const slots = Array.from(this.querySelectorAll('slot'))
         if (slots.length > 0) {
           slots.forEach(TosiSlot.replaceSlot)
@@ -1533,6 +1667,11 @@ class TosiSlot extends Component<SlotParts> {
     const _slot = document.createElement('tosi-slot')
     if (slot.name !== '') {
       _slot.setAttribute('name', slot.name)
+    }
+    // Preserve the slot's fallback content (its children) — they were being
+    // dropped, so a `slot('default text')` lost its default text on rewrite.
+    while (slot.firstChild != null) {
+      _slot.appendChild(slot.firstChild)
     }
     slot.replaceWith(_slot)
   }

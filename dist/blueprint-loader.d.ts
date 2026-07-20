@@ -1,5 +1,10 @@
 import { Component } from './component';
 import { XinPackagedComponent } from './make-component';
+/**
+ * Replace the module loader (mainly for testing failure/retry paths — the
+ * default uses dynamic `import()`, which tests cannot intercept).
+ */
+export declare function setModuleLoader(loader: (src: string) => Promise<any>): void;
 export declare class Blueprint extends Component {
     static preferredTagName: string;
     static lightStyleSpec: {

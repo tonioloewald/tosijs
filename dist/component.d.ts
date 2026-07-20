@@ -68,7 +68,10 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     /**
      * Sets up property accessors from static initAttributes.
      */
+    private _installedAttrAccessors?;
     private _setupAttributeAccessors;
+    private _installAttrAccessor;
+    private _recoverShadowedAttrAccessors;
     connectedCallback(): void;
     disconnectedCallback(): void;
     /**

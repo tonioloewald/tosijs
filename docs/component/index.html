@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Hide the pre-rendered body until <tosi-doc-system> hydrates, then fade it
-       in — avoids the layout shift as the static markup is swapped for the live
-       doc browser. <noscript> keeps it visible for no-JS readers/crawlers; the
-       timeout is a safety net so a failed/slow hydration can't leave it blank. -->
-  <style>body{opacity:0;transition:opacity .25s ease}</style>
-  <noscript><style>body{opacity:1!important}</style></noscript>
-  <script>setTimeout(function(){if(document.body)document.body.style.opacity='1'},4000)</script>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -118,9 +134,21 @@ you can set your subclass&#39;s content to <code>null</code> or omit any <code>&
 <p>By setting content to be a function that returns elements instead of a collection
 of elements you can take customize elements based on the component&#39;s properties.
 In particular, you can use <code>onXxxx</code> syntax sugar to bind events.</p>
-<p>(Note that you cannot bind to xin paths reliably if your component uses a <code>shadowDOM</code>
-because <code>xin</code> cannot &quot;see&quot; elements there. As a general rule, you need to take care
-of anything in the <code>shadowDOM</code> yourself.)</p>
+<p>(Note that <strong>data bindings do not operate inside a shadowDOM</strong> — binding dispatch
+cannot &quot;see&quot; elements there, and a component that tries now gets a console warning
+instead of silent failure. The semantically correct model: <strong>a component with a
+shadowDOM is bound like an <code>&lt;input&gt;</code> or <code>&lt;textarea&gt;</code> — its <code>value</code> is the binding
+surface.</strong> Bind the component itself (e.g. <code>bindings.value</code>) from outside; setting
+<code>value</code> automatically queues <code>render()</code> and emits <code>change</code>, so implement <code>render()</code>
+to reflect <code>value</code> into the shadow DOM and let <code>change</code> events carry edits back out.
+How the component represents its value internally is the implementer&#39;s business —
+which also means shadow components don&#39;t compose <em>bindings</em> internally: wiring
+nested widgets inside a shadow tree is manual (set their <code>value</code> in <code>render()</code>,
+listen to their events). A shadowDOM component is materially a different thing than
+a lightDOM component. For non-value internal state, <code>observe()</code> + <code>parts</code>, with
+<code>unobserve()</code> on disconnect. <strong>Event sugar is the exception</strong>: <code>on()</code> handlers work
+inside open shadow roots — composed events cross the boundary and the dispatcher
+resolves the true origin via <code>composedPath()</code>.)</p>
 <h5>ElementProps in content arrays</h5>
 <p>When <code>content</code> returns an array, any plain objects (ElementProps) in the array are
 applied to the <strong>host element</strong> itself, just as they would be applied to the element
@@ -220,8 +248,9 @@ preview.append(
 <p><code>&lt;slot&gt;</code> elements do not work as expected in shadowDOM-less components. This is
 hugely annoying since it prevents components from composing nicely unless they
 have a shadowDOM, and while the shadowDOM is great for small widgets, it&#39;s
-terrible for composite views and breaks <code>tosijs</code>&#39;s bindings (inside the shadow
-DOM you need to do data- and event- binding manually).</p>
+terrible for composite views and excludes <code>tosijs</code>&#39;s data bindings (inside the
+shadow DOM you manage state updates yourself with <code>observe()</code> + <code>parts</code>;
+<code>on()</code> event handlers do work there via <code>composedPath()</code>).</p>
 </blockquote>
 <h4>styleNode: HTMLStyleElement</h4>
 <p><code>styleNode</code> is the <code>&lt;style&gt;</code> element that will be inserted into the element&#39;s
@@ -258,9 +287,10 @@ should you override them.</p>
 <p><code>this.parts</code> returns a proxy that provides elements conveniently and efficiently. It
 is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).</p>
-<p><code>this.parts.foo</code> will return a content element with <code>data-ref=&quot;foo&quot;</code>. If no such
-element is found it tries it as a css selector, so <code>this.parts[&#39;.foo&#39;]</code> would find
-a content element with <code>class=&quot;foo&quot;</code> while <code>this.parts.h1</code> will find an <code>&lt;h1&gt;</code>.</p>
+<p><code>this.parts.foo</code> finds a content element by, in order: <code>part=&quot;foo&quot;</code> (the preferred
+form — it&#39;s also what <code>::part()</code> styling targets), then <code>data-ref=&quot;foo&quot;</code>, and
+finally <code>foo</code> as a css selector — so <code>this.parts[&#39;.foo&#39;]</code> finds a content element
+with <code>class=&quot;foo&quot;</code> while <code>this.parts.h1</code> finds an <code>&lt;h1&gt;</code>.</p>
 <p><code>this.parts</code> will also remove a <code>data-ref</code> attribute once it has been used to find
 the element. This means that if you use all your refs in <code>render</code> or <code>connectedCallback</code>
 then no trace will remain in the DOM for a mounted element.</p>
@@ -515,46 +545,46 @@ in your application using <a href="https://babylonjs.com/">babylonjs</a></li>
   </article>
   <nav class="doc-nav" aria-label="Documentation">
   <ul>
-    <li><a href="/">tosijs</a></li>
-    <li><a href="/Building-Apps/">Building Apps</a></li>
-    <li><a href="/elements/">Creating Elements</a></li>
-    <li><details><summary><a href="/css/">CSS</a></summary>
+    <li><a class="doc-link" href="/">tosijs</a></li>
+    <li><a class="doc-link" href="/Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="/css/">CSS</a></summary>
     <ul>
-      <li><a href="/color/">color</a></li>
+      <li><a class="doc-link" href="/color/">color</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <li><details><summary><a class="doc-link" href="/tosi/">Managing State</a></summary>
     <ul>
-      <li><a href="/xin/">The tosi proxy</a></li>
-      <li><a href="/metadata/">metadata</a></li>
-      <li><a href="/path-listener/">path-listener</a></li>
-      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+      <li><a class="doc-link" href="/xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="/metadata/">metadata</a></li>
+      <li><a class="doc-link" href="/path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <li><details><summary><a class="doc-link" href="/bind/">Binding</a></summary>
     <ul>
-      <li><a href="/list-binding/">binding arrays</a></li>
-      <li><a href="/bindings/">bindings</a></li>
+      <li><a class="doc-link" href="/list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="/bindings/">bindings</a></li>
     </ul>
     </details></li>
-    <li><details open><summary><a href="/component/" aria-current="page" class="current">Web-Components</a></summary>
+    <li><details open><summary><a class="doc-link current" href="/component/" aria-current="page">Web-Components</a></summary>
     <ul>
-      <li><a href="/blueprint-loader/">blueprints</a></li>
-      <li><a href="/make-component/">makeComponent</a></li>
-      <li><a href="/form-validation/">Validation</a></li>
+      <li><a class="doc-link" href="/blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="/make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="/form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <li><details><summary><a class="doc-link" href="/utilities/">Utilities</a></summary>
     <ul>
-      <li><a href="/hot-reload/">hotReload</a></li>
-      <li><a href="/more-math/">more-math</a></li>
-      <li><a href="/share/">share</a></li>
-      <li><a href="/sync/">sync</a></li>
-      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="/hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="/more-math/">more-math</a></li>
+      <li><a class="doc-link" href="/share/">share</a></li>
+      <li><a class="doc-link" href="/sync/">sync</a></li>
+      <li><a class="doc-link" href="/throttle/">throttle &amp; debounce</a></li>
     </ul>
     </details></li>
-    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a href="/React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="/React/">React and tosijs</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">

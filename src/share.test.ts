@@ -373,4 +373,67 @@ describe('share', () => {
     sender.close()
     echoListener.close()
   })
+
+  test('restoring from store does not re-broadcast the snapshot (H-7)', async () => {
+    // seed the store as if a prior tab persisted state
+    await memStore.set('t99', { color: 'blue' })
+
+    let broadcasts = 0
+    const listener = new BroadcastChannel(CHANNEL_NAME)
+    listener.onmessage = (e) => {
+      if (e.data?.path && String(e.data.path).startsWith('t99')) broadcasts++
+    }
+
+    const { t99 } = tosi({ t99: { color: 'red' } })
+    const { restored } = await share(t99)
+    // let the restore's touch drain through the (now-registered) observer
+    await updates()
+    await tick(100)
+
+    expect(restored).toContain(t99)
+    expect(xin['t99'].color).toBe('blue') // inherited the stored value
+    expect(broadcasts).toBe(0) // but must NOT have rebroadcast it over live tabs
+    listener.close()
+  })
+
+  test('a live delta arriving mid-restore wins over the stale snapshot (H-7)', async () => {
+    // A store whose get() we control: it does not resolve until we say so, so
+    // we can inject a live delta during the await inside share().
+    let releaseGet: (v: any) => void = () => {}
+    const deferredStore: ShareStore = {
+      get: (_key: string) =>
+        new Promise((resolve) => {
+          releaseGet = resolve
+        }),
+      set: async () => {},
+    }
+    setShareStore(deferredStore)
+
+    const { t100 } = tosi({ t100: { v: 'local-default' } })
+    const sharePromise = share(t100) // parks on the deferred get()
+
+    // give share() a tick to add t100 to sharedPaths/restoringPaths
+    await tick(10)
+
+    // another tab broadcasts a FRESH value while the snapshot read is in flight
+    const sender = new BroadcastChannel(CHANNEL_NAME)
+    sender.postMessage({
+      type: 'tosijs-share',
+      path: 't100',
+      value: { v: 'fresh-from-peer' },
+      origin: 'some-other-tab',
+    })
+    await tick(30) // let the channel deliver + applyInbound run
+
+    // NOW the stale snapshot read resolves
+    releaseGet({ v: 'stale-snapshot' })
+    await sharePromise
+    await updates()
+    await tick(50)
+
+    // the fresh peer value must survive — the stale snapshot must NOT clobber it
+    expect(xin['t100'].v).toBe('fresh-from-peer')
+    sender.close()
+    setShareStore(memStore) // restore the default harness store
+  })
 })

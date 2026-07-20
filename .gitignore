@@ -141,3 +141,9 @@ docs/*.map
 
 # Claude Code session transcripts
 .haltija/
+.browser-tests.json
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+.last-run.json

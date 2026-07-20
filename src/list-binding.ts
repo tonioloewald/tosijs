@@ -149,6 +149,45 @@ just direct, surgical updates.
 (in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
 virtualized grid example below. Only the cells whose values actually change will flash.
 
+## Nested lists
+
+A `bindList` can live inside another list's item template — the inner list's
+relative path (`^.subs`) resolves against each outer item. This depends on
+cloning a `<template>` that itself contains a `<template>`, which only behaves
+correctly in a real browser (jsdom/happy-dom put cloned children in the wrong
+place), so it is verified in-browser here:
+
+```test
+import { tosi, elements, xin, updates } from 'tosijs'
+const { div, span, template } = elements
+
+test('a bindList nested in a list item template renders each inner item', async () => {
+  tosi({
+    nestedListDoc: {
+      groups: [
+        { gid: 'g1', subs: [{ sid: 's1', label: 'one' }, { sid: 's2', label: 'two' }] },
+        { gid: 'g2', subs: [{ sid: 's3', label: 'three' }] },
+      ],
+    },
+  })
+  const container = div(
+    template(
+      div(
+        div(
+          { class: 'subs', bindList: { value: '^.subs', idPath: 'sid' } },
+          template(span({ bindText: '^.label' }))
+        )
+      )
+    ),
+    { bindList: { value: xin['nestedListDoc.groups'], idPath: 'gid' } }
+  )
+  preview.append(container)
+  await updates()
+  const labels = [...container.querySelectorAll('span')].map((s) => s.textContent)
+  expect(labels).toEqual(['one', 'two', 'three'])
+})
+```
+
 ## Iterating and Searching Arrays
 
 Proxied arrays have specific semantics around which iteration patterns
@@ -1033,11 +1072,21 @@ function updateRelativeBindings(element: Element, path: string): void {
         binding.path = `${path}${binding.path.substring(1)}`
       }
       if (binding.binding.toDOM != null) {
-        binding.binding.toDOM(boundElement as Element, xin[binding.path])
+        // pass the binding's stored options through: a nested list binding
+        // constructed without them silently loses idPath/virtual/filter, and
+        // getListBinding caches the instance so later calls can't repair it
+        binding.binding.toDOM(
+          boundElement as Element,
+          xin[binding.path],
+          binding.options
+        )
       }
     }
   }
 }
+
+// warned once per session about duplicate id-path values in a list binding
+let warnedDuplicateListId = false
 
 export class ListBinding {
   boundElement: Element
@@ -1432,10 +1481,29 @@ export class ListBinding {
 
     // build a complete new set of elements in the right order
     const elements: Element[] = []
+    const seenIds = idPath != null ? new Set<string>() : null
     for (let i = firstItem; i <= lastItem; i++) {
       const item = slice.items[i]
       if (item === undefined) {
         continue
+      }
+      if (seenIds != null && idPath != null) {
+        // duplicate idPath values silently collapse to one row (both items
+        // map to the same element group) — warn once rather than lose data
+        // without a trace
+        const id = String(item[idPath])
+        if (seenIds.has(id)) {
+          if (!warnedDuplicateListId) {
+            warnedDuplicateListId = true
+            console.error(
+              `tosijs list binding: duplicate idPath value "${id}" (idPath: "${idPath}"). ` +
+                'id-path values must be unique — items sharing an id collapse to a single ' +
+                'row and updates target the wrong item. Warned once per session.'
+            )
+          }
+        } else {
+          seenIds.add(id)
+        }
       }
       let group = this.itemToElement.get(tosiValue(item))
       // When WeakMap misses (new object ref) but idPath matches an
@@ -1504,8 +1572,14 @@ export class ListBinding {
       elements.push(...group)
     }
 
-    // make sure all the elements are in the DOM and in the correct location
-    let insertionPoint: Element | null = null
+    // make sure all the elements are in the DOM and in the correct location.
+    // The anchor starts at listTop (not null): in any non-table list the first
+    // item's previousElementSibling is listTop, so a null anchor judged every
+    // first item "moved" and the comparison cascaded — every element was
+    // re-inserted on every update (killing focus/selection in list inputs and
+    // restarting animations), even for a no-op touch. In table mode listTop
+    // is null and the null anchor remains correct.
+    let insertionPoint: Element | null = this.listTop
     for (const element of elements) {
       if (element.previousElementSibling !== insertionPoint) {
         moved++

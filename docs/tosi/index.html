@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Hide the pre-rendered body until <tosi-doc-system> hydrates, then fade it
-       in — avoids the layout shift as the static markup is swapped for the live
-       doc browser. <noscript> keeps it visible for no-JS readers/crawlers; the
-       timeout is a safety net so a failed/slow hydration can't leave it blank. -->
-  <style>body{opacity:0;transition:opacity .25s ease}</style>
-  <noscript><style>body{opacity:1!important}</style></noscript>
-  <script>setTimeout(function(){if(document.body)document.body.style.opacity='1'},4000)</script>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -49,46 +65,46 @@
   </article>
   <nav class="doc-nav" aria-label="Documentation">
   <ul>
-    <li><a href="/">tosijs</a></li>
-    <li><a href="/Building-Apps/">Building Apps</a></li>
-    <li><a href="/elements/">Creating Elements</a></li>
-    <li><details><summary><a href="/css/">CSS</a></summary>
+    <li><a class="doc-link" href="/">tosijs</a></li>
+    <li><a class="doc-link" href="/Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="/css/">CSS</a></summary>
     <ul>
-      <li><a href="/color/">color</a></li>
+      <li><a class="doc-link" href="/color/">color</a></li>
     </ul>
     </details></li>
-    <li><details open><summary><a href="/tosi/" aria-current="page" class="current">Managing State</a></summary>
+    <li><details open><summary><a class="doc-link current" href="/tosi/" aria-current="page">Managing State</a></summary>
     <ul>
-      <li><a href="/xin/">The tosi proxy</a></li>
-      <li><a href="/metadata/">metadata</a></li>
-      <li><a href="/path-listener/">path-listener</a></li>
-      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+      <li><a class="doc-link" href="/xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="/metadata/">metadata</a></li>
+      <li><a class="doc-link" href="/path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <li><details><summary><a class="doc-link" href="/bind/">Binding</a></summary>
     <ul>
-      <li><a href="/list-binding/">binding arrays</a></li>
-      <li><a href="/bindings/">bindings</a></li>
+      <li><a class="doc-link" href="/list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="/bindings/">bindings</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <li><details><summary><a class="doc-link" href="/component/">Web-Components</a></summary>
     <ul>
-      <li><a href="/blueprint-loader/">blueprints</a></li>
-      <li><a href="/make-component/">makeComponent</a></li>
-      <li><a href="/form-validation/">Validation</a></li>
+      <li><a class="doc-link" href="/blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="/make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="/form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <li><details><summary><a class="doc-link" href="/utilities/">Utilities</a></summary>
     <ul>
-      <li><a href="/hot-reload/">hotReload</a></li>
-      <li><a href="/more-math/">more-math</a></li>
-      <li><a href="/share/">share</a></li>
-      <li><a href="/sync/">sync</a></li>
-      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="/hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="/more-math/">more-math</a></li>
+      <li><a class="doc-link" href="/share/">share</a></li>
+      <li><a class="doc-link" href="/sync/">sync</a></li>
+      <li><a class="doc-link" href="/throttle/">throttle &amp; debounce</a></li>
     </ul>
     </details></li>
-    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a href="/React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="/React/">React and tosijs</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">

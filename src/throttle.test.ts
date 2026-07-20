@@ -134,3 +134,50 @@ describe('throttle', () => {
     expect(callCount).toBe(2) // Debounced final call went through
   })
 })
+
+describe('throttle single-fire contract', () => {
+  test('a single isolated call fires exactly once', async () => {
+    let callCount = 0
+    const fn = throttle(() => {
+      callCount++
+    }, 50)
+
+    fn()
+    expect(callCount).toBe(1)
+
+    // before the fix, an uncancelled trailing timer fired a duplicate here
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(callCount).toBe(1)
+  })
+
+  test('a burst fires leading with first args and one trailing with last args', async () => {
+    const seen: number[] = []
+    const fn = throttle((n: number) => {
+      seen.push(n)
+    }, 50)
+
+    fn(1)
+    fn(2)
+    fn(3)
+    expect(seen).toEqual([1])
+
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(seen).toEqual([1, 3])
+  })
+})
+
+test('debounce and throttle preserve `this` (medium backlog)', async () => {
+  const obj = {
+    n: 0,
+    bump(this: any) {
+      this.n += 1
+    },
+  } as any
+  obj.debounced = debounce(obj.bump, 20)
+  obj.throttled = throttle(obj.bump, 20)
+  obj.throttled() // leading edge, synchronous
+  expect(obj.n).toBe(1) // `this` was lost before -> TypeError or wrong target
+  obj.debounced()
+  await new Promise((r) => setTimeout(r, 60))
+  expect(obj.n).toBe(2)
+})

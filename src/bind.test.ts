@@ -1,7 +1,7 @@
-import { test, expect } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, bindParts } from './elements'
-import { updates } from './path-listener'
+import { updates, touch } from './path-listener'
 import { on, bind, touchElement } from './bind'
 import { bindings } from './bindings'
 
@@ -390,4 +390,213 @@ test('bindParts works on SVG elements', async () => {
   await updates()
   expect(c.getAttribute('cx')).toBe('50')
   expect(t.textContent).toBe('moved')
+})
+
+test('bind() on an element already inside a shadow root warns', () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    const target = document.createElement('span')
+    shadow.append(target)
+
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    try {
+      bind(target, 'shadowDirectBind.label', bindings.text)
+    } finally {
+      console.warn = origWarn
+    }
+    expect(
+      warnings.some((w) => w.includes('inside a shadow root'))
+    ).toBe(true)
+    host.remove()
+})
+
+test('on() works inside an open shadow root (composedPath origin)', () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const button = document.createElement('button')
+  shadow.append(button)
+
+  let clicks = 0
+  on(button, 'click', () => {
+    clicks++
+  })
+  button.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  expect(clicks).toBe(1)
+  host.remove()
+})
+
+test('delegation crosses the shadow boundary to light-DOM ancestors', () => {
+  const outer = document.createElement('div')
+  document.body.append(outer)
+  const host = document.createElement('div')
+  outer.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const inner = document.createElement('span')
+  shadow.append(inner)
+
+  let outerHeard = 0
+  on(outer as HTMLElement, 'click', () => {
+    outerHeard++
+  })
+  inner.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  expect(outerHeard).toBe(1)
+  outer.remove()
+})
+
+test('bound elements do not re-render for name-prefix sibling paths (H-1)', async () => {
+  tosi({ h1bind: { ab: 'hello', a: 'x' } })
+  let renders = 0
+  const el = document.createElement('div')
+  document.body.append(el)
+  bind(el, 'h1bind.ab', {
+    toDOM(element, value) {
+      renders++
+      element.textContent = String(value)
+    },
+  })
+  await updates()
+  const base = renders
+  touch('h1bind.a') // name-prefix sibling of the bound path
+  await updates()
+  expect(renders).toBe(base)
+  touch('h1bind.ab')
+  await updates()
+  expect(renders).toBe(base + 1)
+  el.remove()
+})
+
+test('events on cloneNode copies of bound elements do not crash dispatch (H-12)', async () => {
+  tosi({ h12clone: { label: 'x' } })
+  // an on()-bound button, cloned: the clone carries -xin-event but no handlers
+  let outerHeard = 0
+  let buttonHeard = 0
+  const outer = document.createElement('div')
+  document.body.append(outer)
+  on(outer as HTMLElement, 'click', () => {
+    outerHeard++
+  })
+  const button = document.createElement('button')
+  on(button as HTMLElement, 'click', () => {
+    buttonHeard++
+  })
+  const clone = button.cloneNode(true) as HTMLElement
+  outer.append(clone)
+  // before the fix: TypeError inside the document-level listener, and the
+  // outer handler never ran
+  clone.dispatchEvent(new Event('click', { bubbles: true }))
+  expect(outerHeard).toBe(1)
+  expect(buttonHeard).toBe(0)
+
+  // a value-bound input, cloned: the clone carries -xin-data but no bindings
+  const input = document.createElement('input')
+  document.body.append(input)
+  bind(input, 'h12clone.label', bindings.value)
+  await updates()
+  const inputClone = input.cloneNode(true) as HTMLElement
+  document.body.append(inputClone)
+  inputClone.dispatchEvent(new Event('input', { bubbles: true })) // no crash
+  outer.remove()
+  input.remove()
+  inputClone.remove()
+})
+
+describe('state-driven value coercion (H-6)', () => {
+  test('number input keeps numeric state numeric across keystrokes', async () => {
+    tosi({ h6num: { count: 42 } })
+    const input = document.createElement('input')
+    input.type = 'number'
+    document.body.append(input)
+    bind(input, 'h6num.count', bindings.value)
+    await updates()
+    expect(input.value).toBe('42')
+    input.value = '43'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6num.count).toBe(43) // was '43' — string — before H-6
+  })
+
+  test('a TEXT input bound to numeric state coerces clean numeric strings', async () => {
+    tosi({ h6text: { count: 7 } })
+    const input = document.createElement('input')
+    document.body.append(input)
+    bind(input, 'h6text.count', bindings.value)
+    await updates()
+    input.value = '8'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6text.count).toBe(8)
+    // non-numeric input writes raw — drift stays visible, not hidden
+    input.value = 'not a number'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    expect((xin as any).h6text.count).toBe('not a number')
+  })
+
+  test('empty input never coerces to zero', async () => {
+    tosi({ h6empty: { count: 5 } })
+    const input = document.createElement('input')
+    document.body.append(input)
+    bind(input, 'h6empty.count', bindings.value)
+    await updates()
+    input.value = ''
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6empty.count).toBe('') // raw, NOT 0
+  })
+
+  test('date input bound to string state keeps the string representation', async () => {
+    tosi({ h6date: { day: '2026-01-01' } })
+    const input = document.createElement('input')
+    input.type = 'date'
+    document.body.append(input)
+    bind(input, 'h6date.day', bindings.value)
+    await updates()
+    input.value = '2026-07-18'
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    expect((xin as any).h6date.day).toBe('2026-07-18') // string in, string stays
+  })
+
+  test('date input bootstrap (no state yet) writes a Date', async () => {
+    const input = document.createElement('input')
+    input.type = 'date'
+    document.body.append(input)
+    bind(input, 'h6dateBoot.day', bindings.value)
+    await updates()
+    input.value = '2026-07-18'
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await updates()
+    const { xin } = await import('./xin')
+    const day = (xin as any).h6dateBoot.day
+    expect(day).toBeInstanceOf(Date)
+    expect(day.toISOString()).toContain('2026-07-18')
+  })
+})
+
+test('bind() does not mutate the caller spec — a bindList spec is reusable', () => {
+  const spec = { value: 'reuseSpec.items', idPath: 'id' }
+  const { div } = elements
+  const a = div()
+  const b = div()
+  document.body.append(a, b)
+  tosi({ reuseSpec: { items: [] } })
+  // both binds must succeed; the first must not delete `value` from `spec`
+  bind(a, { ...spec } as any, bindings.list)
+  expect((spec as any).value).toBe('reuseSpec.items') // spec intact
+  // and binding with the SAME object twice must not throw
+  const spec2 = { value: 'reuseSpec.items', idPath: 'id' }
+  bind(a, spec2 as any, bindings.list)
+  expect(() => bind(b, spec2 as any, bindings.list)).not.toThrow()
+  a.remove()
+  b.remove()
 })

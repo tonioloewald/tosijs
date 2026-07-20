@@ -6,6 +6,163 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.0] - 2026-07-20
+
+The **correctness release** — the outcome of a whole-codebase review (~45 verified
+defects, every one of which passed the previous happy-path test suite). No API was
+removed or renamed; a handful of fixes are observable behavior changes (below), which
+is why this is a minor. Ships with a new multi-engine (Chromium + Firefox) real-browser
+CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
+
+(Shipped incrementally as `1.7.0-beta.1`/`beta.2`; this is the consolidated stable entry.)
+
+### ⚠️ Behavior changes (observable — the reason this is a minor)
+
+- **`on()` handlers now fire inside open shadow roots.** Composed events cross
+  the shadow boundary and the dispatcher resolves the true origin via
+  `composedPath()`, continuing delegation up through shadow hosts to light-DOM
+  ancestors. Handlers that were silently dead will now run. (Data bindings still
+  do not operate inside shadow DOM — by design; a shadow component is bound like
+  an `<input>`, via its `value`.)
+- **Path matching is now segment-exact.** An observer on `'foo'` no longer hears
+  `'foobar'`; `touch('foo')` no longer swallows a later `touch('foobar')`; and a
+  bound element no longer re-renders when an unrelated sibling-prefix path (e.g.
+  `list[50]` vs `list[5]`) changes. Hierarchical matching (parent hears child,
+  child hears parent) is unchanged.
+- **`getValue()` returns typed values for typed controls.** `number`/`range`
+  inputs return numbers; the date family (`date`, `datetime-local`, `month`,
+  `week`) returns `Date` objects (was an ISO string for `type=date`); `time`
+  returns ms-since-midnight. Bound numeric state now stays numeric across edits
+  instead of silently becoming a string.
+- **List updates no longer re-insert every item element** on every change, so
+  focus/selection in list inputs and CSS animations survive unrelated updates.
+- **`deepClone()` now preserves `Date`, `Map`, and `Set`** (were becoming `{}`
+  or shallow) and no longer stack-overflows on circular references.
+- **`Component.change` now bubbles and composes** — it was dispatched
+  non-bubbling, so an ancestor `addEventListener('change', …)` never heard a
+  component's value change (breaking the "bound like a native `<input>`"
+  contract). It now behaves like a native input's `change`. (The delegated
+  binding was unaffected — it listens in the capture phase.)
+- **Reactive `class` bindings replace instead of accumulating** — binding
+  `class` to state and changing `'red'` → `'blue'` no longer leaves `"red blue"`.
+- **`getValue()` on the date family returns `Date`** (see above) — and named CSS
+  colors (`Color.fromCss('red')`) now parse without a DOM.
+- **Data-binding sugar inside shadow-DOM content now warns** (once per class /
+  session) instead of failing silently.
+
+### Fixed
+
+- **Nested list bindings** — a `bindList` inside another list's item template now
+  renders and updates: options pass through to the inner binding, compound
+  id-paths no longer double-bracket (`list[[id=x]]`), and `<template>` cloning
+  targets `.content` per spec (verified in a real browser).
+- **`Component` attribute drain is last-write-wins** — the second of two
+  pre-connect property writes is no longer dropped.
+- **`initAttributes` accessors survive class-field shadowing** — a leftover
+  subclass field of the same name no longer throws a cryptic `TypeError` at
+  element creation under modern class-field semantics; the value is adopted, the
+  accessor restored, and a once-per-class warning points at the fix.
+- **Boxed `.value` assignment respects shadowing** — assigning `.value` on an
+  object that has a real `value` property writes the property instead of
+  replacing the whole object.
+- **`share()`** no longer re-broadcasts its (possibly stale) restored snapshot
+  over live tabs, and doesn't clobber a delta that arrives mid-restore.
+- **`sync()`** requeues outbound deltas when `transport.send()` throws instead of
+  losing them silently.
+- **`hotReload()`** restores saved state wholesale (was `Object.assign`, which
+  dropped root scalars and left stale array tails) and saves on deep writes.
+- **Blueprint loader** — one failing blueprint no longer wedges the loader:
+  failures are evicted from the cache (so a retry re-imports) and the loader uses
+  `Promise.allSettled`, reporting failures while still firing `allLoaded()`.
+- **Events on `cloneNode` copies** of bound elements no longer throw in the
+  global dispatchers (and no longer abort ancestor delegation).
+- **`parts` honors the documented `data-ref="foo"` lookup** (order is now
+  `part=` → `data-ref=` → CSS selector); symbol keys are no longer treated as
+  refs, so thenable-probing a `parts` proxy no longer throws.
+- **`css-colors.ts` (a complete named-color table, previously dead code) is wired
+  into `Color.fromCss`**, so named colors parse with no DOM (SSR/workers/tests
+  got transparent black before); consequently `invertLuminance` no longer drops
+  named colors.
+- **`bind()` no longer mutates the caller's spec**, so one `bindList` spec can
+  bind two containers; and **`bind: { value, binding: 'name' }`** (string binding
+  name) resolves and renders instead of being a silent no-op.
+- **Unitless custom properties no longer get `px`** (`--opacity: 0.5`, not
+  `0.5px`); **`Color` alpha hex rounds** (`0.5` → `80`, not `7f`).
+- **External `removeAttribute` is observable again** (the in-memory
+  `initAttributes` fallback masked it); **`<slot>` fallback children survive** the
+  `tosi-slot` rewrite; **`Component.isSlotted`** no longer always-true.
+- **Symbol-keyed proxy assignment** stores on the target instead of throwing;
+  **`debounce`/`throttle` preserve `this`**; **duplicate list `idPath` values**
+  warn once instead of silently collapsing rows.
+
+### Added
+
+- **`Component.hydrated` / `Component.whenHydrated`** (from 1.6.9) and the
+  shadow-DOM value doctrine, documented throughout.
+- **Experimental `tosijs/debug` and `tosijs/safe` bundles** — the config
+  eval-order bug is fixed (they now ship complete per-function `__tjs` runtime
+  type metadata and wired config; runtime enforcement arrives with native-TJS
+  modules in 2.0). Flagged experimental; the debug bundle announces itself.
+  Built with tjs-lang 0.10.1.
+- **`StyleSheet()` returns its `<style>` element** (previously nothing), so a
+  proxy-backed sheet you create can be removed or updated.
+- **Documented observant stylesheets & dynamic theming** — pass a tosi proxy to
+  `StyleSheet()` and it regenerates in place on change, **and derived colors from
+  the `vars` sugar recompute with it** (a runnable "change the brand color, the
+  whole card follows" live example, verified in-browser). The old docs' Caution
+  that computed colors "won't be recomputed on theme change" was wrong and is
+  corrected.
+- **`setModuleLoader()`** (blueprint loader) and **`setShareStore()`** test seams.
+- **Multi-engine real-browser CI lane** — `bun run test:browser` runs the inline
+  ```test doc fences through Chromium + Firefox via Playwright (behaviors
+  happy-dom can't observe: composed-event retargeting, spec-correct `<template>`
+  cloning, `getComputedStyle`-resolved derived CSS vars), gated in CI.
+
+### Changed
+
+- **Packaging:** `types` is now the **first** condition in every `exports` entry
+  (TS matches conditions in order, so it could be skipped before), and
+  `*.tsbuildinfo` / `dist/bun-plugin` are excluded from the tarball.
+- Build host is **tosijs-ui 1.7.0-rc.1**; **tjs-lang 0.10.1**.
+- First **GitHub Actions CI** (unit suite + the Playwright browser lane).
+- `dist/` bundles regenerated under the current Bun toolchain.
+
+## [1.6.10] - 2026-07-17
+
+### Fixed
+
+- **Stale id-path cache could read — and overwrite — the wrong array item.** The
+  id→index map for `list[id=…]` paths merged fresh entries over stale ones, so an item
+  removed outside `setByPath` (a proxied `splice`/`pop`, or direct mutation plus
+  `touch`) left its old key behind: `getByPath('arr[id=2]')` could return a different
+  item, and `setByPath('arr[id=2].v', …)` could silently overwrite it. Maps are now
+  rebuilt fresh, so removed ids resolve to `undefined`. Relatedly, deleting a
+  nonexistent id no longer removes the *first* item (`splice(undefined, 1)` coerces to
+  `splice(0, 1)`).
+- **`await updates()` could hang forever when an observer wrote state.** A write
+  inside an observer callback re-arms the update queue mid-drain, which replaced the
+  module-level promise resolver: earlier awaiters were orphaned (hung), and the next
+  round's promise resolved before its round had run. Each round now resolves exactly
+  the promise that belongs to it. The one-`await`-per-settling-round semantics are
+  unchanged (and now pinned by a regression test). This also fixes a silent-death mode
+  in `share()`/`sync()`, whose inbound echo-suppression cleanup waits on `updates()` —
+  an orphaned promise left paths suppressed forever, permanently stopping outbound
+  sync for that subtree.
+- **A throwing observer *test* function no longer aborts the whole dispatch batch.**
+  It was rethrown after the touched-path queue had already been cleared, silently
+  dropping every remaining notification and hanging `updates()`. Now logged and
+  skipped, matching how callback exceptions are handled.
+- **`throttle()` fired the wrapped function twice per isolated call** — an
+  uncancelled trailing timer duplicated every leading-edge call. A lone call now fires
+  exactly once; the documented "the last call always goes through" trailing behavior
+  for suppressed calls is preserved.
+
+### Changed
+
+- `dist/` bundles regenerated with the current Bun toolchain (smaller minified
+  output; deferred from the dev-only tosijs-ui bump so published artifacts wouldn't
+  change under a devDependency patch).
+
 ## [1.6.9] - 2026-07-15
 
 ### Fixed

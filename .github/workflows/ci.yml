@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Fast happy-dom unit suite.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test
+
+  # Real-browser regression lane: runs the inline ```test doc fences through a
+  # real engine (behaviors happy-dom can't exercise — composed-event
+  # retargeting across shadow roots, spec-correct <template> cloning,
+  # getComputedStyle-resolved derived CSS vars). Playwright starts its own dev
+  # server (playwright.config.ts webServer) and one navigation gates the whole
+  # doc-test corpus via window.__docTestResults. Mirrors tosijs-ui's proven
+  # e2e lane. No haltija in CI (haltija's --headless path delegates to
+  # Playwright anyway; the doc fences remain the living-docs lane locally).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # The dev server serves HTTPS and won't start without a cert. A throwaway
+      # self-signed one is enough — the tests run with ignoreHTTPSErrors, and
+      # mkcert would want sudo.
+      - name: Throwaway dev TLS cert
+        run: |
+          mkdir -p tls
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout tls/key.pem -out tls/certificate.pem \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+
+      - name: Install Playwright browsers (+ system deps)
+        run: bunx playwright install --with-deps chromium firefox
+
+      - name: Playwright doc-test lane
+        run: bunx playwright test
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

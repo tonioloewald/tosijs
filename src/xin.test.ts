@@ -1,4 +1,4 @@
-import { test, expect } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { XinObject, XinProxyArray, XinProxyObject, XinArray } from './xin-types'
 import {
   xin,
@@ -1733,4 +1733,28 @@ test('take descriptor works as bare property binding', async () => {
 
   expect(btn.disabled).toBe(true)
   btn.remove()
+})
+
+describe('boxed value-write shadowing (H-9)', () => {
+  test('assigning .value on an object WITH a value property writes the property', () => {
+    ;(xin as any).h9slider = { value: 5, label: 'volume' }
+    ;(boxed as any).h9slider.value = 10
+    // before the fix this replaced the whole slider object with the scalar 10
+    expect((xin as any).h9slider.value).toBe(10)
+    expect((xin as any).h9slider.label).toBe('volume')
+  })
+
+  test('assigning .value on an object WITHOUT a value property replaces the value at the path', () => {
+    ;(xin as any).h9plain = { n: 1 }
+    ;(boxed as any).h9plain.value = { n: 2 }
+    expect((xin as any).h9plain.n).toBe(2)
+  })
+})
+
+test('symbol-keyed assignment through the proxy does not throw (medium backlog)', () => {
+  const sym = Symbol('meta')
+  ;(xin as any).symTest = { a: 1 }
+  expect(() => {
+    ;(xin as any).symTest[sym] = 'x'
+  }).not.toThrow()
 })

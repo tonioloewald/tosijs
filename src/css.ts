@@ -219,10 +219,18 @@ on css (dimensional) variables by a percentage:
 > [contrast-color()](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/contrast-color) is coming in Safari 26,
 > but [currently enjoys 0% upport](https://caniuse.com/?search=contrast-color).
 >
-> **Caution** although these look superficially like the `vars` syntax
-> sugar for `calc()` performed on dimensional variables, they are in fact
-> color calculations are performed on colors *evaluated* on `document.body` at
-> execution time. (So they won'b automatically be recomputed on theme change.)
+> **Note** although these look superficially like the `vars` syntax sugar for
+> `calc()` on dimensional variables, they are in fact color calculations
+> performed on colors *evaluated* on `document.body`, emitted into a dedicated
+> `tosijs-computed-colors` stylesheet.
+>
+> **They ARE recomputed on theme change** — every registered computed color is
+> recalculated whenever an observant stylesheet regenerates (see
+> [StyleSheet](#stylesheetid-string-stylespec-xinstylesheet)), so a derived shade
+> tracks its source variable automatically. (This documentation previously said
+> the opposite; it was out of date.) Verified in-browser: changing `--brand`
+> from `#3366cc` to `#cc3366` moves `--brand_20b` from `rgba(41,82,163,1)` to
+> `rgba(163,41,82,1)` and the DOM restyles with it.
 
 You can write:
 
@@ -332,6 +340,145 @@ stuff like `const nameElement = this.parts.nameField as unknown as HTMLInputElem
 and prevent css property typos without adding a single byte to the size of
 the javascript payload.
 
+## StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement
+
+Creates a `<style>` element (with the given `id`) in `document.head` and returns
+it, so you can remove or otherwise manage it later.
+
+**If you pass a `tosi` proxy, the stylesheet is *observant*:** change the proxy and
+the stylesheet regenerates **in place** — no re-rendering, no re-mounting, no
+manual plumbing. This is the intended way to build themes.
+
+    const { theme } = tosi({
+      theme: {
+        body: {
+          _brandColor: '#3366cc',
+          _pageBg: 'white',
+        },
+      },
+    })
+
+    StyleSheet('theme', theme)
+
+    // later — every rule derived from these variables updates immediately
+    theme.body._brandColor = '#cc3366'
+
+### Computed colors recompute too
+
+Derived colors created through the [`vars`](#vars) sugar (`vars.brandColor50b`
+and friends) are **registered** when first referenced, and **recomputed whenever
+an observant stylesheet changes**. So a derived shade tracks its source variable
+without you wiring anything up: change `--brand-color` and every
+`--brand-colorNNb`/`s`/`h`/`o` derived from it is recalculated and rewritten
+(into a dedicated `tosijs-computed-colors` stylesheet).
+
+Change the brand color and **everything derived from it follows** — the shades,
+the borders, the hover states. Nothing here is re-rendered; one variable changes
+and the browser restyles:
+
+```html
+<div class="theme-demo">
+  <label>brand <input type="color" class="brand" value="#3366cc"></label>
+  <label>page <input type="color" class="page" value="#f4f4f8"></label>
+  <div class="card">
+    <h4>Card heading</h4>
+    <p>Body text on a derived surface.</p>
+    <button class="primary">Primary</button>
+    <button class="ghost">Ghost</button>
+  </div>
+</div>
+```
+```js
+import { tosi, StyleSheet, vars, elements } from 'tosijs'
+
+const { demoTheme } = tosi({
+  demoTheme: {
+    body: {
+      _brand: '#3366cc',
+      _page: '#f4f4f8',
+    },
+  },
+})
+
+StyleSheet('dynamic-theme-demo', demoTheme)
+
+// every rule below is expressed in terms of the two variables above —
+// note the derived shades (brand_20b darker, brand30o alpha, page20b lighter)
+StyleSheet('dynamic-theme-demo-rules', {
+  '.theme-demo': {
+    display: 'flex', flexDirection: 'column', gap: '12px',
+    padding: '16px', background: vars.page, borderRadius: '8px',
+  },
+  '.theme-demo label': { display: 'flex', gap: '8px', alignItems: 'center' },
+  '.theme-demo .card': {
+    padding: '16px', borderRadius: '8px',
+    background: vars.page20b,
+    border: `2px solid ${vars.brand30o}`,
+    boxShadow: `0 2px 8px ${vars.brand30o}`,
+  },
+  '.theme-demo h4': { margin: '0 0 8px 0', color: vars.brand_20b },
+  '.theme-demo button': {
+    padding: '6px 14px', borderRadius: '6px', cursor: 'pointer',
+    border: `1px solid ${vars.brand}`,
+  },
+  '.theme-demo .primary': { background: vars.brand, color: vars.brand90b },
+  '.theme-demo .ghost': { background: 'transparent', color: vars.brand_20b },
+})
+
+preview.querySelector('.brand').addEventListener('input', (event) => {
+  demoTheme.body._brand = event.target.value
+})
+preview.querySelector('.page').addEventListener('input', (event) => {
+  demoTheme.body._page = event.target.value
+})
+```
+
+This is the whole loop — proxy → stylesheet → derived colors → live DOM:
+
+```test
+const { tosi, StyleSheet, vars, elements, updates } = tosijs
+const { div } = elements
+
+test('changing a themed variable updates derived colors in the live DOM', async () => {
+  const { swatchTheme } = tosi({
+    swatchTheme: { body: { _swatchBase: '#3366cc' } },
+  })
+  const sheet = StyleSheet('swatch-theme-test', swatchTheme)
+
+  // referencing the derived var registers it for recomputation
+  const base = div({ style: { background: vars.swatchBase } })
+  const lighter = div({ style: { background: vars.swatchBase50b } })
+  preview.append(base, lighter)
+  await updates()
+  await waitMs(80) // let the microtask recompute + the browser restyle
+
+  const read = (el) => getComputedStyle(el).backgroundColor
+  const baseBefore = read(base)
+  const lighterBefore = read(lighter)
+
+  // the derived color resolved to a REAL color, and is not just the source
+  expect(lighterBefore).not.toBe('')
+  expect(lighterBefore).not.toBe('rgba(0, 0, 0, 0)')
+  expect(lighterBefore).not.toBe(baseBefore)
+
+  // now change the source variable through the proxy
+  swatchTheme.body._swatchBase = '#cc3366'
+  await updates()
+  await waitMs(80)
+
+  const baseAfter = read(base)
+  const lighterAfter = read(lighter)
+
+  expect(baseAfter).not.toBe(baseBefore) // the sheet regenerated in place
+  expect(lighterAfter).not.toBe(lighterBefore) // and the DERIVED color recomputed
+  expect(lighterAfter).not.toBe(baseAfter) // still a distinct shade
+
+  sheet.remove()
+  base.remove()
+  lighter.remove()
+})
+```
+
 ## onStylesheetChange(callback: () => void): () => void
 
 Registers a callback that fires whenever any observant stylesheet regenerates
@@ -346,6 +493,7 @@ Returns an unsubscribe function.
     unsub()
 */
 import { Color } from './color'
+import { cssColors } from './css-colors'
 import { elements } from './elements'
 import { camelToKabob } from './string-case'
 import { XinStyleSheet, XinStyleRule } from './css-types'
@@ -376,7 +524,12 @@ function notifyStylesheetChange(): void {
   }
 }
 
-export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
+// Returns the <style> element so callers can remove or further manipulate the
+// sheet they created (it used to return nothing, leaving no handle at all).
+export function StyleSheet(
+  id: string,
+  styleSpec: XinStyleSheet
+): HTMLStyleElement {
   const spec = tosiValue(styleSpec) as XinStyleSheet
   const element = elements.style(css(spec))
   element.id = id
@@ -390,6 +543,7 @@ export function StyleSheet(id: string, styleSpec: XinStyleSheet) {
       notifyStylesheetChange()
     })
   }
+  return element as HTMLStyleElement
 }
 
 // CSS properties that accept unitless numbers (no px suffix)
@@ -400,7 +554,11 @@ export const processProp = (
   prop: string,
   value: string | number
 ): { prop: string; value: string } => {
-  if (typeof value === 'number' && !unitless.test(prop)) {
+  // Test the unitless list against the bare CSS property name — a custom
+  // property arrives here still prefixed (`_opacity`), so testing `prop`
+  // directly never matched and appended `px` to unitless values
+  // (`--opacity: 0.5px`). prop is already kebab-cased by the caller.
+  if (typeof value === 'number' && !unitless.test(prop.replace(/^_+/, ''))) {
     value = `${value}px`
   }
   if (prop.startsWith('_')) {
@@ -493,7 +651,10 @@ export const invertLuminance = (map: XinStyleRule): XinStyleRule => {
       inverted[key] = value.inverseLuminance
     } else if (
       typeof value === 'string' &&
-      value.match(/^(#[0-9a-fA-F]{3}|rgba?\(|hsla?\()/)
+      // named CSS colors (now DOM-free parseable) were silently dropped from
+      // the inverted map — only #hex/rgb()/hsl() were recognized
+      (value.match(/^(#[0-9a-fA-F]{3}|rgba?\(|hsla?\()/) != null ||
+        cssColors[value.trim().toLowerCase()] !== undefined)
     ) {
       inverted[key] = Color.fromCss(value).inverseLuminance
     }

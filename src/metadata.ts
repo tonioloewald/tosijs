@@ -261,15 +261,22 @@ export const cloneWithBindings = (element: Node): Node => {
       elementToHandlers.set(cloned, deepClone(eventHandlers))
     }
   }
+  // For a <template>, children live in (and must be cloned into) .content:
+  // per spec, appendChild on the template element itself appends to the
+  // ELEMENT, leaving the clone's .content empty — so ListBinding's
+  // "template has no children" check throws in real browsers. (Happy-dom
+  // non-spec-compliantly redirects appendChild to .content, masking this.)
+  const appendTarget =
+    cloned instanceof HTMLTemplateElement ? cloned.content : cloned
   for (const node of Array.from(
     element instanceof HTMLTemplateElement
       ? element.content.childNodes
       : element.childNodes
   )) {
     if (node instanceof Element || node instanceof DocumentFragment) {
-      cloned.appendChild(cloneWithBindings(node))
+      appendTarget.appendChild(cloneWithBindings(node))
     } else {
-      cloned.appendChild(node.cloneNode())
+      appendTarget.appendChild(node.cloneNode())
     }
   }
   return cloned

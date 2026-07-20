@@ -1,7 +1,8 @@
-import { test, expect } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, mathML } from './elements'
 import { updates } from './path-listener'
+import { xin, boxed } from './xin'
 
 test('element creation works', () => {
   const { div, input } = elements
@@ -352,4 +353,66 @@ test('boolean observedAttributes handled correctly', () => {
 
   const elFalse = booleanAttrComponent({ disabled: false })
   expect(elFalse.hasAttribute('disabled')).toBe(false)
+})
+
+describe('reactive class binding replaces (does not accumulate)', () => {
+  test('binding class to a scalar swaps classes instead of accumulating', async () => {
+    tosi({ clsTest: { c: 'red' } })
+    const { div } = elements
+    const el = div({ class: (boxed as any).clsTest.c })
+    document.body.append(el)
+    await updates()
+    expect(el.classList.contains('red')).toBe(true)
+    ;(xin as any)['clsTest.c'] = 'blue'
+    await updates()
+    expect(el.classList.contains('blue')).toBe(true)
+    expect(el.classList.contains('red')).toBe(false) // replaced, not accumulated
+    el.remove()
+  })
+
+  test('boolean-map class binding removes keys dropped from a later map', async () => {
+    tosi({ clsMap: { m: { a: true, b: true } } })
+    const { div } = elements
+    const el = div({ class: (boxed as any).clsMap.m })
+    document.body.append(el)
+    await updates()
+    expect(el.classList.contains('a')).toBe(true)
+    expect(el.classList.contains('b')).toBe(true)
+    ;(xin as any)['clsMap.m'] = { a: true }
+    await updates()
+    expect(el.classList.contains('a')).toBe(true)
+    expect(el.classList.contains('b')).toBe(false) // dropped key removed
+    el.remove()
+  })
+
+  test('reactive class updates do not strip marker classes added elsewhere', async () => {
+    // -xin-data is added by bind() via classList.add (not through the class
+    // prop), so it is not in appliedClasses and must survive class updates
+    tosi({ clsMarker: { c: 'red' } })
+    const { div } = elements
+    const { bind, bindings } = await import('./bind').then(async (m) => ({
+      bind: m.bind,
+      bindings: (await import('./bindings')).bindings,
+    }))
+    const el = div({ class: (boxed as any).clsMarker.c })
+    bind(el, 'clsMarker.other', bindings.text) // adds the -xin-data marker class
+    document.body.append(el)
+    await updates()
+    expect(el.classList.contains('-xin-data')).toBe(true)
+    ;(xin as any)['clsMarker.c'] = 'blue'
+    await updates()
+    expect(el.classList.contains('blue')).toBe(true)
+    expect(el.classList.contains('-xin-data')).toBe(true) // marker survives
+    el.remove()
+  })
+})
+
+test('bind spec with string binding name renders (not a silent no-op)', async () => {
+  tosi({ strBindName: { label: 'hello' } })
+  const { div } = elements
+  const el = div({ bind: { value: 'strBindName.label', binding: 'text' } })
+  document.body.append(el)
+  await updates()
+  expect(el.textContent).toBe('hello') // 'text' binding must resolve and render
+  el.remove()
 })

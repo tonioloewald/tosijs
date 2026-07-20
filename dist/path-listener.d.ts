@@ -6,6 +6,7 @@ export declare const listeners: Listener[];
  * Called when we know we're touching something inside an array item.
  */
 export declare function synthesizeIdPathTouches(arrayPath: string, index: number, item: any, suffix: string): string[];
+export declare const extendsPath: (prefix: string, path: string) => boolean;
 export declare class Listener {
     description: string;
     test: PathTestFunction;

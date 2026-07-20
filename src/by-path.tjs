@@ -67,10 +67,13 @@ function buildIdPathValueMap(array, idPath) {
   if (idPathMaps.get(array) === undefined) {
     idPathMaps.set(array, {})
   }
-  if (idPathMaps.get(array)[idPath] === undefined) {
-    idPathMaps.get(array)[idPath] = {}
-  }
-  const map = idPathMaps.get(array)[idPath]
+  // Always rebuild into a FRESH map (ported from 1.7.0 SB-3). Merging into the
+  // existing one preserves stale keys for items removed outside setByPath
+  // (proxied splice/pop, direct mutation + touch), and keyToIndex's validation
+  // fallback reads those stale entries back — so a read returns, and a write
+  // clobbers, the wrong item.
+  const map = {}
+  idPathMaps.get(array)[idPath] = map
 
   if (idPath === '_auto_') {
     array.forEach((item, idx) => {
@@ -115,8 +118,12 @@ function byKey(obj, key, valueToInsert) {
 function byIdPath(array, idPath, idValue, valueToInsert) {
   let idx = idPath !== '' ? keyToIndex(array, idPath, idValue) : idValue
   if (valueToInsert === _delete_) {
-    array.splice(idx, 1)
-    idPathMaps.delete(array)
+    // splice(undefined, 1) coerces to splice(0, 1) — deleting a nonexistent id
+    // must be a no-op, not the silent removal of the first item (1.7.0 SB-3)
+    if (idx !== undefined) {
+      array.splice(idx, 1)
+      idPathMaps.delete(array)
+    }
     return Symbol('deleted')
   } else if (valueToInsert === _newObject_) {
     if (idPath === '' && array[idx] === undefined) {

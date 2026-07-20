@@ -927,7 +927,13 @@ const extendPath = (path = '', prop = ''): string => {
   if (path === '') {
     return prop
   } else {
-    if (prop.match(/^\d+$/) !== null || prop.includes('=')) {
+    if (prop.startsWith('[') && prop.endsWith(']')) {
+      // already a bracketed segment — the compound-path branch hands us
+      // basePaths like '[0]' or '[id=x]'. Append verbatim: re-bracketing
+      // produced 'list[[id=x]]' and dot-joining produced 'list.[0]', either
+      // way a malformed path whose bindings never resolve or fire
+      return `${path}${prop}`
+    } else if (prop.match(/^\d+$/) !== null || prop.includes('=')) {
       return `${path}[${prop}]`
     } else {
       return `${path}.${prop}`
@@ -1404,6 +1410,14 @@ const regHandler = (
   },
   set(target, prop: string | symbol, value: any) {
     value = tosiValue(value)
+    // A symbol key (other than the XIN_VALUE boxed-value escape hatch) is not
+    // a state path — store it on the target directly. extendPath would call
+    // prop.match() on it and throw. Mirrors the get trap, which passes
+    // symbols through.
+    if (typeof prop === 'symbol' && prop !== XIN_VALUE) {
+      ;(target as any)[prop] = value
+      return true
+    }
     // Shallow-unwrap proxied children (e.g. from { ...proxy } spreads)
     if (value !== null && typeof value === 'object') {
       if (Array.isArray(value)) {
@@ -1417,16 +1431,22 @@ const regHandler = (
       }
     }
     // Treat 'value' as a path setter for boxed scalars AND for boxed objects/arrays
-    // (when boxScalars is true, .value should always set the underlying value).
-    // `valueAndType` is the same, but is the deliberate value+type change that
-    // bypasses the strictness check.
+    // (when boxScalars is true, .value should always set the underlying value) —
+    // UNLESS the target has a real 'value' member, mirroring the get side's
+    // shadowing rule: with { slider: { value: 5, … } }, boxed.slider.value
+    // reads 5, so assigning it must write slider.value — not replace the
+    // whole slider object with the scalar. The symbol key (XIN_VALUE) remains
+    // the unshadowable escape hatch for the boxed-value write.
+    // `valueAndType` is the deliberate value+type change that bypasses the
+    // strictness check.
     const isValueAndTypeProp =
       prop === 'valueAndType' && (isBoxedScalar(target) || boxScalars)
     const isValueProp =
       prop === XIN_VALUE ||
       prop === 'xinValue' ||
       prop === 'tosiValue' ||
-      (prop === 'value' && (isBoxedScalar(target) || boxScalars))
+      (prop === 'value' &&
+        (isBoxedScalar(target) || (boxScalars && !('value' in target))))
     const fullPath =
       isValueProp || isValueAndTypeProp ? path : extendPath(path, prop as string)
     if (debugPaths && !isValidPath(fullPath)) {

@@ -321,3 +321,30 @@ test('Color.registerComputedColor registers computed color variables', () => {
   // Color should have registered this for computation
   // (We can't easily test the internal state, but the reference format is correct)
 })
+
+test('unitless custom properties do not get a px suffix (H medium)', () => {
+  const sheet = css({ ':root': { _opacity: 0.5, _zIndex: 10, _flexGrow: 1 } })
+  expect(sheet).toContain('--opacity: 0.5;')
+  expect(sheet).toContain('--z-index: 10;')
+  expect(sheet).toContain('--flex-grow: 1;')
+  expect(sheet).not.toContain('px')
+})
+
+test('length custom properties still get px', () => {
+  const sheet = css({ ':root': { _margin: 10 } })
+  expect(sheet).toContain('--margin: 10px;')
+})
+
+test('StyleSheet returns the style element (medium backlog)', () => {
+  const el = StyleSheet('lhf-sheet-test', { ':root': { color: 'red' } })
+  expect(el).toBeInstanceOf(HTMLStyleElement)
+  expect(el.id).toBe('lhf-sheet-test')
+  el.remove() // now removable — previously there was no handle at all
+  expect(document.getElementById('lhf-sheet-test')).toBeNull()
+})
+
+test('invertLuminance includes named colors (medium backlog)', () => {
+  const inverted = invertLuminance({ _fg: 'red', _size: '12px' })
+  expect(Object.keys(inverted)).toContain('_fg') // was dropped entirely
+  expect(Object.keys(inverted)).not.toContain('_size') // non-colors still omitted
+})

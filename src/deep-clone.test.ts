@@ -96,3 +96,40 @@ describe('deepClone', () => {
     expect(cloned.object).not.toBe(original.object)
   })
 })
+
+test('deepClone preserves Dates as Dates', () => {
+  const d = new Date('2026-07-18T12:00:00Z')
+  const clone = deepClone({ when: d }) as any
+  expect(clone.when).toBeInstanceOf(Date)
+  expect(clone.when.getTime()).toBe(d.getTime())
+  expect(clone.when).not.toBe(d)
+})
+
+test('deepClone preserves Maps with deep-cloned entries', () => {
+  const m = new Map([['a', { n: 1 }]])
+  const clone = deepClone(m as any) as any
+  expect(clone).toBeInstanceOf(Map)
+  expect(clone.get('a')).toEqual({ n: 1 })
+  expect(clone.get('a')).not.toBe(m.get('a'))
+})
+
+test('deepClone deep-clones Set members', () => {
+  const item = { n: 1 }
+  const s = new Set([item])
+  const clone = deepClone(s as any) as any
+  expect(clone).toBeInstanceOf(Set)
+  const clonedItem = Array.from(clone)[0] as any
+  expect(clonedItem).toEqual({ n: 1 })
+  expect(clonedItem).not.toBe(item)
+})
+
+test('deepClone survives circular references and reproduces the cycle', () => {
+  const obj: any = { name: 'root' }
+  obj.self = obj
+  obj.list = [obj]
+  const clone = deepClone(obj) as any
+  expect(clone.name).toBe('root')
+  expect(clone.self).toBe(clone) // cycle reproduced, not re-cloned
+  expect(clone.list[0]).toBe(clone)
+  expect(clone).not.toBe(obj)
+})

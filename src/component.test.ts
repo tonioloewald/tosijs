@@ -1237,3 +1237,277 @@ describe('on<Event> member collision warning', () => {
     expect(warnings.some((m) => m.includes('event-handler sugar'))).toBe(false)
   })
 })
+
+describe('shadow-DOM binding boundary warning', () => {
+  test('bind/on sugar in shadow content warns once per class at hydrate', async () => {
+    class ShadowBoundComponent extends Component {
+      static preferredTagName = 'shadow-bound-warn'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      content = ({ div }: typeof elements) =>
+        div({ bindText: 'shadowWarnTest.label' })
+    }
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    try {
+      const create = ShadowBoundComponent.elementCreator()
+      const el = create()
+      document.body.append(el)
+      const el2 = create()
+      document.body.append(el2)
+      el.remove()
+      el2.remove()
+    } finally {
+      console.warn = origWarn
+    }
+    const boundaryWarnings = warnings.filter((w) =>
+      w.includes('shadow-DOM content, where bindings do not operate')
+    )
+    expect(boundaryWarnings.length).toBe(1) // once per class, not per instance
+    expect(boundaryWarnings[0]).toContain('shadow-bound-warn')
+  })
+
+  test('light-DOM binding sugar does not warn', async () => {
+    class LightBoundComponent extends Component {
+      static preferredTagName = 'light-bound-nowarn'
+      content = ({ div }: typeof elements) =>
+        div({ bindText: 'lightNoWarnTest.label' })
+    }
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    try {
+      const el = LightBoundComponent.elementCreator()()
+      document.body.append(el)
+      el.remove()
+    } finally {
+      console.warn = origWarn
+    }
+    expect(
+      warnings.some((w) => w.includes('where bindings do not operate'))
+    ).toBe(false)
+  })
+})
+
+describe('pending-attribute drain is last-write-wins (H-2)', () => {
+  test('two pre-connect property writes: the second wins', () => {
+    class DrainOrderTest extends Component {
+      static preferredTagName = 'drain-order-test'
+      static initAttributes = { caption: 'default' }
+    }
+    const el = DrainOrderTest.elementCreator()() as any
+    el.caption = 'first'
+    el.caption = 'second' // was silently dropped: first landed, guard blocked this
+    document.body.append(el)
+    expect(el.getAttribute('caption')).toBe('second')
+    expect(el.caption).toBe('second')
+    el.remove()
+  })
+
+  test('pre-connect remove-then-set lands the set', () => {
+    class DrainRemoveSetTest extends Component {
+      static preferredTagName = 'drain-remove-set-test'
+      static initAttributes = { caption: 'default' }
+    }
+    const el = DrainRemoveSetTest.elementCreator()() as any
+    el.setAttribute('caption', 'a')
+    el.removeAttribute('caption')
+    el.setAttribute('caption', 'b')
+    document.body.append(el)
+    expect(el.getAttribute('caption')).toBe('b')
+    el.remove()
+  })
+})
+
+describe('initAttributes vs class fields under [[Define]] semantics (H-3)', () => {
+  // A natively-evaluated class guarantees [[Define]] field semantics
+  // regardless of how the test file itself is transpiled.
+  const makeFieldShadowClass = new Function(
+    'Component',
+    `return class FieldShadowTest extends Component {
+      static preferredTagName = 'field-shadow-test'
+      static initAttributes = { label: 'default' }
+      label = 'from-field'
+    }`
+  )
+
+  test('leftover field: no TypeError, value adopted, accessor restored, warns once per class', () => {
+    const FieldShadowTest = makeFieldShadowClass(Component) as any
+    const warnings: string[] = []
+    const origWarn = console.warn
+    console.warn = (...args: any[]) => {
+      warnings.push(args.map(String).join(' '))
+    }
+    let el: any
+    let el2: any
+    try {
+      // before the fix this line threw:
+      // "TypeError: Attempting to change configurable attribute of unconfigurable property"
+      el = FieldShadowTest.elementCreator()()
+      document.body.append(el)
+      el2 = FieldShadowTest.elementCreator()()
+      document.body.append(el2)
+    } finally {
+      console.warn = origWarn
+    }
+    // the field's value was adopted and reflected
+    expect(el.label).toBe('from-field')
+    expect(el.getAttribute('label')).toBe('from-field')
+    // the accessor is live again: writes reflect to the attribute
+    el.label = 'changed'
+    expect(el.getAttribute('label')).toBe('changed')
+    // and attribute changes are readable through the property
+    el.setAttribute('label', 'external')
+    expect(el.label).toBe('external')
+    const shadowWarnings = warnings.filter((w) =>
+      w.includes('shadow static initAttributes')
+    )
+    expect(shadowWarnings.length).toBe(1) // once per class, not per instance
+    el.remove()
+    el2.remove()
+  })
+
+  test('components without shadowing fields are untouched', () => {
+    class NoFieldTest extends Component {
+      static preferredTagName = 'no-field-shadow-test'
+      static initAttributes = { caption: 'plain' }
+    }
+    const el = NoFieldTest.elementCreator()() as any
+    document.body.append(el)
+    expect(el.caption).toBe('plain')
+    el.caption = 'set'
+    expect(el.getAttribute('caption')).toBe('set')
+    el.remove()
+  })
+})
+
+test('isSlotted is false for a light-DOM component with no slot (medium backlog)', () => {
+  class NoSlotComp extends Component {
+    static preferredTagName = 'no-slot-comp'
+    content = ({ div }: typeof elements) => div('no slot here')
+  }
+  const el = NoSlotComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.isSlotted).toBe(false) // was always true (querySelector null !== undefined)
+  el.remove()
+})
+
+test('isSlotted is true when the component has a slot', () => {
+  class SlottedComp extends Component {
+    static preferredTagName = 'yes-slot-comp'
+    content = ({ div, slot }: typeof elements) => div(slot())
+  }
+  const el = SlottedComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.isSlotted).toBe(true)
+  el.remove()
+})
+
+test('external removeAttribute is not masked by the in-memory fallback (medium backlog)', () => {
+  class AttrMaskComp extends Component {
+    static preferredTagName = 'attr-mask-comp'
+    static initAttributes = { label: 'default' }
+  }
+  const el = AttrMaskComp.elementCreator()() as any
+  document.body.append(el)
+  el.label = 'custom'
+  expect(el.label).toBe('custom')
+  el.removeAttribute('label')
+  expect(el.label).toBe('default') // was stuck on 'custom' (stale fallback)
+  el.remove()
+})
+
+test('<slot> fallback children survive the tosi-slot rewrite (medium backlog)', () => {
+  class SlotFallbackComp extends Component {
+    static preferredTagName = 'slot-fallback-comp'
+    content = ({ slot }: typeof elements) => slot('fallback text')
+  }
+  const el = SlotFallbackComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.textContent).toContain('fallback text') // was dropped
+  el.remove()
+})
+
+describe('component change event bubbles (bound like a native input)', () => {
+  test('an ancestor bubble-phase change listener hears a component value change', async () => {
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    class BubbleWidget extends Component {
+      static preferredTagName = 'bubble-widget'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 0
+    }
+    BubbleWidget.elementCreator()
+    const container = document.createElement('div')
+    document.body.append(container)
+    const el = (elements as any).bubbleWidget() as any
+    container.append(el)
+
+    let heardOnAncestor = 0
+    // bubble phase (capture=false) — only fires if the change event bubbles,
+    // which native input change events do (and the delegated binding uses
+    // capture, so this is specifically the ancestor-listener semantics)
+    container.addEventListener('change', () => {
+      heardOnAncestor++
+    })
+    el.value = 7 // queues a change on the next frame
+    await raf()
+    expect(heardOnAncestor).toBe(1) // was 0 — change did not bubble
+    container.remove()
+  })
+
+  test('value binding round-trips through a component (works via capture too)', async () => {
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { xin, updates } = await import('./xin')
+    const { tosi } = await import('./xin-proxy')
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+
+    class ValueWidget extends Component {
+      static preferredTagName = 'value-widget-rt'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 0
+      content = ({ button }: any) => button({ part: 'inc' }, '+')
+      connectedCallback() {
+        super.connectedCallback()
+        ;(this.shadowRoot as any)
+          .querySelector('[part=inc]')
+          .addEventListener('click', () => {
+            this.value = Number(this.value) + 1
+          })
+      }
+    }
+    ValueWidget.elementCreator()
+    tosi({ vwRt: { n: 5 } })
+    const el = (elements as any).valueWidgetRt() as any
+    bind(el, 'vwRt.n', bindings.value)
+    document.body.append(el)
+    await updates()
+    await raf()
+    expect(Number(el.value)).toBe(5)
+    ;(el.shadowRoot as any).querySelector('[part=inc]').click()
+    await raf()
+    await updates()
+    expect(Number(el.value)).toBe(6)
+    expect((xin as any)['vwRt.n']).toBe(6)
+    el.remove()
+  })
+})
+
+test('parts finds elements by data-ref, as documented (medium backlog)', () => {
+  class DataRefComp extends Component {
+    static preferredTagName = 'data-ref-comp'
+    content = ({ div, span }: typeof elements) => [
+      div({ dataRef: 'byRef' }, 'ref target'),
+      span({ part: 'byPart' }, 'part target'),
+    ]
+  }
+  const el = DataRefComp.elementCreator()() as any
+  document.body.append(el)
+  expect(el.parts.byPart.textContent).toBe('part target')
+  expect(el.parts.byRef.textContent).toBe('ref target') // docs promised this
+  el.remove()
+})

@@ -175,12 +175,13 @@ describe('getValue', () => {
     expect(getValue(select)).toBe('second')
   })
 
-  test('gets ISO string from date input', () => {
+  test('gets a Date from a date input (H-6 typed-control read)', () => {
     const dateInput = document.createElement('input')
     dateInput.type = 'date'
     dateInput.valueAsDate = new Date('2024-01-15T00:00:00.000Z')
     const value = getValue(dateInput)
-    expect(value).toContain('2024-01-15')
+    expect(value).toBeInstanceOf(Date)
+    expect((value as Date).toISOString()).toContain('2024-01-15')
   })
 })
 
@@ -265,5 +266,92 @@ describe('resizeObserver', () => {
     expect(() => resizeObserver.unobserve(element)).not.toThrow()
 
     element.remove()
+  })
+})
+
+describe('typed-control reads and guards (H-6)', () => {
+  test('number/range inputs read as numbers; empty reads as raw string', () => {
+    const n = document.createElement('input')
+    n.type = 'number'
+    n.value = '42.5'
+    expect(getValue(n)).toBe(42.5)
+    n.value = ''
+    expect(getValue(n)).toBe('') // never fabricate a number from emptiness
+    const r = document.createElement('input')
+    r.type = 'range'
+    r.value = '7'
+    expect(getValue(r)).toBe(7)
+  })
+
+  test('time inputs read as ms-since-midnight', () => {
+    const t = document.createElement('input')
+    t.type = 'time'
+    t.value = '01:30:00'
+    expect(getValue(t)).toBe(90 * 60000)
+  })
+
+  test('setValue radio: numeric state matches its string value', () => {
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.value = '5'
+    setValue(radio, 5)
+    expect(radio.checked).toBe(true)
+    setValue(radio, 6)
+    expect(radio.checked).toBe(false)
+    setValue(radio, undefined)
+    expect(radio.checked).toBe(false)
+  })
+
+  test('setValue renders missing values as empty, not "undefined"', () => {
+    const input = document.createElement('input')
+    setValue(input, undefined)
+    expect(input.value).toBe('')
+  })
+
+  test('setValue date: null clears the field instead of 1970-01-01', () => {
+    const d = document.createElement('input')
+    d.type = 'date'
+    d.value = '2026-07-18'
+    setValue(d, null)
+    expect(d.value).toBe('')
+  })
+
+  test('setValue date accepts Date, epoch number, and ISO string', () => {
+    const d = document.createElement('input')
+    d.type = 'date'
+    setValue(d, new Date('2026-07-18T00:00:00Z'))
+    expect(d.value).toBe('2026-07-18')
+    setValue(d, Date.UTC(2025, 0, 2))
+    expect(d.value).toBe('2025-01-02')
+    setValue(d, '2024-03-04')
+    expect(d.value).toBe('2024-03-04')
+  })
+
+  test('setValue time accepts ms-since-midnight', () => {
+    const t = document.createElement('input')
+    t.type = 'time'
+    setValue(t, 90 * 60000)
+    expect(t.value).toBe('01:30')
+    setValue(t, 90 * 60000 + 5000)
+    expect(t.value).toBe('01:30:05')
+  })
+
+  test('multi-select: undefined selects nothing (no throw); arrays work', () => {
+    const select = document.createElement('select')
+    select.setAttribute('multiple', '')
+    for (const v of ['a', 'b', 'c']) {
+      const o = document.createElement('option')
+      o.value = v
+      select.append(o)
+    }
+    setValue(select, undefined) // used to throw inside the observer flush
+    expect(
+      Array.from(select.querySelectorAll('option')).every((o) => !o.selected)
+    ).toBe(true)
+    setValue(select, ['a', 'c'])
+    const selected = Array.from(select.querySelectorAll('option'))
+      .filter((o) => o.selected)
+      .map((o) => o.value)
+    expect(selected).toEqual(['a', 'c'])
   })
 })

@@ -87,7 +87,7 @@ export const listeners: Listener[] = [] // { path_string_or_test, callback }
 const touchedPaths: string[] = []
 let updateTriggered: number | boolean = false
 let updatePromise: Promise<undefined>
-let resolveUpdate: AnyFunction
+let resolveUpdate: AnyFunction | undefined
 
 /**
  * Synthesize id-path touches for a given array path, item index, and property suffix.
@@ -112,6 +112,18 @@ export function synthesizeIdPathTouches(
   return synthesized
 }
 
+// True when `path` IS `prefix` or lies under it — the character after the
+// prefix must be a segment boundary ('.' or '['). A raw startsWith matched
+// name-prefix SIBLINGS: observers on 'foo' heard 'foobar', touch dedupe
+// swallowed 'foobar' after 'foo', and bound elements re-rendered for
+// unrelated paths like list[50] when list[5] changed.
+export const extendsPath = (prefix: string, path: string): boolean => {
+  if (!path.startsWith(prefix)) return false
+  if (path.length === prefix.length) return true
+  const c = path.charAt(prefix.length)
+  return c === '.' || c === '['
+}
+
 export class Listener {
   description: string
   test: PathTestFunction
@@ -130,7 +142,7 @@ export class Listener {
       this.test = (t) =>
         typeof t === 'string' &&
         t !== '' &&
-        (test.startsWith(t) || t.startsWith(test))
+        (extendsPath(t, test) || extendsPath(test, t))
       testDescription = `test = "${test}"`
     } else if (test instanceof RegExp) {
       this.test = test.test.bind(test)
@@ -167,48 +179,63 @@ const update = (): void => {
   const paths = Array.from(touchedPaths)
   touchedPaths.length = 0
   updateTriggered = false
+  // Capture THIS drain's resolver before dispatch. An observer that writes
+  // state re-arms the queue mid-drain, which creates a new promise and
+  // resolver for the NEXT round — without the capture, that overwrite
+  // orphans the promise our awaiters hold (it never resolves) and the
+  // resolve call below would settle the next round's promise before its
+  // drain has run. Each round resolves exactly the promise that belongs to
+  // it, so the long-standing "one await per settling round" semantics hold.
+  const resolve = resolveUpdate
+  resolveUpdate = undefined
 
-  for (const path of paths) {
-    listeners
-      .filter((listener) => {
-        let heard
-        try {
-          heard = listener.test(path)
-        } catch (e) {
-          throw new Error(
-            `Listener ${listener.description} threw "${
-              e as string
-            }" at "${path}"`
-          )
-        }
-        if (heard === observerShouldBeRemoved) {
-          unobserve(listener)
-          return false
-        }
-        return heard as boolean
-      })
-      .forEach((listener) => {
-        let outcome
-        try {
-          outcome = listener.callback(path)
-        } catch (e) {
-          console.error(
-            `Listener ${listener.description} threw "${
-              e as string
-            }" handling "${path}"`
-          )
-        }
-        if (outcome === observerShouldBeRemoved) {
-          unobserve(listener)
-        }
-      })
-  }
-
-  if (typeof resolveUpdate === 'function') {
-    resolveUpdate()
-  }
-  if (settings.perf) {
-    console.timeEnd('xin async update')
+  try {
+    for (const path of paths) {
+      listeners
+        .filter((listener) => {
+          let heard
+          try {
+            heard = listener.test(path)
+          } catch (e) {
+            // a throwing test must not abort the drain: touchedPaths is
+            // already cleared, so rethrowing would silently drop every
+            // remaining notification in this batch
+            console.error(
+              `Listener ${listener.description} threw "${
+                e as string
+              }" at "${path}"`
+            )
+            return false
+          }
+          if (heard === observerShouldBeRemoved) {
+            unobserve(listener)
+            return false
+          }
+          return heard as boolean
+        })
+        .forEach((listener) => {
+          let outcome
+          try {
+            outcome = listener.callback(path)
+          } catch (e) {
+            console.error(
+              `Listener ${listener.description} threw "${
+                e as string
+              }" handling "${path}"`
+            )
+          }
+          if (outcome === observerShouldBeRemoved) {
+            unobserve(listener)
+          }
+        })
+    }
+  } finally {
+    if (typeof resolve === 'function') {
+      resolve()
+    }
+    if (settings.perf) {
+      console.timeEnd('xin async update')
+    }
   }
 }
 
@@ -228,7 +255,7 @@ export const touch = (touchable: XinTouchableType): void => {
   }
 
   if (
-    touchedPaths.find((touchedPath) => path.startsWith(touchedPath)) == null
+    touchedPaths.find((touchedPath) => extendsPath(touchedPath, path)) == null
   ) {
     touchedPaths.push(path)
   }
@@ -248,8 +275,9 @@ export const touch = (touchable: XinTouchableType): void => {
       )
       for (const idTouch of idPathTouches) {
         if (
-          touchedPaths.find((touchedPath) => idTouch.startsWith(touchedPath)) ==
-          null
+          touchedPaths.find((touchedPath) =>
+            extendsPath(touchedPath, idTouch)
+          ) == null
         ) {
           touchedPaths.push(idTouch)
         }

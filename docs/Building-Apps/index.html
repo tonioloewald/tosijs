@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Hide the pre-rendered body until <tosi-doc-system> hydrates, then fade it
-       in — avoids the layout shift as the static markup is swapped for the live
-       doc browser. <noscript> keeps it visible for no-JS readers/crawlers; the
-       timeout is a safety net so a failed/slow hydration can't leave it blank. -->
-  <style>body{opacity:0;transition:opacity .25s ease}</style>
-  <noscript><style>body{opacity:1!important}</style></noscript>
-  <script>setTimeout(function(){if(document.body)document.body.style.opacity='1'},4000)</script>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -416,14 +432,111 @@ passing <code>{ tag, styleSpec }</code> to <code>elementCreator()</code> — sti
 When you do, the mental model is:</p>
 <ul>
 <li><strong>Light DOM</strong> (default): bindings flow through naturally.</li>
-<li><strong>Shadow DOM</strong>: self-contained islands that receive data via
-attributes/properties and manage their own internals. You handle
-rendering inside the shadow root yourself.</li>
+<li><strong>Shadow DOM</strong>: the component is a <em>custom input</em>. Think of it exactly like
+an <code>&lt;input&gt;</code> or <code>&lt;textarea&gt;</code>: <strong>its <code>value</code> is the binding surface</strong>. Bind
+the component itself (e.g. <code>bindings.value</code>) from outside; setting <code>value</code>
+automatically queues <code>render()</code> and emits <code>change</code>, so implement <code>render()</code>
+to reflect <code>value</code> into the shadow DOM, and let <code>change</code> events carry edits
+back out. How the component represents its value internally is your business
+as the implementer — and that includes wiring any nested widgets manually in
+<code>render()</code>, because <strong>bindings do not compose through a shadow tree</strong>. A
+shadow DOM component is materially a different kind of thing than a light
+DOM component.</li>
 </ul>
+<p>Data-binding sugar inside shadow content doesn&#39;t operate — and as of 1.7 it
+warns instead of failing silently. Event sugar is the exception: <code>on()</code>
+handlers work inside open shadow roots (composed events cross the boundary,
+and the dispatcher resolves the true origin via <code>composedPath()</code>).</p>
 <p>A good example: an email message bubble might use Shadow DOM for the
 HTML body (CSS isolation from untrusted email styles) but keep
 everything else — sender, subject, timestamps — in Light DOM with
 normal bindings.</p>
+<h4>A shadow value-widget, bound like an <code>&lt;input&gt;</code></h4>
+<p>Here&#39;s the canonical shape: a <code>shadowStyleSpec</code> component whose <code>value</code> is the
+binding surface. <code>render()</code> reflects <code>value</code> into the shadow DOM; a control
+inside the shadow root writes back to <code>this.value</code> (which emits <code>change</code>). From
+outside, it binds exactly like a native input — here a plain <code>&lt;input&gt;</code> and the
+widget share one state path and stay in sync, neither one reaching into the
+other&#39;s internals:</p>
+<pre><code class="language-js">const { Component, elements, bindings, tosi } = tosijs
+const { input, label } = elements
+
+class StarRating extends Component {
+  static preferredTagName = &#39;star-rating&#39;
+  static shadowStyleSpec = {
+    &#39;:host&#39;: { display: &#39;inline-flex&#39;, gap: &#39;4px&#39;, cursor: &#39;pointer&#39; },
+    &#39;.star&#39;: { fontSize: &#39;24px&#39;, color: &#39;#ccc&#39; },
+    &#39;.star.on&#39;: { color: &#39;gold&#39; },
+  }
+  value = 0
+  content = ({ span }) =&gt;
+    [1, 2, 3, 4, 5].map((n) =&gt; span({ class: &#39;star&#39;, dataStar: n }, &#39;★&#39;))
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.shadowRoot.addEventListener(&#39;click&#39;, (event) =&gt; {
+      const star = event.target.closest(&#39;[data-star]&#39;)
+      if (star) this.value = Number(star.dataset.star) // emits `change`
+    })
+  }
+
+  render() {
+    super.render()
+    for (const star of this.shadowRoot.querySelectorAll(&#39;.star&#39;)) {
+      star.classList.toggle(&#39;on&#39;, Number(star.dataset.star) &lt;= this.value)
+    }
+  }
+}
+StarRating.elementCreator()
+
+const { demo } = tosi({ demo: { rating: 3 } })
+
+preview.append(
+  // the widget: bound by VALUE, like an input
+  elements.starRating({ bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }),
+  // a plain number input on the SAME path — they stay in sync
+  label(&#39; rating: &#39;, input({ type: &#39;number&#39;, min: 0, max: 5, bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }))
+)
+</code></pre>
+<pre><code class="language-test">const { Component, elements, bindings, tosi, xin, updates } = tosijs
+
+test(&#39;a shadow value-widget round-trips through its value like an input&#39;, async () =&gt; {
+  class Knob extends Component {
+    static preferredTagName = &#39;knob-widget&#39;
+    static shadowStyleSpec = { &#39;:host&#39;: { display: &#39;block&#39; } }
+    value = 0
+    content = ({ button }) =&gt; button({ part: &#39;inc&#39; }, &#39;+&#39;)
+    connectedCallback() {
+      super.connectedCallback()
+      this.shadowRoot.querySelector(&#39;[part=inc]&#39;).addEventListener(&#39;click&#39;, () =&gt; {
+        this.value = Number(this.value) + 1
+      })
+    }
+    render() {
+      super.render()
+      this.setAttribute(&#39;aria-valuenow&#39;, String(this.value))
+    }
+  }
+  Knob.elementCreator()
+  tosi({ knobDemo: { level: 2 } })
+
+  const widget = elements.knobWidget({
+    bind: { value: &#39;knobDemo.level&#39;, binding: bindings.value },
+  })
+  preview.append(widget)
+  // render() reflects value into the DOM on an animation frame; poll for it
+  // rather than assume a fixed delay (headless browsers throttle rAF for a
+  // non-visible page). state -&gt; widget.value (bound like an input):
+  await waitFor(&#39;[aria-valuenow=&quot;2&quot;]&#39;, 3000)
+  expect(Number(widget.value)).toBe(2)
+
+  // interaction inside the shadow root -&gt; value -&gt; state (change event out):
+  widget.shadowRoot.querySelector(&#39;[part=inc]&#39;).click()
+  await waitFor(&#39;[aria-valuenow=&quot;3&quot;]&#39;, 3000)
+  expect(Number(widget.value)).toBe(3)
+  expect(xin[&#39;knobDemo.level&#39;]).toBe(3)
+})
+</code></pre>
 <h2>Gotchas</h2>
 <h3>Observer callbacks receive paths, not values</h3>
 <p>Observer callbacks are called with the <em>path</em> that changed, not the new value:</p>
@@ -512,46 +625,46 @@ React is O(tree size). tosijs is O(bindings on the changed path).</p>
   </article>
   <nav class="doc-nav" aria-label="Documentation">
   <ul>
-    <li><a href="/">tosijs</a></li>
-    <li><a href="/Building-Apps/" aria-current="page" class="current">Building Apps</a></li>
-    <li><a href="/elements/">Creating Elements</a></li>
-    <li><details><summary><a href="/css/">CSS</a></summary>
+    <li><a class="doc-link" href="/">tosijs</a></li>
+    <li><a class="doc-link current" href="/Building-Apps/" aria-current="page">Building Apps</a></li>
+    <li><a class="doc-link" href="/elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="/css/">CSS</a></summary>
     <ul>
-      <li><a href="/color/">color</a></li>
+      <li><a class="doc-link" href="/color/">color</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/tosi/">Managing State</a></summary>
+    <li><details><summary><a class="doc-link" href="/tosi/">Managing State</a></summary>
     <ul>
-      <li><a href="/xin/">The tosi proxy</a></li>
-      <li><a href="/metadata/">metadata</a></li>
-      <li><a href="/path-listener/">path-listener</a></li>
-      <li><a href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+      <li><a class="doc-link" href="/xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="/metadata/">metadata</a></li>
+      <li><a class="doc-link" href="/path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/bind/">Binding</a></summary>
+    <li><details><summary><a class="doc-link" href="/bind/">Binding</a></summary>
     <ul>
-      <li><a href="/list-binding/">binding arrays</a></li>
-      <li><a href="/bindings/">bindings</a></li>
+      <li><a class="doc-link" href="/list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="/bindings/">bindings</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/component/">Web-Components</a></summary>
+    <li><details><summary><a class="doc-link" href="/component/">Web-Components</a></summary>
     <ul>
-      <li><a href="/blueprint-loader/">blueprints</a></li>
-      <li><a href="/make-component/">makeComponent</a></li>
-      <li><a href="/form-validation/">Validation</a></li>
+      <li><a class="doc-link" href="/blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="/make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="/form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a href="/utilities/">Utilities</a></summary>
+    <li><details><summary><a class="doc-link" href="/utilities/">Utilities</a></summary>
     <ul>
-      <li><a href="/hot-reload/">hotReload</a></li>
-      <li><a href="/more-math/">more-math</a></li>
-      <li><a href="/share/">share</a></li>
-      <li><a href="/sync/">sync</a></li>
-      <li><a href="/throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="/hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="/more-math/">more-math</a></li>
+      <li><a class="doc-link" href="/share/">share</a></li>
+      <li><a class="doc-link" href="/sync/">sync</a></li>
+      <li><a class="doc-link" href="/throttle/">throttle &amp; debounce</a></li>
     </ul>
     </details></li>
-    <li><a href="/Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a href="/React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="/Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="/React/">React and tosijs</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">

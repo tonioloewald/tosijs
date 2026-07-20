@@ -201,3 +201,48 @@ test('getByPath with id path handles values with = in them', () => {
   } as XinObject
   expect(getByPath(testObj, 'items[key=a=b]')).toEqual({ key: 'a=b', value: 1 })
 })
+
+test('id-path cache: out-of-band removal does not return a stale item', () => {
+  const root = {
+    arr: [
+      { id: 1, v: 'one' },
+      { id: 2, v: 'two' },
+      { id: 3, v: 'three' },
+    ],
+  } as XinObject
+  // prime the cache
+  expect((getByPath(root, 'arr[id=2]') as XinObject).v).toBe('two')
+  // remove id=2 outside setByPath (as a proxied splice would)
+  root.arr.splice(1, 1)
+  expect(getByPath(root, 'arr[id=2]')).toBeUndefined()
+  expect((getByPath(root, 'arr[id=3]') as XinObject).v).toBe('three')
+})
+
+test('id-path cache: out-of-band removal does not clobber the wrong item on write', () => {
+  const root = {
+    arr: [
+      { id: 1, v: 'a' },
+      { id: 2, v: 'b' },
+      { id: 3, v: 'c' },
+    ],
+  } as XinObject
+  getByPath(root, 'arr[id=2]') // prime the cache
+  root.arr.splice(1, 1)
+  try {
+    setByPath(root, 'arr[id=2].v', 'X')
+  } catch (_e) {
+    // a loud failure is acceptable; silently clobbering id=3 is not
+  }
+  expect(root.arr).toEqual([
+    { id: 1, v: 'a' },
+    { id: 3, v: 'c' },
+  ])
+})
+
+test('deleting a nonexistent id is a no-op, not a splice at index 0', () => {
+  const root = { arr: [{ id: 1 }, { id: 2 }] } as XinObject
+  getByPath(root, 'arr[id=1]') // prime the cache
+  root.arr.splice(0, 1) // remove id=1 out of band
+  deleteByPath(root, 'arr[id=1]')
+  expect(root.arr).toEqual([{ id: 2 }])
+})

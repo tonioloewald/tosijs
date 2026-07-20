@@ -448,14 +448,118 @@ Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:
 
 - **Light DOM** (default): bindings flow through naturally.
-- **Shadow DOM**: self-contained islands that receive data via
-  attributes/properties and manage their own internals. You handle
-  rendering inside the shadow root yourself.
+- **Shadow DOM**: the component is a *custom input*. Think of it exactly like
+  an `<input>` or `<textarea>`: **its `value` is the binding surface**. Bind
+  the component itself (e.g. `bindings.value`) from outside; setting `value`
+  automatically queues `render()` and emits `change`, so implement `render()`
+  to reflect `value` into the shadow DOM, and let `change` events carry edits
+  back out. How the component represents its value internally is your business
+  as the implementer — and that includes wiring any nested widgets manually in
+  `render()`, because **bindings do not compose through a shadow tree**. A
+  shadow DOM component is materially a different kind of thing than a light
+  DOM component.
+
+Data-binding sugar inside shadow content doesn't operate — and as of 1.7 it
+warns instead of failing silently. Event sugar is the exception: `on()`
+handlers work inside open shadow roots (composed events cross the boundary,
+and the dispatcher resolves the true origin via `composedPath()`).
 
 A good example: an email message bubble might use Shadow DOM for the
 HTML body (CSS isolation from untrusted email styles) but keep
 everything else — sender, subject, timestamps — in Light DOM with
 normal bindings.
+
+#### A shadow value-widget, bound like an `<input>`
+
+Here's the canonical shape: a `shadowStyleSpec` component whose `value` is the
+binding surface. `render()` reflects `value` into the shadow DOM; a control
+inside the shadow root writes back to `this.value` (which emits `change`). From
+outside, it binds exactly like a native input — here a plain `<input>` and the
+widget share one state path and stay in sync, neither one reaching into the
+other's internals:
+
+```js
+const { Component, elements, bindings, tosi } = tosijs
+const { input, label } = elements
+
+class StarRating extends Component {
+  static preferredTagName = 'star-rating'
+  static shadowStyleSpec = {
+    ':host': { display: 'inline-flex', gap: '4px', cursor: 'pointer' },
+    '.star': { fontSize: '24px', color: '#ccc' },
+    '.star.on': { color: 'gold' },
+  }
+  value = 0
+  content = ({ span }) =>
+    [1, 2, 3, 4, 5].map((n) => span({ class: 'star', dataStar: n }, '★'))
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.shadowRoot.addEventListener('click', (event) => {
+      const star = event.target.closest('[data-star]')
+      if (star) this.value = Number(star.dataset.star) // emits `change`
+    })
+  }
+
+  render() {
+    super.render()
+    for (const star of this.shadowRoot.querySelectorAll('.star')) {
+      star.classList.toggle('on', Number(star.dataset.star) <= this.value)
+    }
+  }
+}
+StarRating.elementCreator()
+
+const { demo } = tosi({ demo: { rating: 3 } })
+
+preview.append(
+  // the widget: bound by VALUE, like an input
+  elements.starRating({ bind: { value: 'demo.rating', binding: bindings.value } }),
+  // a plain number input on the SAME path — they stay in sync
+  label(' rating: ', input({ type: 'number', min: 0, max: 5, bind: { value: 'demo.rating', binding: bindings.value } }))
+)
+```
+
+```test
+const { Component, elements, bindings, tosi, xin, updates } = tosijs
+
+test('a shadow value-widget round-trips through its value like an input', async () => {
+  class Knob extends Component {
+    static preferredTagName = 'knob-widget'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    value = 0
+    content = ({ button }) => button({ part: 'inc' }, '+')
+    connectedCallback() {
+      super.connectedCallback()
+      this.shadowRoot.querySelector('[part=inc]').addEventListener('click', () => {
+        this.value = Number(this.value) + 1
+      })
+    }
+    render() {
+      super.render()
+      this.setAttribute('aria-valuenow', String(this.value))
+    }
+  }
+  Knob.elementCreator()
+  tosi({ knobDemo: { level: 2 } })
+
+  const widget = elements.knobWidget({
+    bind: { value: 'knobDemo.level', binding: bindings.value },
+  })
+  preview.append(widget)
+  // render() reflects value into the DOM on an animation frame; poll for it
+  // rather than assume a fixed delay (headless browsers throttle rAF for a
+  // non-visible page). state -> widget.value (bound like an input):
+  await waitFor('[aria-valuenow="2"]', 3000)
+  expect(Number(widget.value)).toBe(2)
+
+  // interaction inside the shadow root -> value -> state (change event out):
+  widget.shadowRoot.querySelector('[part=inc]').click()
+  await waitFor('[aria-valuenow="3"]', 3000)
+  expect(Number(widget.value)).toBe(3)
+  expect(xin['knobDemo.level']).toBe(3)
+})
+```
 
 ## Gotchas
 

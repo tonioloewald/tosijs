@@ -38,6 +38,9 @@ export default defineSiteConfig({
   staticDirs: ['demo/static'],
 
   host: 'github-pages',
-  port: 8018,
+  // honor PORT so the Playwright e2e lane can run its own dev server on a
+  // dedicated port (see playwright.config.ts webServer) without colliding
+  // with a `bun start` you have open on 8018
+  port: Number(process.env.PORT) || 8018,
   epub: { author: 'Tonio Loewald' },
 })

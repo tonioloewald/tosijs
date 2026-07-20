@@ -38,6 +38,13 @@ disconnect()
       disconnect(): void
     }
 
+`send()` should **throw** if it cannot deliver the batch (e.g. the socket
+is not open). `sync()` catches the throw and requeues the deltas for the
+next flush, so nothing is lost across a transient disconnect. A transport
+whose `send()` silently no-ops when it can't deliver (like the sketch
+below, guarding on `readyState`) will drop those deltas instead — prefer
+throwing, or buffer inside the transport.
+
     interface SyncMessage {
       path: string
       value: any
@@ -232,7 +239,19 @@ export async function sync(
   const flushOutbound = throttle(() => {
     if (outboundBatch.length === 0) return
     const batch = outboundBatch.splice(0)
-    transport.send(batch)
+    try {
+      transport.send(batch)
+    } catch (e) {
+      // A throwing send (e.g. a websocket that closed mid-flight) must not
+      // silently drop the deltas — the exception is otherwise swallowed by
+      // the observer callback's try/catch. Requeue at the FRONT to preserve
+      // ordering; the next change (or flush) retries the whole batch.
+      outboundBatch.unshift(...batch)
+      console.error(
+        'sync: transport.send failed; deltas requeued and will retry on the next flush',
+        e
+      )
+    }
   }, interval)
 
   // Register inbound handler

@@ -15,6 +15,36 @@ Newest at top. Mark `✅ RESOLVED (fixed in <pkg>@<version>)` and close the issu
 
 ---
 
+## haltija
+
+### ✅ RESOLVED — `--private` isolated automation instances
+**Issue:** https://github.com/tonioloewald/haltija/issues/1
+Spawned automation runs adopted a foreign shared haltija on port 8700 and navigated
+another project's live browser to our pages, then timed out. `haltija --private`
+(shipped 1.4.1, in direct response to #1) binds an ephemeral port, isn't registered, and
+never reaches out.
+
+### 🚧 Engine modes aren't discoverable (`--headless` = Chromium via Playwright; `--private`/`--ci` = Electron, no Playwright)
+**Issue:** https://github.com/tonioloewald/haltija/issues/6
+Both `--help` lines say "for CI", so an agent (this one) picked `--headless`, hit
+"Playwright not installed", and wrongly concluded haltija's CI path requires Playwright.
+Ask: state the engine in `--help`/banner. NOTE: the tosijs CI browser lane ultimately
+adopted **Playwright directly** (mirroring tosijs-ui's e2e) — haltija's `--headless`
+delegating to Playwright is exactly why. haltija remains the local living-docs driver.
+
+### 🚧 `hj tabs focus <id>` times out for a live, listed tab
+**Issue:** https://github.com/tonioloewald/haltija/issues/4
+Tested 1.4.0. Workaround: `hj eval '…' --window <id>` (after the subcommand) targets a
+specific tab regardless of focus.
+
+### 🚧 A tab with no injected client is silently uncontrollable
+**Issue:** https://github.com/tonioloewald/haltija/issues/5
+`hj tabs` lists such a tab as healthy and commands silently retarget the focused tab, so
+it reads as a routing bug. Ask: surface `"client": "none"`, or error instead of silently
+retargeting.
+
+---
+
 ## tosijs-ui
 
 ### ✅ RESOLVED (fixed in tosijs-ui@1.6.21) — the `libraryBuild` + `generateCssPreload` seams
@@ -45,6 +75,18 @@ on exit) and adds a rebuild memory watchdog. Measured: baseline RSS 503MB → 15
 per-rebuild growth 26–59MB → ~2.7MB. Bundle output is byte-for-byte identical.
 
 ---
+
+### 🚧 Doc-test lane should use `haltija --private`; surface the `haltijaDev` opt-in
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/18
+Dev-server test mode does an unscoped `hj windows` adopt-or-spawn instead of requesting a
+`--private` instance, and injection is opt-in with an invisible failure mode.
+
+### ✅ RESOLVED (tosijs-ui 1.7.0-rc.1) — orchestrator swallowed tsc failures
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/22
+The `libraryTsconfig`/`emitLibrary` paths caught `tsc` failures and logged success, so a
+broken typecheck exited 0 and published stale `.d.ts` (a type error shipped in tosijs
+1.7.0-beta.1 this way). rc.1 runs `tsc -p` with `.nothrow()` + exit-code check and fails
+the build. Adopted as the 1.7.0 build host.
 
 ## tjs-lang
 
@@ -116,3 +158,10 @@ from `TjsCompat` and re-enabling the rest.
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/8
 The error suggests only `Timestamp.now()`; for monotonic / id-generation the right primitive is
 `performance.now()`, which is never mentioned.
+
+### 🚧 (to file) Post-eval reconfiguration seam for `globalThis.__tjs`
+Converted modules capture `globalThis.__tjs?.createRuntime?.()` at eval time, so config
+set after the library's `export *` has evaluated configures nothing — the
+`configure-tjs-*` import-order workaround compensates. Needs a post-eval reconfiguration
+path or an explicit "config must precede the first converted-module import" contract.
+Live footgun when 2.0 turns enforcement on. **File before stable 2.0 work resumes.**
