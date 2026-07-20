@@ -1,5 +1,25 @@
 # todo
 
+## ✅ CI + real-browser lane (2026-07-20) — the review's "test:browser rots" finding, resolved durably
+
+First CI for the repo (`.github/workflows/ci.yml`): `unit` (bun test) + `e2e` (Playwright).
+The e2e lane runs the inline ```test doc fences through **Chromium + Firefox** via
+`tests/doc-tests.pw.ts` (one navigation → `window.__docTestResults` gates the whole
+corpus; reuses the fences, zero duplication). Green in CI (~1.5 min). This closes the
+review's practices finding — the browser lane no longer depends on anyone remembering to
+run it.
+
+Browser-runner journey (recorded so it's not re-litigated): tried haltija-Electron in CI
+first; its `--headless` path delegates to Playwright anyway (filed haltija#6 on the
+mode-discoverability), and tosijs-ui's own production e2e is pure Playwright with
+`HALTIJA_DEV=0` — its code says they moved off "the fragile, not-in-CI haltija Electron
+lane". So we mirror that proven pattern. Multi-engine (Firefox) immediately caught a real
+cross-engine timing bug in a doc fence (rAF throttling) that Chromium and happy-dom both
+missed — vindicating the multi-engine choice. The haltija doc-fence lane
+(`bun bin/site.ts --test`) remains for **local** living-docs; Playwright is the CI gate.
+Optional later: enable a webkit project (tosijs-ui skips it — iframe runner doesn't signal
+per-page completion on WebKit).
+
 ## Post-1.7.0 follow-ups (from the 2026-07-20 pre-release review — GO_WITH_FOLLOWUPS)
 
 Review verdict: 0 blockers. Confirmed items already actioned: share() H-7 test added;
