@@ -548,6 +548,20 @@ test(&#39;a shadow value-widget round-trips through its value like an input&#39;
 })
 </code></pre>
 <p>This is true for both the <code>.observe()</code> method and the standalone <code>observe()</code> function.</p>
+<h3>Boxed proxies are minted fresh per access — never key on their identity</h3>
+<p>Every time you read a proxied value out of state you get a <strong>new</strong> proxy object over
+the same underlying data. So identity comparisons and identity-keyed memoization do not
+work the way you might expect:</p>
+<pre><code>app.user === app.user            // false — two different proxies
+const seen = new WeakSet()
+seen.add(app.user); seen.has(app.user)   // false
+</code></pre>
+<p>Compare and key on the <strong>path</strong> (<code>.tosi.path</code> / <code>tosiPath(x)</code>) or the <strong>underlying
+value</strong> (<code>.value</code> / <code>tosiValue(x)</code>), never on the proxy object itself. This is why, for
+example, <code>share()</code>&#39;s <code>restored</code> list is compared by path rather than
+<code>restored.includes(app.user)</code>. Relatedly, <code>.map()</code>/<code>.filter()</code>/<code>.forEach()</code> over an
+observed array hand you the <strong>raw</strong>, identity-stable items (mutating them is silent —
+<code>touch()</code> after); <code>for…of</code> and <code>.find()</code> give you proxies.</p>
 <h3><code>touch()</code> is the escape hatch</h3>
 <p>When you mutate state behind the proxy&#39;s back — from a raw reference,
 inside a <code>forEach</code>, after a bulk operation — call <code>touch()</code> to

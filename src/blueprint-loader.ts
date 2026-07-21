@@ -257,6 +257,32 @@ export function setModuleLoader(loader: (src: string) => Promise<any>): void {
   loadModule = loader
 }
 
+// Load every blueprint under `host` that has a src, in parallel. allSettled,
+// not all: one blueprint that fails to load must not reject the batch and leave
+// allLoaded() unfired (nor surface as an unhandled rejection — load() is called
+// fire-and-forget). Failures are reported; completion still fires for the rest.
+async function settleBlueprints(
+  host: Element,
+  selector: string,
+  loaderTag: string
+): Promise<void> {
+  const blueprintElements = (
+    Array.from(host.querySelectorAll(selector)) as Blueprint[]
+  ).filter((elt) => elt.src)
+  const results = await Promise.allSettled(
+    blueprintElements.map((elt) => elt.packaged())
+  )
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    if (result.status === 'rejected') {
+      console.error(
+        `<${loaderTag}> failed to load blueprint from "${blueprintElements[i].src}":`,
+        result.reason
+      )
+    }
+  }
+}
+
 // --- Canonical classes (tosi-*) ---
 
 export class Blueprint extends Component {
@@ -302,27 +328,7 @@ export class BlueprintLoader extends Component {
   allLoaded = () => {}
 
   private async load() {
-    const blueprintElements = (
-      Array.from(
-        this.querySelectorAll('tosi-blueprint, xin-blueprint')
-      ) as Blueprint[]
-    ).filter((elt) => elt.src)
-    // allSettled, not all: one blueprint that fails to load must not reject
-    // the batch and leave allLoaded() unfired (nor surface as an unhandled
-    // rejection — load() is called fire-and-forget). Report failures; still
-    // signal completion for the blueprints that did load.
-    const results = await Promise.allSettled(
-      blueprintElements.map((elt) => elt.packaged())
-    )
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i]
-      if (result.status === 'rejected') {
-        console.error(
-          `<tosi-loader> failed to load blueprint from "${blueprintElements[i].src}":`,
-          result.reason
-        )
-      }
-    }
+    await settleBlueprints(this, 'tosi-blueprint, xin-blueprint', 'tosi-loader')
     this.allLoaded()
   }
 
@@ -365,23 +371,7 @@ class DeprecatedLoader extends Component {
   }
 
   private async load() {
-    const blueprintElements = (
-      Array.from(this.querySelectorAll('xin-blueprint')) as Blueprint[]
-    ).filter((elt) => elt.src)
-    // allSettled: see BlueprintLoader.load — a failed blueprint must not wedge
-    // the batch or fire an unhandled rejection.
-    const results = await Promise.allSettled(
-      blueprintElements.map((elt) => elt.packaged())
-    )
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i]
-      if (result.status === 'rejected') {
-        console.error(
-          `<xin-loader> failed to load blueprint from "${blueprintElements[i].src}":`,
-          result.reason
-        )
-      }
-    }
+    await settleBlueprints(this, 'xin-blueprint', 'xin-loader')
     this.allLoaded()
   }
 

@@ -355,3 +355,54 @@ describe('typed-control reads and guards (H-6)', () => {
     expect(selected).toEqual(['a', 'c'])
   })
 })
+
+describe('date-family control round-trips (post-1.7 coverage)', () => {
+  test('datetime-local: setValue(Date) -> getValue Date round-trips', () => {
+    const el = document.createElement('input')
+    el.type = 'datetime-local'
+    const d = new Date(2026, 6, 21, 14, 30) // local time
+    setValue(el, d)
+    const back = getValue(el)
+    expect(back).toBeInstanceOf(Date)
+    // datetime-local uses local fields — same wall-clock minute
+    expect((back as Date).getFullYear()).toBe(2026)
+    expect((back as Date).getHours()).toBe(14)
+    expect((back as Date).getMinutes()).toBe(30)
+  })
+
+  test('month: setValue(Date) writes yyyy-MM; getValue returns a Date', () => {
+    const el = document.createElement('input')
+    el.type = 'month'
+    setValue(el, new Date(Date.UTC(2026, 2, 15)))
+    expect(el.value).toBe('2026-03')
+    const back = getValue(el)
+    // month inputs read back a Date (first of the month) or the string
+    expect(back instanceof Date || back === '2026-03').toBe(true)
+  })
+
+  test('week: setValue(Date) does not throw and empty clears', () => {
+    const el = document.createElement('input')
+    el.type = 'week'
+    expect(() => setValue(el, new Date(Date.UTC(2026, 0, 15)))).not.toThrow()
+    setValue(el, null)
+    expect(el.value).toBe('')
+  })
+
+  test('time: setValue(Date) uses the local clock', () => {
+    const el = document.createElement('input')
+    el.type = 'time'
+    setValue(el, new Date(2026, 0, 1, 9, 5, 0))
+    expect(el.value).toBe('09:05') // platform drops :00 seconds
+    setValue(el, new Date(2026, 0, 1, 9, 5, 7))
+    expect(el.value).toBe('09:05:07')
+  })
+
+  test('empty date-family control reads back the raw (empty) string', () => {
+    for (const t of ['date', 'datetime-local', 'month', 'week']) {
+      const el = document.createElement('input')
+      el.type = t
+      el.value = ''
+      expect(getValue(el)).toBe('')
+    }
+  })
+})

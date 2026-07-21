@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
@@ -67,7 +67,9 @@
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
     "/LICENSE",
-    "/README.md"
+    "/README.md",
+    "/CHANGELOG.md",
+    "/llms.txt"
   ],
   "repository": {
     "type": "git",

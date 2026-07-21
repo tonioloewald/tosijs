@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.1] - 2026-07-21
+
+Packaging fix and internal cleanup. No API or behavior changes.
+
+### Fixed
+
+- **`CHANGELOG.md` and `llms.txt` are now published to npm.** Both were built
+  and committed but omitted from the package `files` allowlist, so they never
+  reached installers. `llms.txt` in particular is meant to travel with the
+  package for LLM-assisted consumers.
+
+### Changed (internal, no observable effect)
+
+- `on()`'s origin resolution now guards `composedPath()` behind the event's
+  `composed` flag before falling back to `event.target` (defensive; same
+  result for the events tosijs dispatches).
+- Removed a dead `DATEISH` constant from `dom.ts`.
+- Extracted the duplicated `__tjs` bootstrap in `configure-tjs-debug.ts` /
+  `configure-tjs-safe.ts` into a shared `configure-tjs.ts` helper, and the two
+  copy-pasted blueprint-batch loaders into one `settleBlueprints()`.
+- Corrected a `list-binding.ts` comment (the null-anchor branch is the
+  SVG/MathML namespaced case, not HTML table mode).
+
+### Documentation
+
+- New Building-Apps "Gotchas" note: boxed proxies are minted fresh per access,
+  so never key identity/memoization on them — compare on `.tosi.path`/`.value`.
+- Added date-family control round-trip test coverage (`dom.test.ts`).
+
 ## [1.7.0] - 2026-07-20
 
 The **correctness release** — the outcome of a whole-codebase review (~45 verified

@@ -576,6 +576,23 @@ Observer callbacks are called with the _path_ that changed, not the new value:
 
 This is true for both the `.observe()` method and the standalone `observe()` function.
 
+### Boxed proxies are minted fresh per access — never key on their identity
+
+Every time you read a proxied value out of state you get a **new** proxy object over
+the same underlying data. So identity comparisons and identity-keyed memoization do not
+work the way you might expect:
+
+    app.user === app.user            // false — two different proxies
+    const seen = new WeakSet()
+    seen.add(app.user); seen.has(app.user)   // false
+
+Compare and key on the **path** (`.tosi.path` / `tosiPath(x)`) or the **underlying
+value** (`.value` / `tosiValue(x)`), never on the proxy object itself. This is why, for
+example, `share()`'s `restored` list is compared by path rather than
+`restored.includes(app.user)`. Relatedly, `.map()`/`.filter()`/`.forEach()` over an
+observed array hand you the **raw**, identity-stable items (mutating them is silent —
+`touch()` after); `for…of` and `.find()` give you proxies.
+
 ### `touch()` is the escape hatch
 
 When you mutate state behind the proxy's back — from a raw reference,

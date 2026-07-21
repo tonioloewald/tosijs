@@ -367,8 +367,13 @@ observe(
 // shadow root. composedPath()[0] sees through open roots; closed roots stay
 // hidden (the path is truncated for outside listeners) — closed means closed.
 const eventOrigin = (event: Event): Element | null => {
+  // Only pierce shadow boundaries for composed events — for a non-composed
+  // event composedPath()[0] is just event.target anyway, so skip the call
+  // (and its array allocation) on the common path.
   const origin =
-    event.composedPath != null ? event.composedPath()[0] : event.target
+    event.composed && event.composedPath != null
+      ? event.composedPath()[0]
+      : event.target
   return origin instanceof Element ? origin : null
 }
 

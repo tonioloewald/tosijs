@@ -1,9 +1,7 @@
 import { ContentType, ValueElement } from './xin-types';
 export declare const dispatch: (target: Element, type: string, { bubbles, composed }?: EventInit) => void;
-declare const DATEISH: string[];
 export declare const setValue: (element: Element, newValue: any) => void;
 export declare const getValue: (element: ValueElement) => any;
-export { DATEISH };
 export declare const resizeObserver: ResizeObserver | {
     observe(): void;
     unobserve(): void;

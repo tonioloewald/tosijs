@@ -82,8 +82,6 @@ const timeStringToMs = (value: string): number => {
   )
 }
 
-const DATEISH = ['date', 'datetime-local', 'month', 'week']
-
 export const setValue = (element: Element, newValue: any): void => {
   const type = valueType(element)
   switch (type) {
@@ -211,7 +209,6 @@ export const getValue = (element: ValueElement): any => {
   }
 }
 
-export { DATEISH }
 
 const { ResizeObserver } = globalThis
 export const resizeObserver =
