@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.2] - 2026-07-22
+
+### Fixed
+
+- **Custom-property `line-height` lost its `px` suffix** (regression introduced
+  in 1.7.0). A declaration like `_lineHeight: 25` emitted `--line-height: 25`
+  instead of `--line-height: 25px`. Cause: 1.7.0's `_opacity: 0.5px` fix began
+  stripping the `_` prefix before testing the unitless-property list, and
+  `line-height` was in that list — so custom-property line-heights matched and
+  their `px` was suppressed. Subtle and lethal: the `vars` system uses
+  `lineHeight` as a length (`calc(vars.lineHeight + vars.spacing200)`), so the
+  missing unit silently broke computed sizes downstream.
+
+  `line-height` is now treated as **dual-mode**: a real declaration
+  (`lineHeight: 1.5`) keeps the unitless multiplier idiom; a **custom property**
+  (`_lineHeight: 25`) gets `px` per tosijs's bare-number→px convention. Opt out
+  with a string — `_lineHeight: '1.5'` → `--line-height: 1.5`. The `_opacity`,
+  `_zIndex`, etc. fix from 1.7.0 is preserved (those are always-unitless — a `px`
+  value is invalid CSS, so it is suppressed for both real and custom props).
+
 ## [1.7.1] - 2026-07-21
 
 Packaging fix and internal cleanup. No API or behavior changes.

@@ -335,6 +335,22 @@ test('length custom properties still get px', () => {
   expect(sheet).toContain('--margin: 10px;')
 })
 
+// Regression (1.7.0 → 1.7.1): stripping the `_` before the unitless test (the
+// `_opacity: 0.5px` fix) made `_lineHeight: 25` match the unitless list and lose
+// its px, yielding `--line-height: 25` instead of `--line-height: 25px`. Subtle
+// and lethal — the vars system uses lineHeight as a length (calc). line-height
+// is DUAL: a custom-property length var takes px; a real declaration keeps the
+// unitless multiplier idiom.
+test('line-height custom property is a px length; real declaration stays unitless', () => {
+  const sheet = css({ ':root': { _lineHeight: 25 } })
+  expect(sheet).toContain('--line-height: 25px;')
+  // a real (unprefixed) declaration keeps the unitless multiplier
+  expect(processProp('line-height', 1.5).value).toBe('1.5')
+  // opt out of px on a custom-property line-height with a string
+  const ratio = css({ ':root': { _lineHeight: '1.5' } })
+  expect(ratio).toContain('--line-height: 1.5;')
+})
+
 test('StyleSheet returns the style element (medium backlog)', () => {
   const el = StyleSheet('lhf-sheet-test', { ':root': { color: 'red' } })
   expect(el).toBeInstanceOf(HTMLStyleElement)

@@ -546,19 +546,33 @@ export function StyleSheet(
   return element as HTMLStyleElement
 }
 
-// CSS properties that accept unitless numbers (no px suffix)
-const unitless =
-  /^(animation-iteration-count|column-count|flex(-grow|-shrink)?|font-weight|line-height|opacity|order|orphans|scale|tab-size|widows|z-index|zoom)$/
+// CSS properties that accept unitless numbers (no px suffix), split by whether
+// a px value is even legal for that property:
+//   alwaysUnitless — `<prop>: 25px` is INVALID (opacity, z-index, font-weight…).
+//     px is suppressed for real declarations AND custom props (`_opacity: 0.5`
+//     must stay `--opacity: 0.5`, not `0.5px`).
+//   dualUnitless — `line-height` accepts BOTH a unitless multiplier (`1.5`) and a
+//     length (`25px`). As a real declaration we honor the multiplier idiom and
+//     keep bare numbers unitless; as a custom property (`_lineHeight`) the value
+//     is an opaque token and tosijs's bare-number→px convention wins — the vars
+//     system uses it as a length (e.g. calc(vars.lineHeight + vars.spacing200)).
+//     Want a unitless custom-prop line-height? pass a string: `_lineHeight: '1.5'`.
+const alwaysUnitless =
+  /^(animation-iteration-count|column-count|flex(-grow|-shrink)?|font-weight|opacity|order|orphans|scale|tab-size|widows|z-index|zoom)$/
+const dualUnitless = /^line-height$/
 
 export const processProp = (
   prop: string,
   value: string | number
 ): { prop: string; value: string } => {
-  // Test the unitless list against the bare CSS property name — a custom
-  // property arrives here still prefixed (`_opacity`), so testing `prop`
-  // directly never matched and appended `px` to unitless values
-  // (`--opacity: 0.5px`). prop is already kebab-cased by the caller.
-  if (typeof value === 'number' && !unitless.test(prop.replace(/^_+/, ''))) {
+  // Test against the bare CSS property name — a custom property arrives here
+  // still prefixed (`_opacity`), and prop is already kebab-cased by the caller.
+  const bareProp = prop.replace(/^_+/, '')
+  const isCustomProp = prop.startsWith('_')
+  const unitlessHere =
+    alwaysUnitless.test(bareProp) ||
+    (!isCustomProp && dualUnitless.test(bareProp))
+  if (typeof value === 'number' && !unitlessHere) {
     value = `${value}px`
   }
   if (prop.startsWith('_')) {
