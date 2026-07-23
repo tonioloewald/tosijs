@@ -35,6 +35,8 @@ export {
   tosiAccessor,
   TOSI_ACCESSOR,
   TAKE_DESCRIPTOR,
+  BOUND_CLASS,
+  BOUND_SELECTOR,
   deprecated,
   warnDeprecated,
 } from './metadata'

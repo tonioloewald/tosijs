@@ -386,7 +386,7 @@ describe('reactive class binding replaces (does not accumulate)', () => {
   })
 
   test('reactive class updates do not strip marker classes added elsewhere', async () => {
-    // -xin-data is added by bind() via classList.add (not through the class
+    // -tosi-data is added by bind() via classList.add (not through the class
     // prop), so it is not in appliedClasses and must survive class updates
     tosi({ clsMarker: { c: 'red' } })
     const { div } = elements
@@ -395,14 +395,14 @@ describe('reactive class binding replaces (does not accumulate)', () => {
       bindings: (await import('./bindings')).bindings,
     }))
     const el = div({ class: (boxed as any).clsMarker.c })
-    bind(el, 'clsMarker.other', bindings.text) // adds the -xin-data marker class
+    bind(el, 'clsMarker.other', bindings.text) // adds the -tosi-data marker class
     document.body.append(el)
     await updates()
-    expect(el.classList.contains('-xin-data')).toBe(true)
+    expect(el.classList.contains('-tosi-data')).toBe(true)
     ;(xin as any)['clsMarker.c'] = 'blue'
     await updates()
     expect(el.classList.contains('blue')).toBe(true)
-    expect(el.classList.contains('-xin-data')).toBe(true) // marker survives
+    expect(el.classList.contains('-tosi-data')).toBe(true) // marker survives
     el.remove()
   })
 })

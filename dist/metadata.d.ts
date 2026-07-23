@@ -1,6 +1,15 @@
 import { XinObject, XinBinding, XinEventHandler, Unboxed } from './xin-types';
-export declare const BOUND_CLASS = "-xin-data";
-export declare const BOUND_SELECTOR = ".-xin-data";
+/**
+ * The class tosijs stamps on every data-bound element. Dispatch enumerates
+ * bound elements with `document.getElementsByClassName(BOUND_CLASS)`. Exported
+ * so integrations reference the symbol instead of hardcoding the literal (which
+ * is why the `-xin-data` → `-tosi-data` rename in 1.7.4 was "breaking" only for
+ * code that hardcoded it). Prefer binding your own class for styling; use this
+ * to *find* bound elements.
+ */
+export declare const BOUND_CLASS = "-tosi-data";
+/** CSS selector form of {@link BOUND_CLASS} (`.-tosi-data`). */
+export declare const BOUND_SELECTOR = ".-tosi-data";
 export declare const XIN_PATH: unique symbol;
 export declare const XIN_VALUE: unique symbol;
 export declare const XIN_OBSERVE = "xinObserve";

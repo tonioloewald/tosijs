@@ -6,6 +6,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.4] - 2026-07-23
+
+### Changed
+
+- **Faster state→DOM dispatch.** The bound-element scans — the global "any state
+  changed" observer, the `MutationObserver` that re-discovers inserted elements,
+  and the list-binding relative-path refresh — now enumerate with
+  `getElementsByClassName` (which gathers from the browser's class-name bucket
+  index) instead of `querySelectorAll` (a whole-tree walk). Measured **1.6–2.6×
+  faster** in Blink on the global scan, with the gap widening as the DOM grows —
+  this is the library's hottest path, so it matters most in exactly the large,
+  frequently-updating apps where it was slowest. The result set is identical; the
+  scan is still snapshotted to a static array so `toDOM` mutations during dispatch
+  can't perturb a live collection.
+
+- **Renamed the data-binding marker class `-xin-data` → `-tosi-data`.** The last
+  `xin`-era name in the runtime DOM. **Potentially breaking (unlikely):** if you
+  were selecting or styling `.-xin-data` (an undocumented internal), use
+  `.-tosi-data` — or better, bind your own class. This marker is required and
+  retained (unlike the retired `-xin-event`): data dispatch starts from a *path*
+  and must *enumerate* bound elements, which a WeakMap can't do — the class is the
+  DOM's queryable index. `getElementsByClassName` is class-only (there is no
+  attribute equivalent), which is why the marker stays a class rather than moving
+  to a `data-*` attribute.
+
+### Added
+
+- **`BOUND_CLASS` and `BOUND_SELECTOR` are now exported** from the package root.
+  They were internal, so any integration referencing the marker had to hardcode
+  the literal — which is the *only* reason the rename above is breaking. Import
+  the constant (`import { BOUND_CLASS } from 'tosijs'`) and your code follows any
+  future rename automatically. Use them to *find* bound elements
+  (`document.getElementsByClassName(BOUND_CLASS)`); bind your own class for styling.
+
 ## [1.7.3] - 2026-07-23
 
 ### Changed

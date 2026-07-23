@@ -503,7 +503,7 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
       // `class` binding REPLACES rather than accumulates (a change from
       // 'red' to 'blue' must not leave 'red bl ue'). Only classes this
       // binding previously added are candidates for removal — classes from
-      // other sources (a static `class`, `-xin-data`, etc.) are untouched.
+      // other sources (a static `class`, `-tosi-data`, etc.) are untouched.
       const prev = appliedClasses.get(elt)
       if (prev) for (const c of prev) if (!on.has(c)) elt.classList.remove(c)
       for (const c of off) elt.classList.remove(c)

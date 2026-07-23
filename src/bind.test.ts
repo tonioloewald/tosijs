@@ -494,7 +494,7 @@ test('events on cloneNode copies of bound elements do not crash dispatch (H-12)'
   expect(outerHeard).toBe(1)
   expect(buttonHeard).toBe(0)
 
-  // a value-bound input, cloned: the clone carries -xin-data but no bindings
+  // a value-bound input, cloned: the clone carries -tosi-data but no bindings
   const input = document.createElement('input')
   document.body.append(input)
   bind(input, 'h12clone.label', bindings.value)
@@ -530,6 +530,32 @@ test('on() does not mutate the element (no marker class) yet delegation works', 
 
   off()
   wrapper.remove()
+})
+
+test('data dispatch reaches nested bound elements via the renamed marker class', async () => {
+  // pins the -tosi-data marker name and the getElementsByClassName-based global
+  // scan: a state change must flow to bound elements nested at different depths
+  const { tdisp } = tosi({ tdisp: { a: 'x', b: 'y' } })
+  const aDiv = elements.div({ bindText: tdisp.a })
+  const span = elements.span({ bindText: tdisp.b })
+  const container = elements.div(aDiv, elements.div(span))
+  document.body.append(container)
+  await updates()
+
+  // both bound elements carry the renamed marker; unbound wrappers do not
+  expect(aDiv.classList.contains('-tosi-data')).toBe(true)
+  expect(span.classList.contains('-tosi-data')).toBe(true)
+  expect(container.classList.contains('-tosi-data')).toBe(false)
+  expect(aDiv.textContent).toBe('x')
+  expect(span.textContent).toBe('y')
+
+  // a state change flows through the getElementsByClassName dispatch to both
+  tdisp.a = 'X2'
+  tdisp.b = 'Y2'
+  await updates()
+  expect(aDiv.textContent).toBe('X2')
+  expect(span.textContent).toBe('Y2')
+  container.remove()
 })
 
 describe('state-driven value coercion (H-6)', () => {

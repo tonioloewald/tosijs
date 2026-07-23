@@ -66,13 +66,30 @@ import {
 } from './xin-types'
 import { deepClone } from './deep-clone'
 
-// data bindings still carry a marker class: a MutationObserver re-discovers
-// them via querySelectorAll(BOUND_SELECTOR) when elements are inserted, and you
-// cannot querySelectorAll a WeakMap. Event handlers need no such marker — the
-// single delegated capture listener catches every event, and elementToHandlers
-// (a WeakMap) is the authoritative record for the ancestor walk. So there is no
-// EVENT_CLASS: on()-bound elements are never mutated.
-export const BOUND_CLASS = '-xin-data'
+// data bindings carry a marker class because dispatch must ENUMERATE bound
+// elements: a state change hands us a path, not an element, so we ask the DOM
+// "which elements are bound?" — and you cannot enumerate a WeakMap. The class is
+// the DOM's queryable index; the WeakMap (elementToBindings) holds the rich spec.
+// Enumeration uses getElementsByClassName(BOUND_CLASS), which gathers from the
+// class-name bucket index (~O(matches)) and measured 1.6–2.6× faster than
+// querySelectorAll's whole-tree walk (Blink, scaling with DOM size). BOUND_SELECTOR
+// is retained for the closest()-based fromDOM delegation walk and one diagnostic —
+// those match a known element, they don't enumerate.
+//
+// Event handlers need no such marker: the delegated capture listener catches
+// every event, and elementToHandlers (a WeakMap) suffices for the ancestor walk
+// (element-driven, not enumeration). So there is no EVENT_CLASS — on()-bound
+// elements are never mutated.
+/**
+ * The class tosijs stamps on every data-bound element. Dispatch enumerates
+ * bound elements with `document.getElementsByClassName(BOUND_CLASS)`. Exported
+ * so integrations reference the symbol instead of hardcoding the literal (which
+ * is why the `-xin-data` → `-tosi-data` rename in 1.7.4 was "breaking" only for
+ * code that hardcoded it). Prefer binding your own class for styling; use this
+ * to *find* bound elements.
+ */
+export const BOUND_CLASS = '-tosi-data'
+/** CSS selector form of {@link BOUND_CLASS} (`.-tosi-data`). */
 export const BOUND_SELECTOR = `.${BOUND_CLASS}`
 
 export const XIN_PATH = Symbol.for('xin-path')

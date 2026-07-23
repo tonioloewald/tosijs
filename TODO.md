@@ -293,8 +293,11 @@ that lookup).
   check; clones carry the `-xin-data` class (and, pre-1.7.3, `-xin-event`) but no WeakMap
   entries. Degrade gracefully (skip) instead of TypeError-ing and aborting ancestor traversal.
   *(1.7.3: the `-xin-event` marker class was retired entirely — the event ancestor walk now
-  consults the elementToHandlers WeakMap directly, so clones are never even visited. The
-  `-xin-data` class stays: the MutationObserver re-discovers bound elements via querySelectorAll.)*
+  consults the elementToHandlers WeakMap directly, so clones are never even visited. The data
+  marker stays but was renamed `-xin-data` → `-tosi-data` in 1.7.4, and dispatch now enumerates
+  it via getElementsByClassName (1.6–2.6× faster than querySelectorAll); it can't be a WeakMap
+  because dispatch enumerates by path, and can't be a data-attribute because getElementsByClassName
+  is class-only.)*
 
 ### Medium backlog (fix in 1.7 where cheap; otherwise carry, don't drop)
 
