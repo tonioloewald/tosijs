@@ -401,8 +401,11 @@ If the class has a `handleResize` handler then a ResizeObserver will trigger
 `resize` events on the element when its size changes and `handleResize` will be
 set up to respond to them. (The legacy name `onResize` still works but is
 deprecated — the `on<Event>` prefix is reserved for event-handler sugar in the
-[elements](/elements/) factory, so component callbacks use the `handle<Event>`
-convention instead.)
+[elements](/elements/) factory, so component members must not use it.) Name by
+intent: `handle<Event>` for a handler function the component invokes (e.g.
+`handleResize`, `handleClick`), or `add<Event>Listener` for a method that
+registers listeners for a synthetic event the component dispatches (e.g.
+`addClickListener`).
 
 Also, if the subclass has defined `value`, calls `initValue()`.
 
@@ -1138,8 +1141,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           `names as event-handler sugar — e.g. creator({ onClick }) attaches a ` +
           `'click' listener rather than assigning the property — so these members ` +
           `are shadowed and cannot be set or read via the element creator. Rename ` +
-          `them with the handle<Event> convention (e.g. 'handleClick') to keep ` +
-          `them usable as component members.`
+          `by intent: use 'handle<Event>' for a handler function the component ` +
+          `invokes (e.g. 'handleClick'), or 'add<Event>Listener' for a method that ` +
+          `registers listeners for a synthetic event the component dispatches ` +
+          `(e.g. 'addClickListener').`
       )
     })
   }

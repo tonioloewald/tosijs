@@ -380,8 +380,11 @@ a value (i.e. triggering a <code>change</code> events and <code>render</code> wh
 <code>resize</code> events on the element when its size changes and <code>handleResize</code> will be
 set up to respond to them. (The legacy name <code>onResize</code> still works but is
 deprecated — the <code>on&lt;Event&gt;</code> prefix is reserved for event-handler sugar in the
-<a href="/elements/">elements</a> factory, so component callbacks use the <code>handle&lt;Event&gt;</code>
-convention instead.)</p>
+<a href="/elements/">elements</a> factory, so component members must not use it.) Name by
+intent: <code>handle&lt;Event&gt;</code> for a handler function the component invokes (e.g.
+<code>handleResize</code>, <code>handleClick</code>), or <code>add&lt;Event&gt;Listener</code> for a method that
+registers listeners for a synthetic event the component dispatches (e.g.
+<code>addClickListener</code>).</p>
 <p>Also, if the subclass has defined <code>value</code>, calls <code>initValue()</code>.</p>
 <p><code>connectedCallback</code> is a great place to attach <strong>event-handlers</strong> to elements in your component.</p>
 <p>Be sure to call <code>super.connectedCallback()</code> if you implement <code>connectedCallback</code> in the subclass.</p>

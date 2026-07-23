@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.5] - 2026-07-23
+
+### Changed
+
+- **The `on<Event>` member-collision warning now suggests a name by intent.**
+  When a component defines an `on<Event>`-named member (shadowed by the elements
+  factory's event-handler sugar), the warning previously offered only
+  `handle<Event>`. It now distinguishes the two real cases: use **`handle<Event>`**
+  for a handler function the component invokes (e.g. `handleClick`), or
+  **`add<Event>Listener`** for a method that registers listeners for a synthetic
+  event the component dispatches (e.g. `addClickListener`). The Component docs
+  carry the same guidance. No behavior change — warning text and docs only.
+
 ## [1.7.4] - 2026-07-23
 
 ### Changed

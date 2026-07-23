@@ -1182,6 +1182,9 @@ describe('on<Event> member collision warning', () => {
     expect(w).toBeDefined()
     expect(w).toContain("'onClick'")
     expect(w).toContain("'onMousedown'")
+    // suggests both conventions, by intent: handler function vs listener-adder
+    expect(w).toContain('handle<Event>')
+    expect(w).toContain('add<Event>Listener')
   })
 
   test('does not warn for handleResize (current resize hook), and wires it', async () => {
