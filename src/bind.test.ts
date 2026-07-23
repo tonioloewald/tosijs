@@ -473,7 +473,8 @@ test('bound elements do not re-render for name-prefix sibling paths (H-1)', asyn
 
 test('events on cloneNode copies of bound elements do not crash dispatch (H-12)', async () => {
   tosi({ h12clone: { label: 'x' } })
-  // an on()-bound button, cloned: the clone carries -xin-event but no handlers
+  // an on()-bound button, cloned: the clone is not a key in elementToHandlers,
+  // so the ancestor walk skips it and climbs to the outer handler
   let outerHeard = 0
   let buttonHeard = 0
   const outer = document.createElement('div')
@@ -504,6 +505,31 @@ test('events on cloneNode copies of bound elements do not crash dispatch (H-12)'
   outer.remove()
   input.remove()
   inputClone.remove()
+})
+
+test('on() does not mutate the element (no marker class) yet delegation works', () => {
+  // the elementToHandlers WeakMap is the record; on() must not stamp a class
+  // onto the consumer's DOM (the retired -xin-event marker)
+  const wrapper = document.createElement('div')
+  const btn = document.createElement('button')
+  btn.className = 'consumer-styled'
+  wrapper.append(btn)
+  document.body.append(wrapper)
+
+  let heard = 0
+  const off = on(btn as HTMLElement, 'click', () => {
+    heard++
+  })
+  // className is exactly what the consumer set — nothing added
+  expect(btn.className).toBe('consumer-styled')
+  expect(wrapper.className).toBe('')
+
+  // and delegation still resolves through the untouched DOM
+  btn.dispatchEvent(new Event('click', { bubbles: true }))
+  expect(heard).toBe(1)
+
+  off()
+  wrapper.remove()
 })
 
 describe('state-driven value coercion (H-6)', () => {

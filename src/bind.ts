@@ -279,8 +279,6 @@ import {
   LIST_BINDING_REF,
   BOUND_CLASS,
   BOUND_SELECTOR,
-  EVENT_CLASS,
-  EVENT_SELECTOR,
   XinEventBindings,
   XIN_PATH,
   XIN_VALUE,
@@ -406,6 +404,27 @@ const nextAcrossShadow = (el: Element, selector: string): Element | null => {
     return closestAcrossShadow(root.host, selector)
   }
   return null
+}
+
+// one step up the ancestor chain, hopping out of an open shadow root to its host
+const parentAcrossShadow = (el: Element): Element | null => {
+  if (el.parentElement != null) return el.parentElement
+  const root = el.getRootNode()
+  return typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot
+    ? root.host
+    : null
+}
+
+// nearest self-or-ancestor (across open-shadow boundaries) with registered event
+// handlers. Event delegation used to climb a `-xin-event` marker class via
+// closest(); the elementToHandlers WeakMap already IS that record, so we consult
+// it directly and never stamp a class onto the consumer's DOM. cloneNode copies
+// nothing into the map, so clones are simply not visited — no zombie markers.
+const closestHandlerElement = (el: Element | null): Element | null => {
+  while (el != null && !elementToHandlers.has(el)) {
+    el = parentAcrossShadow(el)
+  }
+  return el
 }
 
 const handleChange = (event: Event): void => {
@@ -646,7 +665,7 @@ export function bind<T extends Element = Element>(
 const handledEventTypes: Set<string> = new Set()
 
 const handleBoundEvent = (event: Event): void => {
-  let target = closestAcrossShadow(eventOrigin(event), EVENT_SELECTOR)
+  let target = closestHandlerElement(eventOrigin(event))
   let propagationStopped = false
 
   const wrappedEvent = new Proxy(event, {
@@ -664,7 +683,7 @@ const handleBoundEvent = (event: Event): void => {
   })
   const nohandlers = new Set<XinEventHandler>()
   while (!propagationStopped && target != null) {
-    // see handleChange: clones carry the class but no metadata — skip, don't crash
+    // every target visited is, by construction, a key in elementToHandlers
     const eventBindings = elementToHandlers.get(target)
     const handlers = eventBindings?.[event.type] ?? nohandlers
     for (const handler of handlers) {
@@ -682,7 +701,7 @@ const handleBoundEvent = (event: Event): void => {
         continue
       }
     }
-    target = nextAcrossShadow(target, EVENT_SELECTOR)
+    target = closestHandlerElement(parentAcrossShadow(target))
   }
 }
 
@@ -694,7 +713,6 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
   let eventBindings = elementToHandlers.get(element)
-  element.classList.add(EVENT_CLASS)
   if (eventBindings == null) {
     eventBindings = {}
     elementToHandlers.set(element, eventBindings)

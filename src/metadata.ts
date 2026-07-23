@@ -66,10 +66,14 @@ import {
 } from './xin-types'
 import { deepClone } from './deep-clone'
 
+// data bindings still carry a marker class: a MutationObserver re-discovers
+// them via querySelectorAll(BOUND_SELECTOR) when elements are inserted, and you
+// cannot querySelectorAll a WeakMap. Event handlers need no such marker — the
+// single delegated capture listener catches every event, and elementToHandlers
+// (a WeakMap) is the authoritative record for the ancestor walk. So there is no
+// EVENT_CLASS: on()-bound elements are never mutated.
 export const BOUND_CLASS = '-xin-data'
 export const BOUND_SELECTOR = `.${BOUND_CLASS}`
-export const EVENT_CLASS = '-xin-event'
-export const EVENT_SELECTOR = `.${EVENT_CLASS}`
 
 export const XIN_PATH = Symbol.for('xin-path')
 export const XIN_VALUE = Symbol.for('xin-value')

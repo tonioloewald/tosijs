@@ -940,7 +940,7 @@ describe('content array with ElementProps on host', () => {
     const creator = MergePropsComponent.elementCreator()
     const el = creator()
     document.body.appendChild(el)
-    // Later props override earlier ones (onClick adds -xin-event class)
+    // Later props override earlier ones
     expect(el.className).toContain('second')
     // But event handler from first props still works
     dispatch(el, 'click')

@@ -290,8 +290,11 @@ that lookup).
   evict failed cache entries, `allSettled` + per-blueprint error reporting.
 - **H-12: events on `cloneNode` copies of bound elements throw in the global dispatchers.**
   `bind.ts` `handleChange`/`handleBoundEvent` — WeakMap `get(target)` is used without a null
-  check; clones carry the `-xin-data`/`-xin-event` classes but no WeakMap entries. Degrade
-  gracefully (skip) instead of TypeError-ing and aborting ancestor traversal.
+  check; clones carry the `-xin-data` class (and, pre-1.7.3, `-xin-event`) but no WeakMap
+  entries. Degrade gracefully (skip) instead of TypeError-ing and aborting ancestor traversal.
+  *(1.7.3: the `-xin-event` marker class was retired entirely — the event ancestor walk now
+  consults the elementToHandlers WeakMap directly, so clones are never even visited. The
+  `-xin-data` class stays: the MutationObserver re-discovers bound elements via querySelectorAll.)*
 
 ### Medium backlog (fix in 1.7 where cheap; otherwise carry, don't drop)
 

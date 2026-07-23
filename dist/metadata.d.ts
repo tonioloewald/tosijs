@@ -1,8 +1,6 @@
 import { XinObject, XinBinding, XinEventHandler, Unboxed } from './xin-types';
 export declare const BOUND_CLASS = "-xin-data";
 export declare const BOUND_SELECTOR = ".-xin-data";
-export declare const EVENT_CLASS = "-xin-event";
-export declare const EVENT_SELECTOR = ".-xin-event";
 export declare const XIN_PATH: unique symbol;
 export declare const XIN_VALUE: unique symbol;
 export declare const XIN_OBSERVE = "xinObserve";

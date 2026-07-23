@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.3] - 2026-07-23
+
+### Changed
+
+- **`on()` no longer stamps a `-xin-event` marker class onto your elements.**
+  Event delegation used to climb the ancestor chain by matching that class with
+  `closest()`; it now consults the internal `elementToHandlers` WeakMap directly,
+  which is already the authoritative record of which elements have handlers. The
+  behavior of `on()` is unchanged — handlers fire exactly as before, including
+  across open shadow roots — but `on()`-bound elements are no longer mutated, so
+  nothing appears in their `className` and clones no longer carry a stray marker.
+
+  **Potentially breaking (unlikely):** if you were selecting or styling elements
+  via `.-xin-event` (an undocumented internal), that class is gone. Bind your own
+  class instead. The `-xin-data` marker on *data*-bound elements is retained — a
+  `MutationObserver` re-discovers those via `querySelectorAll`, which a WeakMap
+  can't provide.
+
 ## [1.7.2] - 2026-07-22
 
 ### Fixed
