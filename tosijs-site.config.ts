@@ -34,8 +34,21 @@ export default defineSiteConfig({
   favicon: '/favicon.svg',
 
   libraryTsconfig: './tsconfig.build.json',
-  docPaths: ['src', 'README.md', 'Building-Apps.md', 'Migration.md', 'React.md'],
+  docPaths: [
+    'src',
+    'README.md',
+    'Building-Apps.md',
+    'Migration.md',
+    'React.md',
+    'Angular.md',
+  ],
   staticDirs: ['demo/static'],
+
+  // dev-only: let the in-browser "edit page source" / live-example "Save to
+  // source" read+write the actual repo files via /__docstore/source. Off by
+  // default, which makes edit-source fall back to GitHub raw (the last COMMITTED
+  // version) — so local, uncommitted edits show stale until this is enabled.
+  editableSources: true,
 
   host: 'github-pages',
   // honor PORT so the Playwright e2e lane can run its own dev server on a

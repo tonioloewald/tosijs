@@ -31,6 +31,10 @@
   --scroll-thumb-color: #0006;
   --scroll-bar-color: #0001;
   --input-border-shadow: inset 0 0 2px #0006;
+  --tosi-accent: var(--brand-color);
+  --tosi-bg: var(--background);
+  --tosi-text: var(--text-color);
+  --tosi-bg-inset: var(--inset-bg);
   --spacing: 10px;
   --line-height: calc(var(--font-size) * 1.6);
   --h1-scale: 2;

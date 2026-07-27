@@ -49,6 +49,11 @@ export {
 } from './list-binding'
 export { makeComponent } from './make-component'
 export type {
+  TosiBlueprint,
+  TosiFactory,
+  TosiPackagedComponent,
+  TosiComponentSpec,
+  // deprecated Xin* aliases (kept for backward compatibility)
   XinBlueprint,
   XinFactory,
   XinPackagedComponent,

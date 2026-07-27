@@ -7,7 +7,7 @@ import { elements, svgElements, mathML } from './elements';
 import { ElementCreator, PartsMap } from './xin-types';
 import { xin, boxed } from './xin';
 import { xinProxy, tosi, boxedProxy } from './xin-proxy';
-export interface XinFactory {
+export interface TosiFactory {
     Color: typeof Color;
     Component: typeof Component;
     elements: typeof elements;
@@ -25,18 +25,26 @@ export interface XinFactory {
     on: typeof on;
     version: string;
 }
-export interface XinComponentSpec<T = PartsMap> {
+export interface TosiComponentSpec<T = PartsMap> {
     type: Component<T>;
     lightStyleSpec?: XinStyleSheet;
     /** @deprecated Use lightStyleSpec instead */
     styleSpec?: XinStyleSheet;
 }
-export interface XinPackagedComponent<T = PartsMap> {
+export interface TosiPackagedComponent<T = PartsMap> {
     type: Component<T>;
     creator: ElementCreator;
 }
 export declare const madeComponents: {
-    [key: string]: XinPackagedComponent<any>;
+    [key: string]: TosiPackagedComponent<any>;
 };
-export type XinBlueprint<T = PartsMap> = (tag: string, module: XinFactory) => XinComponentSpec<T> | Promise<XinComponentSpec<T>>;
-export declare function makeComponent<T = PartsMap>(tag: string, blueprint: XinBlueprint<T>): Promise<XinPackagedComponent<T>>;
+export type TosiBlueprint<T = PartsMap> = (tag: string, module: TosiFactory) => TosiComponentSpec<T> | Promise<TosiComponentSpec<T>>;
+/** @deprecated Use `TosiFactory` */
+export type XinFactory = TosiFactory;
+/** @deprecated Use `TosiComponentSpec` */
+export type XinComponentSpec<T = PartsMap> = TosiComponentSpec<T>;
+/** @deprecated Use `TosiPackagedComponent` */
+export type XinPackagedComponent<T = PartsMap> = TosiPackagedComponent<T>;
+/** @deprecated Use `TosiBlueprint` */
+export type XinBlueprint<T = PartsMap> = TosiBlueprint<T>;
+export declare function makeComponent<T = PartsMap>(tag: string, blueprint: TosiBlueprint<T>): Promise<TosiPackagedComponent<T>>;

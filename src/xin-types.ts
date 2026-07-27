@@ -76,14 +76,22 @@ export interface XinProps<T = any> {
   valueOf: () => T
   toJSON: () => T
 
-  // Legacy API (deprecated but still supported)
+  // Legacy API (deprecated but still supported). The `xin*` string aliases are
+  // kept here in parity with BoxedScalarAPI — they resolve at runtime, so
+  // dropping them from the type (but not the scalar type) was a silent,
+  // typecheck-only break for object/array proxies (#19). Prefer `.value` /
+  // `.tosi.value` / `.path` / `.tosi.path` in new code.
   [XIN_PATH]: string
+  xinPath: string
   tosiPath: string
   [XIN_VALUE]: T
+  xinValue: T
   tosiValue: T
   [XIN_OBSERVE]: ProxyObserveFunc
+  xinObserve: ProxyObserveFunc
   tosiObserve: ProxyObserveFunc
   [XIN_BIND]: ProxyBindFunc
+  xinBind: ProxyBindFunc
   tosiBind: ProxyBindFunc
 }
 

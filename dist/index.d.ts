@@ -16,7 +16,7 @@ export type { SyncTransport, SyncMessage, SyncOptions } from './sync';
 export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, tosiAccessor, TOSI_ACCESSOR, TAKE_DESCRIPTOR, BOUND_CLASS, BOUND_SELECTOR, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, scrollListItemIntoView, } from './list-binding';
 export { makeComponent } from './make-component';
-export type { XinBlueprint, XinFactory, XinPackagedComponent, XinComponentSpec, } from './make-component';
+export type { TosiBlueprint, TosiFactory, TosiPackagedComponent, TosiComponentSpec, XinBlueprint, XinFactory, XinPackagedComponent, XinComponentSpec, } from './make-component';
 export { MoreMath } from './more-math';
 export { settings } from './settings';
 export { throttle, debounce } from './throttle';

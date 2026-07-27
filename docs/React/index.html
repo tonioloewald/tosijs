@@ -28,77 +28,143 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>React and tosijs</title>
-  <meta name="description" content="Using tosijs with React via the useTosi hook, and how tosijs&#39;s path-observer model differs from React&#39;s reactive UI=f(state) model." />
+  <meta name="description" content="Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp." />
   <link rel="canonical" href="https://tosijs.net/React/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="React and tosijs" />
-  <meta property="og:description" content="Using tosijs with React via the useTosi hook, and how tosijs&#39;s path-observer model differs from React&#39;s reactive UI=f(state) model." />
+  <meta property="og:description" content="Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp." />
   <meta property="og:url" content="https://tosijs.net/React/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"React and tosijs","description":"Using tosijs with React via the useTosi hook, and how tosijs's path-observer model differs from React's reactive UI=f(state) model.","url":"https://tosijs.net/React/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
-  <link rel="icon" href="/favicon.svg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"React and tosijs","description":"Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp.","url":"https://tosijs.net/React/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>React and tosijs</h1>
-<p>A lot of developers are going to be using React. Is <code>tosijs</code> relevant to React developers?</p>
-<p>Absolutely! The tiny <a href="https://react.tosijs.net">react-tosijs</a> library provides:</p>
-<ul>
-<li><code>useTosi()</code> to create hooks that
-connect any data into a React component.</li>
-<li>the <code>reactWebComponents</code> proxy
-that turn any web-component into a React functional component.</li>
-</ul>
-<!--{ "pin": "bottom", "description": "Using tosijs with React via the useTosi hook, and how tosijs's path-observer model differs from React's reactive UI=f(state) model." }-->
+<!--{ "pin": "bottom", "order": 300, "description": "Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp." }-->
+
+<p>A lot of developers are using React — and <code>tosijs</code> is very much relevant to them. The
+tiny <a href="https://react.tosijs.net">react-tosijs</a> library is <strong>insanely simple state
+management for React — and an off-ramp from React.</strong></p>
+<p>If you just want the state management, <code>useTosi</code> has <code>useState</code>&#39;s shape and works better:
+state isn&#39;t trapped in component lifecycles, closures, or hook rules, and you can change
+it from <em>outside</em> React — a timer, a socket handler, the browser console — and views just
+follow. No reducers, no providers, no prop-drilling. If you want the off-ramp, your state
+lives in <a href="/">tosijs</a> as plain observable objects with no framework attached, and React
+becomes just one way of looking at it.</p>
+<h2><code>useTosi</code> — a <code>useState</code>-shaped hook</h2>
+<p>Put any object in a <code>tosi</code> proxy, then read it like <code>useState</code> via its path. It&#39;s built
+on <code>useSyncExternalStore</code>, so it&#39;s concurrent-rendering safe.</p>
+<pre><code class="language-jsx">import { tosi } from &#39;tosijs&#39;
+import { useTosi } from &#39;react-tosijs&#39;
+
+const { clock } = tosi({
+  clock: { time: new Date().toLocaleTimeString() },
+})
+
+setInterval(() =&gt; {
+  clock.time = new Date().toLocaleTimeString()
+}, 1000)
+
+const Clock = () =&gt; {
+  const [time] = useTosi(&#39;clock.time&#39;)
+  return &lt;div&gt;{time}&lt;/div&gt;
+}
+</code></pre>
+<p><code>useTosi</code> returns <code>[value, setValue]</code> just like <code>useState</code>, but the state is updated
+<em>outside</em> React and it just works. One difference: <code>setValue</code> takes the next <strong>value</strong>,
+not an updater function — <code>setCount(c =&gt; c + 1)</code> would store the function itself (tosijs
+state legitimately holds functions, so they are never auto-invoked).</p>
+<p>Because the state is a plain observable object, your logic is testable without rendering
+anything, the console can poke it directly, and swapping a React view for a web component
+later doesn&#39;t touch it at all. That&#39;s the off-ramp.</p>
+<h2><code>reactWebComponents</code> — web components as React components</h2>
+<p><code>reactWebComponents.fooBar</code> gives you a React component that renders a <code>&lt;foo-bar&gt;</code> custom
+element, so web components (e.g. from <a href="https://ui.tosijs.net">tosijs-ui</a>) drop into React
+with no wrappers — bound to the same state as your React views.</p>
+<pre><code class="language-jsx">import &#39;tosijs-ui&#39;
+import { reactWebComponents } from &#39;react-tosijs&#39;
+
+const Markdown = reactWebComponents.tosiMd
+
+const Doc = () =&gt; &lt;Markdown class=&quot;doc&quot; src=&quot;/README.md&quot; /&gt;
+</code></pre>
+<p>On React 18 pass <code>class</code> (not <code>className</code>) to custom elements — React 18 sets props on
+them as attributes verbatim; React 19 handles <code>className</code> on custom elements natively.</p>
+<h2>Typed paths, persistence, DevTools</h2>
+<p>All framework-free — they work whether a path is rendered by React, a web component, or
+nothing at all:</p>
+<pre><code class="language-typescript">import { typedTosi, persist, connectDevTools } from &#39;react-tosijs&#39;
+
+type AppState = { app: { count: number; todos: { id: string; text: string }[] } }
+const { useTosi } = typedTosi&lt;AppState&gt;()
+const [text] = useTosi(&#39;app.todos[0].text&#39;)  // string
+const [oops] = useTosi(&#39;app.cuont&#39;)           // compile error
+
+persist(&#39;app.todos&#39;)                 // localStorage, coalesced writes
+connectDevTools({ roots: [&#39;app&#39;] })  // Redux DevTools tap
+</code></pre>
+<h2>Observant, not reactive</h2>
+<p>React answers <em>&quot;did it change?&quot;</em> at the subscription source and re-renders from there;
+<code>tosijs</code> does change detection at the DOM-update seam — an unchanged bound value is a
+no-op at write time. <code>react-tosijs</code>&#39;s internal machinery exists to pay React&#39;s toll on
+React&#39;s behalf. Delete React and the toll goes with it — which is what makes it a genuine
+off-ramp, not just another React-state library that deepens the commitment.</p>
+<p><code>react-tosijs</code> needs <strong>React <code>^18.2</code> or <code>^19</code></strong> (the hook is built on
+<code>useSyncExternalStore</code>). See <a href="https://react.tosijs.net">react.tosijs.net</a> for the full
+guide — and <a href="https://angular.tosijs.net">angular.tosijs.net</a> runs the same app in React
+<em>and</em> Angular side by side, bound to one shared state, neither framework aware of the other.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
   <ul>
-    <li><a class="doc-link" href="/">tosijs</a></li>
-    <li><a class="doc-link" href="/Building-Apps/">Building Apps</a></li>
-    <li><a class="doc-link" href="/elements/">Creating Elements</a></li>
-    <li><details><summary><a class="doc-link" href="/css/">CSS</a></summary>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
     <ul>
-      <li><a class="doc-link" href="/color/">color</a></li>
+      <li><a class="doc-link" href="../color/">color</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/tosi/">Managing State</a></summary>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
     <ul>
-      <li><a class="doc-link" href="/xin/">The tosi proxy</a></li>
-      <li><a class="doc-link" href="/metadata/">metadata</a></li>
-      <li><a class="doc-link" href="/path-listener/">path-listener</a></li>
-      <li><a class="doc-link" href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/bind/">Binding</a></summary>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
     <ul>
-      <li><a class="doc-link" href="/list-binding/">binding arrays</a></li>
-      <li><a class="doc-link" href="/bindings/">bindings</a></li>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/component/">Web-Components</a></summary>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
     <ul>
-      <li><a class="doc-link" href="/blueprint-loader/">blueprints</a></li>
-      <li><a class="doc-link" href="/make-component/">makeComponent</a></li>
-      <li><a class="doc-link" href="/form-validation/">Validation</a></li>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/utilities/">Utilities</a></summary>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
-      <li><a class="doc-link" href="/hot-reload/">hotReload</a></li>
-      <li><a class="doc-link" href="/more-math/">more-math</a></li>
-      <li><a class="doc-link" href="/share/">share</a></li>
-      <li><a class="doc-link" href="/sync/">sync</a></li>
-      <li><a class="doc-link" href="/throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
     </ul>
     </details></li>
-    <li><a class="doc-link" href="/Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a class="doc-link current" href="/React/" aria-current="page">React and tosijs</a></li>
+    <li><a class="doc-link current" href="../React/" aria-current="page">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">
@@ -109,6 +175,6 @@ that turn any web-component into a React functional component.</li>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="/iife.js"></script>
+  <script src="../iife.js"></script>
 </body>
 </html>

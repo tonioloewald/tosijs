@@ -1,5 +1,5 @@
 import { Component } from './component';
-import { XinPackagedComponent } from './make-component';
+import { TosiPackagedComponent } from './make-component';
 /**
  * Replace the module loader (mainly for testing failure/retry paths — the
  * default uses dynamic `import()`, which tests cannot intercept).
@@ -17,9 +17,9 @@ export declare class Blueprint extends Component {
         src: string;
         property: string;
     };
-    loaded?: XinPackagedComponent;
-    blueprintLoaded: (_pkg: XinPackagedComponent) => void;
-    packaged(): Promise<XinPackagedComponent>;
+    loaded?: TosiPackagedComponent;
+    blueprintLoaded: (_pkg: TosiPackagedComponent) => void;
+    packaged(): Promise<TosiPackagedComponent>;
 }
 export declare const tosiBlueprint: import("./xin-types").ElementCreator<Blueprint>;
 export declare class BlueprintLoader extends Component {

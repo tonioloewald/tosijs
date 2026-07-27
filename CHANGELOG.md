@@ -6,6 +6,58 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.6] - 2026-07-27
+
+### Fixed
+
+- **Light-DOM `parts` no longer reaches into nested components.** For a light-DOM
+  component, `this.parts.foo` resolved via an unscoped `querySelector('[part="foo"]')`,
+  so a component containing a nested instance (of itself or any component sharing
+  `part` names) could get the **nested** component's element instead of its own
+  (first pre-order match wins). Part resolution now stops at nested custom-element
+  boundaries — a component's parts are the `[part]`/`data-ref` elements between its
+  host and any nested custom element. Shadow-DOM components were already correctly
+  scoped by the shadow boundary. (tosijs#20)
+- **Registering an object with a computed (getter) property no longer crashes.**
+  `tosi({ … })`'s set-trap shallow-unwrap loop rewrote every key, throwing
+  `TypeError: Attempted to assign to readonly property` on a getter-only property.
+  It now only rewrites writable data properties (and never invokes a getter just to
+  register state), so computed properties are legal state: they resolve on read and
+  see current dependency values.
+- **`xinValue`/`xinPath` restored to `XinProps`.** In 1.7 they were dropped from
+  `XinProps` but kept on `BoxedScalarAPI`, so `proxy.someObject.xinValue` failed
+  `tsc` while `proxy.someScalar.xinValue` didn't — a silent, typecheck-only break
+  invisible to `bun build`. Restored in parity (they still work at runtime). Prefer
+  `.value` / `.tosi.value` in new code. (tosijs#19)
+
+### Added
+
+- **`TosiBlueprint`, `TosiFactory`, `TosiPackagedComponent`, `TosiComponentSpec`** —
+  the canonical blueprint type names, matching the `<tosi-blueprint>` / `<tosi-loader>`
+  tags. The `Xin*` spellings remain exported as `@deprecated` type aliases, so
+  existing `import { XinBlueprint } from 'tosijs'` keeps compiling. Type-only; no
+  runtime change.
+
+### Changed
+
+- Accessor documentation now leads with `.value` / `.tosi.value` (and `.path` /
+  `.tosi.path`); the `tosiPath()` / `tosiValue()` functions are presented as the
+  programmatic "works on any value / proxy-test" alternative.
+- **(dev only)** `editableSources: true` in the site config enables the doc-site's
+  in-browser "edit page source" / live-example "save to source" against local files.
+- Build host bumped to tosijs-ui 1.7.2 (doc-site builder; not a runtime dependency).
+
+### Documentation
+
+- README sharpened: "Better apps with less code" case, an ecosystem table with
+  tosijs at its heart (tosijs-ui, tjs-lang, react-tosijs, ngx-tosijs, tosijs-schema,
+  tosijs-product, tosijs-3d), all `xin`-proxy references replaced with `tosi`/`boxed`,
+  and the b8rjs → xinjs → tosijs history moved to a dedicated **tosijs history** page.
+- New **Angular and tosijs** page (`tosiSignal`, zoneless-first, off-ramp); expanded
+  **React and tosijs** page (`useTosi`, `reactWebComponents`).
+- Building-Apps note: boxed proxies are minted fresh per access — never key on their
+  identity.
+
 ## [1.7.5] - 2026-07-23
 
 ### Changed

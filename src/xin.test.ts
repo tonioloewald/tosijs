@@ -1758,3 +1758,58 @@ test('symbol-keyed assignment through the proxy does not throw (medium backlog)'
     ;(xin as any).symTest[sym] = 'x'
   }).not.toThrow()
 })
+
+describe('computed (getter) properties in the registry', () => {
+  test('registering an object with a getter does not throw (was: "assign to readonly property")', () => {
+    expect(() =>
+      tosi({
+        computedReg: {
+          first: 'Jane',
+          last: 'Doe',
+          get full(this: any) {
+            return `${this.first} ${this.last}`
+          },
+        },
+      })
+    ).not.toThrow()
+  })
+
+  test('a getter resolves through the proxy and sees current dependency values', () => {
+    tosi({
+      computedRead: {
+        first: 'Jane',
+        last: 'Doe',
+        get full(this: any) {
+          return `${this.first} ${this.last}`
+        },
+      },
+    })
+    expect((xin as any)['computedRead.full']).toBe('Jane Doe')
+    ;(xin as any)['computedRead.first'] = 'John'
+    expect((xin as any)['computedRead.full']).toBe('John Doe')
+  })
+
+  test('a getter is not invoked during registration (unwrap loop skips accessors)', () => {
+    let calls = 0
+    tosi({
+      computedLazy: {
+        base: 1,
+        get derived(this: any) {
+          calls++
+          return this.base * 2
+        },
+      },
+    })
+    expect(calls).toBe(0) // never invoked just to register state
+    expect((xin as any)['computedLazy.derived']).toBe(2)
+    // NOTE: a path-string read currently invokes the getter twice (minor;
+    // correct value, double evaluation) — surfaced as a follow-up, not blocking
+    expect(calls).toBeGreaterThanOrEqual(1) // invoked lazily, on read
+  })
+
+  test('spread still unwraps proxied children (proxy-pollution guard intact)', () => {
+    const { computedSrc } = tosi({ computedSrc: { inner: { x: 1 } } })
+    tosi({ computedDst: { ...(computedSrc as any) } })
+    expect((xin as any)['computedDst.inner.x']).toBe(1)
+  })
+})

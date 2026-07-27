@@ -1,4 +1,4 @@
-import { XIN_PATH, XIN_VALUE, XIN_OBSERVE, XIN_BIND, TOSI_ACCESSOR, TAKE_DESCRIPTOR } from './metadata';
+import { XIN_PATH, XIN_VALUE, TOSI_ACCESSOR, TAKE_DESCRIPTOR } from './metadata';
 import { XinStyleRule } from './css-types';
 import { ElementsProxy } from './elements-types';
 export type AnyFunction = (...args: any[]) => any | Promise<any>;
@@ -73,12 +73,14 @@ export interface XinProps<T = any> {
     valueOf: () => T;
     toJSON: () => T;
     [XIN_PATH]: string;
+    xinPath: string;
     tosiPath: string;
     [XIN_VALUE]: T;
+    xinValue: T;
     tosiValue: T;
-    [XIN_OBSERVE]: ProxyObserveFunc;
+    xinObserve: ProxyObserveFunc;
     tosiObserve: ProxyObserveFunc;
-    [XIN_BIND]: ProxyBindFunc;
+    xinBind: ProxyBindFunc;
     tosiBind: ProxyBindFunc;
 }
 type ListTemplateBuilder<U = any> = (elements: ElementsProxy, item: U, columnIndex?: number) => HTMLElement;

@@ -110,7 +110,7 @@ test('bind works', async () => {
   expect(input.value).toBe('test')
 
   // updating the proxy queues an update
-  bindTest.value.xinValue = 'hello update'
+  bindTest.value = 'hello update'
   await updates()
   expect(input.value).toBe('hello update')
   input.value = 'changed'

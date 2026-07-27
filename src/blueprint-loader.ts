@@ -60,17 +60,17 @@ of component **blueprints**. It will load its `<tosi-blueprint>`s in parallel.
 - `tag` is the tagName you wish to use. This defaults to the name of the source file if suitable.
 - `property` allows you to load a named exported property from a blueprint module
   (allowing one blueprint to export multiple blueprints). By default, it's `default`.
-- `loaded` is the `XinPackagedComponent` after loading
+- `loaded` is the `TosiPackagedComponent` after loading
 
 #### `<tosi-blueprint>` Properties
 
-- `blueprintLoaded(package: XinPackagedComponent)` `<tosi-blueprint>` when its blueprint is loaded.
+- `blueprintLoaded(package: TosiPackagedComponent)` `<tosi-blueprint>` when its blueprint is loaded.
 
 #### `<tosi-loader>` Properties
 
 - `allLoaded()` is called when all the blueprints have loaded.
 
-## `makeComponent(tag: string, blueprint: XinBlueprint): Promise<XinPackagedCompoent>`
+## `makeComponent(tag: string, blueprint: TosiBlueprint): Promise<TosiPackagedComponent>`
 
 `makeComponent` takes a `tag` of your choice and a `blueprint` and generates
 the custom-element's `class` and `elementCreator` as its `type` and `creator`
@@ -133,9 +133,9 @@ preview.append(
 )
 ```
 
-## `XinBlueprint`
+## `TosiBlueprint`
 
-    export interface XinFactory {
+    export interface TosiFactory {
       Color: typeof Color
       Component: typeof Component
       elements: typeof elements
@@ -154,17 +154,17 @@ preview.append(
       version: string
     }
 
-    export interface XinPackagedComponent {
+    export interface TosiPackagedComponent {
       type: typeof Component
       creator: ElementCreator
     }
 
-    export type XinBlueprint = (
+    export type TosiBlueprint = (
       tag: string,
-      module: XinFactory
-    ) => XinPackagedComponent
+      module: TosiFactory
+    ) => TosiPackagedComponent
 
-`XinBlueprint` lets you provide a component "blueprint", in the form of a function,
+`TosiBlueprint` lets you provide a component "blueprint", in the form of a function,
 that can be loaded and turned into an actual component. The beauty of this is that
 unlike an actual component, the blueprint has no special dependencies.
 
@@ -196,9 +196,9 @@ So instead of defining a component like this:
 
 You can define a "blueprint" like this:
 
-    import { XinBlueprint } from 'tosijs'
+    import { TosiBlueprint } from 'tosijs'
 
-    const blueprint: XinBlueprint = (
+    const blueprint: TosiBlueprint = (
       tag,
       { Component, elements, vars, varDefault }
     ) => {
@@ -238,14 +238,14 @@ The blueprint function can be `async`, so you can use async import inside it to 
 import { Component } from './component'
 import {
   makeComponent,
-  XinBlueprint,
-  XinPackagedComponent,
+  TosiBlueprint,
+  TosiPackagedComponent,
 } from './make-component'
 import { warnDeprecated } from './metadata'
 
 const HIDDEN_STYLE = { ':host': { display: 'none' } }
 
-const loadedBlueprints: { [key: string]: Promise<XinPackagedComponent> } = {}
+const loadedBlueprints: { [key: string]: Promise<TosiPackagedComponent> } = {}
 
 let loadModule = (src: string): Promise<any> => import(src)
 
@@ -289,16 +289,16 @@ export class Blueprint extends Component {
   static preferredTagName = 'tosi-blueprint'
   static lightStyleSpec = HIDDEN_STYLE
   static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
-  loaded?: XinPackagedComponent
-  blueprintLoaded = (_pkg: XinPackagedComponent) => {}
+  loaded?: TosiPackagedComponent
+  blueprintLoaded = (_pkg: TosiPackagedComponent) => {}
 
-  async packaged(): Promise<XinPackagedComponent> {
+  async packaged(): Promise<TosiPackagedComponent> {
     const { tag, src, property } = this
     const signature = `${tag}.${property}:${src}`
     if (!this.loaded) {
       if (loadedBlueprints[signature] === undefined) {
         loadedBlueprints[signature] = loadModule(src).then((imported) => {
-          const bp = imported[property] as XinBlueprint
+          const bp = imported[property] as TosiBlueprint
           return makeComponent(tag, bp)
         })
       } else {

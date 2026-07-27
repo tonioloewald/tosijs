@@ -426,8 +426,8 @@ never use string literals. So something like this *just works*:
 const div = elements.div({bindText: boxed.box.pie})
 ```
 
-…because `boxed.box.pie` has a `xinPath` which is what is actually used for binding,
-whereas `xin.box.pie` is just a scalar value. Without `boxed` you could write
+…because `boxed.box.pie` carries its `.tosi.path`, which is what is actually used for
+binding, whereas `xin.box.pie` is just a scalar value. Without `boxed` you could write
 `bindText: 'box.pie'` but you don't get lint support or autocomplete. (Also, in
 some cases, you might even mangle the names of an object during minification and
 `boxed` will know the mangled name).
@@ -435,9 +435,10 @@ some cases, you might even mangle the names of an object during minification and
 ### If you need the thing itself or the path to the thing…
 
 `proxy`s returned by `xin` are typically indistinguishable from the original object, but
-in a pinch `tosiPath()` will give you the path (`string`) of a `XinProxy` while `tosiValue`
-will give its "bare" value. `tosiPath()` can also be used to test if something is actually
-a proxy, as it will return `undefined` for regular objects.
+in a pinch `.tosi.path` gives you the path (`string`) of a proxy and `.tosi.value` (or
+just `.value`) gives its "bare" value. The `tosiPath()` and `tosiValue()` functions do the
+same and also work on non-proxies — `tosiPath(x)` returns `undefined` for a regular object,
+so it doubles as a proxy test.
 
 E.g.
 
@@ -1324,15 +1325,27 @@ const regHandler = (
       ;(target as any)[prop] = value
       return true
     }
-    // Shallow-unwrap proxied children (e.g. from { ...proxy } spreads)
+    // Shallow-unwrap proxied children (e.g. from { ...proxy } spreads). Only
+    // rewrite WRITABLE DATA properties: a getter/setter (computed properties are
+    // legal state) or a non-writable property can't be reassigned and would throw
+    // "Attempted to assign to readonly property". Reading the descriptor (rather
+    // than value[k]) also means we never invoke a getter just to register state.
     if (value !== null && typeof value === 'object') {
       if (Array.isArray(value)) {
         for (let i = 0; i < value.length; i++) {
-          value[i] = tosiValue(value[i])
+          const desc = Object.getOwnPropertyDescriptor(value, i)
+          if (desc === undefined || desc.writable !== true) continue
+          if (desc.value !== null && typeof desc.value === 'object') {
+            value[i] = tosiValue(desc.value)
+          }
         }
       } else {
         for (const k of Object.keys(value)) {
-          value[k] = tosiValue(value[k])
+          const desc = Object.getOwnPropertyDescriptor(value, k)
+          if (desc === undefined || desc.writable !== true) continue
+          if (desc.value !== null && typeof desc.value === 'object') {
+            value[k] = tosiValue(desc.value)
+          }
         }
       }
     }

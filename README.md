@@ -2,10 +2,6 @@
 
 <!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
-> `xinjs` has been renamed `tosijs`. Updating the documentation and links is a
-> work in progress. The goal is for the API to remain stable during the transition.
-> If/when you want to migrate from `xinjs` to `tosijs`, here's a [guide for migrating to tosijs](/Migration/)
-
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 
 [![tosijs is on NPM](https://badge.fury.io/js/tosijs.svg)](https://www.npmjs.com/package/tosijs)
@@ -13,26 +9,35 @@
 [![tosijs on jsdelivr](https://data.jsdelivr.com/v1/package/npm/tosijs/badge)](https://www.jsdelivr.com/package/npm/tosijs)
 
 <div style="text-align: center; margin: 20px">
-  <xin-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
+  <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
     <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
-  </xin-lottie>
+  </tosi-lottie>
 </div>
 
-> For a pretty thorough overview of tosijs, you might like to start with [What is tosijs?](https://loewald.com/blog/2025/6/4/what-is-tosijs).
-> To understand the thinking behind tosijs, there's [What should a front-end framework do?](https://loewald.com/blog/2025/6/4/what-should-a-front-end-framework-do).
+## Better apps with less code
 
-### Build UIs with less code
+Less code to **write, read, run, debug, and maintain** — which, as a bonus in the
+age of AI assistants, also means **fewer tokens** to generate and reason about.
+`tosijs` gets there by leaning _into_ the browser instead of re-implementing it:
 
-If you want to build a web-application that's performant, robust, and maintainable,
-`tosijs` lets you:
+- **Your knowledge of the browser _is_ the API.** HTML, the DOM, CSS, real events,
+  standard `<input>`s with their native accessibility — not a framework-shaped
+  replacement you have to learn (and re-learn every major version).
+- **Learn how the browser works, not how some framework works.** The skills are
+  durable and transferable; they don't evaporate with the next migration guide.
+- **O(1) DOM updates, even for big lists.** A state change surgically updates exactly
+  the bound nodes — no virtual DOM, no diffing, no re-render-the-world. And because
+  virtual list bindings are built in, a 100,000-row list only ever renders (and
+  updates) the handful of rows actually on screen.
+- **No JSX, no transpilation, no build step required.** Pure JS/TS in, native DOM
+  nodes out — works in plain JavaScript or TypeScript.
+- **No lock-in.** State is a plain observable object graph, not a framework you
+  marry; bind it to vanilla DOM, web-components, React, or Angular.
+- **~15kB gzipped, zero runtime dependencies.**
 
-- build user-interfaces with pure javascript/typescript—no JSX, complex tooling, or spooky action-at-a-distance
-- manage application state almost effortlessly—eliminate most binding code
-- bind application state to the UI and services without locking yourself into a specific framework
-- work in Typescript or Javascript
-- use web-components, build your own web-components quickly and easily
-- manage CSS efficiently and flexibly using CSS variables and Color computations
-- leverage existing business logic and libraries without complex wrappers
+On top of that you get the conveniences you'd actually want: most binding code
+eliminated, web-components you can build in pure JS more compactly than JSX, and
+CSS handled with variables and real `Color` math.
 
 ```js
 import { elements, tosi, touch, deleteListItem } from 'tosijs'
@@ -51,7 +56,7 @@ todo.addItem('buy milk')
 
 const { readmeTodoDemo } = tosi({ readmeTodoDemo: todo })
 
-const { h4, ul, template, li, label, input } = elements
+const { h4, ul, label, input } = elements
 preview.append(
   h4('To Do List'),
   ul(
@@ -64,6 +69,8 @@ preview.append(
               marginLeft: 10,
             },
             onClick(event) {
+              // deleteListItem resolves the row from any child node — pass the
+              // button and it walks up to find its list item automatically
               deleteListItem(event.target)
             },
           })
@@ -155,6 +162,23 @@ The difference is that `web-components` are drop-in replacements for standard HT
 and interoperate happily with one-another and other libraries, load asynchronously,
 and are natively supported by all modern browsers.
 
+## An ecosystem with `tosijs` at its heart
+
+`tosijs` is the observable core a whole family of tools is built on. Each is useful
+on its own; together they let you build almost anything without leaving web
+standards behind.
+
+| Project | What it is |
+| --- | --- |
+| **tosijs** | This library — the path-based _observant_ state core everything else is built on. |
+| **[tosijs-ui](https://ui.tosijs.net)** | _Just enough_ extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments. |
+| **[tjs-lang](https://tjs-platform.web.app)** | TypeScript that _really_ transpiles in the browser (no server, no "just strip the types" fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely **safe `eval`** (ship the logic, not a container to run it in). |
+| **[react-tosijs](https://react.tosijs.net)** | Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React. |
+| **[ngx-tosijs](https://angular.tosijs.net)** | The same for Angular (signals, zoneless-first). |
+| **[tosijs-schema](https://github.com/tonioloewald/tosijs-schema)** | Foundational, slightly bleeding-edge plumbing: a _type-by-example_ JSON-Schema engine with arguably the strongest performance / flexibility / architecture story of any JSON-Schema implementation — and increasingly so as it grows computed predicates. Most people won't need to think about it; the rest of the stack leans on it. |
+| **[tosijs-product](https://product.tosijs.net)** | Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML. |
+| **[tosijs-3d](https://3d.tosijs.net)** | Declarative 3D / VR / XR as web components, built on Babylon.js (WIP). |
+
 ## What `tosijs` does
 
 ### Observe Object State
@@ -189,8 +213,8 @@ and direct updates to application state.
 
 > #### What does `tosi` do, and what is a `BoxedProxy`?
 >
-> `tosi` is syntax sugar for assigning something to `xin` (which is a proxy over
-> the central registry) and then getting it back out as a `BoxedProxy`.
+> `tosi` registers your object into `tosijs`'s central state tree and hands it
+> back to you as a `BoxedProxy`.
 >
 > A `BoxedProxy` is an [ES Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
 > wrapped around an `object` (which in Javascript means anything
@@ -206,10 +230,8 @@ and direct updates to application state.
 ### No Tax, No Packaging
 
 `tosijs` does not modify the stuff you hand over to it… it just wraps objects
-with a `Proxy` and then if you use `xin` to make changes to those objects,
-`tosijs` will notify any interested observers.
-
-**Note** `tosi({foo: {...}})` is syntax sugar for `xin.foo = {...}`.
+with a `Proxy`, and when you make changes through the returned proxy, `tosijs`
+notifies any interested observers.
 
     import { tosi, observe } from 'tosijs'
     const { foo } = tosi({
@@ -227,31 +249,32 @@ with a `Proxy` and then if you use `xin` to make changes to those objects,
 
 ### Paths are like JavaScript
 
-`xin` is designed to behave just like a JavaScript `Object`. What you put
-into it is what you get out of it:
+A proxy behaves just like the JavaScript `Object` it wraps — `tosijs` doesn't
+copy or replace your object, so what you put in is what you get out (call
+`.value` to unwrap a scalar):
 
-    import { xin } from 'tosijs'
+    import { tosi } from 'tosijs'
 
-    const foo = {bar: 'baz'}
-    xin.foo = foo
+    const original = { bar: 'baz' }
+    const { foo } = tosi({ foo: original })
 
-    // xin.foo returns the value directly
-    xin.foo.bar === 'baz'
+    // read through the proxy; .value unwraps the scalar
+    foo.bar.value === 'baz'
 
     // really, it's just the original object
-    xin.foo.bar = 'lurman'
-    foo.bar === 'lurman' // true
+    foo.bar = 'lurman'
+    original.bar === 'lurman' // true
 
     // seriously, it's just the original object
-    foo.bar = 'luhrman'
-    xin.foo.bar === 'luhrman' // true
+    original.bar = 'luhrman'
+    foo.bar.value === 'luhrman' // true
 
 ### …but better!
 
 It's very common to deal with arrays of objects that have unique id values,
 so `tosijs` supports the idea of id-paths
 
-    import { tosi, xin } from 'tosijs'
+    import { tosi, boxed } from 'tosijs'
 
     const { app } = tosi({
       app: {
@@ -268,23 +291,23 @@ so `tosijs` supports the idea of id-paths
       }
     })
 
-    console.log(app.list[0].text)              // hello world
-    console.log(app.list['id=5678efgh'])       // so long, redux
-    console.log(xin['app.list[id=1234abcd]'])  // hello world
+    console.log(app.list[0].text.value)                     // hello world
+    console.log(app.list['id=5678efgh'].text.value)         // so long, redux
+    console.log(boxed['app.list[id=1234abcd]'].text.value)  // hello world
 
-### Telling `xin` about changes using `touch()`
+### Telling `tosijs` about changes using `touch()`
 
-Sometimes you will modify an object behind `xin`'s back (e.g. for efficiency).
+Sometimes you will modify an object behind `tosijs`'s back (e.g. for efficiency).
 When you want to trigger updates, simply touch the path.
 
-    import { xin, observe, touch } from 'tosijs'
+    import { tosi, boxed, observe, touch } from 'tosijs'
 
-    const foo = { bar: 17 }
-    xin.foo = foo
-    observe('foo.bar', (path) => console.log(path, '->', xin[path]))
-    xin.foo.bar = -2              // console will show: foo.bar -> -2
+    const raw = { bar: 17 }
+    const { foo } = tosi({ foo: raw })
+    observe('foo.bar', (path) => console.log(path, '->', boxed[path].value))
+    foo.bar = -2                  // console will show: foo.bar -> -2
 
-    foo.bar = 100                 // nothing happens
+    raw.bar = 100                 // nothing happens (changed behind tosijs's back)
     touch('foo.bar')              // console will show: foo.bar -> 100
 
 Every `BoxedProxy` also has a `.touch()` method:
@@ -364,20 +387,22 @@ One of the nice things about working with the React toolchain is hot reloading.
 `tosijs` supports hot reloading (and not just in development!) via the `hotReload()`
 function:
 
-    import { xin, hotReload } from 'tosijs'
+    import { tosi, hotReload } from 'tosijs'
 
-    xin.app = {
-      ...
-    }
+    tosi({
+      app: {
+        // ...your initial state
+      }
+    })
 
     hotReload()
 
-`hotReload` stores serializable state managed by `xin` in localStorage and restores
+`hotReload` stores serializable state managed by `tosijs` in localStorage and restores
 it (by overlay) on reload. Because any functions (for example) won't be persisted,
 simply call `hotReload` after initializing your app state and you're good to go.
 
 `hotReload` accepts a test function (path => boolean) as a parameter.
-Only top-level properties in `xin` that pass the test will be persisted.
+Only top-level properties in your state that pass the test will be persisted.
 
 To completely reset the app, run `localStorage.clear()` in the console.
 
@@ -387,25 +412,13 @@ You'll need to install [bun](https://bun.sh/) and then run `bun install`.
 
     bun start                  # dev server with hot reload (https://localhost:8018)
     bun test                   # run all tests
-    bun run dev.ts --build     # production build (runs tests, then bundles)
+    bun run build              # production build (runs tests, then bundles + docs)
     bun run format             # lint and format (ESLint + Prettier)
     bun pack                   # create local package tarball
 
-## Related Libraries
+## History & credits
 
-- [tosijs-ui](https://ui.tosijs.net) — a web-component library built on tosijs `Component`
-- [tosijs-3d](https://3d.tosijs.net) — 3D graphics library built on tosijs
-- [react-tosijs](https://github.com/tonioloewald/react-tosijs#readme) — use tosijs's path-observer model in [React](https://reactjs.org) apps
-
-## Credits
-
-`tosijs` is in essence a highly incompatible update to `b8rjs` with the goal
-of removing cruft, supporting more use-cases, and eliminating functionality
-that has been made redundant by improvements to the JavaScript language and
-DOM APIs.
-
-`tosijs` is being developed using [bun](https://bun.sh/).
-`bun` is crazy fast (based on Webkit's JS engine, vs. V8), does a lot of stuff
-natively, and runs TypeScript (with import and require) directly.
-
-Logo animation by [@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).
+`tosijs` descends from **b8rjs → xinjs → tosijs** — see [tosijs history](/history/)
+for the full lineage and migration notes (coming from `xinjs`? old names still
+work). Developed with [bun](https://bun.sh/); logo animation by
+[@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).

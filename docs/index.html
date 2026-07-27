@@ -28,7 +28,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="/doc-system.css" data-tosi-doc-system />
+  <link rel="stylesheet" href="doc-system.css" data-tosi-doc-system />
   <title>tosijs</title>
   <meta name="description" content="tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." />
   <link rel="canonical" href="https://tosijs.net/" />
@@ -39,46 +39,48 @@
   <meta property="og:url" content="https://tosijs.net/" />
   <meta name="twitter:card" content="summary" />
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs","description":"tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic.","url":"https://tosijs.net/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
-  <link rel="icon" href="/favicon.svg" />
+  <link rel="icon" href="favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="/docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <tosi-doc-system docs="docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>tosijs</h1>
 <!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
-<blockquote>
-<p><code>xinjs</code> has been renamed <code>tosijs</code>. Updating the documentation and links is a
-work in progress. The goal is for the API to remain stable during the transition.
-If/when you want to migrate from <code>xinjs</code> to <code>tosijs</code>, here&#39;s a <a href="/Migration/">guide for migrating to tosijs</a></p>
-</blockquote>
 <p><a href="https://tosijs.net">tosijs.net</a> | <a href="https://ui.tosijs.net">tosijs-ui</a> | <a href="https://github.com/tonioloewald/tosijs">github</a> | <a href="https://www.npmjs.com/package/tosijs">npm</a> | <a href="https://www.jsdelivr.com/package/npm/tosijs">cdn</a> | <a href="https://react.tosijs.net">react-tosijs</a> | <a href="https://discord.gg/ramJ9rgky5">discord</a></p>
 <p><a href="https://www.npmjs.com/package/tosijs"><img src="https://badge.fury.io/js/tosijs.svg" alt="tosijs is on NPM"></a>
 <a href="https://bundlejs.com/?q=tosijs&badge="><img src="https://deno.bundlejs.com/?q=tosijs&badge=" alt="tosijs is about 15kB gzipped"></a>
 <a href="https://www.jsdelivr.com/package/npm/tosijs"><img src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge" alt="tosijs on jsdelivr"></a></p>
 <div style="text-align: center; margin: 20px">
-  <xin-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
+  <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
     <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
-  </xin-lottie>
+  </tosi-lottie>
 </div>
 
-<blockquote>
-<p>For a pretty thorough overview of tosijs, you might like to start with <a href="https://loewald.com/blog/2025/6/4/what-is-tosijs">What is tosijs?</a>.
-To understand the thinking behind tosijs, there&#39;s <a href="https://loewald.com/blog/2025/6/4/what-should-a-front-end-framework-do">What should a front-end framework do?</a>.</p>
-</blockquote>
-<h3>Build UIs with less code</h3>
-<p>If you want to build a web-application that&#39;s performant, robust, and maintainable,
-<code>tosijs</code> lets you:</p>
+<h2>Better apps with less code</h2>
+<p>Less code to <strong>write, read, run, debug, and maintain</strong> — which, as a bonus in the
+age of AI assistants, also means <strong>fewer tokens</strong> to generate and reason about.
+<code>tosijs</code> gets there by leaning <em>into</em> the browser instead of re-implementing it:</p>
 <ul>
-<li>build user-interfaces with pure javascript/typescript—no JSX, complex tooling, or spooky action-at-a-distance</li>
-<li>manage application state almost effortlessly—eliminate most binding code</li>
-<li>bind application state to the UI and services without locking yourself into a specific framework</li>
-<li>work in Typescript or Javascript</li>
-<li>use web-components, build your own web-components quickly and easily</li>
-<li>manage CSS efficiently and flexibly using CSS variables and Color computations</li>
-<li>leverage existing business logic and libraries without complex wrappers</li>
+<li><strong>Your knowledge of the browser <em>is</em> the API.</strong> HTML, the DOM, CSS, real events,
+standard <code>&lt;input&gt;</code>s with their native accessibility — not a framework-shaped
+replacement you have to learn (and re-learn every major version).</li>
+<li><strong>Learn how the browser works, not how some framework works.</strong> The skills are
+durable and transferable; they don&#39;t evaporate with the next migration guide.</li>
+<li><strong>O(1) DOM updates, even for big lists.</strong> A state change surgically updates exactly
+the bound nodes — no virtual DOM, no diffing, no re-render-the-world. And because
+virtual list bindings are built in, a 100,000-row list only ever renders (and
+updates) the handful of rows actually on screen.</li>
+<li><strong>No JSX, no transpilation, no build step required.</strong> Pure JS/TS in, native DOM
+nodes out — works in plain JavaScript or TypeScript.</li>
+<li><strong>No lock-in.</strong> State is a plain observable object graph, not a framework you
+marry; bind it to vanilla DOM, web-components, React, or Angular.</li>
+<li><strong>~15kB gzipped, zero runtime dependencies.</strong></li>
 </ul>
+<p>On top of that you get the conveniences you&#39;d actually want: most binding code
+eliminated, web-components you can build in pure JS more compactly than JSX, and
+CSS handled with variables and real <code>Color</code> math.</p>
 <pre><code class="language-js">import { elements, tosi, touch, deleteListItem } from &#39;tosijs&#39;
 
 const todo = {
@@ -95,7 +97,7 @@ todo.addItem(&#39;buy milk&#39;)
 
 const { readmeTodoDemo } = tosi({ readmeTodoDemo: todo })
 
-const { h4, ul, template, li, label, input } = elements
+const { h4, ul, label, input } = elements
 preview.append(
   h4(&#39;To Do List&#39;),
   ul(
@@ -108,6 +110,8 @@ preview.append(
               marginLeft: 10,
             },
             onClick(event) {
+              // deleteListItem resolves the row from any child node — pass the
+              // button and it walks up to find its list item automatically
               deleteListItem(event.target)
             },
           })
@@ -191,6 +195,50 @@ export class MyComponent extends Component {
 <p>The difference is that <code>web-components</code> are drop-in replacements for standard HTML elements
 and interoperate happily with one-another and other libraries, load asynchronously,
 and are natively supported by all modern browsers.</p>
+<h2>An ecosystem with <code>tosijs</code> at its heart</h2>
+<p><code>tosijs</code> is the observable core a whole family of tools is built on. Each is useful
+on its own; together they let you build almost anything without leaving web
+standards behind.</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>tosijs</strong></td>
+<td>This library — the path-based <em>observant</em> state core everything else is built on.</td>
+</tr>
+<tr>
+<td><strong><a href="https://ui.tosijs.net">tosijs-ui</a></strong></td>
+<td><em>Just enough</em> extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments.</td>
+</tr>
+<tr>
+<td><strong><a href="https://tjs-platform.web.app">tjs-lang</a></strong></td>
+<td>TypeScript that <em>really</em> transpiles in the browser (no server, no &quot;just strip the types&quot; fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely <strong>safe <code>eval</code></strong> (ship the logic, not a container to run it in).</td>
+</tr>
+<tr>
+<td><strong><a href="https://react.tosijs.net">react-tosijs</a></strong></td>
+<td>Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React.</td>
+</tr>
+<tr>
+<td><strong><a href="https://angular.tosijs.net">ngx-tosijs</a></strong></td>
+<td>The same for Angular (signals, zoneless-first).</td>
+</tr>
+<tr>
+<td><strong><a href="https://github.com/tonioloewald/tosijs-schema">tosijs-schema</a></strong></td>
+<td>Foundational, slightly bleeding-edge plumbing: a <em>type-by-example</em> JSON-Schema engine with arguably the strongest performance / flexibility / architecture story of any JSON-Schema implementation — and increasingly so as it grows computed predicates. Most people won&#39;t need to think about it; the rest of the stack leans on it.</td>
+</tr>
+<tr>
+<td><strong><a href="https://product.tosijs.net">tosijs-product</a></strong></td>
+<td>Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML.</td>
+</tr>
+<tr>
+<td><strong><a href="https://3d.tosijs.net">tosijs-3d</a></strong></td>
+<td>Declarative 3D / VR / XR as web components, built on Babylon.js (WIP).</td>
+</tr>
+</tbody></table>
 <h2>What <code>tosijs</code> does</h2>
 <h3>Observe Object State</h3>
 <p><code>tosijs</code> tracks the state of objects you assign to it using <code>paths</code> allowing economical
@@ -222,8 +270,8 @@ observe(&#39;app.docs&#39;, () =&gt; {
 </code></pre>
 <blockquote>
 <h4>What does <code>tosi</code> do, and what is a <code>BoxedProxy</code>?</h4>
-<p><code>tosi</code> is syntax sugar for assigning something to <code>xin</code> (which is a proxy over
-the central registry) and then getting it back out as a <code>BoxedProxy</code>.</p>
+<p><code>tosi</code> registers your object into <code>tosijs</code>&#39;s central state tree and hands it
+back to you as a <code>BoxedProxy</code>.</p>
 <p>A <code>BoxedProxy</code> is an <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy">ES Proxy</a>
 wrapped around an <code>object</code> (which in Javascript means anything
 that has a <code>constructor</code> which in particular includes <code>Array</code>s, <code>class</code> instances, <code>function</code>s
@@ -235,9 +283,8 @@ object that allows you to interact with the object normally, but which allows <c
 </blockquote>
 <h3>No Tax, No Packaging</h3>
 <p><code>tosijs</code> does not modify the stuff you hand over to it… it just wraps objects
-with a <code>Proxy</code> and then if you use <code>xin</code> to make changes to those objects,
-<code>tosijs</code> will notify any interested observers.</p>
-<p><strong>Note</strong> <code>tosi({foo: {...}})</code> is syntax sugar for <code>xin.foo = {...}</code>.</p>
+with a <code>Proxy</code>, and when you make changes through the returned proxy, <code>tosijs</code>
+notifies any interested observers.</p>
 <pre><code>import { tosi, observe } from &#39;tosijs&#39;
 const { foo } = tosi({
   foo: {
@@ -253,28 +300,29 @@ foo.bar = 17        // does not trigger the observer
 foo.bar = Math.PI   // triggers the observer
 </code></pre>
 <h3>Paths are like JavaScript</h3>
-<p><code>xin</code> is designed to behave just like a JavaScript <code>Object</code>. What you put
-into it is what you get out of it:</p>
-<pre><code>import { xin } from &#39;tosijs&#39;
+<p>A proxy behaves just like the JavaScript <code>Object</code> it wraps — <code>tosijs</code> doesn&#39;t
+copy or replace your object, so what you put in is what you get out (call
+<code>.value</code> to unwrap a scalar):</p>
+<pre><code>import { tosi } from &#39;tosijs&#39;
 
-const foo = {bar: &#39;baz&#39;}
-xin.foo = foo
+const original = { bar: &#39;baz&#39; }
+const { foo } = tosi({ foo: original })
 
-// xin.foo returns the value directly
-xin.foo.bar === &#39;baz&#39;
+// read through the proxy; .value unwraps the scalar
+foo.bar.value === &#39;baz&#39;
 
 // really, it&#39;s just the original object
-xin.foo.bar = &#39;lurman&#39;
-foo.bar === &#39;lurman&#39; // true
+foo.bar = &#39;lurman&#39;
+original.bar === &#39;lurman&#39; // true
 
 // seriously, it&#39;s just the original object
-foo.bar = &#39;luhrman&#39;
-xin.foo.bar === &#39;luhrman&#39; // true
+original.bar = &#39;luhrman&#39;
+foo.bar.value === &#39;luhrman&#39; // true
 </code></pre>
 <h3>…but better!</h3>
 <p>It&#39;s very common to deal with arrays of objects that have unique id values,
 so <code>tosijs</code> supports the idea of id-paths</p>
-<pre><code>import { tosi, xin } from &#39;tosijs&#39;
+<pre><code>import { tosi, boxed } from &#39;tosijs&#39;
 
 const { app } = tosi({
   app: {
@@ -291,21 +339,21 @@ const { app } = tosi({
   }
 })
 
-console.log(app.list[0].text)              // hello world
-console.log(app.list[&#39;id=5678efgh&#39;])       // so long, redux
-console.log(xin[&#39;app.list[id=1234abcd]&#39;])  // hello world
+console.log(app.list[0].text.value)                     // hello world
+console.log(app.list[&#39;id=5678efgh&#39;].text.value)         // so long, redux
+console.log(boxed[&#39;app.list[id=1234abcd]&#39;].text.value)  // hello world
 </code></pre>
-<h3>Telling <code>xin</code> about changes using <code>touch()</code></h3>
-<p>Sometimes you will modify an object behind <code>xin</code>&#39;s back (e.g. for efficiency).
+<h3>Telling <code>tosijs</code> about changes using <code>touch()</code></h3>
+<p>Sometimes you will modify an object behind <code>tosijs</code>&#39;s back (e.g. for efficiency).
 When you want to trigger updates, simply touch the path.</p>
-<pre><code>import { xin, observe, touch } from &#39;tosijs&#39;
+<pre><code>import { tosi, boxed, observe, touch } from &#39;tosijs&#39;
 
-const foo = { bar: 17 }
-xin.foo = foo
-observe(&#39;foo.bar&#39;, (path) =&gt; console.log(path, &#39;-&gt;&#39;, xin[path]))
-xin.foo.bar = -2              // console will show: foo.bar -&gt; -2
+const raw = { bar: 17 }
+const { foo } = tosi({ foo: raw })
+observe(&#39;foo.bar&#39;, (path) =&gt; console.log(path, &#39;-&gt;&#39;, boxed[path].value))
+foo.bar = -2                  // console will show: foo.bar -&gt; -2
 
-foo.bar = 100                 // nothing happens
+raw.bar = 100                 // nothing happens (changed behind tosijs&#39;s back)
 touch(&#39;foo.bar&#39;)              // console will show: foo.bar -&gt; 100
 </code></pre>
 <p>Every <code>BoxedProxy</code> also has a <code>.touch()</code> method:</p>
@@ -369,87 +417,81 @@ making adjustments, blending colors, and so forth.</p>
 <p>One of the nice things about working with the React toolchain is hot reloading.
 <code>tosijs</code> supports hot reloading (and not just in development!) via the <code>hotReload()</code>
 function:</p>
-<pre><code>import { xin, hotReload } from &#39;tosijs&#39;
+<pre><code>import { tosi, hotReload } from &#39;tosijs&#39;
 
-xin.app = {
-  ...
-}
+tosi({
+  app: {
+    // ...your initial state
+  }
+})
 
 hotReload()
 </code></pre>
-<p><code>hotReload</code> stores serializable state managed by <code>xin</code> in localStorage and restores
+<p><code>hotReload</code> stores serializable state managed by <code>tosijs</code> in localStorage and restores
 it (by overlay) on reload. Because any functions (for example) won&#39;t be persisted,
 simply call <code>hotReload</code> after initializing your app state and you&#39;re good to go.</p>
 <p><code>hotReload</code> accepts a test function (path =&gt; boolean) as a parameter.
-Only top-level properties in <code>xin</code> that pass the test will be persisted.</p>
+Only top-level properties in your state that pass the test will be persisted.</p>
 <p>To completely reset the app, run <code>localStorage.clear()</code> in the console.</p>
 <h2>Development Notes</h2>
 <p>You&#39;ll need to install <a href="https://bun.sh/">bun</a> and then run <code>bun install</code>.</p>
 <pre><code>bun start                  # dev server with hot reload (https://localhost:8018)
 bun test                   # run all tests
-bun run dev.ts --build     # production build (runs tests, then bundles)
+bun run build              # production build (runs tests, then bundles + docs)
 bun run format             # lint and format (ESLint + Prettier)
 bun pack                   # create local package tarball
 </code></pre>
-<h2>Related Libraries</h2>
-<ul>
-<li><a href="https://ui.tosijs.net">tosijs-ui</a> — a web-component library built on tosijs <code>Component</code></li>
-<li><a href="https://3d.tosijs.net">tosijs-3d</a> — 3D graphics library built on tosijs</li>
-<li><a href="https://github.com/tonioloewald/react-tosijs#readme">react-tosijs</a> — use tosijs&#39;s path-observer model in <a href="https://reactjs.org">React</a> apps</li>
-</ul>
-<h2>Credits</h2>
-<p><code>tosijs</code> is in essence a highly incompatible update to <code>b8rjs</code> with the goal
-of removing cruft, supporting more use-cases, and eliminating functionality
-that has been made redundant by improvements to the JavaScript language and
-DOM APIs.</p>
-<p><code>tosijs</code> is being developed using <a href="https://bun.sh/">bun</a>.
-<code>bun</code> is crazy fast (based on Webkit&#39;s JS engine, vs. V8), does a lot of stuff
-natively, and runs TypeScript (with import and require) directly.</p>
-<p>Logo animation by <a href="https://pro.fiverr.com/freelancers/anicoremotion">@anicoremotion</a>.</p>
+<h2>History &amp; credits</h2>
+<p><code>tosijs</code> descends from <strong>b8rjs → xinjs → tosijs</strong> — see <a href="/history/">tosijs history</a>
+for the full lineage and migration notes (coming from <code>xinjs</code>? old names still
+work). Developed with <a href="https://bun.sh/">bun</a>; logo animation by
+<a href="https://pro.fiverr.com/freelancers/anicoremotion">@anicoremotion</a>.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
   <ul>
-    <li><a class="doc-link current" href="/" aria-current="page">tosijs</a></li>
-    <li><a class="doc-link" href="/Building-Apps/">Building Apps</a></li>
-    <li><a class="doc-link" href="/elements/">Creating Elements</a></li>
-    <li><details><summary><a class="doc-link" href="/css/">CSS</a></summary>
+    <li><a class="doc-link current" href="./" aria-current="page">tosijs</a></li>
+    <li><a class="doc-link" href="Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="css/">CSS</a></summary>
     <ul>
-      <li><a class="doc-link" href="/color/">color</a></li>
+      <li><a class="doc-link" href="color/">color</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/tosi/">Managing State</a></summary>
+    <li><details><summary><a class="doc-link" href="tosi/">Managing State</a></summary>
     <ul>
-      <li><a class="doc-link" href="/xin/">The tosi proxy</a></li>
-      <li><a class="doc-link" href="/metadata/">metadata</a></li>
-      <li><a class="doc-link" href="/path-listener/">path-listener</a></li>
-      <li><a class="doc-link" href="/xin-proxy/">tosi, xin, and xinProxy</a></li>
+      <li><a class="doc-link" href="xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="metadata/">metadata</a></li>
+      <li><a class="doc-link" href="path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/bind/">Binding</a></summary>
+    <li><details><summary><a class="doc-link" href="bind/">Binding</a></summary>
     <ul>
-      <li><a class="doc-link" href="/list-binding/">binding arrays</a></li>
-      <li><a class="doc-link" href="/bindings/">bindings</a></li>
+      <li><a class="doc-link" href="list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="bindings/">bindings</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/component/">Web-Components</a></summary>
+    <li><details><summary><a class="doc-link" href="component/">Web-Components</a></summary>
     <ul>
-      <li><a class="doc-link" href="/blueprint-loader/">blueprints</a></li>
-      <li><a class="doc-link" href="/make-component/">makeComponent</a></li>
-      <li><a class="doc-link" href="/form-validation/">Validation</a></li>
+      <li><a class="doc-link" href="blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="/utilities/">Utilities</a></summary>
+    <li><details><summary><a class="doc-link" href="utilities/">Utilities</a></summary>
     <ul>
-      <li><a class="doc-link" href="/hot-reload/">hotReload</a></li>
-      <li><a class="doc-link" href="/more-math/">more-math</a></li>
-      <li><a class="doc-link" href="/share/">share</a></li>
-      <li><a class="doc-link" href="/sync/">sync</a></li>
-      <li><a class="doc-link" href="/throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="more-math/">more-math</a></li>
+      <li><a class="doc-link" href="share/">share</a></li>
+      <li><a class="doc-link" href="sync/">sync</a></li>
+      <li><a class="doc-link" href="throttle/">throttle &amp; debounce</a></li>
     </ul>
     </details></li>
-    <li><a class="doc-link" href="/Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a class="doc-link" href="/React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="Angular/">Angular and tosijs</a></li>
+    <li><a class="doc-link" href="Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="history/">tosijs history</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">
@@ -460,6 +502,6 @@ natively, and runs TypeScript (with import and require) directly.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="/iife.js"></script>
+  <script src="iife.js"></script>
 </body>
 </html>

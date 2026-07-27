@@ -1,4 +1,4 @@
-# tosijs v1.7.5
+# tosijs v1.7.6
 
 Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.
 
@@ -19,6 +19,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 
 ## Pages
 
+- https://tosijs.net/Angular/ — Angular and tosijs
+  Use tosijs state in Angular with tosiSignal — a real, writable Angular signal bound to a path, zoneless-first, no NgRx/RxJS boilerplate — and treat Angular as an off-ramp.
 - https://tosijs.net/bind/ — Binding
   bind() syncs application state to DOM elements via path-based observers. Plus on() for event handlers and touchElement() for forced updates.
 - https://tosijs.net/list-binding/ — binding arrays
@@ -50,7 +52,7 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/path-listener/ — path-listener
   The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system.
 - https://tosijs.net/React/ — React and tosijs
-  Using tosijs with React via the useTosi hook, and how tosijs's path-observer model differs from React's reactive UI=f(state) model.
+  Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp.
 - https://tosijs.net/share/ — share
   share() synchronizes tosijs state across browser tabs and windows using BroadcastChannel and IndexedDB.
 - https://tosijs.net/sync/ — sync
@@ -63,6 +65,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   Background on the tosijs observer proxies: how tosi() and xinProxy() relate to xin and boxed, plus tosiUnique() for per-instance state.
 - https://tosijs.net/ — tosijs
   tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic.
+- https://tosijs.net/history/ — tosijs history
+  The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.
 - https://tosijs.net/utilities/ — Utilities
   Lightweight helper libraries used internally by tosijs and exposed for general use: more-math, throttle, debounce, hotReload, share, and sync.
 - https://tosijs.net/form-validation/ — Validation

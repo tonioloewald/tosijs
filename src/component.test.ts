@@ -1514,3 +1514,60 @@ test('parts finds elements by data-ref, as documented (medium backlog)', () => {
   expect(el.parts.byRef.textContent).toBe('ref target') // docs promised this
   el.remove()
 })
+
+describe('parts proxy scoping (nested components)', () => {
+  test('light-DOM parts do not reach into a nested instance of the same component', () => {
+    class NestScopeLight extends Component {
+      static preferredTagName = 'nest-scope-light'
+      static initAttributes = { role: 'group' } // light DOM
+      content = ({ div }: typeof elements) => [
+        div({ part: 'body' }),
+        div({ part: 'label' }, 'default'),
+      ]
+    }
+    NestScopeLight.elementCreator()
+    const outer = new NestScopeLight()
+    document.body.append(outer)
+    const inner = new NestScopeLight()
+    ;(outer.parts as any).body.append(inner)
+    ;(inner.parts as any).label.textContent = 'INNER'
+    // must be the outer's OWN label, not the nested instance's
+    expect((outer.parts as any).label.textContent).toBe('default')
+    expect((outer.parts as any).label.parentElement).toBe(outer)
+    outer.remove()
+  })
+
+  test("light-DOM parts still resolve inside the component's own containers", () => {
+    class OwnContainerLight extends Component {
+      static preferredTagName = 'own-container-light'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [
+        div({ part: 'header' }, div({ part: 'title' }, 'H')),
+      ]
+    }
+    OwnContainerLight.elementCreator()
+    const el = new OwnContainerLight()
+    document.body.append(el)
+    expect((el.parts as any).title.textContent).toBe('H')
+    el.remove()
+  })
+
+  test('shadow-DOM parts stay scoped across nesting (baseline)', () => {
+    class NestScopeShadow extends Component {
+      static preferredTagName = 'nest-scope-shadow'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      content = ({ div }: typeof elements) => [
+        div({ part: 'body' }),
+        div({ part: 'label' }, 'default'),
+      ]
+    }
+    NestScopeShadow.elementCreator()
+    const outer = new NestScopeShadow()
+    document.body.append(outer)
+    const inner = new NestScopeShadow()
+    ;(outer.parts as any).body.append(inner)
+    ;(inner.parts as any).label.textContent = 'INNER'
+    expect((outer.parts as any).label.textContent).toBe('default')
+    outer.remove()
+  })
+})

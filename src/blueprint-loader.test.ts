@@ -10,8 +10,8 @@ import {
 } from './blueprint-loader'
 import {
   makeComponent,
-  XinBlueprint,
-  XinPackagedComponent,
+  TosiBlueprint,
+  TosiPackagedComponent,
 } from './make-component'
 import { _resetDeprecationWarnings } from './metadata'
 
@@ -68,7 +68,7 @@ describe('tosi-blueprint (canonical)', () => {
   test('has default no-op blueprintLoaded callback', () => {
     const el = tosiBlueprint() as InstanceType<typeof Blueprint>
     expect(typeof el.blueprintLoaded).toBe('function')
-    el.blueprintLoaded({} as XinPackagedComponent)
+    el.blueprintLoaded({} as TosiPackagedComponent)
   })
 
   test('accepts custom blueprintLoaded callback', () => {
@@ -78,7 +78,7 @@ describe('tosi-blueprint (canonical)', () => {
         called = true
       },
     }) as InstanceType<typeof Blueprint>
-    el.blueprintLoaded({} as XinPackagedComponent)
+    el.blueprintLoaded({} as TosiPackagedComponent)
     expect(called).toBe(true)
   })
 
@@ -360,7 +360,7 @@ describe('Static properties', () => {
 
 describe('makeComponent', () => {
   test('creates component from blueprint', async () => {
-    const testBlueprint: XinBlueprint = (
+    const testBlueprint: TosiBlueprint = (
       tag,
       { Component: C, elements: e }
     ) => {
@@ -380,7 +380,7 @@ describe('makeComponent', () => {
   })
 
   test('created component has correct tag', async () => {
-    const testBlueprint: XinBlueprint = (
+    const testBlueprint: TosiBlueprint = (
       tag,
       { Component: C, elements: e }
     ) => {
@@ -401,7 +401,7 @@ describe('makeComponent', () => {
   test('blueprint receives factory with expected properties', async () => {
     let receivedFactory: any = null
 
-    const testBlueprint: XinBlueprint = (tag, factory) => {
+    const testBlueprint: TosiBlueprint = (tag, factory) => {
       receivedFactory = factory
       class FactoryTestComponent extends factory.Component {
         content = () => factory.elements.div('Factory test')
@@ -429,7 +429,7 @@ describe('makeComponent', () => {
   })
 
   test('blueprint can use styleSpec', async () => {
-    const testBlueprint: XinBlueprint = (
+    const testBlueprint: TosiBlueprint = (
       tag,
       { Component: C, elements: e }
     ) => {
@@ -460,7 +460,7 @@ describe('makeComponent', () => {
   })
 
   test('async blueprint works', async () => {
-    const asyncBlueprint: XinBlueprint = async (
+    const asyncBlueprint: TosiBlueprint = async (
       tag,
       { Component: C, elements: e }
     ) => {

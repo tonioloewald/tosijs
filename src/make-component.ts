@@ -2,7 +2,7 @@
 /*#
 # makeComponent
 
-`makeComponent(tag: string, bluePrint: XinBlueprint<T>): Promise<XinComponentSpec<T>>`
+`makeComponent(tag: string, bluePrint: TosiBlueprint<T>): Promise<TosiComponentSpec<T>>`
 hydrates [blueprints](/blueprint-loader/) into usable [web-components](/component/).
 
 Here are the relevant interfaces:
@@ -12,12 +12,12 @@ export interface PartsMap<T = Element> {
   [key: string]: T
 }
 
-export type XinBlueprint<T = PartsMap> = (
+export type TosiBlueprint<T = PartsMap> = (
   tag: string,
-  module: XinFactory
-) => XinComponentSpec<T> | Promise<XinComponentSpec<T>>
+  module: TosiFactory
+) => TosiComponentSpec<T> | Promise<TosiComponentSpec<T>>
 
-export interface XinComponentSpec<T = PartsMap> {
+export interface TosiComponentSpec<T = PartsMap> {
   type: Component<T>
   lightStyleSpec?: XinStyleSheet
   styleSpec?: XinStyleSheet // deprecated, use lightStyleSpec
@@ -39,7 +39,7 @@ import { version } from './version'
 import { xin, boxed } from './xin'
 import { xinProxy, tosi, boxedProxy } from './xin-proxy'
 
-export interface XinFactory {
+export interface TosiFactory {
   Color: typeof Color
   Component: typeof Component
   elements: typeof elements
@@ -58,29 +58,41 @@ export interface XinFactory {
   version: string
 }
 
-export interface XinComponentSpec<T = PartsMap> {
+export interface TosiComponentSpec<T = PartsMap> {
   type: Component<T>
   lightStyleSpec?: XinStyleSheet
   /** @deprecated Use lightStyleSpec instead */
   styleSpec?: XinStyleSheet
 }
 
-export interface XinPackagedComponent<T = PartsMap> {
+export interface TosiPackagedComponent<T = PartsMap> {
   type: Component<T>
   creator: ElementCreator
 }
 
-export const madeComponents: { [key: string]: XinPackagedComponent<any> } = {}
+export const madeComponents: { [key: string]: TosiPackagedComponent<any> } = {}
 
-export type XinBlueprint<T = PartsMap> = (
+export type TosiBlueprint<T = PartsMap> = (
   tag: string,
-  module: XinFactory
-) => XinComponentSpec<T> | Promise<XinComponentSpec<T>>
+  module: TosiFactory
+) => TosiComponentSpec<T> | Promise<TosiComponentSpec<T>>
+
+// --- Deprecated Xin* aliases (type-only; runtime is unaffected). Prefer the
+// Tosi* names above. Kept exported so existing `import { XinBlueprint } from
+// 'tosijs'` code keeps compiling. ---
+/** @deprecated Use `TosiFactory` */
+export type XinFactory = TosiFactory
+/** @deprecated Use `TosiComponentSpec` */
+export type XinComponentSpec<T = PartsMap> = TosiComponentSpec<T>
+/** @deprecated Use `TosiPackagedComponent` */
+export type XinPackagedComponent<T = PartsMap> = TosiPackagedComponent<T>
+/** @deprecated Use `TosiBlueprint` */
+export type XinBlueprint<T = PartsMap> = TosiBlueprint<T>
 
 export async function makeComponent<T = PartsMap>(
   tag: string,
-  blueprint: XinBlueprint<T>
-): Promise<XinPackagedComponent<T>> {
+  blueprint: TosiBlueprint<T>
+): Promise<TosiPackagedComponent<T>> {
   const spec = (await blueprint(tag, {
     Color,
     Component,
@@ -98,7 +110,7 @@ export async function makeComponent<T = PartsMap>(
     bind,
     on,
     version,
-  })) as XinComponentSpec<T>
+  })) as TosiComponentSpec<T>
   const { type } = spec
   // Set static properties from blueprint spec before calling elementCreator
   ;(type as any).preferredTagName = tag

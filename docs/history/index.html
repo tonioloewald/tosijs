@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
+  <title>tosijs history</title>
+  <meta name="description" content="The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." />
+  <link rel="canonical" href="https://tosijs.net/history/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="tosijs history" />
+  <meta property="og:description" content="The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." />
+  <meta property="og:url" content="https://tosijs.net/history/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs history","description":"The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.","url":"https://tosijs.net/history/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>tosijs history</h1>
+<!--{ "pin": "bottom", "order": 900, "description": "The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." }-->
+
+<div style="text-align: center; margin: 20px">
+  <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
+    <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
+  </tosi-lottie>
+</div>
+
+<p><code>tosijs</code> has a lineage: <strong><a href="https://github.com/tonioloewald/b8r">b8rjs</a> → xinjs → tosijs.</strong></p>
+<p>Each step kept the core idea — bind application state to the DOM through a central,
+path-addressable registry and let observers do the updating — while shedding
+whatever the platform had since made unnecessary.</p>
+<p>But even before this idea was used for web development, its core ideas had been
+proven out in multiple contexts:</p>
+<ul>
+<li>separate presentation from logic (e.g. Mac Resource Manager, DITLs, 1984)</li>
+<li>declare simple bindings as metadata (originally HyperCard projects could give UI elements &quot;names&quot; and the names could be used to declare or attach bindings)</li>
+<li>store data in dictionaries (e.g. before JavaScript objects, NewtonScript had &quot;soups&quot;)</li>
+<li>propagate events using a simple, consistent approach (HyperCard)</li>
+</ul>
+<h2>bindomatic.js (2013)</h2>
+<p>Originally developed for the <a href="https://www.uspto.gov/">USPTO</a> but, despite assurances,
+never open-sourced. This was based on jQuery before browsers adopted the best
+bits of the jQuery API natively.</p>
+<h2>b8rjs (2015)</h2>
+<p>The first open-source incarnation. <code>b8rjs</code> established the &quot;bind to the registry&quot;
+model: application state lives in one place, the DOM is wired to it by path, and
+changes propagate without hand-written glue.</p>
+<p>b8rjs also implemented literate programming concepts in its development/demo site
+and provided a powerful serializable type system (similar to JSON-Schema).</p>
+<h2>xinjs (2021)</h2>
+<p>A ground-up successor to <code>b8rjs</code>, rebuilt around modern ES <code>Proxy</code> objects — this
+is where the boxed-proxy / path-observer design <code>tosijs</code> uses today took shape.
+Its chief changes:</p>
+<ul>
+<li><strong>Virtual-list bindings became first-class.</strong> <code>b8rjs</code> needed specific components
+to virtualize a list; in <code>xinjs</code> any list binding could be virtual.</li>
+<li><strong>TypeScript-native</strong>, to meet Google&#39;s code standards.</li>
+<li><strong>Binding declarations left the DOM.</strong> <code>b8rjs</code> wrote bindings into DOM
+attributes; <code>xinjs</code> kept them off the DOM entirely (in the observer registry),
+to meet Google&#39;s information-security standards.</li>
+<li><strong>Web-components became a first-class citizen</strong>, not an afterthought — they
+weren&#39;t usable at all when <code>b8rjs</code> was written.</li>
+<li><strong>No hand-written HTML or CSS.</strong> The <code>elements</code> and <code>css</code> proxies express markup
+and styles as fully-typed TypeScript, so the code-quality tooling that checks
+your logic checks your UI too — and it comes out <em>more</em> compact and expressive
+than HTML/JSX or CSS/Tailwind. Compare <code>vars.padding50</code> with
+<code>calc(var(--padding) * 0.5)</code>, or <code>customElement()</code> with
+<code>&lt;custom-element&gt;&lt;/custom-element&gt;</code>.</li>
+</ul>
+<h2>tosijs (2023)</h2>
+<p>The current name — <code>xinjs</code> renamed, with the API stable across the rename. Taken
+as a whole, the line since <code>b8rjs</code> is a highly incompatible evolution: removing
+cruft, supporting more use-cases, and eliminating functionality made redundant by
+improvements to the JavaScript language and DOM APIs. It is also the heart of a
+broader ecosystem — see the <a href="/">home page</a> for the full family (tosijs-ui,
+tjs-lang, the React and Angular bridges, and more).</p>
+<blockquote>
+<h3>Migrating from xinjs</h3>
+<p><code>tosijs</code> was formerly published as <code>xinjs</code>. The rename is complete, though some
+older links and articles still say &quot;xinjs&quot;. The API is stable across the rename —
+old names continue to work with one-time deprecation warnings. If you&#39;re coming
+from <code>xinjs</code>, see the <a href="/Migration/">migration guide</a>.</p>
+</blockquote>
+<h2>Credits</h2>
+<p><code>tosijs</code> is developed with <a href="https://bun.sh/">bun</a> — crazy fast (WebKit&#39;s
+JavaScriptCore engine, not V8), does a lot natively, and runs TypeScript directly.</p>
+<p>Logo animation by <a href="https://pro.fiverr.com/freelancers/anicoremotion">@anicoremotion</a>.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link current" href="../history/" aria-current="page">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js"></script>
+</body>
+</html>

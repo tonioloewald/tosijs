@@ -236,7 +236,7 @@ returns a proxied array, not a raw one:
     }
 
 If you need the raw value (e.g. for serialization), use
-`tosiValue(this.items)` or `this.items.value`.
+`this.items.value` (or the `tosiValue(this.items)` function).
 
 ## Why This Works
 

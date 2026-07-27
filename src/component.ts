@@ -688,6 +688,34 @@ function insertGlobalStyles(tagName: string) {
   delete globalStyleSheets[tagName]
 }
 
+// Find the first descendant of `root` matching `selector` that belongs to THIS
+// component. A shadow root is already scoped by its boundary, so native
+// querySelector is correct. A light-DOM component shares one tree with its
+// content, so we walk it in pre-order but DO NOT descend into nested custom
+// elements — they own their own `[part=…]` / `data-ref` elements. Without this,
+// `parts.foo` on a light-DOM component reaches into a nested instance of the
+// same component (or any element with a matching part) and returns the wrong one.
+function queryOwnPart(
+  root: ParentNode,
+  selector: string,
+  lightDom: boolean
+): Element | null {
+  if (!lightDom) return root.querySelector(selector)
+  const search = (node: Element): Element | null => {
+    for (const child of Array.from(node.children)) {
+      if (child.matches(selector)) return child
+      // a custom element (tag contains '-') is a component boundary: it may
+      // itself be a part (matched above), but its content is not ours
+      if (!child.tagName.includes('-')) {
+        const found = search(child)
+        if (found != null) return found
+      }
+    }
+    return null
+  }
+  return search(root as Element)
+}
+
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
@@ -1006,6 +1034,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   private _parts?: T
   get parts(): T {
     const root = this.shadowRoot != null ? this.shadowRoot : this
+    // light-DOM components share one tree with their content, so the query must
+    // stop at nested-component boundaries; shadow roots are already scoped.
+    const lightDom = this.shadowRoot == null
     if (this._parts == null) {
       this._parts = new Proxy(
         {},
@@ -1015,15 +1046,15 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             // must not be treated as element refs
             if (typeof ref !== 'string') return undefined
             if (target[ref] === undefined) {
-              let element = root.querySelector(`[part="${ref}"]`)
+              let element = queryOwnPart(root, `[part="${ref}"]`, lightDom)
               if (element == null) {
                 // documented fallback: data-ref="foo" (the docs have always
                 // described this; only [part=] was implemented, so code
                 // following the docs threw "does not exist")
-                element = root.querySelector(`[data-ref="${ref}"]`)
+                element = queryOwnPart(root, `[data-ref="${ref}"]`, lightDom)
               }
               if (element == null) {
-                element = root.querySelector(ref)
+                element = queryOwnPart(root, ref, lightDom)
               }
               if (element == null)
                 throw new Error(`elementRef "${ref}" does not exist!`)
