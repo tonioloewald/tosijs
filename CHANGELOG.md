@@ -6,6 +6,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.8] - 2026-07-27
+
+### Fixed
+
+- **A cached part that is detached (with no replacement) no longer makes
+  `this.parts` throw (tosijs#21).** 1.7.7's self-healing re-validated cached
+  parts with `isConnected` and re-resolved stale ones — but when a part had been
+  *removed from the tree and not replaced* (e.g. `<tosi-segmented>`'s optional
+  `custom` input: a structural rebuild does `options.textContent = ''` and only
+  conditionally re-appends it), the re-resolution found nothing and **threw**
+  where 1.7.5 had leniently returned the detached node. That throw fired inside
+  change handlers that destructure `this.parts` unconditionally, killing the
+  handler *before* it committed `this.value` — the "stale value, correct DOM"
+  symptom on Firefox/WebKit. The cache now returns the previously-resolved
+  (detached) node when no replacement exists; self-healing still wins when a
+  replacement *is* present; the throw is reserved for refs that never resolved
+  at all. **1.7.7 is deprecated on npm.**
+  - Verified against tosijs-ui's real `<tosi-segmented>` Playwright lane:
+    Firefox went from 2/2 failing to green; WebKit 4/4; Chromium green.
+  - New interaction coverage: unit tests for the detach-then-access pattern and
+    the full click → change → `this.value`-commit round-trip, plus a real-browser
+    Playwright test (`tests/value-commit.pw.ts`) running the same round-trip in
+    every engine the lane covers.
+
 ## [1.7.7] - 2026-07-27
 
 ### Fixed

@@ -1044,7 +1044,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             // must not be treated as element refs
             if (typeof ref !== 'string') return undefined
             const cache = self._partsCache
-            let element: Element | null = cache[ref] ?? null
+            const cached: Element | null = cache[ref] ?? null
+            let element: Element | null = cached
             // re-validate: a captured/cached part may have been replaced (e.g. by
             // a render()); a stale ref re-resolves, so `parts` self-heals. A
             // missing part is never cached, so a later access resolves once present.
@@ -1067,6 +1068,18 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
               }
               if (element == null) {
                 element = root.querySelector(ref) // bare CSS-selector ref
+              }
+              // A previously-resolved part that is now detached with NO
+              // replacement in the tree stays available as the cached node
+              // rather than throwing — a component may legitimately hold a part
+              // out of the DOM (e.g. an optional input it re-appends on demand).
+              // Self-healing still wins when a replacement EXISTS; the throw is
+              // reserved for refs that never resolved at all. (tosijs#21: the
+              // 1.7.7 eviction turned that lenient case into a throw inside
+              // change handlers, killing the handler before it committed
+              // this.value.)
+              if (element == null && cached != null) {
+                return cached
               }
               if (element == null)
                 throw new Error(`elementRef "${ref}" does not exist!`)

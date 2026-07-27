@@ -1701,3 +1701,89 @@ describe('parts proxy — self-heals on replacement', () => {
     el.remove()
   })
 })
+
+describe('parts proxy — detached part with no replacement (tosijs#21)', () => {
+  // the <tosi-segmented> pattern: `custom` starts inside `options`; a structural
+  // rebuild does options.textContent = '' (detaching it) and only conditionally
+  // re-appends it. A change handler then destructures { options, custom } — on
+  // 1.7.7 the isConnected eviction made that destructure THROW (no replacement
+  // exists), killing the handler before it committed this.value.
+  test('a cached part detached by a rebuild is still returned (not a throw)', () => {
+    class DetachedPartC extends Component {
+      static preferredTagName = 'detached-part-c'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 'yes'
+      content = ({ div, input }: typeof elements) =>
+        div({ part: 'options' }, input({ part: 'custom', hidden: true }))
+    }
+    DetachedPartC.elementCreator()
+    const el = new DetachedPartC()
+    document.body.append(el)
+
+    // first render-ish pass: cache both parts while attached, then rebuild
+    const { options, custom } = el.parts as any
+    expect(custom).toBeInstanceOf(HTMLInputElement)
+    options.textContent = '' // structural rebuild detaches custom
+    expect(custom.isConnected).toBe(false)
+
+    // the change-handler destructure must NOT throw — and must return the node
+    let resolved: any
+    expect(() => {
+      resolved = (el.parts as any).custom
+    }).not.toThrow()
+    expect(resolved).toBe(custom) // the held (detached) part, still usable
+
+    // and if a REPLACEMENT appears, self-healing takes over
+    const replacement = document.createElement('input')
+    replacement.setAttribute('part', 'custom')
+    options.append(replacement)
+    expect((el.parts as any).custom).toBe(replacement)
+    el.remove()
+  })
+
+  test('the full #21 round-trip: handler commits this.value despite a detached part', () => {
+    class Seg21 extends Component {
+      static preferredTagName = 'seg21-c'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      value = 'yes'
+      content = ({ div, label, input }: typeof elements) =>
+        div(
+          { part: 'options' },
+          input({ part: 'custom', hidden: true }),
+          label(input({ type: 'radio', name: 's21', value: 'yes' }), 'yes'),
+          label(input({ type: 'radio', name: 's21', value: 'no' }), 'no')
+        )
+      handleChange = () => {
+        // unconditional destructure, exactly like tosi-segmented
+        const { options, custom } = this.parts as any
+        void custom
+        const checked = options.querySelector(
+          'input[type="radio"]:checked'
+        ) as HTMLInputElement | null
+        if (checked) this.value = checked.value
+      }
+      connectedCallback() {
+        super.connectedCallback()
+        ;(this.parts as any).options.addEventListener(
+          'change',
+          this.handleChange
+        )
+      }
+    }
+    Seg21.elementCreator()
+    const el = new Seg21()
+    document.body.append(el)
+    const parts = el.parts as any
+    void parts.custom // cache it (as segmented's first render does)
+    // structural rebuild detaches custom (keep the radios)
+    parts.custom.remove()
+    // user picks "no"
+    const no = el.shadowRoot!.querySelector(
+      'input[value="no"]'
+    ) as HTMLInputElement
+    no.checked = true
+    no.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(el.value).toBe('no') // the commit must stick — was stale on 1.7.7
+    el.remove()
+  })
+})
