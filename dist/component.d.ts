@@ -55,6 +55,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     initAttributes(...attributeNames: string[]): void;
     private initValue;
     private _parts?;
+    private _partsCache;
     get parts(): T;
     /**
      * Native web component callback for attribute changes.

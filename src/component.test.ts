@@ -1515,59 +1515,189 @@ test('parts finds elements by data-ref, as documented (medium backlog)', () => {
   el.remove()
 })
 
-describe('parts proxy scoping (nested components)', () => {
-  test('light-DOM parts do not reach into a nested instance of the same component', () => {
-    class NestScopeLight extends Component {
-      static preferredTagName = 'nest-scope-light'
-      static initAttributes = { role: 'group' } // light DOM
-      content = ({ div }: typeof elements) => [
-        div({ part: 'body' }),
-        div({ part: 'label' }, 'default'),
-      ]
-    }
-    NestScopeLight.elementCreator()
-    const outer = new NestScopeLight()
-    document.body.append(outer)
-    const inner = new NestScopeLight()
-    ;(outer.parts as any).body.append(inner)
-    ;(inner.parts as any).label.textContent = 'INNER'
-    // must be the outer's OWN label, not the nested instance's
-    expect((outer.parts as any).label.textContent).toBe('default')
-    expect((outer.parts as any).label.parentElement).toBe(outer)
-    outer.remove()
-  })
+describe('parts proxy — pre-hydration ownership capture', () => {
+  // a light-DOM sub-component that SLOTS its children (the counter-example that
+  // broke every structural approach): an own part placed inside it lands in a
+  // tosi-slot after hydration, but capture grabbed it as ours beforehand
+  class CapSlotWrap extends Component {
+    static preferredTagName = 'cap-slotwrap'
+    static initAttributes = { role: 'group' }
+    content = ({ slot }: typeof elements) => [slot()]
+  }
+  const capSlotWrap = CapSlotWrap.elementCreator()
 
-  test("light-DOM parts still resolve inside the component's own containers", () => {
-    class OwnContainerLight extends Component {
-      static preferredTagName = 'own-container-light'
+  test('own part inside a light-DOM slotting sub-component is still resolved', () => {
+    class OuterA extends Component {
+      static preferredTagName = 'cap-outer-a'
       static initAttributes = { role: 'group' }
-      content = ({ div }: typeof elements) => [
-        div({ part: 'header' }, div({ part: 'title' }, 'H')),
-      ]
+      content = ({ div }: typeof elements) => [capSlotWrap(div({ part: 'inner' }, 'OWN'))]
     }
-    OwnContainerLight.elementCreator()
-    const el = new OwnContainerLight()
+    OuterA.elementCreator()
+    const el = new OuterA()
     document.body.append(el)
-    expect((el.parts as any).title.textContent).toBe('H')
+    // after hydration cap-slotwrap slotted the div into its tosi-slot; capture
+    // still resolves it (this is the case the slot/custom-element rules got wrong)
+    expect((el.parts as any).inner.textContent).toBe('OWN')
     el.remove()
   })
 
-  test('shadow-DOM parts stay scoped across nesting (baseline)', () => {
-    class NestScopeShadow extends Component {
-      static preferredTagName = 'nest-scope-shadow'
-      static shadowStyleSpec = { ':host': { display: 'block' } }
-      content = ({ div }: typeof elements) => [
-        div({ part: 'body' }),
-        div({ part: 'label' }, 'default'),
-      ]
+  test('own declared part wins over a nested instance sharing the name (even un-slotted)', () => {
+    class NodeC extends Component {
+      static preferredTagName = 'cap-node'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [div({ part: 'x' }, 'OWN'), div({ part: 'body' })]
     }
-    NestScopeShadow.elementCreator()
-    const outer = new NestScopeShadow()
+    NodeC.elementCreator()
+    const outer = new NodeC()
     document.body.append(outer)
-    const inner = new NestScopeShadow()
-    ;(outer.parts as any).body.append(inner)
-    ;(inner.parts as any).label.textContent = 'INNER'
-    expect((outer.parts as any).label.textContent).toBe('default')
+    const nested = new NodeC()
+    ;(outer.parts as any).body.append(nested) // nested in a plain div — NOT slotted
+    ;(nested.parts as any).x.textContent = 'NESTED'
+    expect((outer.parts as any).x.textContent).toBe('OWN') // captured own, not nested
+    expect((nested.parts as any).x.textContent).toBe('NESTED')
     outer.remove()
+  })
+
+  test('lazily-added part (not in content) falls back to querySelector', () => {
+    class LazyC extends Component {
+      static preferredTagName = 'cap-lazy'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [div({ part: 'shell' })]
+    }
+    LazyC.elementCreator()
+    const el = new LazyC()
+    document.body.append(el)
+    const late = document.createElement('div')
+    late.setAttribute('part', 'late')
+    late.textContent = 'LATE'
+    ;(el.parts as any).shell.append(late)
+    expect((el.parts as any).late.textContent).toBe('LATE')
+    el.remove()
+  })
+
+  test('static (cloned) content falls back to querySelector', () => {
+    const { div } = elements
+    class StaticC extends Component {
+      static preferredTagName = 'cap-static'
+      static initAttributes = { role: 'group' }
+      content = [div({ part: 'foo' }, 'STATIC')] // static array — cloned on append
+    }
+    StaticC.elementCreator()
+    const el = new StaticC()
+    document.body.append(el)
+    expect((el.parts as any).foo.textContent).toBe('STATIC')
+    el.remove()
+  })
+
+  test('a captured part replaced before first read falls back to the replacement', () => {
+    class ReplaceC extends Component {
+      static preferredTagName = 'cap-replace'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [div({ part: 'thing' }, 'ORIG')]
+    }
+    ReplaceC.elementCreator()
+    const el = new ReplaceC()
+    document.body.append(el)
+    const captured = el.querySelector('[part="thing"]')!
+    const replacement = document.createElement('div')
+    replacement.setAttribute('part', 'thing')
+    replacement.textContent = 'NEW'
+    captured.replaceWith(replacement) // simulate a render() swap before any parts read
+    expect((el.parts as any).thing.textContent).toBe('NEW')
+    el.remove()
+  })
+
+  test('deprecated data-ref still resolves (with a warning) during its deprecation cycle', () => {
+    class RefC extends Component {
+      static preferredTagName = 'cap-ref'
+      static initAttributes = { role: 'group' }
+      content = () => {
+        const d = document.createElement('div')
+        d.setAttribute('data-ref', 'legacy')
+        d.textContent = 'REF'
+        return [d]
+      }
+    }
+    RefC.elementCreator()
+    const el = new RefC()
+    document.body.append(el)
+    const warnings: string[] = []
+    const orig = console.warn
+    console.warn = (...a: any[]) => warnings.push(a.map(String).join(' '))
+    try {
+      expect((el.parts as any).legacy.textContent).toBe('REF') // data-ref fallback works
+    } finally {
+      console.warn = orig
+    }
+    el.remove()
+  })
+})
+
+describe('parts capture — lazy hydration', () => {
+  test('a captured part that is a lazily-hydrating component stays valid (identity + hydration)', () => {
+    class CapInnerW extends Component {
+      static preferredTagName = 'cap-inner-w'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      content = ({ div }: typeof elements) => div({ part: 'label' }, 'hydrated')
+    }
+    const capInnerW = CapInnerW.elementCreator()
+    class CapHostW extends Component {
+      static preferredTagName = 'cap-host-w'
+      static initAttributes = { role: 'group' }
+      content = () => [capInnerW({ part: 'widget' })]
+    }
+    CapHostW.elementCreator()
+    const host = new CapHostW()
+    document.body.append(host)
+    const w = (host.parts as any).widget
+    expect(w.tagName).toBe('CAP-INNER-W')
+    expect(w.isConnected).toBe(true)
+    // its own (lazy) hydration ran, and the captured ref points at the hydrated node
+    expect(w.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe('hydrated')
+    expect((host.parts as any).widget).toBe(w) // identity stable across reads
+    host.remove()
+  })
+})
+
+describe('parts proxy — missing parts are not cached', () => {
+  test('accessing a missing part throws but does not poison it; a later access resolves', () => {
+    class CapMia extends Component {
+      static preferredTagName = 'cap-mia'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [div({ part: 'shell' })]
+    }
+    CapMia.elementCreator()
+    const el = new CapMia()
+    document.body.append(el)
+    // not present yet → throws, and must NOT be cached
+    expect(() => (el.parts as any).later).toThrow()
+    const late = document.createElement('div')
+    late.setAttribute('part', 'later')
+    late.textContent = 'ARRIVED'
+    ;(el.parts as any).shell.append(late)
+    // retry resolves now that it exists
+    expect((el.parts as any).later.textContent).toBe('ARRIVED')
+    el.remove()
+  })
+})
+
+describe('parts proxy — self-heals on replacement', () => {
+  test('a cached part replaced after first read re-resolves on next access', () => {
+    class CapSelfHeal extends Component {
+      static preferredTagName = 'cap-selfheal'
+      static initAttributes = { role: 'group' }
+      content = ({ div }: typeof elements) => [div({ part: 'thing' }, 'A')]
+    }
+    CapSelfHeal.elementCreator()
+    const el = new CapSelfHeal()
+    document.body.append(el)
+    expect((el.parts as any).thing.textContent).toBe('A') // first read caches
+    const replacement = document.createElement('div')
+    replacement.setAttribute('part', 'thing')
+    replacement.textContent = 'B'
+    el.querySelector('[part="thing"]')!.replaceWith(replacement)
+    // next access sees the cached node is disconnected and re-resolves
+    expect((el.parts as any).thing.textContent).toBe('B')
+    el.remove()
   })
 })

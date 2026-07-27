@@ -284,13 +284,13 @@ is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).
 
 `this.parts.foo` finds a content element by, in order: `part="foo"` (the preferred
-form — it's also what `::part()` styling targets), then `data-ref="foo"`, and
-finally `foo` as a css selector — so `this.parts['.foo']` finds a content element
-with `class="foo"` while `this.parts.h1` finds an `<h1>`.
+form — it's also what `::part()` styling targets), and finally `foo` as a css
+selector — so `this.parts['.foo']` finds a content element with `class="foo"`
+while `this.parts.h1` finds an `<h1>`.
 
-`this.parts` will also remove a `data-ref` attribute once it has been used to find
-the element. This means that if you use all your refs in `render` or `connectedCallback`
-then no trace will remain in the DOM for a mounted element.
+A component's `[part]` elements are captured from its content when it hydrates, so
+`this.parts.foo` always resolves to **your own** part — never a matching `[part]`
+inside a nested component or slotted content.
 
 `parts` only resolves after **hydration** — the content it looks through is
 instantiated on `connectedCallback`, not at construction. Reading `parts` on an
@@ -688,32 +688,27 @@ function insertGlobalStyles(tagName: string) {
   delete globalStyleSheets[tagName]
 }
 
-// Find the first descendant of `root` matching `selector` that belongs to THIS
-// component. A shadow root is already scoped by its boundary, so native
-// querySelector is correct. A light-DOM component shares one tree with its
-// content, so we walk it in pre-order but DO NOT descend into nested custom
-// elements — they own their own `[part=…]` / `data-ref` elements. Without this,
-// `parts.foo` on a light-DOM component reaches into a nested instance of the
-// same component (or any element with a matching part) and returns the wrong one.
-function queryOwnPart(
-  root: ParentNode,
-  selector: string,
-  lightDom: boolean
-): Element | null {
-  if (!lightDom) return root.querySelector(selector)
-  const search = (node: Element): Element | null => {
-    for (const child of Array.from(node.children)) {
-      if (child.matches(selector)) return child
-      // a custom element (tag contains '-') is a component boundary: it may
-      // itself be a part (matched above), but its content is not ours
-      if (!child.tagName.includes('-')) {
-        const found = search(child)
-        if (found != null) return found
-      }
+// Collect a light-DOM component's OWN [part] elements from its content tree
+// *before* it is inserted. At this point the tree is exactly what the component
+// built: function content is not cloned, and nested sub-components have not
+// hydrated (so they have not slotted anything and declared none of their own
+// parts yet). Every [part] here is therefore unambiguously this component's own,
+// independent of slots or whether a sub-component is light- or shadow-DOM. First
+// occurrence in tree order wins.
+function capturePartsFrom(content: unknown): Record<string, Element> {
+  const parts: Record<string, Element> = Object.create(null)
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(visit)
+      return
     }
-    return null
+    if (!(node instanceof Element)) return
+    const part = node.getAttribute('part')
+    if (part != null && !(part in parts)) parts[part] = node
+    for (const child of Array.from(node.children)) visit(child)
   }
-  return search(root as Element)
+  visit(content)
+  return parts
 }
 
 export abstract class Component<T = PartsMap> extends HTMLElement {
@@ -1032,36 +1027,52 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   private _parts?: T
+  // Resolved parts, keyed by ref. Seeded at hydration with this component's OWN
+  // [part] elements — captured from the content tree BEFORE it is inserted, so
+  // nesting/slotting can't contaminate them (see capturePartsFrom + hydrate) —
+  // and filled lazily for anything not declared in content. Shadow and static
+  // (cloned) content start empty and resolve entirely via querySelector.
+  private _partsCache: Record<string, Element> = Object.create(null)
   get parts(): T {
-    const root = this.shadowRoot != null ? this.shadowRoot : this
-    // light-DOM components share one tree with their content, so the query must
-    // stop at nested-component boundaries; shadow roots are already scoped.
-    const lightDom = this.shadowRoot == null
+    const self = this
     if (this._parts == null) {
       this._parts = new Proxy(
         {},
         {
-          get(target: any, ref: string) {
+          get(_target: any, ref: string) {
             // symbol keys (and thenable probing, e.g. Promise.resolve(parts))
             // must not be treated as element refs
             if (typeof ref !== 'string') return undefined
-            if (target[ref] === undefined) {
-              let element = queryOwnPart(root, `[part="${ref}"]`, lightDom)
+            const cache = self._partsCache
+            let element: Element | null = cache[ref] ?? null
+            // re-validate: a captured/cached part may have been replaced (e.g. by
+            // a render()); a stale ref re-resolves, so `parts` self-heals. A
+            // missing part is never cached, so a later access resolves once present.
+            if (element != null && !element.isConnected) element = null
+            if (element == null) {
+              const root = self.shadowRoot != null ? self.shadowRoot : self
+              element = root.querySelector(`[part="${ref}"]`)
               if (element == null) {
-                // documented fallback: data-ref="foo" (the docs have always
-                // described this; only [part=] was implemented, so code
-                // following the docs threw "does not exist")
-                element = queryOwnPart(root, `[data-ref="${ref}"]`, lightDom)
+                // DEPRECATED data-ref="foo" (a React-era "refs" fossil; removed
+                // from the docs, slated for removal in 1.8.0)
+                const legacy = root.querySelector(`[data-ref="${ref}"]`)
+                if (legacy != null) {
+                  warnDeprecated(
+                    'data-ref',
+                    'data-ref is deprecated and will be removed in tosijs 1.8.0 — use part="…" instead.'
+                  )
+                  legacy.removeAttribute('data-ref')
+                  element = legacy
+                }
               }
               if (element == null) {
-                element = queryOwnPart(root, ref, lightDom)
+                element = root.querySelector(ref) // bare CSS-selector ref
               }
               if (element == null)
                 throw new Error(`elementRef "${ref}" does not exist!`)
-              element.removeAttribute('data-ref')
-              target[ref] = element as Element
+              cache[ref] = element
             }
-            return target[ref]
+            return element
           },
         }
       ) as T
@@ -1632,6 +1643,13 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       } else if (_content !== null) {
         const existingChildren = Array.from(this.childNodes)
+        // Capture our own parts from the content tree BEFORE it is inserted and
+        // before any nested sub-components hydrate/slot. Function content is not
+        // cloned, so these are the very nodes that go into the DOM; static
+        // (cloned) content is skipped and falls back to querySelector.
+        if (!cloneElements) {
+          this._partsCache = capturePartsFrom(_content)
+        }
         appendContentToElement(this as HTMLElement, _content, cloneElements)
         // querySelector returns null (never undefined) when there's no match,
         // so `!== undefined` was always true

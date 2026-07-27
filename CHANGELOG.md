@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.7] - 2026-07-27
+
+### Fixed
+
+- **`this.parts.foo` now resolves your *own* part — by ownership, not structure
+  (tosijs#20).** A component's `[part]` elements are captured from its content
+  when it hydrates, *before* the content is inserted and before any nested
+  sub-components hydrate or slot. At that moment the tree is exactly what the
+  component built, so every `[part]` is unambiguously its own — regardless of how
+  deeply it nests, whether it's projected through a `<tosi-slot>`, or whether a
+  sub-component is light- or shadow-DOM. `parts.foo` returns the captured node
+  (while it's still in the tree) and falls back to `querySelector` for
+  lazily-built parts, static (cloned) content, or a part a `render()` replaced —
+  so it never throws where 1.7.5 wouldn't. This supersedes **1.7.6, which is
+  deprecated on npm** (its custom-element-boundary attempt broke `parts` for any
+  component that lays its parts out inside a sub-component like `<tosi-tabs>`).
+
+### Deprecated
+
+- **`data-ref` as a `parts` fallback.** A fossil from when this was a React-style
+  "refs" proxy, predating parts-as-binding. It still resolves (`parts.foo` →
+  `[part="foo"]` → `[data-ref="foo"]` → CSS selector) but now warns once, and is
+  removed from the documentation. It will be removed entirely in 1.8.0 — use
+  `part="…"`.
+
+Everything else from 1.7.6 is retained: the computed-property registration fix,
+the `xinValue`/`xinPath`-on-`XinProps` fix (tosijs#19), the `Tosi*` blueprint
+types, and the documentation overhaul.
+
 ## [1.7.6] - 2026-07-27
 
 ### Fixed

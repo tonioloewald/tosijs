@@ -288,12 +288,12 @@ should you override them.</p>
 is intended to facilitate access to static elements (it memoizes its values the
 first time they are computed).</p>
 <p><code>this.parts.foo</code> finds a content element by, in order: <code>part=&quot;foo&quot;</code> (the preferred
-form — it&#39;s also what <code>::part()</code> styling targets), then <code>data-ref=&quot;foo&quot;</code>, and
-finally <code>foo</code> as a css selector — so <code>this.parts[&#39;.foo&#39;]</code> finds a content element
-with <code>class=&quot;foo&quot;</code> while <code>this.parts.h1</code> finds an <code>&lt;h1&gt;</code>.</p>
-<p><code>this.parts</code> will also remove a <code>data-ref</code> attribute once it has been used to find
-the element. This means that if you use all your refs in <code>render</code> or <code>connectedCallback</code>
-then no trace will remain in the DOM for a mounted element.</p>
+form — it&#39;s also what <code>::part()</code> styling targets), and finally <code>foo</code> as a css
+selector — so <code>this.parts[&#39;.foo&#39;]</code> finds a content element with <code>class=&quot;foo&quot;</code>
+while <code>this.parts.h1</code> finds an <code>&lt;h1&gt;</code>.</p>
+<p>A component&#39;s <code>[part]</code> elements are captured from its content when it hydrates, so
+<code>this.parts.foo</code> always resolves to <strong>your own</strong> part — never a matching <code>[part]</code>
+inside a nested component or slotted content.</p>
 <p><code>parts</code> only resolves after <strong>hydration</strong> — the content it looks through is
 instantiated on <code>connectedCallback</code>, not at construction. Reading <code>parts</code> on an
 uninserted element (e.g. one just back from <code>elementCreator()</code>) has nothing to find.
