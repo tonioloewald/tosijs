@@ -319,6 +319,45 @@ precedent in the stack today:
   wiring graph. `describe()` doesn't need elements to exist — elements are what
   the declarations *become* when a human needs them.
 
+### Mechanics: vending is closer than it looks
+
+Three levels of headlessness, all grounded in existing machinery:
+
+- **Level 0 — `elementsSSR` (no DOM at all).** An elements-shaped proxy whose
+  factories emit **HTML strings** instead of nodes is almost trivial — same
+  call signatures, same sugar, string concatenation underneath. The two
+  apparent hard parts dissolve on inspection:
+  1. **Bindings serialize to markers, and the hydration seam already exists:**
+     `bindParts(root, bindingMap, dataAttribute = 'part')` (shipped, tested)
+     applies ElementProps to elements found by `data-part` markers. So
+     `elementsSSR` emits `data-part="searchBox"` where the live version would
+     have bound directly, and the client re-wires with one `bindParts` call —
+     the binding map itself is isomorphic to the wiring graph `describe()`
+     already knows.
+  2. **Components don't need server-side rendering at all**, because tosijs
+     components *self-hydrate on connection*: their content is built in
+     `connectedCallback`, not baked into markup. SSR emits the host tag,
+     attributes, and light children — the browser upgrade does the rest. (The
+     framework's laziness turns out to be an SSR feature: there is nothing to
+     serialize because there is nothing there yet.)
+  State travels alongside as a `hotReload`-style serialized overlay. Vending a
+  UI = `elementsSSR` markup + state snapshot + hydrate-on-load.
+- **Level 1 — a real headless DOM (works today).** The question "is there a
+  headless DOM that could actually run tosijs?" is answered by the repo itself:
+  **happy-dom already runs tosijs in two production paths** — the entire unit
+  suite (bunfig preload) and the doc-site prerender, which *evaluates
+  components in a DOM-shimmed subprocess and serializes the result*. That
+  pipeline IS level-1 vending, already shipping. jsdom also works (heavier,
+  slower, some spec areas better); linkedom is the fast-and-loose option for
+  pure generate-markup workloads; a real headless browser (Playwright) remains
+  the ground-truth tier. Known happy-dom limits (layout is zero-size,
+  interaction timing lies — see #21) don't matter here: the headless embodiment
+  serves *state, wiring, and markup*, not pixel behavior.
+- **Level 2 — no DOM even loaded (tosijs#18).** The state-only entry point:
+  registry, observers, actions, and declared wiring with no DOM globals at
+  import. Level 0's string vending bolts onto this; level 1 becomes an
+  optional fidelity tier rather than a requirement.
+
 And note what falls out **before any AI enters the picture**: the headless
 embodiment is an *intermediate, fully testable version of the application*.
 Drive the whole app — state, actions, observers, declared wiring — with no
@@ -343,10 +382,18 @@ that never gets bored. tosijs is the model and the switchboard.
 - **Phase 0 — prove it (no new code).** A doc-site demo: an "agent panel"
   drives the todo example through raw paths while the reader clicks the same
   UI. Two actors, one state, zero sync. This page *is* the manifesto's proof.
+  When this document becomes a doc page, the proofs live **inside it as live
+  examples** — the manifesto demonstrating its own thesis inline. First
+  candidate: `elementsSSR` as a ~40-line live example (vend HTML → show the
+  string → inject → `bindParts` → mutate state → the vended UI comes alive).
 - **Phase 1 — `tosijs/agent` (introspection).** Export `getElementBindings`;
-  build `describe()`/`read`/`write`/`observe`/`call`/`log` over existing
-  primitives as an optional subpath (tree-shaken away when unused). The toggle
-  and the global. Ship EXPERIMENTAL, like `tosijs/debug`.
+  build `describe()`/`read`/`write`/`observe`/`call`/`log`/`changes` over
+  existing primitives as an optional subpath (tree-shaken away when unused).
+  The toggle and the global. Ship EXPERIMENTAL, like `tosijs/debug`. Scope
+  note: `describe()` is not a wiring dump — it is the **joined, typed,
+  directional affordance graph** from The Opportunistic Harvest (labels ×
+  paths × actions, writability from binding direction, preconditions from
+  enabled-bindings, item schemas from list templates).
 - **Phase 2 — manifest + contracts.** The `expose` allowlist; tosijs-schema
   integration for shapes/constraints; `describe()` grows "what's legal."
   Feeds directly into 2.0's `schematic` design rather than duplicating it.
