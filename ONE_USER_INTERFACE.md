@@ -300,3 +300,52 @@ plays (file, don't fix — designs land as issues on haltija/tjs-lang/lukko);
 *The observant model, stated for 2026: the framework watches state and updates
 the UI. A human is an observer with eyes. An agent is an observer with a model.
 Neither needs a special interface, because there is only one.*
+
+## Prior art & the window (surveyed 2026-07-28)
+
+The transport slot is being standardized *right now* — and the core idea remains
+unclaimed:
+
+- **WebMCP** (`navigator.modelContext`, migrating to `document`): a W3C WebML CG
+  standard from Google + Microsoft, announced 2026-02-10 — pages expose typed,
+  callable **tools** to browser agents. Chrome 146 Canary shipped it; spec is
+  churning (Chrome 150 deprecates the `navigator` location). This validates the
+  manifesto's framing almost verbatim ("the website tells the agent what's
+  possible") — but it is a *manual registration API*: every tool is hand-written.
+- **Framework integrations, all hand-rolled:** `webmcp-react` / `@mcp-b/react-webmcp`
+  (a `useMcpTool` hook per tool, Zod schemas by hand); **Angular v22
+  `provideWebMcpTools()`** — the most interesting: Signal Forms auto-become tools
+  (validation + submission wired to agent feedback). That's one genuine step
+  toward "derive from framework records," scoped to forms only.
+- **Playwright MCP / Operator / Computer Use / Mariner:** a11y-tree + vision +
+  synthesized input — impersonating the human user, the thing this plan replaces.
+- **Phoenix LiveView / Hotwire:** real prior art for the *inversion* (app lives
+  server-side, DOM is a projection) — but the model is opaque process state; no
+  agent interface, no introspection, one embodiment.
+- **HATEOAS / hypermedia:** the philosophical ancestor of `describe()` — the
+  interface advertising its own affordances — done for REST, twenty years early.
+- **llms.txt:** static self-description for sites (we already ship it); the agent
+  surface is its runtime sibling.
+
+**What remains unclaimed — the tosijs delta:**
+1. **State, not just tools.** WebMCP exposes callable functions; nobody exposes a
+   path-addressable, *writable, observable* model.
+2. **Derived, not declared.** Every integration above hand-registers tools.
+   tosijs can *generate* the surface from wiring it already records — because no
+   other mainstream framework HAS a wiring record to derive from.
+3. **One-truth propagation.** An agent write updates the human's UI because both
+   are observers of the same registry — everyone else needs the tool author to
+   remember to sync.
+4. **Push observation.** WebMCP is request/response; `observe(path)` is a
+   subscription channel nobody offers.
+5. **Embodiment independence.** Headless app + vended UI has no equivalent
+   anywhere in the agent-web space.
+
+**Strategic consequence:** Phase 3's first adapter should target **WebMCP**
+(`document.modelContext`), not a bespoke bridge — it's the standard slot,
+shipping in Chrome, and tosijs can be *the first framework where the WebMCP
+tools write themselves*. haltija/MCP remains the second transport (and covers
+non-WebMCP browsers). The window is real: announcement→Chrome→framework
+integrations took five months; forms-to-tools is already Angular-official. The
+full inversion is still on the table — but "derived agent surface" won't stay
+unclaimed for long.
