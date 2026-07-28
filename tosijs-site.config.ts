@@ -41,6 +41,8 @@ export default defineSiteConfig({
     'Migration.md',
     'React.md',
     'Angular.md',
+    // branch-only for now: the ONE USER INTERFACE plan-ifesto (private branch)
+    'ONE_USER_INTERFACE.md',
   ],
   staticDirs: ['demo/static'],
 

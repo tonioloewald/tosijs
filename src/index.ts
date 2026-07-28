@@ -1,4 +1,11 @@
 export { bind, on, touchElement } from './bind'
+export { enableAgentInterface } from './agent'
+export type {
+  AgentInterface,
+  AgentInterfaceOptions,
+  AgentDescription,
+  AgentWiringRecord,
+} from './agent'
 export { bindings } from './bindings'
 export {
   css,

@@ -9,6 +9,7 @@
   <url><loc>https://tosijs.net/bind/</loc></url>
   <url><loc>https://tosijs.net/component/</loc></url>
   <url><loc>https://tosijs.net/utilities/</loc></url>
+  <url><loc>https://tosijs.net/agent/</loc></url>
   <url><loc>https://tosijs.net/list-binding/</loc></url>
   <url><loc>https://tosijs.net/bindings/</loc></url>
   <url><loc>https://tosijs.net/blueprint-loader/</loc></url>
@@ -25,6 +26,7 @@
   <url><loc>https://tosijs.net/form-validation/</loc></url>
   <url><loc>https://tosijs.net/React/</loc></url>
   <url><loc>https://tosijs.net/Angular/</loc></url>
+  <url><loc>https://tosijs.net/ONE_USER_INTERFACE/</loc></url>
   <url><loc>https://tosijs.net/Migration/</loc></url>
   <url><loc>https://tosijs.net/history/</loc></url>
 </urlset>

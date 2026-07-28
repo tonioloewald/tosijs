@@ -1,4 +1,5 @@
 # One User Interface
+<!--{ "pin": "bottom", "order": 320, "description": "One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." }-->
 
 *A plan and a manifesto: one source of truth for state, UI — and AI.*
 
@@ -42,6 +43,73 @@ different intelligence behind it.** Human via widgets, agent via paths, code via
 either — three users, one interface, zero sync layers. That's the manifesto in
 one line: we don't need to *extend* the architecture to serve AI; we need to
 *describe* it to AI.
+
+## Proof: two users, one interface (live)
+
+Below, the human side is an ordinary bound tosijs UI. The agent side never
+touches the DOM — it uses the EXPERIMENTAL `enableAgentInterface()` surface:
+paths, actions, and push observation only. Add items from either side; both
+stay in sync because there is nothing to sync — and the observation log shows
+the agent being *notified* of your edits (and its own).
+
+```js
+import { elements, tosi, enableAgentInterface } from 'tosijs'
+
+const { oneUI } = tosi({
+  oneUI: {
+    list: [{ id: 1, text: 'try the input →' }],
+    addItem(text) {
+      if (!text.trim()) return
+      oneUI.list.push({ id: Math.random(), text })
+    },
+  },
+})
+
+const agent = enableAgentInterface({ global: false })
+const { div, h4, ul, input, button, pre } = elements
+
+// THE HUMAN SIDE — an ordinary bound UI
+preview.append(
+  div(
+    h4('Human (widgets)'),
+    ul(
+      ...oneUI.list.listBinding(({ li }, item) => li(item.text), {
+        idPath: 'id',
+      })
+    ),
+    input({
+      placeholder: 'add an item, hit Enter',
+      onKeydown(event) {
+        if (event.key === 'Enter') {
+          oneUI.addItem(event.target.value)
+          event.target.value = ''
+        }
+      },
+    })
+  )
+)
+
+// THE AGENT SIDE — no DOM access: paths, actions, observation only
+const log = pre({ style: { maxHeight: '5em', overflow: 'auto', margin: 0 } })
+agent.observe('oneUI', (path) => log.append(`observed: ${path}\n`))
+preview.append(
+  div(
+    h4('Agent (paths only)'),
+    button('call("oneUI.addItem", …)', {
+      onClick() {
+        agent.call('oneUI.addItem', 'added by the agent')
+      },
+    }),
+    ' ',
+    button('read("oneUI.list")', {
+      onClick() {
+        log.append(JSON.stringify(agent.read('oneUI.list')) + '\n')
+      },
+    }),
+    log
+  )
+)
+```
 
 ## The part nobody else can offer: the wiring diagram is already recorded
 
@@ -342,6 +410,85 @@ Three levels of headlessness, all grounded in existing machinery:
      serialize because there is nothing there yet.)
   State travels alongside as a `hotReload`-style serialized overlay. Vending a
   UI = `elementsSSR` markup + state snapshot + hydrate-on-load.
+
+  Here is level 0, live — vend HTML as a string, show it, inject it, and wire
+  it to state with one `bindParts` call (type in the hydrated input):
+
+```js
+import { elements, tosi, bindParts } from 'tosijs'
+
+// elementsSSR: the elements proxy's call signature, emitting HTML strings
+const VOID = new Set(['input', 'br', 'img', 'hr'])
+const esc = (s) =>
+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+const kebab = (s) => s.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())
+const elementsSSR = new Proxy(
+  {},
+  {
+    get: (_, tag) => (...args) => {
+      const attrs = []
+      const children = []
+      for (const arg of args) {
+        if (typeof arg === 'string' || typeof arg === 'number') {
+          children.push(esc(arg))
+        } else if (arg && arg.__html) {
+          children.push(arg.__html)
+        } else if (arg && typeof arg === 'object') {
+          for (const [k, v] of Object.entries(arg)) {
+            attrs.push(` ${kebab(k)}="${esc(v)}"`)
+          }
+        }
+      }
+      const t = kebab(tag)
+      const html = VOID.has(t)
+        ? `<${t}${attrs.join('')}>`
+        : `<${t}${attrs.join('')}>${children.join('')}</${t}>`
+      return { __html: html, toString: () => html }
+    },
+  }
+)
+
+// 1. VEND — a UI as a string; data-part markers stand where bindings will go
+const ssr = elementsSSR
+const html = String(
+  ssr.div(
+    ssr.input({ dataPart: 'name', placeholder: 'type your name' }),
+    ssr.div('hello, ', ssr.span({ dataPart: 'greet' }))
+  )
+)
+
+// show the vended string itself
+preview.append(elements.pre(html))
+
+// 2. HYDRATE — inject the markup, then one bindParts call wires it to state
+const { vended } = tosi({ vended: { name: 'world' } })
+const host = elements.div()
+host.innerHTML = html
+preview.append(host)
+bindParts(host, {
+  name: { bindValue: vended.name },
+  greet: { bindText: vended.name },
+})
+```
+
+```test
+import { updates } from 'tosijs'
+
+test('the vended UI hydrates against live state', async () => {
+  await updates()
+  const greet = preview.querySelector('[data-part="greet"]')
+  expect(greet.textContent).toBe('world')
+})
+
+test('hydrated bindings are two-way: editing the vended input updates state-bound text', async () => {
+  const input = preview.querySelector('[data-part="name"]')
+  const greet = preview.querySelector('[data-part="greet"]')
+  input.value = 'agent'
+  input.dispatchEvent(new Event('change', { bubbles: true }))
+  await updates()
+  expect(greet.textContent).toBe('agent')
+})
+```
 - **Level 1 — a real headless DOM (works today).** The question "is there a
   headless DOM that could actually run tosijs?" is answered by the repo itself:
   **happy-dom already runs tosijs in two production paths** — the entire unit
@@ -357,6 +504,16 @@ Three levels of headlessness, all grounded in existing machinery:
   registry, observers, actions, and declared wiring with no DOM globals at
   import. Level 0's string vending bolts onto this; level 1 becomes an
   optional fidelity tier rather than a requirement.
+
+**"Virtual DOM," meaning it this time.** Level 1 deserves its own framing: give
+the app a fake `document.body` and the "UI" simply lives there, unrendered.
+React's virtual DOM is a throwaway diffing artifact — cheap copies of a tree
+whose only purpose is to be discarded. This one is the opposite: it is the
+application's *real* structure, merely not painted. And that matters because
+the visual architecture a designer builds for human comprehension — containment,
+grouping, ordering, labels — **is an information architecture**, and it serves
+the AI consumer and the test engine exactly as it serves the eye. The DOM tree
+was the app's ontology all along; pixels were just one way to read it.
 
 And note what falls out **before any AI enters the picture**: the headless
 embodiment is an *intermediate, fully testable version of the application*.

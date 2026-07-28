@@ -19,6 +19,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 
 ## Pages
 
+- https://tosijs.net/agent/ — agent (EXPERIMENTAL)
+  EXPERIMENTAL agent interface: expose a tosijs app's state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface.
 - https://tosijs.net/Angular/ — Angular and tosijs
   Use tosijs state in Angular with tosiSignal — a real, writable Angular signal bound to a path, zoneless-first, no NgRx/RxJS boilerplate — and treat Angular as an off-ramp.
 - https://tosijs.net/bind/ — Binding
@@ -49,6 +51,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings.
 - https://tosijs.net/more-math/ — more-math
   Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants.
+- https://tosijs.net/ONE_USER_INTERFACE/ — One User Interface
+  One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels.
 - https://tosijs.net/path-listener/ — path-listener
   The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system.
 - https://tosijs.net/React/ — React and tosijs
