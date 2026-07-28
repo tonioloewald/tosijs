@@ -59,7 +59,7 @@
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
-    "tosijs-ui": "1.7.2",
+    "tosijs-ui": "1.7.3",
     "typescript": "^5.9.3"
   },
   "files": [

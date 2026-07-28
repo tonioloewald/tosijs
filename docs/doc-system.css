@@ -17,7 +17,7 @@
   --placeholder-color: #ee257b66;
   --brand-text-color: #fdebe9;
   --inset-bg: #fce0d3;
-  --code-bg: #f8eef5;
+  --code-bg: #fdfdfd;
   --link-color: #800a77;
   --shadow-color: #0004;
   --menu-bg: #fafafa;
@@ -58,7 +58,7 @@
   --placeholder-color: #da116766;
   --brand-text-color: #160302;
   --inset-bg: #2c1003;
-  --code-bg: #11070e;
+  --code-bg: #020202;
   --link-color: #f57fed;
   --shadow-color: #ee257b80;
   --menu-bg: #050505;
@@ -460,6 +460,10 @@ th, td {
 
 .doc-nav details > ul {
   padding-left: var(--spacing);
+}
+
+.doc-nav details:not([open]) > ul {
+  display: none;
 }
 
 .doc-nav summary {
