@@ -80,6 +80,54 @@ internals are private by design. That's precisely the affordance/implementation
 split an agent needs: it should set the date-picker's *value*, not fumble with
 its internal buttons. (Closed shadow roots stay closed — for agents too.)
 
+## The opportunistic harvest
+
+The wiring table above is what tosijs records *deliberately*. There is a second,
+larger layer it can harvest *opportunistically* — metadata that exists only
+because developers use elementCreators and their syntax sugar. Every prop passed
+to `div({…})`, every `initAttributes`, every `listBinding` flows through one
+chokepoint (`elementSet` / the creator machinery), and almost all of it persists
+somewhere recoverable (the element's attributes, the binding WeakMaps, the
+component class). Nothing new needs recording — `describe()` computes the
+harvest **on demand** from what's already there:
+
+| The developer wrote (for their own reasons) | What it tells an agent, free |
+| --- | --- |
+| `onClick: (e) => {…}` | this element is interactive; event type known |
+| `onClick: 'app.doThing'` | the action is *addressable and nameable* — a tool with a path |
+| `bindValue: app.filter` (binding has `fromDOM`) | **this path is user-writable** — an input affordance |
+| `bindText: app.total` (binding is `toDOM`-only) | this path is *displayed* — read-only output |
+| `bindEnabled: app.cart.valid` | a **precondition**: the guarded action's availability depends on this path |
+| `listBinding(template, { idPath: 'id' })` | `app.items` is a collection keyed by `id`; the template's relative (`^.field`) bindings enumerate **which fields of each item the UI presents**, and per-row handlers are per-row actions |
+| `role`, `aria-*`, `title`, `placeholder`, `alt`, `label` wrapping | **semantic labels** — the same vocabulary a11y-tree agents already consume, but harvested at the source |
+| `input({ type: 'email' })`, `required`, `min`/`max`/`pattern` | value types and validation constraints, straight from the markup sugar |
+| `part: 'searchBox'` | the developer's *own name* for the affordance |
+| `static initAttributes = { count: 0, live: false }` | a **typed per-component attribute schema** — types already inferred from defaults at runtime (`typeof` branch in the attribute machinery) |
+| component `value` + `formAssociated` | the component's value surface and its form contract |
+
+Two compounding effects make this more than a list of facts:
+
+- **The join.** Because everything is declared *on the same element through the
+  same call*, tosijs can join what no one else can: `role="search"` ×
+  `bindValue: app.filter` × `onKeydown: app.submit` on one element is a complete
+  **affordance descriptor** — semantic label, writable state, and action,
+  co-located. The a11y-tree agents get the label but not the path; API tools get
+  the action but not the label. tosijs stands in the middle when all three are
+  declared, and the DOM + WeakMaps preserve the join for on-demand assembly.
+- **The behavioral harvest.** At runtime, the audit stream adds provenance:
+  `call('app.addItem')` → touches observed on `app.items` teaches the agent the
+  **causal graph** (which actions affect which paths) purely by watching.
+  `describe()` gets richer the longer the app runs, with zero developer effort.
+- **Triangulated typing without schema.** `typeof` the state at the path ∧ the
+  input's declared `type` ∧ `initAttributes` defaults: three independent
+  signals agree on a field's type before tosijs-schema is even introduced —
+  and flag a smell when they disagree.
+
+The punchline is the same as the wiring table's, one octave up: the WebMCP
+world asks developers to *author* tool schemas by hand; in tosijs, the app's
+ordinary construction **is** the authoring. The sugar was designed for
+ergonomics; it turns out to have been designing an agent interface all along.
+
 ## The design: a launch toggle, not a framework
 
 Nothing is exposed by default. The programmer flips a switch at launch:
@@ -105,6 +153,7 @@ agent.write(path, value)    // through the same validation as any other write
 agent.observe(path, cb)     // push notifications; returns unsubscribe
 agent.call(actionPath, ...) // invoke a declared action (a function in state)
 agent.log()                 // the audit trail: every touch since enable
+agent.changes(since)        // turn-based drain: final-value-per-path since cursor
 ```
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
@@ -128,6 +177,48 @@ An agent reading that doesn't need vision, doesn't need to guess selectors, and
 doesn't need to forge events. It needs `write('app.filter', 'milk')` and
 `call('app.addItem', 'buy milk')` — and the human watching the screen sees the
 UI respond, because there is only one interface.
+
+### Observation: push and drain
+
+The subscription channel is the delta nobody else can even feed (see Prior Art:
+WebMCP is tools-only, blind between calls; MCP has `resources/subscribe` but no
+framework can supply it without hand-wired change events per feature). tosijs's
+core competency *is* change notification, so agents get it for free — and the
+payload is the **path**: tiny, semantic, diffable text. The agent decides
+whether it cares *before* spending inference. Compare "something changed,
+here's another screenshot."
+
+Agents inherit the exact semantics the UI runs on:
+
+- **Granularity** — exact path, prefix (parent hears children), RegExp, or
+  predicate; surgical (`app.cart.total`) or coarse (`app.cart`).
+- **Subscribe before the data exists.** Deeply-async-by-default applies to
+  agents too: `observe('app.order.confirmation')` *before* initiating checkout —
+  the subscription is the choreography, no wait-then-poll.
+- **Settled frames.** Touches are async-batched; observers fire per settling
+  round. The agent reasons about coherent states, never mid-transaction — the
+  property that keeps the DOM from flickering keeps the agent from acting on
+  half-applied state.
+- **Multi-actor safety.** Human and agent in one session are notified of each
+  other's changes; neither operates on a stale snapshot. Races dissolved by
+  architecture, not locking.
+
+And because LLM agents are **turn-based**, the surface offers the same touch
+stream two ways:
+
+1. **Streaming push** — `agent.observe(path, cb)` — for resident agents
+   (in-page, extension, sync peer) that react continuously.
+2. **Cursor drain** — `agent.changes(since)` — everything since the agent's
+   last turn, **coalesced to final-value-per-path**: `updates()`' settling
+   semantics extended across turns. Wake, receive a compact semantic diff of
+   the world, reason once, act.
+
+These are the audit log and the observation channel revealed as one stream
+consumed two ways — push for the vigilant, drain for the episodic — which also
+means observation is inherently auditable. (And `changes(since)` exposed *as a
+WebMCP tool* works today within the standard's tools-only constraints — while
+doubling as the existence proof that the standard needs a real notification
+channel.)
 
 ### Exposure tiers (what "or what the programmer explicitly tells it" means)
 
