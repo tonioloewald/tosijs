@@ -200,6 +200,14 @@ registry, observers, actions, and declared wiring with no DOM globals at
 import. Level 0&#39;s string vending bolts onto this; level 1 becomes an
 optional fidelity tier rather than a requirement.</li>
 </ul>
+<p><strong>Honest cost note (as human-facing SSR).</strong> Vending sidesteps the virtual-DOM
+diffing engine, but not hydration itself: the client still ships markup, then
+runs JavaScript (<code>bindParts</code>, component self-hydration) before the page is
+<em>interactive</em>. That cost is real and inherent to any client-side runtime —
+what&#39;s different here is its size and shape: no framework re-render to
+reconcile against, no serialized component tree to replay — just re-attaching
+bindings to markers, roughly proportional to the number of bound elements
+rather than to the size of the app. Lighter, not free.</p>
 <p><strong>&quot;Virtual DOM,&quot; meaning it this time.</strong> Level 1 deserves its own framing: give
 the app a fake <code>document.body</code> and the &quot;UI&quot; simply lives there, unrendered.
 React&#39;s virtual DOM is a throwaway diffing artifact — cheap copies of a tree

@@ -57,7 +57,14 @@ problems now, with their planned answers:</p>
 (form-validation). An agent writing paths skips them. The fix is the one 2.0
 already wants: <strong>schema at the state layer</strong> (the <code>schematic</code> idea —
 schema-first, validated-from-birth state). Contracted mode is its first
-consumer; agent writes become <em>more</em> validated than forged clicks, not less.</li>
+consumer; agent writes become <em>more</em> validated than forged clicks, not less.
+Stated as sharply as it deserves: <strong>state-level validation is a hard
+prerequisite for production write access, not an enhancement.</strong> Manifest
+mode alone scopes <em>which</em> paths an agent may write, but nothing about what
+it writes there — a scoped agent can still silently install illegal states
+the visual UI could never have produced. Until contracts land, the honest
+production posture is read/observe/call-only; open <code>write()</code> is a dev-mode
+affordance.</li>
 <li><strong>Capability scoping.</strong> &quot;Run agent logic&quot; must not mean &quot;eval in my page.&quot;
 <strong>tjs-lang&#39;s AJS</strong> — gas-metered sandbox with injected capabilities — is the
 boundary: the sandbox receives a proxy scoped to exposed roots, nothing else.

@@ -28,7 +28,12 @@
   [The Agent Surface](/ONE_UI_DESIGN/)). Includes the **ComponentMap** design
   (the component-level contract
   superseding PartsMap). Feeds directly into 2.0's `schematic` design rather
-  than duplicating it.
+  than duplicating it. **Gate:** state-level validation is a hard prerequisite
+  for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
+  phase lands, production surfaces are read/observe/call-only. Also here:
+  `agent.when(path, predicate)` — the episodic agent's await-a-condition
+  primitive (sugar over predicate observers; see
+  [The Agent Surface](/ONE_UI_DESIGN/)).
 - **Phase 3 — the bridge.** File the haltija design issue (detection, MCP
   adapter, DOM fallback); wire the demo to a real agent end-to-end.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
@@ -70,6 +75,12 @@ plays (file, don't fix — designs land as issues on haltija/tjs-lang/lukko);
   only observes after the fact. Worth stating as a discipline ("state lives in
   the registry") the way zero-trust is stated as one, and worth `describe()`
   being honest about what it can't see.
+- **Wake policy for episodic agents.** `when(path, predicate)` answers "sleep
+  until the world reaches a named condition," but the general policy question
+  remains: which changes justify spending an inference pass? Candidates:
+  predicate-gated wake (`when`), coalesced drains on a cadence, priority
+  paths declared in the manifest ("wake me for `app.order.*`, batch the
+  rest"). Probably all three, declared per subscription.
 - **Versioning the contract.** Once haltija tests and agent workflows script
   against the schema'd surface, its shape is a public API. What's contractual
   vs. incidental, and how the schema versions, should be decided *before* fifty

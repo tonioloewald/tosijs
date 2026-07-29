@@ -29,6 +29,7 @@ agent.observe(path, cb)     // push notifications; returns unsubscribe
 agent.call(actionPath, ...) // invoke a declared action (a function in state)
 agent.log()                 // the audit trail: every touch since enable
 agent.changes(since)        // turn-based drain: final-value-per-path since cursor
+agent.when(path, predicate) // await a state condition (see push and drain)
 ```
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
@@ -88,6 +89,17 @@ stream two ways:
    last turn, **coalesced to final-value-per-path**: `updates()`' settling
    semantics extended across turns. Wake, receive a compact semantic diff of
    the world, reason once, act.
+3. **Predicate await** — `agent.when(path, predicate)` — a promise that
+   resolves when the state *satisfies a condition*, not when it merely
+   changes. This is the episodic agent's missing middle: an agent that
+   triggers an async mutation shouldn't drain-and-hope (the update may not
+   have landed) or subscribe raw (every touch is a potential — expensive —
+   inference wake-up). `await when('app.order.status', s => s === 'confirmed')`
+   names the condition the agent is waiting for; inference spends nothing
+   until the world actually reaches it. tosijs observers already accept
+   predicates, so this is surface sugar over an existing primitive — and the
+   named condition lands in the audit log, so *what the agent was waiting
+   for* is as inspectable as what it did.
 
 These are the audit log and the observation channel revealed as one stream
 consumed two ways — push for the vigilant, drain for the episodic — which also
@@ -119,7 +131,13 @@ channel.)
    shapes, constraints, computed predicates. Now `write()` validates against
    the contract, `describe()` tells the agent *what's legal* rather than what
    exists — and since tosijs-schema already embeds serialized predicates,
-   **preconditions ride along free**.
+   **preconditions ride along free**. Free, and crucially **legible**: a bare
+   `bindEnabled: app.cart.valid` tells the agent *that* an action is gated
+   but not *why* — when the flag is `false` a human infers the reason from
+   visual context; an agent hits a causal dead end. A serialized predicate
+   is the why: `describe()` can hand over the failing condition itself
+   ("cart requires ≥ 3 items"), turning "button disabled" into a
+   self-correction plan.
 
 **The tiers are a funnel, not a menu.** An earlier draft of this document led
 with "the surface derives for free" and treated declaration as the fallback.
@@ -155,6 +173,27 @@ affordances is essentially MCP tool definitions generated from application
 code, and the same contract can be handed to an agent as a plain context
 preamble when no protocol is in play. The infrastructure is
 transport-agnostic.
+
+### What running both layers buys: adaptation and diagnosis
+
+Two operational advantages fall out of exposing the schema (the promise) and
+the auto-map (the actuality) side by side:
+
+- **The adaptation burden shifts from developer to agent.** The auto-map's
+  instability is only a liability for *dumb* consumers. A hard-coded test
+  script breaks when an internal path renames; an LLM agent just re-reads the
+  map on its next turn and proceeds. Declared-but-undurable is precisely the
+  contract LLMs are good at consuming — the ephemerality of the map is a
+  *feature* for adaptive consumers and a trap only for static ones, which is
+  exactly why the durable ones belong on the schema.
+- **The diagnostic delta.** An agent that can see both the blueprint and the
+  build can *diff them*. An action declared in the schema but reachable from
+  no wired element; an input affordance the schema says is writable but whose
+  binding is `toDOM`-only; a declared root with no bindings at all — each is
+  a structural bug, detected without running anything, by comparing promise
+  against actuality. This turns the agent from a blind navigator into a
+  structural debugger — a class of introspection that DOM-scraping automation
+  cannot express, because it only ever sees the build.
 
 ### Why declaration wins: intent captured at authoring time
 

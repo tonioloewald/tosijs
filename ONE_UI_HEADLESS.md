@@ -156,6 +156,15 @@ test('the vended UI hydrates against live state, and the bindings are two-way', 
   import. Level 0's string vending bolts onto this; level 1 becomes an
   optional fidelity tier rather than a requirement.
 
+**Honest cost note (as human-facing SSR).** Vending sidesteps the virtual-DOM
+diffing engine, but not hydration itself: the client still ships markup, then
+runs JavaScript (`bindParts`, component self-hydration) before the page is
+*interactive*. That cost is real and inherent to any client-side runtime —
+what's different here is its size and shape: no framework re-render to
+reconcile against, no serialized component tree to replay — just re-attaching
+bindings to markers, roughly proportional to the number of bound elements
+rather than to the size of the app. Lighter, not free.
+
 **"Virtual DOM," meaning it this time.** Level 1 deserves its own framing: give
 the app a fake `document.body` and the "UI" simply lives there, unrendered.
 React's virtual DOM is a throwaway diffing artifact — cheap copies of a tree

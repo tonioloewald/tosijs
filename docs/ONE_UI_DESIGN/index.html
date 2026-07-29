@@ -69,6 +69,7 @@ agent.observe(path, cb)     // push notifications; returns unsubscribe
 agent.call(actionPath, ...) // invoke a declared action (a function in state)
 agent.log()                 // the audit trail: every touch since enable
 agent.changes(since)        // turn-based drain: final-value-per-path since cursor
+agent.when(path, predicate) // await a state condition (see push and drain)
 </code></pre>
 <p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs
 already records — enumerate <code>BOUND_CLASS</code>, map each element through
@@ -121,6 +122,17 @@ stream two ways:</p>
 last turn, <strong>coalesced to final-value-per-path</strong>: <code>updates()</code>&#39; settling
 semantics extended across turns. Wake, receive a compact semantic diff of
 the world, reason once, act.</li>
+<li><strong>Predicate await</strong> — <code>agent.when(path, predicate)</code> — a promise that
+resolves when the state <em>satisfies a condition</em>, not when it merely
+changes. This is the episodic agent&#39;s missing middle: an agent that
+triggers an async mutation shouldn&#39;t drain-and-hope (the update may not
+have landed) or subscribe raw (every touch is a potential — expensive —
+inference wake-up). <code>await when(&#39;app.order.status&#39;, s =&gt; s === &#39;confirmed&#39;)</code>
+names the condition the agent is waiting for; inference spends nothing
+until the world actually reaches it. tosijs observers already accept
+predicates, so this is surface sugar over an existing primitive — and the
+named condition lands in the audit log, so <em>what the agent was waiting
+for</em> is as inspectable as what it did.</li>
 </ol>
 <p>These are the audit log and the observation channel revealed as one stream
 consumed two ways — push for the vigilant, drain for the episodic — which also
@@ -150,7 +162,13 @@ visible:<pre><code>enableAgentInterface({
 shapes, constraints, computed predicates. Now <code>write()</code> validates against
 the contract, <code>describe()</code> tells the agent <em>what&#39;s legal</em> rather than what
 exists — and since tosijs-schema already embeds serialized predicates,
-<strong>preconditions ride along free</strong>.</li>
+<strong>preconditions ride along free</strong>. Free, and crucially <strong>legible</strong>: a bare
+<code>bindEnabled: app.cart.valid</code> tells the agent <em>that</em> an action is gated
+but not <em>why</em> — when the flag is <code>false</code> a human infers the reason from
+visual context; an agent hits a causal dead end. A serialized predicate
+is the why: <code>describe()</code> can hand over the failing condition itself
+(&quot;cart requires ≥ 3 items&quot;), turning &quot;button disabled&quot; into a
+self-correction plan.</li>
 </ol>
 <p><strong>The tiers are a funnel, not a menu.</strong> An earlier draft of this document led
 with &quot;the surface derives for free&quot; and treated declaration as the fallback.
@@ -186,6 +204,26 @@ affordances is essentially MCP tool definitions generated from application
 code, and the same contract can be handed to an agent as a plain context
 preamble when no protocol is in play. The infrastructure is
 transport-agnostic.</p>
+<h3>What running both layers buys: adaptation and diagnosis</h3>
+<p>Two operational advantages fall out of exposing the schema (the promise) and
+the auto-map (the actuality) side by side:</p>
+<ul>
+<li><strong>The adaptation burden shifts from developer to agent.</strong> The auto-map&#39;s
+instability is only a liability for <em>dumb</em> consumers. A hard-coded test
+script breaks when an internal path renames; an LLM agent just re-reads the
+map on its next turn and proceeds. Declared-but-undurable is precisely the
+contract LLMs are good at consuming — the ephemerality of the map is a
+<em>feature</em> for adaptive consumers and a trap only for static ones, which is
+exactly why the durable ones belong on the schema.</li>
+<li><strong>The diagnostic delta.</strong> An agent that can see both the blueprint and the
+build can <em>diff them</em>. An action declared in the schema but reachable from
+no wired element; an input affordance the schema says is writable but whose
+binding is <code>toDOM</code>-only; a declared root with no bindings at all — each is
+a structural bug, detected without running anything, by comparing promise
+against actuality. This turns the agent from a blind navigator into a
+structural debugger — a class of introspection that DOM-scraping automation
+cannot express, because it only ever sees the build.</li>
+</ul>
 <h3>Why declaration wins: intent captured at authoring time</h3>
 <p>The deep reason schema-first works is <em>when</em> the declaration happens: at
 authoring time, while the purpose is still known. Everything expensive in

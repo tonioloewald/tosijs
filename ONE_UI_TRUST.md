@@ -13,6 +13,13 @@ problems now, with their planned answers:
   already wants: **schema at the state layer** (the `schematic` idea —
   schema-first, validated-from-birth state). Contracted mode is its first
   consumer; agent writes become *more* validated than forged clicks, not less.
+  Stated as sharply as it deserves: **state-level validation is a hard
+  prerequisite for production write access, not an enhancement.** Manifest
+  mode alone scopes *which* paths an agent may write, but nothing about what
+  it writes there — a scoped agent can still silently install illegal states
+  the visual UI could never have produced. Until contracts land, the honest
+  production posture is read/observe/call-only; open `write()` is a dev-mode
+  affordance.
 - **Capability scoping.** "Run agent logic" must not mean "eval in my page."
   **tjs-lang's AJS** — gas-metered sandbox with injected capabilities — is the
   boundary: the sandbox receives a proxy scoped to exposed roots, nothing else.

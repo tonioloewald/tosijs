@@ -74,7 +74,12 @@ product and introspection is demoted to the discovery tool (see
 <a href="/ONE_UI_DESIGN/">The Agent Surface</a>). Includes the <strong>ComponentMap</strong> design
 (the component-level contract
 superseding PartsMap). Feeds directly into 2.0&#39;s <code>schematic</code> design rather
-than duplicating it.</li>
+than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
+for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
+phase lands, production surfaces are read/observe/call-only. Also here:
+<code>agent.when(path, predicate)</code> — the episodic agent&#39;s await-a-condition
+primitive (sugar over predicate observers; see
+<a href="/ONE_UI_DESIGN/">The Agent Surface</a>).</li>
 <li><strong>Phase 3 — the bridge.</strong> File the haltija design issue (detection, MCP
 adapter, DOM fallback); wire the demo to a real agent end-to-end.</li>
 <li><strong>Phase 4 — distance.</strong> The <code>SyncTransport</code> MCP peer; AJS capability
@@ -115,6 +120,12 @@ registry is the norm — but apps can and do hold state in closures the map
 only observes after the fact. Worth stating as a discipline (&quot;state lives in
 the registry&quot;) the way zero-trust is stated as one, and worth <code>describe()</code>
 being honest about what it can&#39;t see.</li>
+<li><strong>Wake policy for episodic agents.</strong> <code>when(path, predicate)</code> answers &quot;sleep
+until the world reaches a named condition,&quot; but the general policy question
+remains: which changes justify spending an inference pass? Candidates:
+predicate-gated wake (<code>when</code>), coalesced drains on a cadence, priority
+paths declared in the manifest (&quot;wake me for <code>app.order.*</code>, batch the
+rest&quot;). Probably all three, declared per subscription.</li>
 <li><strong>Versioning the contract.</strong> Once haltija tests and agent workflows script
 against the schema&#39;d surface, its shape is a public API. What&#39;s contractual
 vs. incidental, and how the schema versions, should be decided <em>before</em> fifty
