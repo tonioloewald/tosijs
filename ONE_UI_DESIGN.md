@@ -1,0 +1,187 @@
+# The Agent Surface
+<!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
+
+*Part of [One User Interface](/ONE_USER_INTERFACE/) — the design of the surface itself.*
+
+## The design: a launch toggle, not a framework
+
+Nothing is exposed by default. The programmer flips a switch at launch:
+
+```
+import { enableAgentInterface } from 'tosijs/agent'
+
+const agent = enableAgentInterface({
+  // DEV: expose everything tosijs already knows (introspection mode)
+  // PROD: expose exactly what you declare (manifest mode) — see below
+})
+```
+
+The returned surface (also reachable as a global for injected/extension
+contexts) is small and protocol-neutral:
+
+```
+agent.describe()            // the app's self-description: state roots, wiring
+                            // graph (element ↔ path ↔ handlers), declared
+                            // actions, schemas if present
+agent.read(path)            // serializable value
+agent.write(path, value)    // through the same validation as any other write
+agent.observe(path, cb)     // push notifications; returns unsubscribe
+agent.call(actionPath, ...) // invoke a declared action (a function in state)
+agent.log()                 // the audit trail: every touch since enable
+agent.changes(since)        // turn-based drain: final-value-per-path since cursor
+```
+
+`describe()` is the novel part, and it's assembled from the wiring tosijs
+already records — enumerate `BOUND_CLASS`, map each element through
+`getElementBindings`, walk the tree probing event wiring, list registry
+functions. A sketch of what an agent sees:
+
+```json
+{
+  "roots": { "app": { "items": "…", "filter": "…" } },
+  "wiring": [
+    { "element": "input#search", "bind": { "value": "app.filter" } },
+    { "element": "ul.results", "list": { "path": "app.items", "idPath": "id" } },
+    { "element": "button.add", "on": { "click": "app.addItem" } }
+  ],
+  "actions": [ { "path": "app.addItem", "params": ["reminder"] } ]
+}
+```
+
+An agent reading that doesn't need vision, doesn't need to guess selectors, and
+doesn't need to forge events. It needs `write('app.filter', 'milk')` and
+`call('app.addItem', 'buy milk')` — and the human watching the screen sees the
+UI respond, because there is only one interface.
+
+### Observation: push and drain
+
+The subscription channel is the delta nobody else can even feed (see
+[Plan & Prior Art](/ONE_UI_PLAN/):
+WebMCP is tools-only, blind between calls; MCP has `resources/subscribe` but no
+framework can supply it without hand-wired change events per feature). tosijs's
+core competency *is* change notification, so agents get it for free — and the
+payload is the **path**: tiny, semantic, diffable text. The agent decides
+whether it cares *before* spending inference. Compare "something changed,
+here's another screenshot."
+
+Agents inherit the exact semantics the UI runs on:
+
+- **Granularity** — exact path, prefix (parent hears children), RegExp, or
+  predicate; surgical (`app.cart.total`) or coarse (`app.cart`).
+- **Subscribe before the data exists.** Deeply-async-by-default applies to
+  agents too: `observe('app.order.confirmation')` *before* initiating checkout —
+  the subscription is the choreography, no wait-then-poll.
+- **Settled frames.** Touches are async-batched; observers fire per settling
+  round. The agent reasons about coherent states, never mid-transaction — the
+  property that keeps the DOM from flickering keeps the agent from acting on
+  half-applied state.
+- **Multi-actor safety.** Human and agent in one session are notified of each
+  other's changes; neither operates on a stale snapshot. Races dissolved by
+  architecture, not locking.
+
+And because LLM agents are **turn-based**, the surface offers the same touch
+stream two ways:
+
+1. **Streaming push** — `agent.observe(path, cb)` — for resident agents
+   (in-page, extension, sync peer) that react continuously.
+2. **Cursor drain** — `agent.changes(since)` — everything since the agent's
+   last turn, **coalesced to final-value-per-path**: `updates()`' settling
+   semantics extended across turns. Wake, receive a compact semantic diff of
+   the world, reason once, act.
+
+These are the audit log and the observation channel revealed as one stream
+consumed two ways — push for the vigilant, drain for the episodic — which also
+means observation is inherently auditable. (And `changes(since)` exposed *as a
+WebMCP tool* works today within the standard's tools-only constraints — while
+doubling as the existence proof that the standard needs a real notification
+channel.)
+
+### Exposure tiers (what "or what the programmer explicitly tells it" means)
+
+1. **Off** (default) — nothing. Zero cost, zero surface.
+2. **Introspection mode** — everything tosijs knows, **dev-only and explicitly
+   unstable**. For exploration, debugging, agent-assisted development, and
+   *discovering what belongs in the schema*. Also a better haltija/Playwright
+   substrate than selector-scraping — but nothing durable (tests, agent
+   workflows) should script against it, because its shape is whatever the
+   app's internals happen to be today.
+3. **Manifest mode** (production floor) — only declared roots/actions are
+   visible:
+   ```
+   enableAgentInterface({
+     expose: {
+       roots: ['app.cart', 'app.filter'],
+       actions: ['app.addItem', 'app.checkout'],
+     },
+   })
+   ```
+4. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
+   shapes, constraints, computed predicates. Now `write()` validates against
+   the contract, `describe()` tells the agent *what's legal* rather than what
+   exists — and since tosijs-schema already embeds serialized predicates,
+   **preconditions ride along free**.
+
+**The tiers are a funnel, not a menu.** An earlier draft of this document led
+with "the surface derives for free" and treated declaration as the fallback.
+Adversarial review inverted that hierarchy, and the inversion stands: **the
+declared, schema-filtered surface is the product; the automatic map is the
+discovery tool that makes declaring cheap.** The auto-map is how you find out
+what to put in the schema — it should never be what anyone scripts against.
+Two reasons, and only one of them is security:
+
+- **Security (the asterisked half).** In a zero-trust app the *write* path adds
+  no attack surface — anything the surface can invoke, devtools could already
+  invoke. The asterisk is the read path: **the UI exposes what's rendered; the
+  automatic map exposes what's resident.** Prefetched data, client-side caches,
+  feature flags, records loaded for other views — invisible on screen, all
+  greppable in the map. "We never hold client-side data we don't show" is a
+  discipline worth stating as a rule rather than assuming, because it's exactly
+  the invariant that holds until one convenient cache breaks it. And an
+  undeclared `call()` surface is **an RPC endpoint with good documentation** —
+  *which handlers are agent-invokable* is a security boundary, not a
+  convenience.
+- **Hyrum's law (the half that always applies).** UI users tolerate UI change;
+  scripts don't. The moment fifty tests and an agent workflow depend on the
+  accidental shape of the auto-map, every internal rename is a breaking change
+  — refactoring freedom lost over precisely the code you most want to keep
+  fluid. You would never promise pixel-stable UI; don't accidentally promise
+  structure-stable internals. The schema is the contract: version *it*, and
+  refactor freely behind it.
+
+The resolution costs one boolean: expose both, mark the auto-map explicitly
+unstable, and keep everything durable on the schema'd view. A bonus falls out:
+the schema **doubles as the agent's tool manifest** — filtered map + typed
+affordances is essentially MCP tool definitions generated from application
+code, and the same contract can be handed to an agent as a plain context
+preamble when no protocol is in play. The infrastructure is
+transport-agnostic.
+
+### Why declaration wins: intent captured at authoring time
+
+The deep reason schema-first works is *when* the declaration happens: at
+authoring time, while the purpose is still known. Everything expensive in
+software archaeology — comprehension, test-writing, drift detection — is
+expensive because intent decayed between writing and reading, and everyone
+downstream (maintainer, test suite, agent) has to re-infer it from behavior.
+Capturing intent while it's free, in a form that's machine-checkable forever
+after, is the same trade tjs makes with types.
+
+And the discipline holds for the same reason types beat docstrings: the
+declaration isn't a comment — **it's load-bearing**. Comments rot because
+nothing breaks when they lie. A declaration that feeds the map, the tests, and
+the agent's context breaks visibly when it lies. That's what keeps it true.
+
+### ComponentMap: the same contract at the component boundary
+
+The manifest idea has a component-level counterpart. Components today declare
+a `PartsMap` (typed parts lookup). The natural extension is a **ComponentMap**
+— a tosijs-schema-backed declaration that supersedes PartsMap and declares the
+component's full public surface: parts, **attributes, properties, and
+methods**, exposed by default or filtered by the app's schema. Then
+`describe()` doesn't stop at "custom element, bound to a path" — the component
+contributes its own typed affordances (what `value` means, which methods are
+invokable, which attributes are live), the way `initAttributes` already
+contributes inferred attribute types today. Shadow components stay agent-shaped
+(the value is the interface; the internals are private) — ComponentMap is how
+a component *says so in a checkable form*.
+

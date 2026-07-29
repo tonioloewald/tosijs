@@ -43,6 +43,11 @@ export default defineSiteConfig({
     'Angular.md',
     // branch-only for now: the ONE USER INTERFACE plan-ifesto (private branch)
     'ONE_USER_INTERFACE.md',
+    'ONE_UI_DERIVED.md',
+    'ONE_UI_DESIGN.md',
+    'ONE_UI_TRUST.md',
+    'ONE_UI_HEADLESS.md',
+    'ONE_UI_PLAN.md',
   ],
   staticDirs: ['demo/static'],
 
