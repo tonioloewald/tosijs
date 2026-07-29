@@ -106,7 +106,7 @@ const { oneUI } = tosi({
   },
 })
 
-const agent = enableAgentInterface({ global: false })
+const agent = enableAgentInterface() // also installs globalThis.tosiAgent
 const { div, h4, ul, input, button, pre } = elements
 
 // THE HUMAN SIDE — an ordinary bound UI
@@ -151,6 +151,11 @@ preview.append(
   )
 )
 </code></pre>
+<p>The surface is also installed as a global — so <strong>open the browser console on
+this page and you are the second user</strong>: <code>tosiAgent.describe()</code>,
+<code>tosiAgent.call(&#39;oneUI.addItem&#39;, &#39;from the console&#39;)</code>, <code>tosiAgent.changes()</code>.
+An agentic browser gets exactly the same deal, with no extension, no vision
+model, and no selector-guessing.</p>
 <h2>The part nobody else can offer: the wiring diagram is already recorded</h2>
 <p>Here is the b8r inheritance paying off. In b8r it was the norm to put state
 <em>and</em> event handlers in the registry. tosijs kept that affordance
@@ -244,7 +249,7 @@ harvest <strong>on demand</strong> from what&#39;s already there:</p>
 <td><strong>this path is user-writable</strong> — an input affordance</td>
 </tr>
 <tr>
-<td><code>bindText: app.total</code> (binding is <code>toDOM</code>-only)</td>
+<td><code>textContent: app.total</code> (prop binding is <code>toDOM</code>-only)</td>
 <td>this path is <em>displayed</em> — read-only output</td>
 </tr>
 <tr>
@@ -298,6 +303,87 @@ and flag a smell when they disagree.</li>
 world asks developers to <em>author</em> tool schemas by hand; in tosijs, the app&#39;s
 ordinary construction <strong>is</strong> the authoring. The sugar was designed for
 ergonomics; it turns out to have been designing an agent interface all along.</p>
+<h3>Proof: the harvest, assembled live</h3>
+<p>The UI below is built with ordinary element sugar — a labeled filter input
+(two-way bound), a read-only total (one-way prop binding), and a button whose
+handler is attached <em>by path</em>. There is not one agent-specific declaration in
+it. Click <strong>describe()</strong> and the affordance graph is assembled on demand — and
+because this page runs in introspection mode, the graph is the <em>whole page&#39;s</em>:
+the two-actors demo above, the doc site&#39;s own chrome, and the very button you
+clicked to ask.</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
+
+const { harvest } = tosi({
+  harvest: {
+    filter: &#39;&#39;,
+    total: 3,
+    restock() {
+      harvest.total = harvest.total.value + 1
+    },
+  },
+})
+
+// reuse the page&#39;s surface (installed by the demo above) if present
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, input, span, button, pre } = elements
+
+const out = pre({ style: { maxHeight: &#39;12em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+// an ordinary UI — no agent-specific declarations anywhere
+preview.append(
+  div(
+    input({ placeholder: &#39;filter stock…&#39;, bindValue: harvest.filter }),
+    &#39; &#39;,
+    span({ title: &#39;items in stock&#39;, textContent: harvest.total }),
+    &#39; &#39;,
+    button(&#39;restock&#39;, { onClick: &#39;harvest.restock&#39; }),
+    &#39; &#39;,
+    button(&#39;describe()&#39;, {
+      onClick() {
+        const d = agent.describe()
+        const summary = [
+          `exposure: ${d.exposure}`,
+          `roots: ${Object.keys(d.roots).join(&#39;, &#39;)}`,
+          `actions: ${d.actions.join(&#39;, &#39;)}`,
+          `wired elements: ${d.wiring.length}`,
+        ].join(&#39;\n&#39;)
+        out.textContent = summary + &#39;\n\n&#39; + JSON.stringify(d.wiring, null, 2)
+      },
+    }),
+    out
+  )
+)
+</code></pre>
+<pre><code class="language-test">import {
+  elements,
+  tosi,
+  enableAgentInterface,
+  bind,
+  bindings,
+  updates,
+} from &#39;tosijs&#39;
+
+test(&#39;describe() harvests the affordance join from ordinary declarations&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  tosi({ harvestTest: { q: &#39;&#39; } })
+  const input = elements.input({ placeholder: &#39;harvest-test…&#39; })
+  preview.append(input)
+  bind(input, &#39;harvestTest.q&#39;, bindings.value)
+  await updates()
+  const d = agent.describe()
+  const record = d.wiring.find((w) =&gt; w.element.label === &#39;harvest-test…&#39;)
+  expect(record != null).toBe(true)
+  const binding = record.bindings.find((b) =&gt; b.path === &#39;harvestTest.q&#39;)
+  expect(binding.writable).toBe(true) // fromDOM ⇒ an input affordance
+  input.remove()
+})
+</code></pre>
+<p>Read what it prints. The input&#39;s record joins its human label (the
+<code>placeholder</code>) to its path (<code>harvest.filter</code>) and its direction
+(<code>writable: true</code>). The total&#39;s record is the same shape but <code>writable: false</code>.
+The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
+<code>harvest.restock</code> — and the same path appears under <code>actions</code>. That is the
+affordance descriptor from the table above: harvested, joined, and serialized,
+authored by nobody.</p>
 <h2>The design: a launch toggle, not a framework</h2>
 <p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
 <pre><code>import { enableAgentInterface } from &#39;tosijs/agent&#39;
@@ -557,15 +643,15 @@ bindParts(host, {
 </code></pre>
 <pre><code class="language-test">import { updates } from &#39;tosijs&#39;
 
-test(&#39;the vended UI hydrates against live state&#39;, async () =&gt; {
+// one sequential story, one test: inline tests within a fence run
+// CONCURRENTLY (async test bodies are gathered with Promise.all), so a
+// multi-step flow — hydrate, verify, interact, verify — must not be split
+// across test() blocks that share state
+test(&#39;the vended UI hydrates against live state, and the bindings are two-way&#39;, async () =&gt; {
   await updates()
-  const greet = preview.querySelector(&#39;[data-part=&quot;greet&quot;]&#39;)
-  expect(greet.textContent).toBe(&#39;world&#39;)
-})
-
-test(&#39;hydrated bindings are two-way: editing the vended input updates state-bound text&#39;, async () =&gt; {
   const input = preview.querySelector(&#39;[data-part=&quot;name&quot;]&#39;)
   const greet = preview.querySelector(&#39;[data-part=&quot;greet&quot;]&#39;)
+  expect(greet.textContent).toBe(&#39;world&#39;)
   input.value = &#39;agent&#39;
   input.dispatchEvent(new Event(&#39;change&#39;, { bubbles: true }))
   await updates()

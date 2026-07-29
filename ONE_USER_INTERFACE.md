@@ -65,7 +65,7 @@ const { oneUI } = tosi({
   },
 })
 
-const agent = enableAgentInterface({ global: false })
+const agent = enableAgentInterface() // also installs globalThis.tosiAgent
 const { div, h4, ul, input, button, pre } = elements
 
 // THE HUMAN SIDE — an ordinary bound UI
@@ -110,6 +110,12 @@ preview.append(
   )
 )
 ```
+
+The surface is also installed as a global — so **open the browser console on
+this page and you are the second user**: `tosiAgent.describe()`,
+`tosiAgent.call('oneUI.addItem', 'from the console')`, `tosiAgent.changes()`.
+An agentic browser gets exactly the same deal, with no extension, no vision
+model, and no selector-guessing.
 
 ## The part nobody else can offer: the wiring diagram is already recorded
 
@@ -164,7 +170,7 @@ harvest **on demand** from what's already there:
 | `onClick: (e) => {…}` | this element is interactive; event type known |
 | `onClick: 'app.doThing'` | the action is *addressable and nameable* — a tool with a path |
 | `bindValue: app.filter` (binding has `fromDOM`) | **this path is user-writable** — an input affordance |
-| `bindText: app.total` (binding is `toDOM`-only) | this path is *displayed* — read-only output |
+| `textContent: app.total` (prop binding is `toDOM`-only) | this path is *displayed* — read-only output |
 | `bindEnabled: app.cart.valid` | a **precondition**: the guarded action's availability depends on this path |
 | `listBinding(template, { idPath: 'id' })` | `app.items` is a collection keyed by `id`; the template's relative (`^.field`) bindings enumerate **which fields of each item the UI presents**, and per-row handlers are per-row actions |
 | `role`, `aria-*`, `title`, `placeholder`, `alt`, `label` wrapping | **semantic labels** — the same vocabulary a11y-tree agents already consume, but harvested at the source |
@@ -195,6 +201,94 @@ The punchline is the same as the wiring table's, one octave up: the WebMCP
 world asks developers to *author* tool schemas by hand; in tosijs, the app's
 ordinary construction **is** the authoring. The sugar was designed for
 ergonomics; it turns out to have been designing an agent interface all along.
+
+### Proof: the harvest, assembled live
+
+The UI below is built with ordinary element sugar — a labeled filter input
+(two-way bound), a read-only total (one-way prop binding), and a button whose
+handler is attached *by path*. There is not one agent-specific declaration in
+it. Click **describe()** and the affordance graph is assembled on demand — and
+because this page runs in introspection mode, the graph is the *whole page's*:
+the two-actors demo above, the doc site's own chrome, and the very button you
+clicked to ask.
+
+```js
+import { elements, tosi, enableAgentInterface } from 'tosijs'
+
+const { harvest } = tosi({
+  harvest: {
+    filter: '',
+    total: 3,
+    restock() {
+      harvest.total = harvest.total.value + 1
+    },
+  },
+})
+
+// reuse the page's surface (installed by the demo above) if present
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, input, span, button, pre } = elements
+
+const out = pre({ style: { maxHeight: '12em', overflow: 'auto', margin: 0 } })
+// an ordinary UI — no agent-specific declarations anywhere
+preview.append(
+  div(
+    input({ placeholder: 'filter stock…', bindValue: harvest.filter }),
+    ' ',
+    span({ title: 'items in stock', textContent: harvest.total }),
+    ' ',
+    button('restock', { onClick: 'harvest.restock' }),
+    ' ',
+    button('describe()', {
+      onClick() {
+        const d = agent.describe()
+        const summary = [
+          `exposure: ${d.exposure}`,
+          `roots: ${Object.keys(d.roots).join(', ')}`,
+          `actions: ${d.actions.join(', ')}`,
+          `wired elements: ${d.wiring.length}`,
+        ].join('\n')
+        out.textContent = summary + '\n\n' + JSON.stringify(d.wiring, null, 2)
+      },
+    }),
+    out
+  )
+)
+```
+
+```test
+import {
+  elements,
+  tosi,
+  enableAgentInterface,
+  bind,
+  bindings,
+  updates,
+} from 'tosijs'
+
+test('describe() harvests the affordance join from ordinary declarations', async () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  tosi({ harvestTest: { q: '' } })
+  const input = elements.input({ placeholder: 'harvest-test…' })
+  preview.append(input)
+  bind(input, 'harvestTest.q', bindings.value)
+  await updates()
+  const d = agent.describe()
+  const record = d.wiring.find((w) => w.element.label === 'harvest-test…')
+  expect(record != null).toBe(true)
+  const binding = record.bindings.find((b) => b.path === 'harvestTest.q')
+  expect(binding.writable).toBe(true) // fromDOM ⇒ an input affordance
+  input.remove()
+})
+```
+
+Read what it prints. The input's record joins its human label (the
+`placeholder`) to its path (`harvest.filter`) and its direction
+(`writable: true`). The total's record is the same shape but `writable: false`.
+The restock button's handler is not an anonymous `ƒ` but a *name* —
+`harvest.restock` — and the same path appears under `actions`. That is the
+affordance descriptor from the table above: harvested, joined, and serialized,
+authored by nobody.
 
 ## The design: a launch toggle, not a framework
 
@@ -474,15 +568,15 @@ bindParts(host, {
 ```test
 import { updates } from 'tosijs'
 
-test('the vended UI hydrates against live state', async () => {
+// one sequential story, one test: inline tests within a fence run
+// CONCURRENTLY (async test bodies are gathered with Promise.all), so a
+// multi-step flow — hydrate, verify, interact, verify — must not be split
+// across test() blocks that share state
+test('the vended UI hydrates against live state, and the bindings are two-way', async () => {
   await updates()
-  const greet = preview.querySelector('[data-part="greet"]')
-  expect(greet.textContent).toBe('world')
-})
-
-test('hydrated bindings are two-way: editing the vended input updates state-bound text', async () => {
   const input = preview.querySelector('[data-part="name"]')
   const greet = preview.querySelector('[data-part="greet"]')
+  expect(greet.textContent).toBe('world')
   input.value = 'agent'
   input.dispatchEvent(new Event('change', { bubbles: true }))
   await updates()
