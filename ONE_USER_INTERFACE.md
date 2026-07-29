@@ -385,11 +385,14 @@ channel.)
 ### Exposure tiers (what "or what the programmer explicitly tells it" means)
 
 1. **Off** (default) — nothing. Zero cost, zero surface.
-2. **Introspection mode** (dev default when enabled) — everything tosijs knows.
-   For development, testing, and agent-assisted debugging. This is also a
-   *better haltija/Playwright substrate*: tests that read and write paths
-   instead of scraping selectors.
-3. **Manifest mode** (production) — only declared roots/actions are visible:
+2. **Introspection mode** — everything tosijs knows, **dev-only and explicitly
+   unstable**. For exploration, debugging, agent-assisted development, and
+   *discovering what belongs in the schema*. Also a better haltija/Playwright
+   substrate than selector-scraping — but nothing durable (tests, agent
+   workflows) should script against it, because its shape is whatever the
+   app's internals happen to be today.
+3. **Manifest mode** (production floor) — only declared roots/actions are
+   visible:
    ```
    enableAgentInterface({
      expose: {
@@ -398,10 +401,75 @@ channel.)
      },
    })
    ```
-4. **Contracted mode** — manifest + **tosijs-schema** per root: shapes,
-   constraints, computed predicates. Now `write()` validates against the
-   contract, and `describe()` tells the agent *what's legal*, not just what
-   exists.
+4. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
+   shapes, constraints, computed predicates. Now `write()` validates against
+   the contract, `describe()` tells the agent *what's legal* rather than what
+   exists — and since tosijs-schema already embeds serialized predicates,
+   **preconditions ride along free**.
+
+**The tiers are a funnel, not a menu.** An earlier draft of this document led
+with "the surface derives for free" and treated declaration as the fallback.
+Adversarial review inverted that hierarchy, and the inversion stands: **the
+declared, schema-filtered surface is the product; the automatic map is the
+discovery tool that makes declaring cheap.** The auto-map is how you find out
+what to put in the schema — it should never be what anyone scripts against.
+Two reasons, and only one of them is security:
+
+- **Security (the asterisked half).** In a zero-trust app the *write* path adds
+  no attack surface — anything the surface can invoke, devtools could already
+  invoke. The asterisk is the read path: **the UI exposes what's rendered; the
+  automatic map exposes what's resident.** Prefetched data, client-side caches,
+  feature flags, records loaded for other views — invisible on screen, all
+  greppable in the map. "We never hold client-side data we don't show" is a
+  discipline worth stating as a rule rather than assuming, because it's exactly
+  the invariant that holds until one convenient cache breaks it. And an
+  undeclared `call()` surface is **an RPC endpoint with good documentation** —
+  *which handlers are agent-invokable* is a security boundary, not a
+  convenience.
+- **Hyrum's law (the half that always applies).** UI users tolerate UI change;
+  scripts don't. The moment fifty tests and an agent workflow depend on the
+  accidental shape of the auto-map, every internal rename is a breaking change
+  — refactoring freedom lost over precisely the code you most want to keep
+  fluid. You would never promise pixel-stable UI; don't accidentally promise
+  structure-stable internals. The schema is the contract: version *it*, and
+  refactor freely behind it.
+
+The resolution costs one boolean: expose both, mark the auto-map explicitly
+unstable, and keep everything durable on the schema'd view. A bonus falls out:
+the schema **doubles as the agent's tool manifest** — filtered map + typed
+affordances is essentially MCP tool definitions generated from application
+code, and the same contract can be handed to an agent as a plain context
+preamble when no protocol is in play. The infrastructure is
+transport-agnostic.
+
+### Why declaration wins: intent captured at authoring time
+
+The deep reason schema-first works is *when* the declaration happens: at
+authoring time, while the purpose is still known. Everything expensive in
+software archaeology — comprehension, test-writing, drift detection — is
+expensive because intent decayed between writing and reading, and everyone
+downstream (maintainer, test suite, agent) has to re-infer it from behavior.
+Capturing intent while it's free, in a form that's machine-checkable forever
+after, is the same trade tjs makes with types.
+
+And the discipline holds for the same reason types beat docstrings: the
+declaration isn't a comment — **it's load-bearing**. Comments rot because
+nothing breaks when they lie. A declaration that feeds the map, the tests, and
+the agent's context breaks visibly when it lies. That's what keeps it true.
+
+### ComponentMap: the same contract at the component boundary
+
+The manifest idea has a component-level counterpart. Components today declare
+a `PartsMap` (typed parts lookup). The natural extension is a **ComponentMap**
+— a tosijs-schema-backed declaration that supersedes PartsMap and declares the
+component's full public surface: parts, **attributes, properties, and
+methods**, exposed by default or filtered by the app's schema. Then
+`describe()` doesn't stop at "custom element, bound to a path" — the component
+contributes its own typed affordances (what `value` means, which methods are
+invokable, which attributes are live), the way `initAttributes` already
+contributes inferred attribute types today. Shadow components stay agent-shaped
+(the value is the interface; the internals are private) — ComponentMap is how
+a component *says so in a checkable form*.
 
 ## Trust: the honest section
 
@@ -422,7 +490,8 @@ problems now, with their planned answers:
 - **Secrets and PII.** Introspection mode is a dev tool; production is
   manifest-only, allowlist, never denylist. The registry commonly holds tokens
   and user data — `describe()` must make *not* exposing them the path of least
-  resistance.
+  resistance. (This is the rendered-vs-resident asymmetry from Exposure tiers:
+  the map can see everything the app is *holding*, not just showing.)
 - **Prompt injection.** An agent's *inputs* (page content, fetched data) can be
   hostile even when its state access is scoped. Scoping limits blast radius —
   an agent that can only touch `app.cart` can't exfiltrate `app.auth` — and the
@@ -646,8 +715,12 @@ that never gets bored. tosijs is the model and the switchboard.
   paths × actions, writability from binding direction, preconditions from
   enabled-bindings, item schemas from list templates).
 - **Phase 2 — manifest + contracts.** The `expose` allowlist; tosijs-schema
-  integration for shapes/constraints; `describe()` grows "what's legal."
-  Feeds directly into 2.0's `schematic` design rather than duplicating it.
+  integration for shapes/constraints; `describe()` grows "what's legal." This
+  is where the hierarchy inverts for real: the declared surface becomes the
+  product and introspection is demoted to the discovery tool (see Exposure
+  tiers). Includes the **ComponentMap** design (the component-level contract
+  superseding PartsMap). Feeds directly into 2.0's `schematic` design rather
+  than duplicating it.
 - **Phase 3 — the bridge.** File the haltija design issue (detection, MCP
   adapter, DOM fallback); wire the demo to a real agent end-to-end.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
@@ -683,6 +756,16 @@ plays (file, don't fix — designs land as issues on haltija/tjs-lang/lukko);
 - **Does the manifest belong in `tosi()` itself?** `tosi({...}, { expose })`
   would make exposure a property of *registration* — arguably the most
   tosijs-shaped answer of all.
+- **Is the map the whole truth?** Time travel, state diffing, and deterministic
+  replay come free *if the map is the source of truth for state*. In tosijs the
+  registry is the norm — but apps can and do hold state in closures the map
+  only observes after the fact. Worth stating as a discipline ("state lives in
+  the registry") the way zero-trust is stated as one, and worth `describe()`
+  being honest about what it can't see.
+- **Versioning the contract.** Once haltija tests and agent workflows script
+  against the schema'd surface, its shape is a public API. What's contractual
+  vs. incidental, and how the schema versions, should be decided *before* fifty
+  tests depend on the accidental shape — much cheaper than after.
 
 ---
 
@@ -708,6 +791,12 @@ unclaimed:
   toward "derive from framework records," scoped to forms only.
 - **Playwright MCP / Operator / Computer Use / Mariner:** a11y-tree + vision +
   synthesized input — impersonating the human user, the thing this plan replaces.
+  **Scope honesty:** their actual value proposition is working on *arbitrary*
+  sites. This plan doesn't implement that for free — it makes it **unnecessary
+  for apps you control**, reading intent from the source instead of
+  reconstructing it from a rendered DOM. A different claim, arguably the better
+  one — but it's why haltija keeps a DOM-driving fallback for everything that
+  isn't tosijs.
 - **Phoenix LiveView / Hotwire:** real prior art for the *inversion* (app lives
   server-side, DOM is a projection) — but the model is opaque process state; no
   agent interface, no introspection, one embodiment.
