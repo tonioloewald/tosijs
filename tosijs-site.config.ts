@@ -59,11 +59,13 @@ export default defineSiteConfig({
   // magic-link) for remote editing. The box config lives in tosijs-ui/deploy/ —
   // *.dev.tosijs.net wildcards there, deploys self-register their hostname, but
   // the tunnel hostname below needs its block added to the shared Caddyfile
-  // (edit-tosijs.dev.tosijs.net -> 127.0.0.1:9788).
+  // (edit-tosijs.dev.tosijs.net -> 127.0.0.1:9789).
+  // remotePort registry (nothing allocates these — tosijs-ui#29):
+  //   9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs (this project)
   preview: {
     host: 'root@212.147.248.15',
     url: 'https://tosijs.dev.tosijs.net',
-    tunnel: { remotePort: 9788, url: 'https://edit-tosijs.dev.tosijs.net' },
+    tunnel: { remotePort: 9789, url: 'https://edit-tosijs.dev.tosijs.net' },
   },
 
   host: 'github-pages',
