@@ -165,7 +165,7 @@ export type BoxedScalar<T> = BoxedScalarAPI<T> &
   (T extends string ? Omit<String, keyof BoxedScalarAPI<any>>
   : T extends number ? Omit<Number, keyof BoxedScalarAPI<any>>
   : T extends boolean ? Omit<Boolean, keyof BoxedScalarAPI<any>>
-  : {})
+  : unknown)
 
 export type BoxedProxy<T = any> = T extends Array<infer U>
   ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U>

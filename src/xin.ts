@@ -1275,7 +1275,7 @@ const regHandler = (
         return boxScalars ? box(value, extendPath(path, prop)) : value
       }
     } else if (Array.isArray(target)) {
-      let value = target[prop as unknown as number]
+      const value = target[prop as unknown as number]
       return typeof value === 'function'
         ? (...items: any[]) => {
             // Unwrap any proxied/boxed values before passing to array methods

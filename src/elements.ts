@@ -460,7 +460,11 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
 
     if (isObservedAttr) {
       if (typeof value === 'boolean') {
-        value ? elt.setAttribute(attr, '') : elt.removeAttribute(attr)
+        if (value) {
+          elt.setAttribute(attr, '')
+        } else {
+          elt.removeAttribute(attr)
+        }
       } else {
         elt.setAttribute(attr, value)
       }
@@ -512,7 +516,11 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
     } else if ((elt as { [key: string]: any })[attr] !== undefined) {
       ;(elt as StringMap)[attr] = value
     } else if (typeof value === 'boolean') {
-      value ? elt.setAttribute(attr, '') : elt.removeAttribute(attr)
+      if (value) {
+        elt.setAttribute(attr, '')
+      } else {
+        elt.removeAttribute(attr)
+      }
     } else {
       elt.setAttribute(attr, value)
     }

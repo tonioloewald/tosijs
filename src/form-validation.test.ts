@@ -1,7 +1,6 @@
 import { test, expect, describe, beforeAll } from 'bun:test'
 import { validateAgainstConstraints } from './form-validation'
 import { Component } from './component'
-import { elements } from './elements'
 
 // Mock ElementInternals — tracks setValidity calls for assertions
 function mockInternals() {

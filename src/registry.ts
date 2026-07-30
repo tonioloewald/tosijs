@@ -28,7 +28,6 @@ type BindFunc = (
   options?: XinObject
 ) => void
 // Using 'any' for OnFunc to accommodate the generic signature of the actual 'on' function
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type OnFunc = any
 
 let _bind: BindFunc | null = null

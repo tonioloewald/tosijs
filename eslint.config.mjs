@@ -19,10 +19,15 @@ export default tseslint.config(
       // ban-types allowances (see CLAUDE.md)
       '@typescript-eslint/no-wrapper-object-types': 0,
       '@typescript-eslint/no-unsafe-function-type': 0,
-      // leading-underscore convention for intentionally unused arguments
+      // leading-underscore convention for intentionally unused bindings
+      // (arguments, variables, caught errors)
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { argsIgnorePattern: '^_' },
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
       ],
     },
   },

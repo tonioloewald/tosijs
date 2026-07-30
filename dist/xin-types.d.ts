@@ -144,7 +144,7 @@ interface BoxedScalarAPI<T> {
  * fundamental limitations in TypeScript's mapped types (no asymmetric get/set).
  * Use `proxy.x.value = 3` instead.
  */
-export type BoxedScalar<T> = BoxedScalarAPI<T> & (T extends string ? Omit<String, keyof BoxedScalarAPI<any>> : T extends number ? Omit<Number, keyof BoxedScalarAPI<any>> : T extends boolean ? Omit<Boolean, keyof BoxedScalarAPI<any>> : {});
+export type BoxedScalar<T> = BoxedScalarAPI<T> & (T extends string ? Omit<String, keyof BoxedScalarAPI<any>> : T extends number ? Omit<Number, keyof BoxedScalarAPI<any>> : T extends boolean ? Omit<Boolean, keyof BoxedScalarAPI<any>> : unknown);
 export type BoxedProxy<T = any> = T extends Array<infer U> ? Array<BoxedProxy<U>> & XinProps<T> & BoxedArrayProps<U> : T extends Function ? T & XinProps<Function> : T extends object ? {
     [K in keyof T]: BoxedProxy<T[K]>;
 } & XinProps<T> : T extends string ? BoxedScalar<string> : T extends number ? BoxedScalar<number> : T extends boolean ? BoxedScalar<boolean> : T extends undefined | null ? BoxedScalar<T> : T;

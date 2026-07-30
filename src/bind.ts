@@ -275,11 +275,9 @@ import { getXinProxy, setBindFunctions } from './registry'
 import {
   elementToBindings,
   elementToHandlers,
-  DataBindings,
   LIST_BINDING_REF,
   BOUND_CLASS,
   BOUND_SELECTOR,
-  XinEventBindings,
   XIN_PATH,
   XIN_VALUE,
   TAKE_DESCRIPTOR,
@@ -453,7 +451,7 @@ const handleChange = (event: Event): void => {
           value = fromDOM(target, dataBinding.options)
         } catch (e) {
           console.error('Cannot get value from', target, 'via', dataBinding)
-          throw new Error('Cannot obtain value fromDOM')
+          throw new Error('Cannot obtain value fromDOM', { cause: e })
         }
         if (value != null) {
           const xin = getXinProxy()

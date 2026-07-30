@@ -233,7 +233,8 @@ test('event handler can stop propagation', async () => {
 
   inner.click()
   expect(innerClicked).toBe(true)
-  // Note: stopPropagation behavior depends on event bubbling implementation
+  // stopPropagation halts the bound-event dispatcher's walk up the tree
+  expect(outerClicked).toBe(false)
 })
 
 test('bind with XinBindingSpec options works', async () => {

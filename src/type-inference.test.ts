@@ -7,6 +7,8 @@
  * The tests here are primarily compile-time checks - if this file compiles,
  * the type inference is working correctly.
  */
+/* eslint-disable @typescript-eslint/no-unused-expressions --
+   bare expressions under @ts-expect-error ARE the tests (compile-time probes) */
 
 import { test, expect } from 'bun:test'
 import { tosi } from './xin-proxy'

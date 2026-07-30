@@ -130,6 +130,7 @@ test('empty class attribute adds no class', () => {
 test('falsy class values add no class (idiomatic conditionals)', () => {
   // `cond ? 'active' : undefined`, `cond && 'active'` (-> false), explicit null.
   // These must NOT become literal "undefined"/"false"/"null" classes.
+  // eslint-disable-next-line no-constant-binary-expression -- the constant conditional IS the fixture
   for (const value of [undefined, null, false, 1 > 2 && 'active']) {
     const div = elements.div({ class: value as any })
     expect(div.classList.length).toBe(0)
@@ -143,7 +144,7 @@ test('class array skips falsy entries', () => {
 })
 
 test('boolean attributes work correctly', () => {
-  const { input, button } = elements
+  const { input } = elements
   const disabledInput = input({ disabled: true })
   const enabledInput = input({ disabled: false })
   const checkedInput = input({ type: 'checkbox', checked: true })

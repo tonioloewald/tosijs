@@ -135,6 +135,7 @@ describe('virtual list binding - dimensionless container race condition', () => 
     // Render at zero height — only 1 item rendered
     lb.update(proxiedArray)
     const zeroCount = childCount(container)
+    expect(zeroCount).toBe(1)
 
     // Resize to real height
     mockDimensions(container, 400, 300)

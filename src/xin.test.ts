@@ -10,8 +10,6 @@ import {
   isValidPath,
 } from './xin'
 import { tosi } from './xin-proxy'
-import { bind } from './bind'
-import { bindings } from './bindings'
 import { elements } from './elements'
 import {
   XIN_VALUE,

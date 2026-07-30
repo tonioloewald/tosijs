@@ -1034,6 +1034,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   // (cloned) content start empty and resolve entirely via querySelector.
   private _partsCache: Record<string, Element> = Object.create(null)
   get parts(): T {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the Proxy handler's methods have their own `this`
     const self = this
     if (this._parts == null) {
       this._parts = new Proxy(
@@ -1319,6 +1320,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
       // Skip if already set up (e.g., by legacy initAttributes) or not configurable
       // Check prototype chain for non-configurable properties (e.g., 'name' on Element)
+      // eslint-disable-next-line @typescript-eslint/no-this-alias -- walking cursor up the prototype chain
       let proto: object | null = this
       let isNonConfigurable = false
       while (proto) {
