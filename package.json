@@ -41,8 +41,8 @@
     "test": "bun test",
     "test:browser": "playwright test",
     "latest": "rm -rf node_modules && bun update",
-    "tunnel": "bun bin/tunnel.ts",
-    "deploy": "bun bin/deploy-preview.ts"
+    "tunnel": "bun node_modules/tosijs-ui/bin/tunnel.ts",
+    "deploy": "bun node_modules/tosijs-ui/bin/deploy-preview.ts"
   },
   "author": "Tonio Loewald",
   "license": "BSD-3-CLAUSE",
@@ -62,7 +62,7 @@
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
-    "tosijs-ui": "1.9.0-beta.2",
+    "tosijs-ui": "1.9.0-rc.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
   },

@@ -55,17 +55,23 @@ export default defineSiteConfig({
   openBrowser: true,
 
   // Preview host — `bun run deploy` (dry run) / `bun run deploy --go` pushes the
-  // built site; `bun run tunnel` exposes THIS machine's dev server (authenticated,
-  // magic-link) for remote editing. The box config lives in tosijs-ui/deploy/ —
-  // *.dev.tosijs.net wildcards there, deploys self-register their hostname, but
-  // the tunnel hostname below needs its block added to the shared Caddyfile
-  // (edit-tosijs.dev.tosijs.net -> 127.0.0.1:9789).
-  // remotePort registry (nothing allocates these — tosijs-ui#29):
-  //   9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs (this project)
+  // built site; `bun run tunnel` (tosijs-tunnel bin) exposes THIS machine's dev
+  // server (magic-link -> session; requireToken defaults true) for remote
+  // editing. Both deploy AND tunnel self-register their Caddy fragments on the
+  // box (rc.1) — no shared-config hand-edits. Hostname convention:
+  //   tosijs.dev.tosijs.net       read-only static preview (shareable)
+  //   tosijs.edit.dev.tosijs.net  live workspace (session, always)
+  // port registry (still hand-picked — tosijs-ui#29):
+  //   remote: 9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs
+  //   local loopback listener: 8788 tosijs-ui, 8789 tosijs
   preview: {
     host: 'root@212.147.248.15',
     url: 'https://tosijs.dev.tosijs.net',
-    tunnel: { remotePort: 9789, url: 'https://edit-tosijs.dev.tosijs.net' },
+    tunnel: {
+      remotePort: 9789,
+      localPort: 8789,
+      url: 'https://tosijs.edit.dev.tosijs.net',
+    },
   },
 
   host: 'github-pages',
