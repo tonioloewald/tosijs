@@ -54,6 +54,18 @@ export default defineSiteConfig({
   // for CI, test mode, and non-TTY launches (e.g. agent-driven background runs)
   openBrowser: true,
 
+  // Preview host — `bun run deploy` (dry run) / `bun run deploy --go` pushes the
+  // built site; `bun run tunnel` exposes THIS machine's dev server (authenticated,
+  // magic-link) for remote editing. The box config lives in tosijs-ui/deploy/ —
+  // *.dev.tosijs.net wildcards there, deploys self-register their hostname, but
+  // the tunnel hostname below needs its block added to the shared Caddyfile
+  // (edit-tosijs.dev.tosijs.net -> 127.0.0.1:9788).
+  preview: {
+    host: 'root@212.147.248.15',
+    url: 'https://tosijs.dev.tosijs.net',
+    tunnel: { remotePort: 9788, url: 'https://edit-tosijs.dev.tosijs.net' },
+  },
+
   host: 'github-pages',
   // honor PORT so the Playwright e2e lane can run its own dev server on a
   // dedicated port (see playwright.config.ts webServer) without colliding
