@@ -50,6 +50,10 @@ export default defineSiteConfig({
   // version) — so local, uncommitted edits show stale until this is enabled.
   editableSources: true,
 
+  // pop (or reuse) a browser tab on interactive dev-server start — self-skips
+  // for CI, test mode, and non-TTY launches (e.g. agent-driven background runs)
+  openBrowser: true,
+
   host: 'github-pages',
   // honor PORT so the Playwright e2e lane can run its own dev server on a
   // dedicated port (see playwright.config.ts webServer) without colliding
