@@ -45,22 +45,24 @@
   "author": "Tonio Loewald",
   "license": "BSD-3-CLAUSE",
   "devDependencies": {
-    "@happy-dom/global-registrator": "^18.0.1",
+    "@eslint/js": "^10.0.1",
+    "@happy-dom/global-registrator": "^20.11.1",
     "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.19.43",
     "@types/react": "^19.2.17",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
     "bun-types": "^1.3.14",
     "chokidar": "^4.0.3",
-    "eslint": "^8.57.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
     "marked": "^16.4.2",
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
-    "tosijs-ui": "1.7.3",
-    "typescript": "^5.9.3"
+    "tosijs-ui": "1.8.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0"
   },
   "files": [
     "/dist",
@@ -85,5 +87,8 @@
       "**/*.mjs",
       "**/*.d.ts"
     ]
+  },
+  "overrides": {
+    "brace-expansion": ">=5.0.8"
   }
 }
