@@ -20,7 +20,7 @@
         "prettier": "^2.8.8",
         "tjs-lang": "0.10.1",
         "tosijs": "file:.",
-        "tosijs-ui": "1.9.0-rc.1",
+        "tosijs-ui": "1.9.0-rc.2",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.65.0",
       },
@@ -310,7 +310,7 @@
 
     "tosijs-schema": ["tosijs-schema@1.4.0", "", {}, "sha512-ESNQNw3dcCU3hMhrMLQvzPP+mRth+cew/YMjQt4Y6z8Hth2AMYCVRk/uc/MXcSoLiZhmhL0bF2hu66xlIsjZCQ=="],
 
-    "tosijs-ui": ["tosijs-ui@1.9.0-rc.1", "", { "dependencies": { "@codemirror/autocomplete": "^6.20.3", "@codemirror/commands": "^6.10.4", "@codemirror/lang-css": "^6.3.1", "@codemirror/lang-html": "^6.4.11", "@codemirror/lang-javascript": "^6.2.5", "@codemirror/lang-markdown": "^6.5.1", "@codemirror/language": "^6.12.4", "@codemirror/lint": "^6.9.7", "@codemirror/search": "^6.7.1", "@codemirror/state": "^6.7.1", "@codemirror/theme-one-dark": "^6.1.3", "@codemirror/view": "^6.43.7" }, "peerDependencies": { "@resvg/resvg-js": "^2.6.2", "chokidar": "^4.0.3", "happy-dom": "^20.7.0", "marked": "^16.4.2", "tjs-lang": "^0.12.0", "tosijs": "^1.7.8" }, "optionalPeers": ["@resvg/resvg-js", "chokidar", "happy-dom", "tjs-lang"], "bin": { "tosijs-make-icons": "bin/make-icon-data.js", "tosijs-dev-certs": "tls/create-dev-certs.sh", "tosijs-tunnel": "bin/tunnel.ts", "tosijs-deploy": "bin/deploy-preview.ts" } }, "sha512-HMgmYxV92idoYdV2zd2hrNe7m4PFPUsXGBp9yvDUWjm9kAlC1jK97zXvhbJin5xUXkU99VYVRZ0bVmHPgzM5Cg=="],
+    "tosijs-ui": ["tosijs-ui@1.9.0-rc.2", "", { "dependencies": { "@codemirror/autocomplete": "^6.20.3", "@codemirror/commands": "^6.10.4", "@codemirror/lang-css": "^6.3.1", "@codemirror/lang-html": "^6.4.11", "@codemirror/lang-javascript": "^6.2.5", "@codemirror/lang-markdown": "^6.5.1", "@codemirror/language": "^6.12.4", "@codemirror/lint": "^6.9.7", "@codemirror/search": "^6.7.1", "@codemirror/state": "^6.7.1", "@codemirror/theme-one-dark": "^6.1.3", "@codemirror/view": "^6.43.7" }, "peerDependencies": { "@resvg/resvg-js": "^2.6.2", "chokidar": "^4.0.3", "happy-dom": "^20.7.0", "marked": "^16.4.2", "tjs-lang": "^0.12.0", "tosijs": "^1.7.8" }, "optionalPeers": ["@resvg/resvg-js", "chokidar", "happy-dom", "tjs-lang"], "bin": { "tosijs-make-icons": "bin/make-icon-data.js", "tosijs-dev-certs": "tls/create-dev-certs.sh", "tosijs-tunnel": "bin/tunnel.ts", "tosijs-deploy": "bin/deploy-preview.ts" } }, "sha512-aUNc41uU+aLTyCEnLGiqM9vUgSmWf5zKRp83sQIUBhlOoLgqVhIS7GtLsu6R58IHDJJkO/oeS5J+Bw0k9h4Bhw=="],
 
     "ts-api-utils": ["ts-api-utils@2.5.0", "", { "peerDependencies": { "typescript": ">=4.8.4" } }, "sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA=="],
 
