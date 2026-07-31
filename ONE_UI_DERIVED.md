@@ -179,3 +179,130 @@ static). The restock button's handler is not an anonymous `ƒ` but a *name* —
 `actions`. That is the affordance descriptor from the table above: harvested,
 joined, and serialized, authored by nobody.
 
+### The map, drawn: a schematic embodiment
+
+If the visual architecture *is* the information architecture, the information
+architecture can be **drawn**: one rectangle per wired element, labels and
+arrows from the map, laid out by structure rather than by CSS. Not a
+screenshot and not a designer's wireframe — the app's *actual* affordance
+graph, rendered. Three reasons this is more than a pretty view:
+
+- **Visual token compression.** DeepSeek's OCR work showed text *rendered as
+  an image* costs the vision encoder roughly a tenth of the tokens the same
+  text costs as text — and a schematic is denser still, because **layout is
+  free structure**: containment says nesting, adjacency says order, arrows say
+  direction, and none of it spends a token on syntax. For a large app,
+  "one PNG of the schematic" may be the cheapest complete overview an agent
+  can ingest.
+- **The image is an index.** Each rectangle links to its JSON record (below,
+  clicking one shows exactly that). An agent — or a human — glances at the
+  picture, decides where to act, and fetches only that subtree's precise JSON.
+  Glance-then-zoom is how people use UIs; progressive disclosure is how agents
+  should read them.
+- **Different encodings of one structure teach you different things.** A
+  logographic script and braille are both "text", and each reveals properties
+  of reading the other conceals. The JSON map, the rendered DOM, and the
+  schematic are three encodings of one wiring — diffs that are invisible in
+  one are glaring in another (a schematic diff between builds is a regression
+  artifact a human can *see*).
+- **And it's the demo of the thesis itself.** The claim "your app already
+  describes itself to agents" is invisible when the evidence is JSON — and
+  *self-evident* when a map of the page draws itself from a page that never
+  declared one. The schematic lets humans see the app the way agents see it,
+  which makes it the marketing artifact for the whole idea: every tosijs demo
+  can end with the reveal.
+
+Here it is live — the same harvest UI as above, then **schematic()** draws the
+whole page's map; click any rectangle for its JSON:
+
+```js
+import { elements, svgElements, tosi, enableAgentInterface } from 'tosijs'
+
+const { schem } = tosi({
+  schem: {
+    filter: '',
+    stock: 3,
+    restock() {
+      schem.stock = schem.stock.value + 1
+    },
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, input, span, button, pre } = elements
+const { svg, rect, text } = svgElements
+
+// an ordinary UI to map
+preview.append(
+  div(
+    input({ placeholder: 'filter stock…', bindValue: schem.filter }),
+    ' ',
+    span({ title: 'in stock', textContent: schem.stock }),
+    ' ',
+    button('restock', { onClick: 'schem.restock' })
+  )
+)
+
+const detail = pre({ style: { maxHeight: '8em', overflow: 'auto', margin: 0 } })
+const drawing = div()
+const W = 300
+const LINE = 14
+const PAD = 8
+const GAP = 10
+
+preview.append(
+  button('schematic()', {
+    onClick() {
+      const d = agent.describe()
+      let y = GAP
+      const boxes = d.wiring.map((w) => {
+        const facts = Object.entries(w)
+          .filter(([k, v]) => typeof v === 'string' && k !== 'tag')
+          .map(([k, v]) => `${k}: ${v}`)
+        const events = Object.entries(w.on ?? {}).map(
+          ([t, h]) => `on ${t} → ${h}`
+        )
+        const lines = [`<${w.tag}>`, ...facts, ...events]
+        const h = lines.length * LINE + PAD * 2
+        const box = { w, lines, y, h }
+        y += h + GAP
+        return box
+      })
+      drawing.textContent = ''
+      drawing.append(
+        svg(
+          { viewBox: `0 0 ${W + 2 * GAP} ${y}`, width: `${W + 2 * GAP}` },
+          ...boxes.map((b) =>
+            svgElements.g(
+              { style: { cursor: 'pointer' } },
+              rect({
+                x: `${GAP}`, y: `${b.y}`, width: `${W}`, height: `${b.h}`,
+                fill: 'transparent', stroke: 'currentColor', rx: '4',
+              }),
+              ...b.lines.map((line, i) =>
+                text(line.slice(0, 44), {
+                  x: `${GAP + PAD}`, y: `${b.y + PAD + (i + 0.85) * LINE}`,
+                  'font-size': '11', 'font-family': 'monospace',
+                  fill: 'currentColor',
+                })
+              ),
+              // every rectangle links back to its JSON record
+              { onClick: () => (detail.textContent = JSON.stringify(b.w, null, 2)) }
+            )
+          )
+        ),
+        detail
+      )
+    },
+  }),
+  drawing
+)
+```
+
+The schematic above is ~60 lines of vanilla SVG generation over `describe()`
+output — no layout engine, no rendering, no screenshots. **This code and the
+thinking belong in haltija too**: a test driver that can draw the schematic of
+any page it's driving has a map view humans can check at a glance and a
+compressed overview a vision model can ingest — the natural shared artifact
+between the agent surface and the test harness (they are, after all, the same
+interface).
+

@@ -35,7 +35,11 @@
   primitive (sugar over predicate observers; see
   [The Agent Surface](/ONE_UI_DESIGN/)).
 - **Phase 3 — the bridge.** File the haltija design issue (detection, MCP
-  adapter, DOM fallback); wire the demo to a real agent end-to-end.
+  adapter, DOM fallback); wire the demo to a real agent end-to-end. **Share
+  the schematic renderer and its thinking with haltija** (see
+  [The Derived Surface](/ONE_UI_DERIVED/)) — a driver that can draw the map of
+  any page it's driving gets a human-checkable map view and a vision-model
+  overview; it stands alone as a proposal without exposing this plan.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
   sandboxing for agent-submitted logic; lukko alignment.
 - **Phase 5 — headless embodiment.** The DOM-free core (tosijs#18) running an

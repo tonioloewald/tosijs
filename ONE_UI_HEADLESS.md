@@ -191,6 +191,9 @@ thesis again: one interface, and a test runner is just one more user.
 
 The endgame framing: **an app is a model plus a set of embodiments.** Browser
 DOM for humans present now; prerendered HTML for humans arriving; MCP for
-agents; sync peers for other machines — and the test harness, which is an agent
-that never gets bored. tosijs is the model and the switchboard.
+agents; sync peers for other machines; the test harness, which is an agent
+that never gets bored — and the **schematic** (see
+[The Derived Surface](/ONE_UI_DERIVED/)): the wiring drawn as labeled
+rectangles, a map view for humans and a token-compressed overview for vision
+models. tosijs is the model and the switchboard.
 
