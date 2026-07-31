@@ -267,6 +267,9 @@ test(&#39;describe() harvests the affordance join from ordinary declarations&#39
   expect(record != null).toBe(true)
   // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
   expect(String(record.value).includes(&#39;⟷ harvestTest.q&#39;)).toBe(true)
+  // geometry rides in the map — in a real browser the input has real bounds
+  // (this line is exactly what happy-dom cannot assert: it reports zero-size)
+  expect(record.bounds.width &gt; 0).toBe(true)
   input.remove()
 })
 </code></pre>
@@ -282,10 +285,16 @@ static). The restock button&#39;s handler is not an anonymous <code>ƒ</code> bu
 joined, and serialized, authored by nobody.</p>
 <h3>The map, drawn: a schematic embodiment</h3>
 <p>If the visual architecture <em>is</em> the information architecture, the information
-architecture can be <strong>drawn</strong>: one rectangle per wired element, labels and
-arrows from the map, laid out by structure rather than by CSS. Not a
-screenshot and not a designer&#39;s wireframe — the app&#39;s <em>actual</em> affordance
-graph, rendered. Three reasons this is more than a pretty view:</p>
+architecture can be <strong>drawn</strong>: one rectangle per wired element, <strong>at the
+element&#39;s actual position and size</strong> — every record carries <code>bounds</code>, because
+the layout is part of the semantics (and zero-size means &quot;not currently
+visible&quot;, which is itself information). With <code>describe({ styles: true })</code> the
+records also carry computed border and background colors, so the map can wear
+the app&#39;s own palette. Not a screenshot and not a designer&#39;s wireframe — the
+app&#39;s <em>actual</em> affordance graph at its actual geometry, minus the decorative
+pixels. And since <code>bounds</code> is plain data, it crosses the wire: a <strong>remote</strong>
+agent can draw the schematic of a page nobody is looking at. Three reasons
+this is more than a pretty view:</p>
 <ul>
 <li><strong>Visual token compression.</strong> DeepSeek&#39;s OCR work showed text <em>rendered as
 an image</em> costs the vision encoder roughly a tenth of the tokens the same
@@ -341,52 +350,51 @@ preview.append(
 )
 
 const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
-const drawing = div()
-const W = 300
-const LINE = 14
-const PAD = 8
-const GAP = 10
+const drawing = div({ style: { maxHeight: &#39;24em&#39;, overflow: &#39;auto&#39; } })
 
 preview.append(
   button(&#39;schematic()&#39;, {
     onClick() {
-      const d = agent.describe()
-      let y = GAP
-      const boxes = d.wiring.map((w) =&gt; {
-        const facts = Object.entries(w)
-          .filter(([k, v]) =&gt; typeof v === &#39;string&#39; &amp;&amp; k !== &#39;tag&#39;)
-          .map(([k, v]) =&gt; `${k}: ${v}`)
-        const events = Object.entries(w.on ?? {}).map(
-          ([t, h]) =&gt; `on ${t} → ${h}`
-        )
-        const lines = [`&lt;${w.tag}&gt;`, ...facts, ...events]
-        const h = lines.length * LINE + PAD * 2
-        const box = { w, lines, y, h }
-        y += h + GAP
-        return box
-      })
+      const d = agent.describe({ styles: true })
+      // visible wired elements, drawn where they actually are
+      const boxes = d.wiring.filter((w) =&gt; w.bounds &amp;&amp; w.bounds.width &gt; 0)
+      const pad = 8
+      const minX = Math.min(...boxes.map((w) =&gt; w.bounds.x)) - pad
+      const minY = Math.min(...boxes.map((w) =&gt; w.bounds.y)) - pad
+      const maxX = Math.max(...boxes.map((w) =&gt; w.bounds.x + w.bounds.width))
+      const maxY = Math.max(...boxes.map((w) =&gt; w.bounds.y + w.bounds.height))
       drawing.textContent = &#39;&#39;
       drawing.append(
         svg(
-          { viewBox: `0 0 ${W + 2 * GAP} ${y}`, width: `${W + 2 * GAP}` },
-          ...boxes.map((b) =&gt;
-            svgElements.g(
+          {
+            viewBox: `${minX} ${minY} ${maxX - minX + pad} ${maxY - minY + pad}`,
+            width: &#39;100%&#39;,
+          },
+          ...boxes.map((w) =&gt; {
+            const { x, y, width, height } = w.bounds
+            const caption = w.label || w.text || w.value || `&lt;${w.tag}&gt;`
+            const stroke =
+              w.style &amp;&amp; w.style.borderColor !== &#39;rgba(0, 0, 0, 0)&#39;
+                ? w.style.borderColor
+                : &#39;currentColor&#39;
+            return svgElements.g(
               { style: { cursor: &#39;pointer&#39; } },
               rect({
-                x: `${GAP}`, y: `${b.y}`, width: `${W}`, height: `${b.h}`,
-                fill: &#39;transparent&#39;, stroke: &#39;currentColor&#39;, rx: &#39;4&#39;,
+                x: `${x}`, y: `${y}`, width: `${width}`, height: `${height}`,
+                fill: w.style ? w.style.background : &#39;transparent&#39;,
+                stroke, rx: &#39;3&#39;,
               }),
-              ...b.lines.map((line, i) =&gt;
-                text(line.slice(0, 44), {
-                  x: `${GAP + PAD}`, y: `${b.y + PAD + (i + 0.85) * LINE}`,
-                  &#39;font-size&#39;: &#39;11&#39;, &#39;font-family&#39;: &#39;monospace&#39;,
-                  fill: &#39;currentColor&#39;,
-                })
-              ),
+              height &gt;= 14
+                ? text(String(caption).slice(0, 36), {
+                    x: `${x + 4}`, y: `${y + Math.min(height - 4, 13)}`,
+                    &#39;font-size&#39;: &#39;11&#39;, &#39;font-family&#39;: &#39;monospace&#39;,
+                    fill: w.style ? w.style.color : &#39;currentColor&#39;,
+                  })
+                : &#39;&#39;,
               // every rectangle links back to its JSON record
-              { onClick: () =&gt; (detail.textContent = JSON.stringify(b.w, null, 2)) }
+              { onClick: () =&gt; (detail.textContent = JSON.stringify(w, null, 2)) }
             )
-          )
+          })
         ),
         detail
       )

@@ -218,6 +218,10 @@ describe('agent interface — describe()', () => {
     // one-way arrow = display-only, current value on the left
     expect(spanRecord.text).toBe('42 ⟵ agentDesc.total')
 
+    // geometry rides in the map (happy-dom reports zeros; the shape is there)
+    expect(inputRecord.bounds).toBeDefined()
+    expect(typeof inputRecord.bounds!.width).toBe('number')
+
     input.remove()
     span.remove()
   })

@@ -39,6 +39,20 @@ export interface AgentWiringRecord {
         path: string;
         idPath?: string;
     };
+    /** page-relative geometry — the layout IS part of the semantics; zero-size
+     * means "not currently visible", which is itself information */
+    bounds?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+    /** computed colors, harvested when describe({ styles: true }) */
+    style?: {
+        background: string;
+        borderColor: string;
+        color: string;
+    };
     /** bindings that couldn't be named as a flat prop */
     detail?: Array<{
         path: string;
@@ -59,7 +73,9 @@ export interface AgentChange {
     value: any;
 }
 export interface AgentInterface {
-    describe: () => AgentDescription;
+    describe: (options?: {
+        styles?: boolean;
+    }) => AgentDescription;
     read: (path: string) => any;
     write: (path: string, value: any) => void;
     observe: (path: string, callback: (path: string) => void) => () => void;

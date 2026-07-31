@@ -85,6 +85,11 @@ export interface AgentWiringRecord {
   on?: Record<string, string | string[]>
   /** a list binding rendering a collection */
   list?: { path: string; idPath?: string }
+  /** page-relative geometry — the layout IS part of the semantics; zero-size
+   * means "not currently visible", which is itself information */
+  bounds?: { x: number; y: number; width: number; height: number }
+  /** computed colors, harvested when describe({ styles: true }) */
+  style?: { background: string; borderColor: string; color: string }
   /** bindings that couldn't be named as a flat prop */
   detail?: Array<{ path: string; readable: boolean; writable: boolean }>
   /** named bound props (value, checked, disabled, …): "value ⟷ path" strings */
@@ -104,7 +109,7 @@ export interface AgentChange {
 }
 
 export interface AgentInterface {
-  describe: () => AgentDescription
+  describe: (options?: { styles?: boolean }) => AgentDescription
   read: (path: string) => any
   write: (path: string, value: any) => void
   observe: (path: string, callback: (path: string) => void) => () => void
@@ -216,7 +221,7 @@ export function enableAgentInterface(
   }
 
   const surface: AgentInterface = {
-    describe(): AgentDescription {
+    describe(options: { styles?: boolean } = {}): AgentDescription {
       const rootNames = manifestMode
         ? (roots ?? []).slice()
         : Object.keys(registry)
@@ -278,6 +283,27 @@ export function enableAgentInterface(
           if (record.text === undefined) {
             const text = (el.textContent || '').trim().slice(0, 40)
             if (text) record.text = text
+          }
+          // geometry: the layout is part of the semantics
+          const rect = (el as HTMLElement).getBoundingClientRect?.()
+          if (rect != null) {
+            record.bounds = {
+              x: Math.round(rect.x + ((globalThis as any).scrollX ?? 0)),
+              y: Math.round(rect.y + ((globalThis as any).scrollY ?? 0)),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+            }
+          }
+          if (
+            options.styles === true &&
+            typeof (globalThis as any).getComputedStyle === 'function'
+          ) {
+            const cs = (globalThis as any).getComputedStyle(el)
+            record.style = {
+              background: cs.backgroundColor,
+              borderColor: cs.borderTopColor,
+              color: cs.color,
+            }
           }
           return wired ? record : undefined
         }
