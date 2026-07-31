@@ -68,15 +68,14 @@ export default defineSiteConfig({
   // box (rc.1) — no shared-config hand-edits. Hostname convention:
   //   tosijs.dev.tosijs.net       read-only static preview (shareable)
   //   tosijs.edit.dev.tosijs.net  live workspace (session, always)
-  // port registry (still hand-picked — tosijs-ui#29):
-  //   remote: 9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs
-  //   local loopback listener: 8788 tosijs-ui, 8789 tosijs
+  // remotePort registry (still hand-picked — tosijs-ui#29):
+  //   9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs
+  // (the local loopback listener self-allocates as PORT + 1 since rc.2)
   preview: {
     host: 'root@212.147.248.15',
     url: 'https://tosijs.dev.tosijs.net',
     tunnel: {
       remotePort: 9789,
-      localPort: 8789,
       url: 'https://tosijs.edit.dev.tosijs.net',
     },
   },
