@@ -202,25 +202,21 @@ describe('agent interface — describe()', () => {
     expect(description.roots.agentDesc).toBe('object')
     expect(description.actions).toContain('agentDesc.submit')
 
+    // flat records: semantically visible facts at the top level
     const inputRecord = description.wiring.find(
-      (w) => w.element.id === 'agent-desc-input'
+      (w) => w.id === 'agent-desc-input'
     )!
     expect(inputRecord).toBeDefined()
-    expect(inputRecord.element.label).toBe('search…') // harvested placeholder
-    const filterBinding = inputRecord.bindings!.find(
-      (b) => b.path === 'agentDesc.filter'
-    )!
-    expect(filterBinding.writable).toBe(true) // bindings.value has fromDOM
-    expect(inputRecord.handlers!.keydown).toContain('agentDesc.submit') // by-path handler is nameable
+    expect(inputRecord.label).toBe('search…') // harvested placeholder
+    // two-way arrow = user-writable affordance, provenance inline
+    expect(inputRecord.value).toBe('⟷ agentDesc.filter') // '' value elided
+    expect(inputRecord.on!.keydown).toBe('agentDesc.submit') // by-path handler is nameable
 
     const spanRecord = description.wiring.find(
-      (w) => w.element.id === 'agent-desc-span'
+      (w) => w.id === 'agent-desc-span'
     )!
-    const totalBinding = spanRecord.bindings!.find(
-      (b) => b.path === 'agentDesc.total'
-    )!
-    expect(totalBinding.readable).toBe(true)
-    expect(totalBinding.writable).toBe(false) // bindText is display-only
+    // one-way arrow = display-only, current value on the left
+    expect(spanRecord.text).toBe('42 ⟵ agentDesc.total')
 
     input.remove()
     span.remove()

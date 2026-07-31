@@ -41,6 +41,8 @@ import {
   elementToHandlers,
   tosiValue,
 } from './metadata'
+import { bindings } from './bindings'
+import { propBindingKey } from './elements'
 
 export interface AgentExpose {
   roots?: string[]
@@ -53,21 +55,40 @@ export interface AgentInterfaceOptions {
   global?: boolean | string
 }
 
+/**
+ * Provenance tokens for bound properties in describe() output. A bound prop
+ * reads `"<current value> <arrow> <path>"` — the arrow both marks the value
+ * as live and carries its direction:
+ *   ⟵  state flows to the DOM only (display)
+ *   ⟷  two-way (fromDOM present — a user-writable affordance)
+ * Chosen as tokens unlikely to occur in real values; parsers should split on
+ * ` ⟷ ` / ` ⟵ ` (spaces included). A plain value with no arrow is static.
+ */
+export const BOUND_TO_DOM = '⟵'
+export const BOUND_TWO_WAY = '⟷'
+
+/**
+ * One wired element, flat: semantically visible facts (tag, label, text,
+ * bound props, handlers) at the top; anything that can't be expressed flat
+ * drops one level into `detail`.
+ */
 export interface AgentWiringRecord {
-  element: {
-    tag: string
-    id?: string
-    part?: string
-    role?: string
-    label?: string
-  }
-  bindings?: Array<{
-    path: string
-    readable: boolean
-    writable: boolean
-    idPath?: string
-  }>
-  handlers?: Record<string, string[]>
+  tag: string
+  id?: string
+  part?: string
+  role?: string
+  /** harvested from aria-label / title / placeholder / alt */
+  label?: string
+  /** textContent — static ("foo") or bound ("foo ⟵ path") */
+  text?: string
+  /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */
+  on?: Record<string, string | string[]>
+  /** a list binding rendering a collection */
+  list?: { path: string; idPath?: string }
+  /** bindings that couldn't be named as a flat prop */
+  detail?: Array<{ path: string; readable: boolean; writable: boolean }>
+  /** named bound props (value, checked, disabled, …): "value ⟷ path" strings */
+  [boundProp: string]: unknown
 }
 
 export interface AgentDescription {
@@ -113,8 +134,8 @@ const serialize = (value: any): any => {
 
 // the join: the element's own semantic self-description, harvested from
 // attributes the developer wrote for humans and a11y
-const describeElement = (el: Element): AgentWiringRecord['element'] => {
-  const record: AgentWiringRecord['element'] = {
+const describeElement = (el: Element): AgentWiringRecord => {
+  const record: AgentWiringRecord = {
     tag: el.tagName.toLowerCase(),
   }
   if (el.id) record.id = el.id
@@ -126,10 +147,28 @@ const describeElement = (el: Element): AgentWiringRecord['element'] => {
     el.getAttribute('aria-label') ||
     el.getAttribute('title') ||
     el.getAttribute('placeholder') ||
-    el.getAttribute('alt') ||
-    (el.textContent || '').trim().slice(0, 40)
+    el.getAttribute('alt')
   if (label) record.label = label
   return record
+}
+
+// "value ⟷ path" — current value plus provenance in one parseable string
+const boundValue = (path: string, twoWay: boolean): string => {
+  const raw = serialize(xin[path])
+  const shown =
+    raw === undefined ? '' : typeof raw === 'string' ? raw : JSON.stringify(raw)
+  const arrow = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM
+  return shown ? `${shown} ${arrow} ${path}` : `${arrow} ${path}`
+}
+
+// name a binding by identity: the shared bindings collection first, then the
+// element-prop binding cache; textContent surfaces under the friendlier `text`
+const bindingName = (binding: any): string | undefined => {
+  for (const key of Object.keys(bindings)) {
+    if ((bindings as any)[key] === binding) return key
+  }
+  const propKey = propBindingKey(binding)
+  return propKey === 'textContent' ? 'text' : propKey
 }
 
 let active: AgentInterface | undefined
@@ -197,34 +236,50 @@ export function enableAgentInterface(
           if (seen.has(el)) return undefined
           seen.add(el)
           const { dataBindings, eventBindings } = getElementBindings(el)
-          const record: AgentWiringRecord = { element: describeElement(el) }
+          const record = describeElement(el)
+          let wired = false
           if (dataBindings != null) {
-            const bindings = dataBindings
-              .filter((b) => inScope(b.path))
-              .map((b) => {
-                const entry: NonNullable<AgentWiringRecord['bindings']>[0] = {
+            for (const b of dataBindings) {
+              if (!inScope(b.path)) continue
+              wired = true
+              const idPath = (b.options as any)?.idPath
+              if (idPath != null || b.binding === (bindings as any).list) {
+                record.list = idPath ? { path: b.path, idPath } : { path: b.path }
+                continue
+              }
+              const name = bindingName(b.binding)
+              if (name != null && record[name] === undefined) {
+                record[name] = boundValue(b.path, b.binding.fromDOM != null)
+              } else {
+                // obscure stuff one level deeper
+                record.detail ??= []
+                record.detail.push({
                   path: b.path,
                   readable: b.binding.toDOM != null,
                   writable: b.binding.fromDOM != null,
-                }
-                const idPath = (b.options as any)?.idPath
-                if (idPath) entry.idPath = idPath
-                return entry
-              })
-            if (bindings.length > 0) record.bindings = bindings
+                })
+              }
+            }
           }
           if (eventBindings != null) {
-            const handlers: Record<string, string[]> = {}
+            const on: Record<string, string | string[]> = {}
             for (const [type, set] of Object.entries(eventBindings)) {
-              handlers[type] = Array.from(set as Set<any>, (h) =>
+              const names = Array.from(set as Set<any>, (h) =>
                 typeof h === 'string' ? h : 'ƒ'
               )
+              on[type] = names.length === 1 ? names[0] : names
             }
-            if (Object.keys(handlers).length > 0) record.handlers = handlers
+            if (Object.keys(on).length > 0) {
+              record.on = on
+              wired = true
+            }
           }
-          return record.bindings != null || record.handlers != null
-            ? record
-            : undefined
+          // static text, when textContent isn't already surfaced as bound
+          if (record.text === undefined) {
+            const text = (el.textContent || '').trim().slice(0, 40)
+            if (text) record.text = text
+          }
+          return wired ? record : undefined
         }
         for (const el of Array.from(
           document.getElementsByClassName(BOUND_CLASS)

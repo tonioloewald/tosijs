@@ -1,5 +1,5 @@
 export { bind, on, touchElement } from './bind'
-export { enableAgentInterface } from './agent'
+export { enableAgentInterface, BOUND_TO_DOM, BOUND_TWO_WAY } from './agent'
 export type {
   AgentInterface,
   AgentInterfaceOptions,

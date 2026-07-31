@@ -528,6 +528,14 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
 }
 
 const propBindingCache: Record<string, XinBinding> = {}
+// reverse lookup: which element prop does this (cached) prop binding drive?
+// used by the agent surface to name bindings in describe() output
+export const propBindingKey = (binding: XinBinding): string | undefined => {
+  for (const key of Object.keys(propBindingCache)) {
+    if (propBindingCache[key] === binding) return key
+  }
+  return undefined
+}
 const elementPropBinding = (key: string): XinBinding => {
   if (!propBindingCache[key]) {
     propBindingCache[key] = {

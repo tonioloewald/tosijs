@@ -76,15 +76,23 @@ already records — enumerate <code>BOUND_CLASS</code>, map each element through
 <code>getElementBindings</code>, walk the tree probing event wiring, list registry
 functions. A sketch of what an agent sees:</p>
 <pre><code class="language-json">{
-  &quot;roots&quot;: { &quot;app&quot;: { &quot;items&quot;: &quot;…&quot;, &quot;filter&quot;: &quot;…&quot; } },
+  &quot;roots&quot;: { &quot;app&quot;: &quot;object&quot; },
   &quot;wiring&quot;: [
-    { &quot;element&quot;: &quot;input#search&quot;, &quot;bind&quot;: { &quot;value&quot;: &quot;app.filter&quot; } },
-    { &quot;element&quot;: &quot;ul.results&quot;, &quot;list&quot;: { &quot;path&quot;: &quot;app.items&quot;, &quot;idPath&quot;: &quot;id&quot; } },
-    { &quot;element&quot;: &quot;button.add&quot;, &quot;on&quot;: { &quot;click&quot;: &quot;app.addItem&quot; } }
+    { &quot;tag&quot;: &quot;input&quot;, &quot;label&quot;: &quot;search products…&quot;, &quot;value&quot;: &quot;milk ⟷ app.filter&quot; },
+    { &quot;tag&quot;: &quot;ul&quot;, &quot;list&quot;: { &quot;path&quot;: &quot;app.items&quot;, &quot;idPath&quot;: &quot;id&quot; } },
+    { &quot;tag&quot;: &quot;button&quot;, &quot;text&quot;: &quot;Add&quot;, &quot;on&quot;: { &quot;click&quot;: &quot;app.addItem&quot; } }
   ],
-  &quot;actions&quot;: [ { &quot;path&quot;: &quot;app.addItem&quot;, &quot;params&quot;: [&quot;reminder&quot;] } ]
+  &quot;actions&quot;: [&quot;app.addItem&quot;]
 }
 </code></pre>
+<p>Records are deliberately <strong>flat and small</strong>: the semantically visible facts —
+tag, label, text, bound props, handlers — sit at the top level; anything
+obscure drops one level into <code>detail</code>. Bound props carry <em>value and provenance
+in one string</em>: <code>&quot;milk ⟷ app.filter&quot;</code> is the current value, the fact that it&#39;s
+live, and its address — and the arrow encodes <strong>direction</strong>, <code>⟷</code> two-way (a
+user-writable affordance) vs <code>⟵</code> display-only. A value with no arrow is
+static. The tokens are chosen to be unlikely in real data and are exported
+(<code>BOUND_TWO_WAY</code>, <code>BOUND_TO_DOM</code>) for parsers.</p>
 <p>An agent reading that doesn&#39;t need vision, doesn&#39;t need to guess selectors, and
 doesn&#39;t need to forge events. It needs <code>write(&#39;app.filter&#39;, &#39;milk&#39;)</code> and
 <code>call(&#39;app.addItem&#39;, &#39;buy milk&#39;)</code> — and the human watching the screen sees the

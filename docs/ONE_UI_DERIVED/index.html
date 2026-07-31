@@ -263,20 +263,23 @@ test(&#39;describe() harvests the affordance join from ordinary declarations&#39
   bind(input, &#39;harvestTest.q&#39;, bindings.value)
   await updates()
   const d = agent.describe()
-  const record = d.wiring.find((w) =&gt; w.element.label === &#39;harvest-test…&#39;)
+  const record = d.wiring.find((w) =&gt; w.label === &#39;harvest-test…&#39;)
   expect(record != null).toBe(true)
-  const binding = record.bindings.find((b) =&gt; b.path === &#39;harvestTest.q&#39;)
-  expect(binding.writable).toBe(true) // fromDOM ⇒ an input affordance
+  // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
+  expect(String(record.value).includes(&#39;⟷ harvestTest.q&#39;)).toBe(true)
   input.remove()
 })
 </code></pre>
-<p>Read what it prints. The input&#39;s record joins its human label (the
-<code>placeholder</code>) to its path (<code>harvest.filter</code>) and its direction
-(<code>writable: true</code>). The total&#39;s record is the same shape but <code>writable: false</code>.
-The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
-<code>harvest.restock</code> — and the same path appears under <code>actions</code>. That is the
-affordance descriptor from the table above: harvested, joined, and serialized,
-authored by nobody.</p>
+<p>Read what it prints. Records are <strong>flat</strong> — the semantically visible facts sit
+at the top level, sized for an LLM to scan. The input&#39;s record joins its human
+label (the <code>placeholder</code>) to its live value and its path in one string:
+<code>value: &quot;⟷ harvest.filter&quot;</code> — the two-way arrow means <em>user-writable
+affordance</em>. The total is the same idea, one-way: <code>text: &quot;3 ⟵ harvest.total&quot;</code>
+(current value, display-only; a plain <code>text: &quot;restock&quot;</code> with no arrow is
+static). The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
+<code>on: { click: &quot;harvest.restock&quot; }</code> — and the same path appears under
+<code>actions</code>. That is the affordance descriptor from the table above: harvested,
+joined, and serialized, authored by nobody.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">

@@ -160,19 +160,22 @@ test('describe() harvests the affordance join from ordinary declarations', async
   bind(input, 'harvestTest.q', bindings.value)
   await updates()
   const d = agent.describe()
-  const record = d.wiring.find((w) => w.element.label === 'harvest-test…')
+  const record = d.wiring.find((w) => w.label === 'harvest-test…')
   expect(record != null).toBe(true)
-  const binding = record.bindings.find((b) => b.path === 'harvestTest.q')
-  expect(binding.writable).toBe(true) // fromDOM ⇒ an input affordance
+  // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
+  expect(String(record.value).includes('⟷ harvestTest.q')).toBe(true)
   input.remove()
 })
 ```
 
-Read what it prints. The input's record joins its human label (the
-`placeholder`) to its path (`harvest.filter`) and its direction
-(`writable: true`). The total's record is the same shape but `writable: false`.
-The restock button's handler is not an anonymous `ƒ` but a *name* —
-`harvest.restock` — and the same path appears under `actions`. That is the
-affordance descriptor from the table above: harvested, joined, and serialized,
-authored by nobody.
+Read what it prints. Records are **flat** — the semantically visible facts sit
+at the top level, sized for an LLM to scan. The input's record joins its human
+label (the `placeholder`) to its live value and its path in one string:
+`value: "⟷ harvest.filter"` — the two-way arrow means *user-writable
+affordance*. The total is the same idea, one-way: `text: "3 ⟵ harvest.total"`
+(current value, display-only; a plain `text: "restock"` with no arrow is
+static). The restock button's handler is not an anonymous `ƒ` but a *name* —
+`on: { click: "harvest.restock" }` — and the same path appears under
+`actions`. That is the affordance descriptor from the table above: harvested,
+joined, and serialized, authored by nobody.
 

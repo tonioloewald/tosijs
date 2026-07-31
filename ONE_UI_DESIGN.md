@@ -39,15 +39,24 @@ functions. A sketch of what an agent sees:
 
 ```json
 {
-  "roots": { "app": { "items": "…", "filter": "…" } },
+  "roots": { "app": "object" },
   "wiring": [
-    { "element": "input#search", "bind": { "value": "app.filter" } },
-    { "element": "ul.results", "list": { "path": "app.items", "idPath": "id" } },
-    { "element": "button.add", "on": { "click": "app.addItem" } }
+    { "tag": "input", "label": "search products…", "value": "milk ⟷ app.filter" },
+    { "tag": "ul", "list": { "path": "app.items", "idPath": "id" } },
+    { "tag": "button", "text": "Add", "on": { "click": "app.addItem" } }
   ],
-  "actions": [ { "path": "app.addItem", "params": ["reminder"] } ]
+  "actions": ["app.addItem"]
 }
 ```
+
+Records are deliberately **flat and small**: the semantically visible facts —
+tag, label, text, bound props, handlers — sit at the top level; anything
+obscure drops one level into `detail`. Bound props carry *value and provenance
+in one string*: `"milk ⟷ app.filter"` is the current value, the fact that it's
+live, and its address — and the arrow encodes **direction**, `⟷` two-way (a
+user-writable affordance) vs `⟵` display-only. A value with no arrow is
+static. The tokens are chosen to be unlikely in real data and are exported
+(`BOUND_TWO_WAY`, `BOUND_TO_DOM`) for parsers.
 
 An agent reading that doesn't need vision, doesn't need to guess selectors, and
 doesn't need to forge events. It needs `write('app.filter', 'milk')` and
