@@ -403,6 +403,21 @@ preview.append(
   drawing
 )
 </code></pre>
+<p><strong>SVG vs. bitmap, per consumer.</strong> For an LLM, SVG <em>source</em> is the worst
+encoding of the three: same information as the JSON plus 2–4× markup overhead,
+through the same text channel with the same no-perception problem (models
+compute &quot;x:340 is right of x:120&quot;; they don&#39;t <em>see</em> it — and they&#39;re famously
+poor at mentally rendering SVG). The division of labor: <strong>JSON for text
+reasoning</strong> (minimal, precise), <strong>rasterized PNG for vision encoders</strong> (the
+only channel where adjacency/containment/alignment are perceived, and where
+the ~10× visual token compression lives — rasterize at 2× so labels land
+≥ 12px effective and OCR is near-lossless), <strong>SVG as the master artifact</strong> for
+humans and tools (deterministic, diffable, clickable — the index). The helper
+this implies: <code>schematicSVG(description) → string</code>, a pure DOM-free function
+(bounds is plain data, so the headless embodiment can vend its own schematic
+and a remote agent can draw a page nobody is viewing), plus a rasterize step —
+canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for ePub
+covers).</p>
 <p>The schematic above is ~60 lines of vanilla SVG generation over <code>describe()</code>
 output — no layout engine, no rendering, no screenshots. <strong>This code and the
 thinking belong in haltija too</strong>: a test driver that can draw the schematic of
