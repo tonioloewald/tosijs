@@ -53,6 +53,23 @@ Sequencing note: phases 0–1 are cheap and demonstrable now; 2 is where the
 plays (file, don't fix — designs land as issues on haltija/tjs-lang/lukko);
 5 is where the plan and tosijs 2.0 converge entirely.
 
+### The empirical lane: LLM-in-the-loop tests (cross-cutting)
+
+Every legibility claim in this plan — flat records beat nested, arrows beat
+booleans, PNG schematic beats screenshot beats SVG source, glance-then-zoom
+beats full-dump — is currently an *argument*. All of them are **measurable**:
+give a model a task battery (find the affordance for X; which action changes
+path Y; complete this flow) against each encoding of the same app (JSON map /
+schematic PNG / raw screenshot / a11y tree), and score task success × token
+cost × turns. Once tjs makes model calls stupidly easy, this becomes a test
+lane like any other — sampled and budgeted rather than per-commit (models are
+slow, priced, and flaky), but *regression-shaped*: *a change to `describe()`'s
+shape gets a measured delta, not vibes.* The earlier design reviews kept
+ending at "the remaining questions are empirical" — this is the lane where
+they get answered. It doubles as the marketing evidence: "agents complete
+tasks N× more reliably against the map than against pixels" is a claim with a
+number in it.
+
 ## Open questions
 
 - **Naming.** `tosiModel`, `tosiMCP`, `tosiAgent`, `tosi.agent`? Leaning:

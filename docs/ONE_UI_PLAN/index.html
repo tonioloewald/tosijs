@@ -98,6 +98,21 @@ import) <em>are</em> its prerequisites, and both are already on the roadmap.</li
 <code>schematic</code>/2.0 work and this plan become the same work; 3–4 are ecosystem
 plays (file, don&#39;t fix — designs land as issues on haltija/tjs-lang/lukko);
 5 is where the plan and tosijs 2.0 converge entirely.</p>
+<h3>The empirical lane: LLM-in-the-loop tests (cross-cutting)</h3>
+<p>Every legibility claim in this plan — flat records beat nested, arrows beat
+booleans, PNG schematic beats screenshot beats SVG source, glance-then-zoom
+beats full-dump — is currently an <em>argument</em>. All of them are <strong>measurable</strong>:
+give a model a task battery (find the affordance for X; which action changes
+path Y; complete this flow) against each encoding of the same app (JSON map /
+schematic PNG / raw screenshot / a11y tree), and score task success × token
+cost × turns. Once tjs makes model calls stupidly easy, this becomes a test
+lane like any other — sampled and budgeted rather than per-commit (models are
+slow, priced, and flaky), but <em>regression-shaped</em>: <em>a change to <code>describe()</code>&#39;s
+shape gets a measured delta, not vibes.</em> The earlier design reviews kept
+ending at &quot;the remaining questions are empirical&quot; — this is the lane where
+they get answered. It doubles as the marketing evidence: &quot;agents complete
+tasks N× more reliably against the map than against pixels&quot; is a claim with a
+number in it.</p>
 <h2>Open questions</h2>
 <ul>
 <li><strong>Naming.</strong> <code>tosiModel</code>, <code>tosiMCP</code>, <code>tosiAgent</code>, <code>tosi.agent</code>? Leaning:
@@ -227,6 +242,7 @@ unclaimed for long.</p>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>

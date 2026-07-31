@@ -61,6 +61,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta.
 - https://tosijs.net/React/ — React and tosijs
   Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp.
+- https://tosijs.net/schematic/ — schematic (EXPERIMENTAL)
+  EXPERIMENTAL schematic renderer: draw an agent-surface description as SVG — the app's affordance map at its true geometry, DOM-free.
 - https://tosijs.net/share/ — share
   share() synchronizes tosijs state across browser tabs and windows using BroadcastChannel and IndexedDB.
 - https://tosijs.net/sync/ — sync
