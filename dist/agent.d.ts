@@ -72,6 +72,12 @@ export interface AgentChange {
     path: string;
     value: any;
 }
+export interface AgentLogEntry {
+    seq: number;
+    path: string;
+    /** synthetic audit notes (e.g. when() arming/resolution) — not state touches */
+    note?: string;
+}
 export interface AgentInterface {
     describe: (options?: {
         styles?: boolean;
@@ -84,10 +90,15 @@ export interface AgentInterface {
         cursor: number;
         changes: AgentChange[];
     };
-    log: () => Array<{
-        seq: number;
-        path: string;
-    }>;
+    /**
+     * Await a state CONDITION, not a change: resolves (with the satisfying
+     * value) as soon as the value at `path` satisfies `predicate` — immediately
+     * if it already does. The episodic agent's missing middle: name the world
+     * you're waiting for and spend no inference until it arrives. The wait is
+     * audit-logged. No built-in timeout — Promise.race one in if you need it.
+     */
+    when: (path: string, predicate: (value: any) => boolean) => Promise<any>;
+    log: () => AgentLogEntry[];
     disable: () => void;
 }
 export declare function enableAgentInterface(options?: AgentInterfaceOptions): AgentInterface;

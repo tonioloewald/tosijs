@@ -61,6 +61,7 @@ agent.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers 
 agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
 agent.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)        // invoke an action by path
 agent.changes(cursor)     // turn-based drain: final value per changed path
+await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
 agent.log()               // the audit trail
 </code></pre>
 <p>In production, expose only what you declare:</p>

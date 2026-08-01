@@ -88,6 +88,89 @@ describe('agent interface — actions', () => {
   })
 })
 
+describe('agent interface — when (await a condition)', () => {
+  test('resolves immediately when the condition already holds', async () => {
+    tosi({ agentWhenNow: { status: 'ready' } })
+    const agent = (current = enableAgentInterface({ global: false }))
+    // no touch will occur — only immediate satisfaction can resolve this
+    const value = await agent.when('agentWhenNow.status', (s) => s === 'ready')
+    expect(value).toBe('ready')
+  })
+
+  test('resolves when the condition becomes true; ignores non-satisfying changes', async () => {
+    tosi({ agentWhen: { status: 'pending' } })
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+    let settled = false
+    const wait = agent
+      .when('agentWhen.status', (s) => s === 'confirmed')
+      .then((v) => {
+        settled = true
+        return v
+      })
+
+    agent.write('agentWhen.status', 'processing') // not the named condition
+    await updates()
+    expect(settled).toBe(false)
+
+    agent.write('agentWhen.status', 'confirmed')
+    expect(await wait).toBe('confirmed')
+  })
+
+  test('scope-checked, audit-logged, and invisible to the changes() drain', async () => {
+    tosi({ agentWhenPub: { n: 0 }, agentWhenPriv: { x: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['agentWhenPub'] },
+    }))
+    expect(() => agent.when('agentWhenPriv.x', () => true)).toThrow(
+      'not exposed'
+    )
+
+    const { cursor } = agent.changes()
+    const wait = agent.when('agentWhenPub.n', (n) => n === 2)
+    agent.write('agentWhenPub.n', 2)
+    expect(await wait).toBe(2)
+    // the wait is in the audit trail…
+    const notes = agent.log().filter((e) => e.note != null)
+    expect(notes.some((e) => e.note!.startsWith('when: armed'))).toBe(true)
+    expect(notes.some((e) => e.note === 'when: resolved')).toBe(true)
+    // …but the drain reports only real state changes
+    const { changes } = agent.changes(cursor)
+    expect(changes).toEqual([{ path: 'agentWhenPub.n', value: 2 }])
+  })
+
+  test('disable() rejects pending waits', async () => {
+    tosi({ agentWhenBye: { done: false } })
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+    const wait = agent.when('agentWhenBye.done', (d) => d === true)
+    agent.disable()
+    current = undefined
+    await expect(wait).rejects.toThrow('agent interface disabled')
+  })
+
+  test('a throwing predicate rejects the wait — both immediately and later', async () => {
+    tosi({ agentWhenThrow: { v: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+    // throws on the immediate check → rejected promise, not a sync throw
+    await expect(
+      agent.when('agentWhenThrow.v', () => {
+        throw new Error('bad predicate')
+      })
+    ).rejects.toThrow('bad predicate')
+    // throws only once observation delivers the new value
+    const wait = agent.when('agentWhenThrow.v', (v) => {
+      if (v === 1) throw new Error('late bad predicate')
+      return false
+    })
+    agent.write('agentWhenThrow.v', 1)
+    await expect(wait).rejects.toThrow('late bad predicate')
+  })
+})
+
 describe('agent interface — changes (turn-based drain)', () => {
   test('coalesces to final-value-per-path since cursor; cursor advances', async () => {
     tosi({ agentDrain: { a: 0, b: 0 } })

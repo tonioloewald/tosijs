@@ -76,10 +76,11 @@ product and introspection is demoted to the discovery tool (see
 superseding PartsMap). Feeds directly into 2.0&#39;s <code>schematic</code> design rather
 than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
 for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
-phase lands, production surfaces are read/observe/call-only. Also here:
-<code>agent.when(path, predicate)</code> — the episodic agent&#39;s await-a-condition
-primitive (sugar over predicate observers; see
-<a href="/ONE_UI_DESIGN/">The Agent Surface</a>).</li>
+phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>
+— the episodic agent&#39;s await-a-condition primitive — <strong>shipped early</strong>
+(2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
+the <code>changes()</code> drain, predicate errors reject, <code>disable()</code> rejects pending
+waits.</li>
 <li><strong>Phase 3 — the bridge.</strong> File the haltija design issue (detection, MCP
 adapter, DOM fallback); wire the demo to a real agent end-to-end. <strong>Share
 the schematic renderer and its thinking with haltija</strong> (see
@@ -115,11 +116,11 @@ tasks N× more reliably against the map than against pixels&quot; is a claim wit
 number in it.</p>
 <h2>Open questions</h2>
 <ul>
-<li><strong>Naming.</strong> <code>tosiModel</code>, <code>tosiMCP</code>, <code>tosiAgent</code>, <code>tosi.agent</code>? Leaning:
-protocol-neutral core (<code>tosijs/agent</code>, global <code>tosiAgent</code>), &quot;MCP&quot; reserved
-for the adapter that speaks it. The word &quot;agent&quot; says who it&#39;s <em>for</em>;
-&quot;model&quot; undersells (it&#39;s model + wiring + actions); &quot;MCP&quot; over-commits to a
-protocol.</li>
+<li><strong>Naming — SETTLED (2026-08-01): <code>tosiAgent</code>.</strong> Self-describing wins for a
+console-first affordance whose consumers include LLMs; &quot;MCP&quot; stays reserved
+for the adapter that speaks it. <strong><code>pöllö</code></strong> (the owl) is reserved for the
+<strong>schematic viewer</strong> when it becomes a tool — the owl&#39;s-eye view: sees the
+whole territory, in the dark, without rendering it.</li>
 <li><strong>Handler enumeration cost.</strong> Data bindings are enumerable via <code>BOUND_CLASS</code>;
 event wiring is per-element (WeakMap probe during a tree walk on
 <code>describe()</code>). Fine on demand; if it ever needs to be live, the toggle can

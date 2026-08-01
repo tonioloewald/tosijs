@@ -7,6 +7,7 @@ export type {
   AgentInterfaceOptions,
   AgentDescription,
   AgentWiringRecord,
+  AgentLogEntry,
 } from './agent'
 export { bindings } from './bindings'
 export {

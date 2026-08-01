@@ -30,10 +30,11 @@
   superseding PartsMap). Feeds directly into 2.0's `schematic` design rather
   than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
-  phase lands, production surfaces are read/observe/call-only. Also here:
-  `agent.when(path, predicate)` — the episodic agent's await-a-condition
-  primitive (sugar over predicate observers; see
-  [The Agent Surface](/ONE_UI_DESIGN/)).
+  phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`
+  — the episodic agent's await-a-condition primitive — **shipped early**
+  (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
+  the `changes()` drain, predicate errors reject, `disable()` rejects pending
+  waits.
 - **Phase 3 — the bridge.** File the haltija design issue (detection, MCP
   adapter, DOM fallback); wire the demo to a real agent end-to-end. **Share
   the schematic renderer and its thinking with haltija** (see
@@ -72,11 +73,11 @@ number in it.
 
 ## Open questions
 
-- **Naming.** `tosiModel`, `tosiMCP`, `tosiAgent`, `tosi.agent`? Leaning:
-  protocol-neutral core (`tosijs/agent`, global `tosiAgent`), "MCP" reserved
-  for the adapter that speaks it. The word "agent" says who it's *for*;
-  "model" undersells (it's model + wiring + actions); "MCP" over-commits to a
-  protocol.
+- **Naming — SETTLED (2026-08-01): `tosiAgent`.** Self-describing wins for a
+  console-first affordance whose consumers include LLMs; "MCP" stays reserved
+  for the adapter that speaks it. **`pöllö`** (the owl) is reserved for the
+  **schematic viewer** when it becomes a tool — the owl's-eye view: sees the
+  whole territory, in the dark, without rendering it.
 - **Handler enumeration cost.** Data bindings are enumerable via `BOUND_CLASS`;
   event wiring is per-element (WeakMap probe during a tree walk on
   `describe()`). Fine on demand; if it ever needs to be live, the toggle can

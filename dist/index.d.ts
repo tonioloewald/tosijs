@@ -2,7 +2,7 @@ export { bind, on, touchElement } from './bind';
 export { enableAgentInterface, BOUND_TO_DOM, BOUND_TWO_WAY } from './agent';
 export { schematicSVG } from './schematic';
 export type { SchematicOptions } from './schematic';
-export type { AgentInterface, AgentInterfaceOptions, AgentDescription, AgentWiringRecord, } from './agent';
+export type { AgentInterface, AgentInterfaceOptions, AgentDescription, AgentWiringRecord, AgentLogEntry, } from './agent';
 export { bindings } from './bindings';
 export { css, invertLuminance, initVars, vars, varDefault, StyleSheet, onStylesheetChange, getThemePreferences, onThemePreferencesChange, } from './css';
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';

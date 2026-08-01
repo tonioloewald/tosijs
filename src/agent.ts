@@ -18,6 +18,7 @@ assembles the picture on demand.
     agent.observe('app.cart', (path) => { ... }) // push; returns un-observe
     agent.call('app.addItem', 'buy milk')        // invoke an action by path
     agent.changes(cursor)     // turn-based drain: final value per changed path
+    await agent.when('app.order.status', (s) => s === 'confirmed') // await a condition
     agent.log()               // the audit trail
 
 In production, expose only what you declare:
@@ -108,6 +109,13 @@ export interface AgentChange {
   value: any
 }
 
+export interface AgentLogEntry {
+  seq: number
+  path: string
+  /** synthetic audit notes (e.g. when() arming/resolution) — not state touches */
+  note?: string
+}
+
 export interface AgentInterface {
   describe: (options?: { styles?: boolean }) => AgentDescription
   read: (path: string) => any
@@ -115,7 +123,15 @@ export interface AgentInterface {
   observe: (path: string, callback: (path: string) => void) => () => void
   call: (actionPath: string, ...args: any[]) => any
   changes: (since?: number) => { cursor: number; changes: AgentChange[] }
-  log: () => Array<{ seq: number; path: string }>
+  /**
+   * Await a state CONDITION, not a change: resolves (with the satisfying
+   * value) as soon as the value at `path` satisfies `predicate` — immediately
+   * if it already does. The episodic agent's missing middle: name the world
+   * you're waiting for and spend no inference until it arrives. The wait is
+   * audit-logged. No built-in timeout — Promise.race one in if you need it.
+   */
+  when: (path: string, predicate: (value: any) => boolean) => Promise<any>
+  log: () => AgentLogEntry[]
   disable: () => void
 }
 
@@ -204,9 +220,12 @@ export function enableAgentInterface(
   }
 
   // the audit ledger — one global observer; every touch lands here.
-  // log/changes are two consumptions of this one stream.
+  // log/changes are two consumptions of this one stream. Entries with a
+  // `note` are synthetic audit events (when() arming etc.), visible in
+  // log() but skipped by the changes() drain.
   let seq = 0
-  const ledger: Array<{ seq: number; path: string }> = []
+  const ledger: AgentLogEntry[] = []
+  const pendingWhens = new Set<{ reject: (reason: Error) => void }>()
   const ledgerListener: Listener = observe(
     () => true,
     (path: string) => {
@@ -378,6 +397,54 @@ export function enableAgentInterface(
       return fn(...args)
     },
 
+    // await a state condition: the value now if it already satisfies,
+    // otherwise the first settling round where it does
+    when(path: string, predicate: (value: any) => boolean): Promise<any> {
+      assertScope(path)
+      const current = serialize(xin[path])
+      let alreadySatisfied: boolean
+      try {
+        alreadySatisfied = predicate(current)
+      } catch (e) {
+        // predicate errors use one channel: the returned promise
+        return Promise.reject(e)
+      }
+      if (alreadySatisfied) {
+        ledger.push({ seq: ++seq, path, note: 'when: already satisfied' })
+        return Promise.resolve(current)
+      }
+      ledger.push({
+        seq: ++seq,
+        path,
+        note: `when: armed ${String(predicate).slice(0, 80)}`,
+      })
+      return new Promise((resolve, reject) => {
+        const pending = { reject }
+        pendingWhens.add(pending)
+        const settle = (fn: () => void) => {
+          pendingWhens.delete(pending)
+          subscriptions.delete(listener)
+          unobserve(listener)
+          fn()
+        }
+        const listener = observe(path, () => {
+          const value = serialize(xin[path])
+          let satisfied: boolean
+          try {
+            satisfied = predicate(value)
+          } catch (e) {
+            settle(() => reject(e as Error))
+            return
+          }
+          if (satisfied) {
+            ledger.push({ seq: ++seq, path, note: 'when: resolved' })
+            settle(() => resolve(value))
+          }
+        })
+        subscriptions.add(listener)
+      })
+    },
+
     // turn-based drain: everything since the cursor, coalesced to one entry
     // per path (final value read at drain time — updates()' settling
     // semantics, extended across agent turns)
@@ -387,6 +454,7 @@ export function enableAgentInterface(
       for (let i = ledger.length - 1; i >= 0; i--) {
         const entry = ledger[i]
         if (entry.seq <= since) break
+        if (entry.note != null) continue // audit notes are not state changes
         if (seenPaths.has(entry.path)) continue
         seenPaths.add(entry.path)
         coalesced.unshift({ path: entry.path, value: read(entry.path) })
@@ -394,7 +462,7 @@ export function enableAgentInterface(
       return { cursor: seq, changes: coalesced }
     },
 
-    log(): Array<{ seq: number; path: string }> {
+    log(): AgentLogEntry[] {
       return ledger.slice()
     },
 
@@ -402,6 +470,10 @@ export function enableAgentInterface(
       unobserve(ledgerListener)
       for (const listener of subscriptions) unobserve(listener)
       subscriptions.clear()
+      for (const pending of pendingWhens) {
+        pending.reject(new Error('agent interface disabled'))
+      }
+      pendingWhens.clear()
       if (activeGlobalName != null) {
         delete (globalThis as any)[activeGlobalName]
         activeGlobalName = undefined
