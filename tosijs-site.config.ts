@@ -76,10 +76,6 @@ export default defineSiteConfig({
     url: 'https://tosijs.dev.tosijs.net',
     tunnel: {
       remotePort: 9789,
-      // matches the server's PORT+1 self-allocation; explicit because the
-      // tunnel BIN's fallback is a fixed 8788 (tosijs-ui#39) — they only
-      // agree when PORT is 8787
-      localPort: 8019,
       url: 'https://tosijs.edit.dev.tosijs.net',
     },
   },
