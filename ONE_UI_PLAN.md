@@ -40,10 +40,15 @@
   quartet + one named tool per action; `tosi_write` dev-gated per Trust);
   `webmcpAdapter()` feature-detects the host and tolerates both registration
   shapes (`registerTool` / `provideContext`) while the spec churns — live
-  proof in [The Agent Surface](/ONE_UI_DESIGN/). Remaining: wire to a real
-  WebMCP host end-to-end (Chrome Canary) and file the haltija design issue
-  (detection, MCP adapter, DOM fallback). The schematic renderer is already
-  shared (haltija#12).
+  proof in [The Agent Surface](/ONE_UI_DESIGN/). **The real-agent e2e has
+  RUN** (2026-08-02): haltija shipped `hj map` with a native `tosi-agent`
+  source that returns `describe()` **verbatim** (its own decision — reshaping
+  would be the lossy reconstruction the tier exists to avoid), and a live
+  session drove this very page through the surface — `call('oneUI.addItem')`
+  through a private headless haltija, observers fired, the human-facing list
+  rendered the agent's item, the audit log recorded the act. No vision, no
+  selectors, no synthesized input. Remaining: the WebMCP-host registration
+  e2e (Chrome Canary) and the bridge-convergence answers on haltija#16.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
   sandboxing for agent-submitted logic; lukko alignment.
 - **Phase 5 — headless embodiment.** The DOM-free core (tosijs#18) running an
@@ -73,6 +78,13 @@ ending at "the remaining questions are empirical" — this is the lane where
 they get answered. It doubles as the marketing evidence: "agents complete
 tasks N× more reliably against the map than against pixels" is a claim with a
 number in it.
+
+**First number (haltija, 2026-08-02):** on a trivial page JSON wins outright
+(an image's fixed cost dominates); on a **60-control app the JSON map is
+~1,567 tokens — right at the crossover with an image's ~1,000–1,600 vision
+tokens**. Above that density the rasterized schematic wins, exactly the
+DeepSeek-OCR curve. So the encoding choice is itself density-dependent, which
+the eval lane should treat as a variable, not a constant.
 
 ## Open questions
 

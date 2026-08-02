@@ -80,6 +80,11 @@ export default defineSiteConfig({
     },
   },
 
+  // Inject the haltija dev-channel so a coding agent can drive the live dev
+  // page via `hj` (dev-only, serve-time inject, never in built output) —
+  // e.g. `hj map` with source tosi-agent against the agent-surface pages
+  haltijaDev: true,
+
   host: 'github-pages',
   // honor PORT so the Playwright e2e lane can run its own dev server on a
   // dedicated port (see playwright.config.ts webServer) without colliding

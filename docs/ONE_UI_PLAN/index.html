@@ -86,10 +86,15 @@ waits.</li>
 quartet + one named tool per action; <code>tosi_write</code> dev-gated per Trust);
 <code>webmcpAdapter()</code> feature-detects the host and tolerates both registration
 shapes (<code>registerTool</code> / <code>provideContext</code>) while the spec churns — live
-proof in <a href="/ONE_UI_DESIGN/">The Agent Surface</a>. Remaining: wire to a real
-WebMCP host end-to-end (Chrome Canary) and file the haltija design issue
-(detection, MCP adapter, DOM fallback). The schematic renderer is already
-shared (haltija#12).</li>
+proof in <a href="/ONE_UI_DESIGN/">The Agent Surface</a>. <strong>The real-agent e2e has
+RUN</strong> (2026-08-02): haltija shipped <code>hj map</code> with a native <code>tosi-agent</code>
+source that returns <code>describe()</code> <strong>verbatim</strong> (its own decision — reshaping
+would be the lossy reconstruction the tier exists to avoid), and a live
+session drove this very page through the surface — <code>call(&#39;oneUI.addItem&#39;)</code>
+through a private headless haltija, observers fired, the human-facing list
+rendered the agent&#39;s item, the audit log recorded the act. No vision, no
+selectors, no synthesized input. Remaining: the WebMCP-host registration
+e2e (Chrome Canary) and the bridge-convergence answers on haltija#16.</li>
 <li><strong>Phase 4 — distance.</strong> The <code>SyncTransport</code> MCP peer; AJS capability
 sandboxing for agent-submitted logic; lukko alignment.</li>
 <li><strong>Phase 5 — headless embodiment.</strong> The DOM-free core (tosijs#18) running an
@@ -117,6 +122,12 @@ ending at &quot;the remaining questions are empirical&quot; — this is the lane
 they get answered. It doubles as the marketing evidence: &quot;agents complete
 tasks N× more reliably against the map than against pixels&quot; is a claim with a
 number in it.</p>
+<p><strong>First number (haltija, 2026-08-02):</strong> on a trivial page JSON wins outright
+(an image&#39;s fixed cost dominates); on a <strong>60-control app the JSON map is
+~1,567 tokens — right at the crossover with an image&#39;s ~1,000–1,600 vision
+tokens</strong>. Above that density the rasterized schematic wins, exactly the
+DeepSeek-OCR curve. So the encoding choice is itself density-dependent, which
+the eval lane should treat as a variable, not a constant.</p>
 <h2>Open questions</h2>
 <ul>
 <li><strong>Naming — SETTLED (2026-08-01): <code>tosiAgent</code>.</strong> Self-describing wins for a
