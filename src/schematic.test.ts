@@ -47,6 +47,13 @@ describe('schematicSVG — pure, DOM-free rendering of the map', () => {
     expect(svg).toContain('filter stock…')
   })
 
+  test('root svg carries explicit width/height (intrinsic size; Firefox canvas-draw requires it)', () => {
+    const svg = schematicSVG(description)
+    // bbox: x 10-260 (+8 pad both sides), y 20-68 (+8 both sides)
+    expect(svg).toContain('width="266"')
+    expect(svg).toContain('height="64"')
+  })
+
   test('zero-size records (hidden elements) are not drawn', () => {
     const svg = schematicSVG(description)
     expect(svg).not.toContain('invisible')

@@ -225,7 +225,14 @@ Here it is live — the same harvest UI as above, then **schematic()** draws the
 whole page's map; click any rectangle for its JSON:
 
 ```js
-import { elements, svgElements, tosi, enableAgentInterface } from 'tosijs'
+import {
+  elements,
+  svgElements,
+  tosi,
+  enableAgentInterface,
+  schematicSVG,
+  rasterizeSVG,
+} from 'tosijs'
 
 const { schem } = tosi({
   schem: {
@@ -302,8 +309,40 @@ preview.append(
       )
     },
   }),
+  ' ',
+  // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
+  button('png()', {
+    async onClick() {
+      const svgString = schematicSVG(agent.describe({ styles: true }))
+      const blob = await rasterizeSVG(svgString, { scale: 2 })
+      drawing.textContent = ''
+      drawing.append(
+        elements.img({
+          src: URL.createObjectURL(blob),
+          alt: 'rasterized schematic',
+          style: { maxWidth: '100%' },
+        })
+      )
+    },
+  }),
   drawing
 )
+```
+
+```test
+import { enableAgentInterface, schematicSVG, rasterizeSVG } from 'tosijs'
+
+test('the full pipeline: map -> SVG string -> PNG blob (real browsers only)', async () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const svg = schematicSVG(agent.describe({ styles: true }))
+  expect(svg.includes('<svg xmlns=')).toBe(true)
+  expect(svg.includes('data-record=')).toBe(true)
+  // rasterization needs a real rendering engine — the exact capability a
+  // unit DOM cannot fake, which is why this lives in the browser tier
+  const blob = await rasterizeSVG(svg, { scale: 2 })
+  expect(blob.type).toBe('image/png')
+  expect(blob.size > 0).toBe(true)
+})
 ```
 
 **SVG vs. bitmap, per consumer.** For an LLM, SVG *source* is the worst

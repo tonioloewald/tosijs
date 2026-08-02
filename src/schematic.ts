@@ -65,10 +65,13 @@ export const schematicSVG = (
   const maxX = Math.max(...boxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
   const maxY = Math.max(...boxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
 
+  // explicit width/height (not just viewBox): gives the svg an intrinsic
+  // size as a document/img, and Firefox refuses to draw an svg image onto a
+  // canvas without them — which rasterizeSVG depends on
   const parts: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${
       maxX - minX
-    } ${maxY - minY}">`,
+    } ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
   ]
   for (const w of boxes) {
     const index = description.wiring.indexOf(w)
@@ -96,4 +99,58 @@ export const schematicSVG = (
   }
   parts.push('</svg>')
   return parts.join('')
+}
+
+/**
+ * Rasterize an SVG string to a PNG Blob — the vision-encoder form of the map
+ * (rasterize at 2× so labels land large enough to OCR near-losslessly).
+ *
+ * Browser-only by design: it uses Image + canvas, which keeps tosijs at zero
+ * dependencies. Under bun/node, use `@resvg/resvg-js` directly instead:
+ *
+ *     const { Resvg } = await import('@resvg/resvg-js')
+ *     const png = new Resvg(svg, { fitTo: { mode: 'zoom', value: 2 } })
+ *       .render().asPng()
+ */
+export const rasterizeSVG = (
+  svg: string,
+  options: { scale?: number } = {}
+): Promise<Blob> => {
+  const { scale = 2 } = options
+  if (typeof document === 'undefined' || typeof Image === 'undefined') {
+    return Promise.reject(
+      new Error(
+        'rasterizeSVG needs a browser (Image + canvas); under bun/node use @resvg/resvg-js — see the doc comment'
+      )
+    )
+  }
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
+  const img = new Image()
+  return new Promise<Blob>((resolve, reject) => {
+    img.onload = () => {
+      try {
+        const width = (img.naturalWidth || 800) * scale
+        const height = (img.naturalHeight || 600) * scale
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx == null) throw new Error('no 2d context')
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          if (blob != null) resolve(blob)
+          else reject(new Error('canvas.toBlob produced no data'))
+        }, 'image/png')
+      } catch (e) {
+        reject(e as Error)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('SVG failed to load as an image'))
+    }
+    img.src = url
+  })
 }

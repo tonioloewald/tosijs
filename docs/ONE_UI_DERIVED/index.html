@@ -323,7 +323,14 @@ can end with the reveal.</li>
 </ul>
 <p>Here it is live — the same harvest UI as above, then <strong>schematic()</strong> draws the
 whole page&#39;s map; click any rectangle for its JSON:</p>
-<pre><code class="language-js">import { elements, svgElements, tosi, enableAgentInterface } from &#39;tosijs&#39;
+<pre><code class="language-js">import {
+  elements,
+  svgElements,
+  tosi,
+  enableAgentInterface,
+  schematicSVG,
+  rasterizeSVG,
+} from &#39;tosijs&#39;
 
 const { schem } = tosi({
   schem: {
@@ -400,8 +407,38 @@ preview.append(
       )
     },
   }),
+  &#39; &#39;,
+  // the vision-encoder form: shipped helpers, map -&gt; SVG string -&gt; PNG
+  button(&#39;png()&#39;, {
+    async onClick() {
+      const svgString = schematicSVG(agent.describe({ styles: true }))
+      const blob = await rasterizeSVG(svgString, { scale: 2 })
+      drawing.textContent = &#39;&#39;
+      drawing.append(
+        elements.img({
+          src: URL.createObjectURL(blob),
+          alt: &#39;rasterized schematic&#39;,
+          style: { maxWidth: &#39;100%&#39; },
+        })
+      )
+    },
+  }),
   drawing
 )
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;
+
+test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers only)&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const svg = schematicSVG(agent.describe({ styles: true }))
+  expect(svg.includes(&#39;&lt;svg xmlns=&#39;)).toBe(true)
+  expect(svg.includes(&#39;data-record=&#39;)).toBe(true)
+  // rasterization needs a real rendering engine — the exact capability a
+  // unit DOM cannot fake, which is why this lives in the browser tier
+  const blob = await rasterizeSVG(svg, { scale: 2 })
+  expect(blob.type).toBe(&#39;image/png&#39;)
+  expect(blob.size &gt; 0).toBe(true)
+})
 </code></pre>
 <p><strong>SVG vs. bitmap, per consumer.</strong> For an LLM, SVG <em>source</em> is the worst
 encoding of the three: same information as the JSON plus 2–4× markup overhead,
