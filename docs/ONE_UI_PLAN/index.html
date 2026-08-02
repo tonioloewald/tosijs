@@ -58,15 +58,15 @@ the proofs live as live examples in the <a href="/ONE_USER_INTERFACE/">intro</a>
 (two actors), <a href="/ONE_UI_DERIVED/">The Derived Surface</a> (describe()), and
 <a href="/ONE_UI_HEADLESS/">Headless Embodiment</a> (elementsSSR) — the manifesto
 demonstrating its own thesis inline.</li>
-<li><strong>Phase 1 — <code>tosijs/agent</code> (introspection).</strong> Export <code>getElementBindings</code>;
-build <code>describe()</code>/<code>read</code>/<code>write</code>/<code>observe</code>/<code>call</code>/<code>log</code>/<code>changes</code> over
-existing primitives as an optional subpath (tree-shaken away when unused).
-The toggle and the global. Ship EXPERIMENTAL, like <code>tosijs/debug</code>. Scope
-note: <code>describe()</code> is not a wiring dump — it is the <strong>joined, typed,
-directional affordance graph</strong> from <a href="/ONE_UI_DERIVED/">The Derived Surface</a>
-(labels ×
-paths × actions, writability from binding direction, preconditions from
-enabled-bindings, item schemas from list templates).</li>
+<li><strong>Phase 1 — the surface (introspection). Built</strong> — <code>enableAgentInterface()</code>
+with <code>describe</code>/<code>read</code>/<code>write</code>/<code>observe</code>/<code>call</code>/<code>changes</code>/<code>when</code>/<code>log</code>,
+the <code>tosiAgent</code> global, manifest scoping (declared actions are <em>callable,
+not writable</em>), flat geometric records with arrow provenance, plus the
+downstream pure functions (<code>schematicSVG</code>/<code>rasterizeSVG</code>, <code>webmcpTools</code>).
+Publishing shape TBD: likely a tree-shaken <code>tosijs/agent</code> subpath, shipped
+EXPERIMENTAL like <code>tosijs/debug</code>. Still open from the original scope:
+preconditions from enabled-bindings and item schemas from list templates
+(both land naturally with Phase 2&#39;s contracts).</li>
 <li><strong>Phase 2 — manifest + contracts.</strong> The <code>expose</code> allowlist; tosijs-schema
 integration for shapes/constraints; <code>describe()</code> grows &quot;what&#39;s legal.&quot; This
 is where the hierarchy inverts for real: the declared surface becomes the

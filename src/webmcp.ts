@@ -100,7 +100,7 @@ export const webmcpTools = (
         properties: { path: { type: 'string' } },
         required: ['path'],
       },
-      execute: (input) => agent.read(String(input.path)),
+      execute: (input) => agent.read(String(input?.path)),
     },
     {
       name: toolName(prefix, 'changes'),
@@ -142,8 +142,8 @@ export const webmcpTools = (
         required: ['path'],
       },
       execute: (input) => {
-        agent.write(String(input.path), input.value)
-        return { written: input.path }
+        agent.write(String(input?.path), input?.value)
+        return { written: input?.path }
       },
     })
   }
@@ -176,6 +176,9 @@ export const webmcpAdapter = (
       }
     }
   } else if (typeof mc.provideContext === 'function') {
+    // NOTE: provideContext replaces the page's whole tool context — if the
+    // app also registers its own tools this way, coordinate registration in
+    // one place (or use a registerTool-shaped host)
     mc.provideContext({ tools })
     undo.push(() => mc.provideContext({ tools: [] }))
   } else {

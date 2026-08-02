@@ -8,7 +8,8 @@
 Nothing is exposed by default. The programmer flips a switch at launch:
 
 ```
-import { enableAgentInterface } from 'tosijs/agent'
+import { enableAgentInterface } from 'tosijs'
+// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
 
 const agent = enableAgentInterface({
   // DEV: expose everything tosijs already knows (introspection mode)

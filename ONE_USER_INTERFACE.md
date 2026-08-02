@@ -3,8 +3,12 @@
 
 *A plan and a manifesto: one source of truth for state, UI — and AI.*
 
-> **Status: design document.** Nothing here is shipped API. Names are provisional
-> (see [Plan & Prior Art](/ONE_UI_PLAN/)). This is the map we intend to build against.
+> **Status: working prototype on this branch.** The surface
+> (`enableAgentInterface` → `tosiAgent`), the schematic pipeline
+> (`schematicSVG` / `rasterizeSVG`), and the WebMCP adapter (`webmcpTools` /
+> `webmcpAdapter`) are real, tested code here — every proof on these pages
+> runs on them. Nothing is *published* yet; everything is EXPERIMENTAL and
+> shapes may still move (see [Plan & Prior Art](/ONE_UI_PLAN/)).
 
 ## The thesis
 

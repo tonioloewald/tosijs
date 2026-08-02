@@ -51,7 +51,8 @@
 <p><em>Part of <a href="/ONE_USER_INTERFACE/">One User Interface</a> — the design of the surface itself.</em></p>
 <h2>The design: a launch toggle, not a framework</h2>
 <p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
-<pre><code>import { enableAgentInterface } from &#39;tosijs/agent&#39;
+<pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
+// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
 
 const agent = enableAgentInterface({
   // DEV: expose everything tosijs already knows (introspection mode)

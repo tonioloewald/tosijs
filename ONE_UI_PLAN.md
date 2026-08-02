@@ -12,15 +12,15 @@
   (two actors), [The Derived Surface](/ONE_UI_DERIVED/) (describe()), and
   [Headless Embodiment](/ONE_UI_HEADLESS/) (elementsSSR) — the manifesto
   demonstrating its own thesis inline.
-- **Phase 1 — `tosijs/agent` (introspection).** Export `getElementBindings`;
-  build `describe()`/`read`/`write`/`observe`/`call`/`log`/`changes` over
-  existing primitives as an optional subpath (tree-shaken away when unused).
-  The toggle and the global. Ship EXPERIMENTAL, like `tosijs/debug`. Scope
-  note: `describe()` is not a wiring dump — it is the **joined, typed,
-  directional affordance graph** from [The Derived Surface](/ONE_UI_DERIVED/)
-  (labels ×
-  paths × actions, writability from binding direction, preconditions from
-  enabled-bindings, item schemas from list templates).
+- **Phase 1 — the surface (introspection). Built** — `enableAgentInterface()`
+  with `describe`/`read`/`write`/`observe`/`call`/`changes`/`when`/`log`,
+  the `tosiAgent` global, manifest scoping (declared actions are *callable,
+  not writable*), flat geometric records with arrow provenance, plus the
+  downstream pure functions (`schematicSVG`/`rasterizeSVG`, `webmcpTools`).
+  Publishing shape TBD: likely a tree-shaken `tosijs/agent` subpath, shipped
+  EXPERIMENTAL like `tosijs/debug`. Still open from the original scope:
+  preconditions from enabled-bindings and item schemas from list templates
+  (both land naturally with Phase 2's contracts).
 - **Phase 2 — manifest + contracts.** The `expose` allowlist; tosijs-schema
   integration for shapes/constraints; `describe()` grows "what's legal." This
   is where the hierarchy inverts for real: the declared surface becomes the

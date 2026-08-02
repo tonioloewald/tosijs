@@ -221,6 +221,38 @@ describe('agent interface — manifest mode (scoping)', () => {
     expect(() => agent.read('agentPublicity')).toThrow('not exposed')
   })
 
+  test('a declared action is callable, NOT writable — declaring it must not let an agent replace app code', () => {
+    tosi({
+      agentActWrite: {
+        data: { x: 1 },
+        checkout() {
+          return 'ok'
+        },
+      },
+    })
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['agentActWrite.data'],
+        actions: ['agentActWrite.checkout'],
+      },
+    }))
+    expect(agent.call('agentActWrite.checkout')).toBe('ok')
+    // the hole this pins shut: action-allowlisted paths passed the same
+    // scope check as reads, so write() could overwrite the function itself
+    expect(() =>
+      agent.write('agentActWrite.checkout', 'not code anymore')
+    ).toThrow('callable, not writable')
+    expect(agent.call('agentActWrite.checkout')).toBe('ok') // still the app's code
+    // and children of an action path are not a writable side door
+    expect(() => agent.write('agentActWrite.checkout.evil', 1)).toThrow(
+      'callable, not writable'
+    )
+    // root-declared paths still write normally
+    agent.write('agentActWrite.data.x', 2)
+    expect(agent.read('agentActWrite.data.x')).toBe(2)
+  })
+
   test('undeclared actions cannot be called; declared ones can', () => {
     tosi({
       agentActs: {

@@ -211,6 +211,12 @@ export function enableAgentInterface(
     (roots ?? []).some((root) => underRoot(path, root)) ||
     (exposedActions ?? []).some((action) => underRoot(path, action))
 
+  // writes are gated on declared ROOTS only: a declared action is callable,
+  // not writable — otherwise `actions: ['app.checkout']` would let an agent
+  // REPLACE app.checkout (a function) with agent-supplied data
+  const writable = (path: string): boolean =>
+    !manifestMode || (roots ?? []).some((root) => underRoot(path, root))
+
   const assertScope = (path: string): void => {
     if (!inScope(path)) {
       throw new Error(
@@ -371,6 +377,11 @@ export function enableAgentInterface(
 
     write(path: string, value: any): void {
       assertScope(path)
+      if (!writable(path)) {
+        throw new Error(
+          `agent interface: "${path}" is callable, not writable (declare it under roots to allow writes)`
+        )
+      }
       xin[path] = value
     },
 
