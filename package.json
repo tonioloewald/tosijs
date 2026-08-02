@@ -62,7 +62,7 @@
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
-    "tosijs-ui": "1.9.2",
+    "tosijs-ui": "1.9.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
   },
