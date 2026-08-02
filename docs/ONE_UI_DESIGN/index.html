@@ -97,6 +97,73 @@ static. The tokens are chosen to be unlikely in real data and are exported
 doesn&#39;t need to forge events. It needs <code>write(&#39;app.filter&#39;, &#39;milk&#39;)</code> and
 <code>call(&#39;app.addItem&#39;, &#39;buy milk&#39;)</code> — and the human watching the screen sees the
 UI respond, because there is only one interface.</p>
+<h3>Proof: the tools write themselves (live)</h3>
+<p>WebMCP is the standard slot for exposing <strong>tools</strong> to browser agents — and
+every existing integration authors those tools by hand. Below, a tiny app is
+built the ordinary way, and <code>webmcpTools(agent)</code> <strong>generates</strong> its WebMCP tool
+set from the surface: the core quartet plus one <em>named</em> tool per action the
+registry already holds. If this browser has a WebMCP host
+(<code>document.modelContext</code> / <code>navigator.modelContext</code> — Chrome Canary), the
+tools are registered live; otherwise you see exactly what would register.
+Note <code>tosi_write</code> appears because this page runs in introspection (dev) mode —
+in manifest mode it&#39;s absent unless explicitly allowed, per
+<a href="/ONE_UI_TRUST/">Trust</a>.</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
+
+const { mcpDemo } = tosi({
+  mcpDemo: {
+    notes: [&#39;built the ordinary way&#39;],
+    addNote(text) {
+      mcpDemo.notes.push(String(text ?? `note ${mcpDemo.notes.length + 1}`))
+    },
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, h4, ul, button, pre } = elements
+
+// the app: a list and a button — no agent- or MCP-specific code anywhere
+preview.append(
+  div(
+    h4(&#39;An ordinary little app&#39;),
+    ul(...mcpDemo.notes.listBinding(({ li }, note) =&gt; li(note))),
+    button(&#39;add note&#39;, { onClick: &#39;mcpDemo.addNote&#39; })
+  )
+)
+
+// the tool set derives itself; register it if a WebMCP host exists
+const registration = webmcpAdapter(agent)
+const out = pre({ style: { maxHeight: &#39;14em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+out.append(
+  registration
+    ? `WebMCP host detected — ${registration.tools.length} tools registered live:\n\n`
+    : &#39;No WebMCP host in this browser — the generated set that WOULD register\n(derived from the page, authored by nobody):\n\n&#39;
+)
+for (const tool of webmcpTools(agent)) {
+  out.append(`${tool.name}\n    ${tool.description.slice(0, 72)}…\n`)
+}
+preview.append(out)
+</code></pre>
+<pre><code class="language-test">import { tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
+
+test(&#39;the WebMCP tool set derives from the page, and registration round-trips&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  tosi({ mcpFence: { poke() {} } })
+  const names = webmcpTools(agent).map((t) =&gt; t.name)
+  expect(names.includes(&#39;tosi_describe&#39;)).toBe(true)
+  expect(names.includes(&#39;tosi_act_mcpFence_poke&#39;)).toBe(true) // derived, not authored
+  // register against a mock host: every tool lands, unregister reverses
+  const registered = []
+  const mcp = webmcpAdapter(agent, {
+    modelContext: { registerTool: (t) =&gt; void registered.push(t.name) },
+  })
+  expect(mcp.tools.length === registered.length).toBe(true)
+})
+</code></pre>
+<p>The punchline is the table from <a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a> made
+runnable: Angular&#39;s Signal-Forms-to-tools is the closest anyone else gets, and
+it covers forms. Here <em>every action and every affordance</em> is a tool candidate,
+because the framework already holds the wiring — tosijs can be the first
+framework where the WebMCP tools write themselves.</p>
 <h3>Observation: push and drain</h3>
 <p>The subscription channel is the delta nobody else can even feed (see
 <a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a>:
@@ -298,6 +365,7 @@ a component <em>says so in a checkable form</em>.</p>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>

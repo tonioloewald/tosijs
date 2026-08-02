@@ -63,6 +63,80 @@ doesn't need to forge events. It needs `write('app.filter', 'milk')` and
 `call('app.addItem', 'buy milk')` — and the human watching the screen sees the
 UI respond, because there is only one interface.
 
+### Proof: the tools write themselves (live)
+
+WebMCP is the standard slot for exposing **tools** to browser agents — and
+every existing integration authors those tools by hand. Below, a tiny app is
+built the ordinary way, and `webmcpTools(agent)` **generates** its WebMCP tool
+set from the surface: the core quartet plus one *named* tool per action the
+registry already holds. If this browser has a WebMCP host
+(`document.modelContext` / `navigator.modelContext` — Chrome Canary), the
+tools are registered live; otherwise you see exactly what would register.
+Note `tosi_write` appears because this page runs in introspection (dev) mode —
+in manifest mode it's absent unless explicitly allowed, per
+[Trust](/ONE_UI_TRUST/).
+
+```js
+import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from 'tosijs'
+
+const { mcpDemo } = tosi({
+  mcpDemo: {
+    notes: ['built the ordinary way'],
+    addNote(text) {
+      mcpDemo.notes.push(String(text ?? `note ${mcpDemo.notes.length + 1}`))
+    },
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, h4, ul, button, pre } = elements
+
+// the app: a list and a button — no agent- or MCP-specific code anywhere
+preview.append(
+  div(
+    h4('An ordinary little app'),
+    ul(...mcpDemo.notes.listBinding(({ li }, note) => li(note))),
+    button('add note', { onClick: 'mcpDemo.addNote' })
+  )
+)
+
+// the tool set derives itself; register it if a WebMCP host exists
+const registration = webmcpAdapter(agent)
+const out = pre({ style: { maxHeight: '14em', overflow: 'auto', margin: 0 } })
+out.append(
+  registration
+    ? `WebMCP host detected — ${registration.tools.length} tools registered live:\n\n`
+    : 'No WebMCP host in this browser — the generated set that WOULD register\n(derived from the page, authored by nobody):\n\n'
+)
+for (const tool of webmcpTools(agent)) {
+  out.append(`${tool.name}\n    ${tool.description.slice(0, 72)}…\n`)
+}
+preview.append(out)
+```
+
+```test
+import { tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from 'tosijs'
+
+test('the WebMCP tool set derives from the page, and registration round-trips', async () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  tosi({ mcpFence: { poke() {} } })
+  const names = webmcpTools(agent).map((t) => t.name)
+  expect(names.includes('tosi_describe')).toBe(true)
+  expect(names.includes('tosi_act_mcpFence_poke')).toBe(true) // derived, not authored
+  // register against a mock host: every tool lands, unregister reverses
+  const registered = []
+  const mcp = webmcpAdapter(agent, {
+    modelContext: { registerTool: (t) => void registered.push(t.name) },
+  })
+  expect(mcp.tools.length === registered.length).toBe(true)
+})
+```
+
+The punchline is the table from [Plan & Prior Art](/ONE_UI_PLAN/) made
+runnable: Angular's Signal-Forms-to-tools is the closest anyone else gets, and
+it covers forms. Here *every action and every affordance* is a tool candidate,
+because the framework already holds the wiring — tosijs can be the first
+framework where the WebMCP tools write themselves.
+
 ### Observation: push and drain
 
 The subscription channel is the delta nobody else can even feed (see

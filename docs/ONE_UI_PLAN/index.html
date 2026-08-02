@@ -81,12 +81,15 @@ phase lands, production surfaces are read/observe/call-only. <code>agent.when(pa
 (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
 the <code>changes()</code> drain, predicate errors reject, <code>disable()</code> rejects pending
 waits.</li>
-<li><strong>Phase 3 — the bridge.</strong> File the haltija design issue (detection, MCP
-adapter, DOM fallback); wire the demo to a real agent end-to-end. <strong>Share
-the schematic renderer and its thinking with haltija</strong> (see
-<a href="/ONE_UI_DERIVED/">The Derived Surface</a>) — a driver that can draw the map of
-any page it&#39;s driving gets a human-checkable map view and a vision-model
-overview; it stands alone as a proposal without exposing this plan.</li>
+<li><strong>Phase 3 — the bridge.</strong> <strong>WebMCP adapter prototype shipped</strong> (2026-08-02):
+<code>webmcpTools(agent)</code> generates the tool set pure from <code>describe()</code> (core
+quartet + one named tool per action; <code>tosi_write</code> dev-gated per Trust);
+<code>webmcpAdapter()</code> feature-detects the host and tolerates both registration
+shapes (<code>registerTool</code> / <code>provideContext</code>) while the spec churns — live
+proof in <a href="/ONE_UI_DESIGN/">The Agent Surface</a>. Remaining: wire to a real
+WebMCP host end-to-end (Chrome Canary) and file the haltija design issue
+(detection, MCP adapter, DOM fallback). The schematic renderer is already
+shared (haltija#12).</li>
 <li><strong>Phase 4 — distance.</strong> The <code>SyncTransport</code> MCP peer; AJS capability
 sandboxing for agent-submitted logic; lukko alignment.</li>
 <li><strong>Phase 5 — headless embodiment.</strong> The DOM-free core (tosijs#18) running an
@@ -247,6 +250,7 @@ unclaimed for long.</p>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>

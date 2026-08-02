@@ -29,27 +29,84 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
-  <title>hotReload — tosijs</title>
-  <meta name="description" content="hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads." />
-  <link rel="canonical" href="https://tosijs.net/hot-reload/" />
+  <title>webmcp (EXPERIMENTAL) — tosijs</title>
+  <meta name="description" content="EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records." />
+  <link rel="canonical" href="https://tosijs.net/webmcp/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
-  <meta property="og:title" content="hotReload — tosijs" />
-  <meta property="og:description" content="hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads." />
-  <meta property="og:url" content="https://tosijs.net/hot-reload/" />
+  <meta property="og:title" content="webmcp (EXPERIMENTAL) — tosijs" />
+  <meta property="og:description" content="EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records." />
+  <meta property="og:url" content="https://tosijs.net/webmcp/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"hotReload","description":"hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads.","url":"https://tosijs.net/hot-reload/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"webmcp (EXPERIMENTAL)","description":"EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records.","url":"https://tosijs.net/webmcp/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
-<h1>hotReload</h1>
-<p><code>hotReload()</code> persists any root-level paths in <code>xin</code> that its test function evaluates as true
-to <code>localStorage</code>.</p>
-<pre><code>hotReload(test: PathTestFunction = () =&gt; true): void
+<h1>webmcp (EXPERIMENTAL)</h1>
+<p>The WebMCP standard (<code>navigator.modelContext</code>, migrating to <code>document</code>) lets a
+page expose typed, callable <strong>tools</strong> to browser agents — but every existing
+integration hand-writes those tools. tosijs doesn&#39;t have to: the agent surface
+already knows the app&#39;s state roots, wiring, and actions, so <strong>the tool set is
+generated, not authored</strong>.</p>
+<pre><code>import { enableAgentInterface, webmcpAdapter } from &#39;tosijs&#39;
+
+const agent = enableAgentInterface()
+const mcp = webmcpAdapter(agent) // detect, generate, register
+// …
+mcp?.unregister()
 </code></pre>
+<p>Two layers, split like <code>schematicSVG</code>:</p>
+<ul>
+<li><strong><code>webmcpTools(agent)</code></strong> — pure: returns the tool definitions
+(<code>{ name, description, inputSchema, execute }</code>) derived from <code>describe()</code>.
+Test it, print it, hand it to any MCP-shaped host — no browser API needed.</li>
+<li><strong><code>webmcpAdapter(agent, options)</code></strong> — feature-detects the runtime
+(<code>document.modelContext</code> first, then <code>navigator.modelContext</code>, or an
+injected <code>options.modelContext</code>), registers the tools through whichever
+registration shape the host offers (<code>registerTool</code> per tool, or
+<code>provideContext({ tools })</code> as a batch), and returns <code>{ tools, unregister }</code>
+— or <code>undefined</code> when no host API exists (callers feature-detect by result).</li>
+</ul>
+<p>The generated set:</p>
+<table>
+<thead>
+<tr>
+<th>tool</th>
+<th>does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tosi_describe</code></td>
+<td>the live affordance map — start here</td>
+</tr>
+<tr>
+<td><code>tosi_read</code></td>
+<td>serializable value at a path</td>
+</tr>
+<tr>
+<td><code>tosi_changes</code></td>
+<td>turn drain: final-value-per-path since your cursor</td>
+</tr>
+<tr>
+<td><code>tosi_act_&lt;path&gt;</code></td>
+<td>one <strong>named</strong> tool per discovered/declared action</td>
+</tr>
+<tr>
+<td><code>tosi_write</code></td>
+<td>direct state writes — <strong>dev-gated</strong> (see below)</td>
+</tr>
+</tbody></table>
+<p><code>tosi_write</code> registers only in introspection mode (or with an explicit
+<code>allowWrites: true</code>): production surfaces are read/observe/call-only until
+state-level contracts land — an unvalidated write tool is an RPC endpoint
+with good documentation.</p>
+<blockquote>
+<p><strong>EXPERIMENTAL.</strong> The WebMCP spec is churning; the adapter is deliberately
+tolerant of both registration shapes and takes an injected host for tests.</p>
+</blockquote>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
@@ -86,13 +143,13 @@ to <code>localStorage</code>.</p>
     <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
-      <li><a class="doc-link current" href="../hot-reload/" aria-current="page">hotReload</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
-      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link current" href="../webmcp/" aria-current="page">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>

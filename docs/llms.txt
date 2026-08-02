@@ -89,3 +89,5 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   Form validation for tosijs form-associated custom elements via ElementInternals: validity, validation messages, and constraint helpers.
 - https://tosijs.net/component/ — Web-Components
   The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association.
+- https://tosijs.net/webmcp/ — webmcp (EXPERIMENTAL)
+  EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records.

@@ -35,12 +35,15 @@
   (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
   the `changes()` drain, predicate errors reject, `disable()` rejects pending
   waits.
-- **Phase 3 — the bridge.** File the haltija design issue (detection, MCP
-  adapter, DOM fallback); wire the demo to a real agent end-to-end. **Share
-  the schematic renderer and its thinking with haltija** (see
-  [The Derived Surface](/ONE_UI_DERIVED/)) — a driver that can draw the map of
-  any page it's driving gets a human-checkable map view and a vision-model
-  overview; it stands alone as a proposal without exposing this plan.
+- **Phase 3 — the bridge.** **WebMCP adapter prototype shipped** (2026-08-02):
+  `webmcpTools(agent)` generates the tool set pure from `describe()` (core
+  quartet + one named tool per action; `tosi_write` dev-gated per Trust);
+  `webmcpAdapter()` feature-detects the host and tolerates both registration
+  shapes (`registerTool` / `provideContext`) while the spec churns — live
+  proof in [The Agent Surface](/ONE_UI_DESIGN/). Remaining: wire to a real
+  WebMCP host end-to-end (Chrome Canary) and file the haltija design issue
+  (detection, MCP adapter, DOM fallback). The schematic renderer is already
+  shared (haltija#12).
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
   sandboxing for agent-submitted logic; lukko alignment.
 - **Phase 5 — headless embodiment.** The DOM-free core (tosijs#18) running an
