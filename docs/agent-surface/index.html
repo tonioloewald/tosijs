@@ -75,7 +75,10 @@ const { div, h4, ul, button, pre } = elements
 preview.append(
   div(
     h4(&#39;An ordinary little app&#39;),
-    ul(...mcpDemo.notes.listBinding(({ li }, note) =&gt; li(note))),
+    ul(
+      { style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } },
+      ...mcpDemo.notes.listBinding(({ li }, note) =&gt; li(note))
+    ),
     button(&#39;add note&#39;, { onClick: &#39;mcpDemo.addNote&#39; })
   )
 )

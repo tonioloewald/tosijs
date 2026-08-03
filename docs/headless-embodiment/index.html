@@ -94,8 +94,18 @@ const html = String(
   )
 )
 
-// show the vended string itself
-preview.append(elements.pre(html))
+// show the vended string itself — wrapped, so narrow views stay readable
+preview.append(
+  elements.pre(html, {
+    style: {
+      whiteSpace: &#39;pre-wrap&#39;,
+      wordBreak: &#39;break-all&#39;,
+      maxHeight: &#39;8em&#39;,
+      overflow: &#39;auto&#39;,
+      margin: 0,
+    },
+  })
+)
 
 // 2. HYDRATE — inject the markup, then one bindParts call wires it to state
 const { vended } = tosi({ vended: { name: &#39;world&#39; } })

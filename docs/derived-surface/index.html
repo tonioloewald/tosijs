@@ -104,6 +104,7 @@ preview.append(
     &#39; &#39;,
     button(&#39;add&#39;, { onClick: &#39;mapDemo.addItem&#39; }),
     ul(
+      { style: { maxHeight: &#39;10em&#39;, overflow: &#39;auto&#39;, margin: 0 } },
       ...mapDemo.items.listBinding(
         ({ li, input: check, span }, item) =&gt;
           li(check({ type: &#39;checkbox&#39;, bindValue: item.done }), &#39; &#39;, span(item.text)),

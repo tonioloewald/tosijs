@@ -55,6 +55,7 @@ preview.append(
   div(
     h4('Human (widgets)'),
     ul(
+      { style: { maxHeight: '8em', overflow: 'auto', margin: 0 } },
       ...oneUI.list.listBinding(({ li }, item) => li(item.text), {
         idPath: 'id',
       })
