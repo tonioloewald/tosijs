@@ -48,16 +48,23 @@
 <h1>Trust &amp; Transports</h1>
 <!--{ "parent": "One User Interface", "order": 3, "description": "The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances." }-->
 
-<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — what could go wrong, the planned governors, and how far away an agent can stand.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — what could go wrong, the governors (some shipped, some planned), and how far away an agent can stand.</em></p>
+<blockquote>
+<p><strong>Status:</strong> constraint enforcement <strong>shipped</strong> (the contract seam:
+validated writes, audited refusals, whole-root proposals). The audit log
+<strong>shipped</strong>. Capability sandboxing (AJS/lukko) is <strong>not started</strong>. Of the
+transports: in-page <strong>shipped</strong> (<code>tosiAgent</code>), bridged <strong>shipped by
+haltija</strong> (<code>hj map</code>&#39;s native tier), remote sync-peer <strong>not started</strong>.</p>
+</blockquote>
 <h2>Trust: the honest section</h2>
 <p>Direct model access is a superpower, and superpowers need governors. Naming the
 problems now, with their planned answers:</p>
 <ul>
-<li><strong>Constraint bypass.</strong> Today <code>min</code>/<code>max</code>/<code>required</code> live in the DOM layer
-(form-validation). An agent writing paths skips them. The fix is the one 2.0
-already wants: <strong>schema at the state layer</strong> (the <code>schematic</code> idea —
-schema-first, validated-from-birth state). Contracted mode is its first
-consumer; agent writes become <em>more</em> validated than forged clicks, not less.
+<li><strong>Constraint bypass — CLOSED.</strong> DOM-layer validation (<code>min</code>/<code>required</code>)
+never guarded path writes; now the <strong>contract seam</strong> does: schema-checked
+writes, refusals thrown <em>with reasons</em> and audited, sub-path writes judged
+as the whole root they&#39;d produce. Agent writes are <em>more</em> validated than
+forged clicks, not less.
 Stated as sharply as it deserves: <strong>state-level validation is a hard
 prerequisite for production write access, not an enhancement.</strong> Manifest
 mode alone scopes <em>which</em> paths an agent may write, but nothing about what

@@ -3,6 +3,12 @@
 
 *Part of [One User Interface](/one-user-interface/) — the app as its abstract self, embodiment on demand.*
 
+> **Status: mostly aspiration.** The level-0 demo below is real and tested,
+> and happy-dom already runs tosijs in two production paths (level 1's
+> feasibility proof) — but the inversion itself (a headless app vending UI
+> on demand, humans and agents as co-equal session peers) is **design, not
+> code**. Nothing on this page beyond the demo exists yet.
+
 The app is the model; the browser is just one embodiment. Below, level 0,
 live: a UI **vended as a string**, injected, and wired to live state with one
 `bindParts` call — type in the hydrated input:

@@ -3,7 +3,22 @@
 
 *Part of [One User Interface](/one-user-interface/) — how we get there, what remains open, and why the window is real.*
 
+> **Status (2026-08-03):** Phases 0–2 are **done**. Phase 3 is done except
+> one open convergence question with haltija. Phase 4 is **not started**.
+> Phase 5 is **design only** — nothing is built (its page says so too).
+> Every "done" below happened in a shipping browser or a real test lane,
+> not on paper.
+
 ## The plan
+
+| phase | status |
+| --- | --- |
+| 0 — prove it | ✅ live demos on every page of this family |
+| 1 — the surface | ✅ built, 730-test suite |
+| 2 — manifests + contracts | ✅ built, incl. component contracts |
+| 3 — the bridge | ✅ registration **and invocation** ran in Chrome Canary; haltija shipped its native tier — remaining: [haltija#16](https://github.com/tonioloewald/haltija/issues/16) convergence answers |
+| 4 — distance | ⬜ not started |
+| 5 — headless embodiment | ⬜ design only |
 
 - **Phase 0 — prove it (no new code).** A doc-site demo: an "agent panel"
   drives the todo example through raw paths while the reader clicks the same
