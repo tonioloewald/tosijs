@@ -341,13 +341,16 @@ the component declares `static contract`:
       value: { type: 'number', examples: [0, 42] },
       methods: { reset: { description: 'set the count back to zero' } },
       parts: { readout: 'span', increment: 'button' },
-      tests: {
-        'increment increments and renders': [
-          { set: { value: 3 } },
-          { click: 'increment' },
-          { expect: { value: 4, text: { readout: '4' } } },
-        ],
-      },
+      tests: [
+        {
+          name: 'increment increments and renders',
+          steps: [
+            { set: { value: 3 } },
+            { click: 'increment' },
+            { expect: { value: 4, text: { readout: '4' } } },
+          ],
+        },
+      ],
     } as const satisfies ComponentMap
 
     class Counter extends Component<typeof counterContract> {
@@ -370,7 +373,11 @@ the component declares `static contract`:
   part) and match their tags; methods exist; value examples round-trip; and
   **declared `tests` run** — serializable step scripts (`set` / `click` /
   `expect` on value and per-part text), settled through the same
-  updates()+rAF discipline as the doc-test lane.
+  updates()+rAF discipline as the doc-test lane. Tests are an **array**, not
+  a map: execution order must be explicit in a serializable contract (JS
+  reorders integer-like keys; other languages' maps promise nothing) — each
+  test still snapshot/restores, so independence stays the goal, just never a
+  load-bearing assumption.
 - **Shipped tests vs. stripped tests:** `contract.tests` deliberately ship —
   they're claims an agent can self-verify wherever the component mounts.
   Dev-only tests belong in tjs `test {}` blocks (erased from bundles); once

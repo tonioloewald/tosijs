@@ -249,8 +249,9 @@ export const exerciseComponent = async (
     }
   }
 
-  // declared behavioral tests: serializable step scripts, run live
-  for (const [name, steps] of Object.entries(declared.tests ?? {})) {
+  // declared behavioral tests: serializable step scripts, run live, in
+  // declared order (an array — order is explicit, never a map-key accident)
+  for (const { name, steps } of declared.tests ?? []) {
     const snapshot = (element as any).value
     let error: string | undefined
     try {

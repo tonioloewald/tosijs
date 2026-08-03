@@ -58,8 +58,15 @@ export interface ComponentMap {
      * `this.parts` — the declaration is the type. */
     parts?: Record<string, string>;
     /** named behavioral tests as serializable step scripts — run by
-     * exerciseComponent, declared beside the behavior they pin */
-    tests?: Record<string, ComponentTestStep[]>;
+     * exerciseComponent, declared beside the behavior they pin. An ARRAY, on
+     * purpose: execution order should be explicit in a serializable contract
+     * (JS objects reorder integer-like keys, and other languages' maps promise
+     * nothing) — and each test still snapshot/restores, so order-independence
+     * remains the goal, just not a load-bearing assumption. */
+    tests?: Array<{
+        name: string;
+        steps: ComponentTestStep[];
+    }>;
 }
 export interface AgentExpose {
     roots?: string[];

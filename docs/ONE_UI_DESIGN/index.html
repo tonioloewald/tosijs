@@ -354,13 +354,16 @@ the component declares <code>static contract</code>:</p>
   value: { type: &#39;number&#39;, examples: [0, 42] },
   methods: { reset: { description: &#39;set the count back to zero&#39; } },
   parts: { readout: &#39;span&#39;, increment: &#39;button&#39; },
-  tests: {
-    &#39;increment increments and renders&#39;: [
-      { set: { value: 3 } },
-      { click: &#39;increment&#39; },
-      { expect: { value: 4, text: { readout: &#39;4&#39; } } },
-    ],
-  },
+  tests: [
+    {
+      name: &#39;increment increments and renders&#39;,
+      steps: [
+        { set: { value: 3 } },
+        { click: &#39;increment&#39; },
+        { expect: { value: 4, text: { readout: &#39;4&#39; } } },
+      ],
+    },
+  ],
 } as const satisfies ComponentMap
 
 class Counter extends Component&lt;typeof counterContract&gt; {
@@ -384,7 +387,11 @@ bare querySelector could false-positive on a nested component&#39;s same-named
 part) and match their tags; methods exist; value examples round-trip; and
 <strong>declared <code>tests</code> run</strong> — serializable step scripts (<code>set</code> / <code>click</code> /
 <code>expect</code> on value and per-part text), settled through the same
-updates()+rAF discipline as the doc-test lane.</li>
+updates()+rAF discipline as the doc-test lane. Tests are an <strong>array</strong>, not
+a map: execution order must be explicit in a serializable contract (JS
+reorders integer-like keys; other languages&#39; maps promise nothing) — each
+test still snapshot/restores, so independence stays the goal, just never a
+load-bearing assumption.</li>
 <li><strong>Shipped tests vs. stripped tests:</strong> <code>contract.tests</code> deliberately ship —
 they&#39;re claims an agent can self-verify wherever the component mounts.
 Dev-only tests belong in tjs <code>test {}</code> blocks (erased from bundles); once

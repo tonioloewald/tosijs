@@ -186,13 +186,16 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     value: { type: 'number', examples: [0, 42] },
     methods: { reset: { description: 'set the count back to zero' } },
     parts: { readout: 'span', increment: 'button' },
-    tests: {
-      'increment increments and renders': [
-        { set: { value: 3 } },
-        { click: 'increment' },
-        { expect: { value: 4, text: { readout: '4' } } },
-      ],
-    },
+    tests: [
+      {
+        name: 'increment increments and renders',
+        steps: [
+          { set: { value: 3 } },
+          { click: 'increment' },
+          { expect: { value: 4, text: { readout: '4' } } },
+        ],
+      },
+    ],
   } as const satisfies ComponentMap
 
   class HonestCounter extends Component<typeof counterContract> {
@@ -255,13 +258,16 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     const liar: ComponentMap = {
       parts: { readout: 'div', missing: 'input' }, // wrong tag + nonexistent
       methods: { reset: {}, explode: {} }, // one real, one imaginary
-      tests: {
-        'a behavioral lie': [
-          { set: { value: 1 } },
-          { click: 'increment' },
-          { expect: { value: 999 } }, // the component honestly disagrees
-        ],
-      },
+      tests: [
+        {
+          name: 'a behavioral lie',
+          steps: [
+            { set: { value: 1 } },
+            { click: 'increment' },
+            { expect: { value: 999 } }, // the component honestly disagrees
+          ],
+        },
+      ],
     }
     const report = await exerciseComponent(el, liar)
     const failures = report.trials.filter((t) => !t.passed)
@@ -294,7 +300,7 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     expect(record.component!.parts!.readout).toBe('span')
     // the shipped tests travel with the description — an agent can
     // self-verify the component wherever it mounts
-    expect(Object.keys(record.component!.tests!)).toEqual([
+    expect(record.component!.tests!.map((t) => t.name)).toEqual([
       'increment increments and renders',
     ])
     void counterApp
