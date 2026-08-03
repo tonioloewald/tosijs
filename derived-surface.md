@@ -225,11 +225,12 @@ this is more than a pretty view:
 
 Here it is live — a todo list this time, because a list's map **changes shape
 as you use it**: every item you add is new wired elements, so redraw the
-schematic and watch it grow. Scoped **spatially** — `schematicSVG(map,
-{ within: boundsOf(preview) })` draws exactly this demo's region of the page,
-the general form of "map this part" (no demo-specific filtering; **whole
-page()** drops the scope for the full reveal); click any rectangle for its
-JSON record:
+schematic and watch it grow. Scoped **by hierarchy** — `agent.describe({ scope: preview })` walks only
+this demo's subtree, so the map is the same whether the example is inline or
+maximized. (Spatial scoping — `schematicSVG(map, { within: rect })` — also
+exists, but a region includes whatever *overlaps* it, occluded or not; use it
+for viewport maps, not app parts.) **whole page()** drops the scope for the
+full reveal; click any rectangle for its JSON record:
 
 ```js
 import {
@@ -238,7 +239,6 @@ import {
   enableAgentInterface,
   schematicSVG,
   rasterizeSVG,
-  boundsOf,
 } from 'tosijs'
 
 const { mapDemo } = tosi({
@@ -281,10 +281,11 @@ preview.append(
     ),
     button('schematic()', {
       onClick() {
-        const d = agent.describe({ styles: true })
-        // scope SPATIALLY: the map of this demo's region — general tools,
-        // no demo-specific logic (boundsOf converts to page coordinates)
-        drawing.innerHTML = schematicSVG(d, { within: boundsOf(preview) })
+        // scope by HIERARCHY: this demo's subtree, however large it renders
+        // (a within-rect is REGIONAL — it includes whatever overlaps it)
+        const d = agent.describe({ styles: true, scope: preview })
+        drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
         // the image is an index: data-record links each box to its JSON
         drawing.onclick = (event) => {
           const g = event.target.closest('[data-record]')
@@ -300,9 +301,8 @@ preview.append(
     // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
     button('png()', {
       async onClick() {
-        const d = agent.describe({ styles: true })
-        const svg = schematicSVG(d, { within: boundsOf(preview) })
-        const blob = await rasterizeSVG(svg, { scale: 2 })
+        const d = agent.describe({ styles: true, scope: preview })
+        const blob = await rasterizeSVG(schematicSVG(d), { scale: 2 })
         drawing.innerHTML = ''
         drawing.append(
           img({
@@ -326,6 +326,7 @@ preview.append(
         await new Promise((resolve) => setTimeout(resolve, 250))
         const d = agent.describe({ styles: true })
         drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
         drawing.onclick = (event) => {
           const g = event.target.closest('[data-record]')
           if (g) {
@@ -343,6 +344,15 @@ const detail = pre({ style: { maxHeight: '8em', overflow: 'auto', margin: 0 } })
 const drawing = div({
   style: { height: '100%', width: 'auto', overflow: 'auto' },
 })
+// the svg carries explicit width/height (rasterization needs them) — for
+// DISPLAY, scale it to the box instead of rendering at natural page size
+const fitToDrawing = () => {
+  const svg = drawing.querySelector('svg')
+  if (svg) {
+    svg.setAttribute('width', '100%')
+    svg.removeAttribute('height')
+  }
+}
 preview.append(drawing, detail)
 ```
 

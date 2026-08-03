@@ -325,17 +325,18 @@ can end with the reveal.</li>
 </ul>
 <p>Here it is live — a todo list this time, because a list&#39;s map <strong>changes shape
 as you use it</strong>: every item you add is new wired elements, so redraw the
-schematic and watch it grow. Scoped <strong>spatially</strong> — <code>schematicSVG(map, { within: boundsOf(preview) })</code> draws exactly this demo&#39;s region of the page,
-the general form of &quot;map this part&quot; (no demo-specific filtering; <strong>whole
-page()</strong> drops the scope for the full reveal); click any rectangle for its
-JSON record:</p>
+schematic and watch it grow. Scoped <strong>by hierarchy</strong> — <code>agent.describe({ scope: preview })</code> walks only
+this demo&#39;s subtree, so the map is the same whether the example is inline or
+maximized. (Spatial scoping — <code>schematicSVG(map, { within: rect })</code> — also
+exists, but a region includes whatever <em>overlaps</em> it, occluded or not; use it
+for viewport maps, not app parts.) <strong>whole page()</strong> drops the scope for the
+full reveal; click any rectangle for its JSON record:</p>
 <pre><code class="language-js">import {
   elements,
   tosi,
   enableAgentInterface,
   schematicSVG,
   rasterizeSVG,
-  boundsOf,
 } from &#39;tosijs&#39;
 
 const { mapDemo } = tosi({
@@ -378,10 +379,11 @@ preview.append(
     ),
     button(&#39;schematic()&#39;, {
       onClick() {
-        const d = agent.describe({ styles: true })
-        // scope SPATIALLY: the map of this demo&#39;s region — general tools,
-        // no demo-specific logic (boundsOf converts to page coordinates)
-        drawing.innerHTML = schematicSVG(d, { within: boundsOf(preview) })
+        // scope by HIERARCHY: this demo&#39;s subtree, however large it renders
+        // (a within-rect is REGIONAL — it includes whatever overlaps it)
+        const d = agent.describe({ styles: true, scope: preview })
+        drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
         // the image is an index: data-record links each box to its JSON
         drawing.onclick = (event) =&gt; {
           const g = event.target.closest(&#39;[data-record]&#39;)
@@ -397,9 +399,8 @@ preview.append(
     // the vision-encoder form: shipped helpers, map -&gt; SVG string -&gt; PNG
     button(&#39;png()&#39;, {
       async onClick() {
-        const d = agent.describe({ styles: true })
-        const svg = schematicSVG(d, { within: boundsOf(preview) })
-        const blob = await rasterizeSVG(svg, { scale: 2 })
+        const d = agent.describe({ styles: true, scope: preview })
+        const blob = await rasterizeSVG(schematicSVG(d), { scale: 2 })
         drawing.innerHTML = &#39;&#39;
         drawing.append(
           img({
@@ -423,6 +424,7 @@ preview.append(
         await new Promise((resolve) =&gt; setTimeout(resolve, 250))
         const d = agent.describe({ styles: true })
         drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
         drawing.onclick = (event) =&gt; {
           const g = event.target.closest(&#39;[data-record]&#39;)
           if (g) {
@@ -440,6 +442,15 @@ const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;
 const drawing = div({
   style: { height: &#39;100%&#39;, width: &#39;auto&#39;, overflow: &#39;auto&#39; },
 })
+// the svg carries explicit width/height (rasterization needs them) — for
+// DISPLAY, scale it to the box instead of rendering at natural page size
+const fitToDrawing = () =&gt; {
+  const svg = drawing.querySelector(&#39;svg&#39;)
+  if (svg) {
+    svg.setAttribute(&#39;width&#39;, &#39;100%&#39;)
+    svg.removeAttribute(&#39;height&#39;)
+  }
+}
 preview.append(drawing, detail)
 </code></pre>
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;

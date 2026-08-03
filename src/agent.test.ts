@@ -401,3 +401,37 @@ describe('post-hoc component contracts — lofting classes you do not control', 
     span.remove()
   })
 })
+
+describe('describe({ scope }) — hierarchy scoping', () => {
+  test('scope confines the wiring walk to one subtree, size be damned', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    tosi({ scopeApp: { a: 1, b: 2 } })
+    const hereBox = elements.div()
+    const thereBox = elements.div()
+    document.body.append(hereBox, thereBox)
+    const here = elements.input()
+    hereBox.append(here)
+    bind(here, 'scopeApp.a', bindings.value)
+    const there = elements.input()
+    thereBox.append(there)
+    bind(there, 'scopeApp.b', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+
+    const scoped = agent.describe({ scope: hereBox })
+    const paths = scoped.wiring.flatMap((w) =>
+      Object.values(w).filter((v) => typeof v === 'string' && v.includes('scopeApp'))
+    )
+    expect(paths.some((p) => (p as string).includes('scopeApp.a'))).toBe(true)
+    expect(paths.some((p) => (p as string).includes('scopeApp.b'))).toBe(false)
+    // unscoped sees both
+    const full = agent.describe()
+    const fullPaths = JSON.stringify(full.wiring)
+    expect(fullPaths).toContain('scopeApp.a')
+    expect(fullPaths).toContain('scopeApp.b')
+    hereBox.remove()
+    thereBox.remove()
+  })
+})

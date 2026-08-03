@@ -215,7 +215,13 @@ export interface AgentLogEntry {
 }
 
 export interface AgentInterface {
-  describe: (options?: { styles?: boolean }) => AgentDescription
+  /**
+   * `scope` limits the wiring walk to one element's SUBTREE — hierarchy
+   * scoping ("this part of the app"), stable regardless of how big the
+   * subtree renders. Contrast schematicSVG's `within` rect, which is
+   * REGIONAL ("this area of the page") and includes whatever overlaps it.
+   */
+  describe: (options?: { styles?: boolean; scope?: Element }) => AgentDescription
   read: (path: string) => any
   write: (path: string, value: any) => void
   observe: (path: string, callback: (path: string) => void) => () => void
@@ -349,7 +355,9 @@ export function enableAgentInterface(
   }
 
   const surface: AgentInterface = {
-    describe(options: { styles?: boolean } = {}): AgentDescription {
+    describe(
+      options: { styles?: boolean; scope?: Element } = {}
+    ): AgentDescription {
       const rootNames = manifestMode
         ? (roots ?? []).slice()
         : Object.keys(registry)
@@ -361,9 +369,13 @@ export function enableAgentInterface(
       }
 
       // wiring: every data-bound element (enumerable via the marker class),
-      // plus every event-wired element (probe the handler map on a tree walk)
+      // plus every event-wired element (probe the handler map on a tree walk).
+      // With `scope`, both walks are confined to that element's subtree —
+      // hierarchy scoping, stable however large the subtree renders.
       const wiring: AgentWiringRecord[] = []
       if (typeof document !== 'undefined') {
+        const walkRoot: Element =
+          options.scope ?? (document.body as unknown as Element)
         const seen = new Set<Element>()
         const recordFor = (el: Element): AgentWiringRecord | undefined => {
           if (seen.has(el)) return undefined
@@ -453,12 +465,12 @@ export function enableAgentInterface(
           return wired ? record : undefined
         }
         for (const el of Array.from(
-          document.getElementsByClassName(BOUND_CLASS)
+          walkRoot.getElementsByClassName(BOUND_CLASS)
         )) {
           const record = recordFor(el)
           if (record) wiring.push(record)
         }
-        for (const el of Array.from(document.body.querySelectorAll('*'))) {
+        for (const el of [walkRoot, ...Array.from(walkRoot.querySelectorAll('*'))]) {
           if (elementToHandlers.has(el)) {
             const record = recordFor(el)
             if (record) wiring.push(record)

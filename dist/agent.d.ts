@@ -180,8 +180,15 @@ export interface AgentLogEntry {
     note?: string;
 }
 export interface AgentInterface {
+    /**
+     * `scope` limits the wiring walk to one element's SUBTREE — hierarchy
+     * scoping ("this part of the app"), stable regardless of how big the
+     * subtree renders. Contrast schematicSVG's `within` rect, which is
+     * REGIONAL ("this area of the page") and includes whatever overlaps it.
+     */
     describe: (options?: {
         styles?: boolean;
+        scope?: Element;
     }) => AgentDescription;
     read: (path: string) => any;
     write: (path: string, value: any) => void;
