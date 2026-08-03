@@ -482,6 +482,16 @@ this implies: <code>schematicSVG(description) → string</code>, a pure DOM-free
 and a remote agent can draw a page nobody is viewing), plus a rasterize step —
 canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for ePub
 covers).</p>
+<p><strong>Aspect ratio is the raster budget, not bytes.</strong> Vision encoders normalize
+the LONG edge before tokenizing (≈1568px / 2048px classes), so even a
+whole-app map costs only ~650–800 vision tokens — blowout is impossible by
+construction. What dies instead is <em>legibility</em>: a 5:1-tall page map gets
+crushed ~4×, and 11px captions land unreadable. So rasterize by role: the
+<strong>whole-page PNG is the glance</strong> (topology and the dashed structural rhythm
+survive downscale; captions needn&#39;t), and <strong>region maps are the zoom</strong> —
+<code>scope</code>/<code>within</code> slices at ≲3:1 aspect keep full label fidelity for the same
+few hundred tokens. Compression and index are the same design: the glance is
+cheap <em>because</em> the zoom exists to recover what it discarded.</p>
 <p>The schematic above is ~60 lines of vanilla SVG generation over <code>describe()</code>
 output — no layout engine, no rendering, no screenshots. <strong>This code and the
 thinking belong in haltija too</strong>: a test driver that can draw the schematic of
