@@ -49,68 +49,9 @@
 <!--{ "parent": "One User Interface", "order": 4, "description": "The inversion: server-side rendering of an MCP — a tosijs app running as its abstract self, vending UI on demand (elementsSSR, live)." }-->
 
 <p><em>Part of <a href="/one-user-interface/">One User Interface</a> — the app as its abstract self, embodiment on demand.</em></p>
-<h2>The inversion: headless embodiment (&quot;server-side rendering of an MCP&quot;)</h2>
-<p>Follow the thesis to its end and the priority flips. If the agent interface is
-paths + wiring + actions, then <strong>the DOM was never the application — it was one
-projection of it.</strong> So run the projectionless app:</p>
-<ul>
-<li>A tosijs app as a <strong>purely abstract, server-side embodiment</strong>: state, actions,
-bindings-as-declarations, observers — no DOM, no browser. Agents connect to
-it <em>natively</em> (the MCP adapter over the same <code>describe</code>/<code>read</code>/<code>write</code>/
-<code>observe</code>/<code>call</code> surface). It is an application that happens not to be
-currently visible.</li>
-<li><strong>On demand, it vends a user interface.</strong> When a human shows up, the same app
-definition materializes HTML (prerender + hydrate) and the human joins the
-session the agent was already in — same state, same wiring, same truth.
-Classic SSR renders markup early and bolts interactivity on later; this runs
-the <em>application</em> continuously and mints markup lazily. SSR for humans;
-native protocol for agents; one source.</li>
-</ul>
-<p>This is less speculative than it sounds, because every load-bearing piece has a
-precedent in the stack today:</p>
-<ul>
-<li><strong>DOM-free core</strong> — tosijs#18 (a state-only entry point; DOM globals are
-currently required at import time) is <em>exactly</em> the enabling work. This idea
-is #18&#39;s killer app.</li>
-<li><strong>Vending HTML</strong> — the doc-site system already evaluates components in a
-DOM-shimmed subprocess and emits prerendered, hydrating pages. The machinery
-for &quot;definition → markup on demand&quot; exists; it needs pointing at app state.</li>
-<li><strong>Session sync</strong> — <code>share.ts</code>/<code>sync.ts</code> already move <code>{path, value}</code> deltas
-between contexts. A human&#39;s late-joining browser is just another sync peer of
-the headless app — as is the agent.</li>
-<li><strong>Wiring without DOM</strong> — bindings are <em>declared</em> (<code>bindValue: app.filter</code>,
-<code>onClick: &#39;app.addItem&#39;</code>); headlessly, the declarations themselves are the
-wiring graph. <code>describe()</code> doesn&#39;t need elements to exist — elements are what
-the declarations <em>become</em> when a human needs them.</li>
-</ul>
-<h3>Mechanics: vending is closer than it looks</h3>
-<p>Three levels of headlessness, all grounded in existing machinery:</p>
-<ul>
-<li><p><strong>Level 0 — <code>elementsSSR</code> (no DOM at all).</strong> An elements-shaped proxy whose
-factories emit <strong>HTML strings</strong> instead of nodes is almost trivial — same
-call signatures, same sugar, string concatenation underneath. The two
-apparent hard parts dissolve on inspection:</p>
-<ol>
-<li><strong>Bindings serialize to markers, and the hydration seam already exists:</strong>
-<code>bindParts(root, bindingMap, dataAttribute = &#39;part&#39;)</code> (shipped, tested)
-applies ElementProps to elements found by <code>data-part</code> markers. So
-<code>elementsSSR</code> emits <code>data-part=&quot;searchBox&quot;</code> where the live version would
-have bound directly, and the client re-wires with one <code>bindParts</code> call —
-the binding map itself is isomorphic to the wiring graph <code>describe()</code>
-already knows.</li>
-<li><strong>Components don&#39;t need server-side rendering at all</strong>, because tosijs
-components <em>self-hydrate on connection</em>: their content is built in
-<code>connectedCallback</code>, not baked into markup. SSR emits the host tag,
-attributes, and light children — the browser upgrade does the rest. (The
-framework&#39;s laziness turns out to be an SSR feature: there is nothing to
-serialize because there is nothing there yet.)
-State travels alongside as a <code>hotReload</code>-style serialized overlay. Vending a
-UI = <code>elementsSSR</code> markup + state snapshot + hydrate-on-load.</li>
-</ol>
-<p>Here is level 0, live — vend HTML as a string, show it, inject it, and wire
-it to state with one <code>bindParts</code> call (type in the hydrated input):</p>
-</li>
-</ul>
+<p>The app is the model; the browser is just one embodiment. Below, level 0,
+live: a UI <strong>vended as a string</strong>, injected, and wired to live state with one
+<code>bindParts</code> call — type in the hydrated input:</p>
 <pre><code class="language-js">import { elements, tosi, bindParts } from &#39;tosijs&#39;
 
 // elementsSSR: the elements proxy&#39;s call signature, emitting HTML strings
@@ -183,8 +124,67 @@ test(&#39;the vended UI hydrates against live state, and the bindings are two-wa
   expect(greet.textContent).toBe(&#39;agent&#39;)
 })
 </code></pre>
+<h2>The inversion: headless embodiment (&quot;server-side rendering of an MCP&quot;)</h2>
+<p>Follow the thesis to its end and the priority flips. If the agent interface is
+paths + wiring + actions, then <strong>the DOM was never the application — it was one
+projection of it.</strong> So run the projectionless app:</p>
 <ul>
-<li><strong>Level 1 — a real headless DOM (works today).</strong> The question &quot;is there a
+<li>A tosijs app as a <strong>purely abstract, server-side embodiment</strong>: state, actions,
+bindings-as-declarations, observers — no DOM, no browser. Agents connect to
+it <em>natively</em> (the MCP adapter over the same <code>describe</code>/<code>read</code>/<code>write</code>/
+<code>observe</code>/<code>call</code> surface). It is an application that happens not to be
+currently visible.</li>
+<li><strong>On demand, it vends a user interface.</strong> When a human shows up, the same app
+definition materializes HTML (prerender + hydrate) and the human joins the
+session the agent was already in — same state, same wiring, same truth.
+Classic SSR renders markup early and bolts interactivity on later; this runs
+the <em>application</em> continuously and mints markup lazily. SSR for humans;
+native protocol for agents; one source.</li>
+</ul>
+<p>This is less speculative than it sounds, because every load-bearing piece has a
+precedent in the stack today:</p>
+<ul>
+<li><strong>DOM-free core</strong> — tosijs#18 (a state-only entry point; DOM globals are
+currently required at import time) is <em>exactly</em> the enabling work. This idea
+is #18&#39;s killer app.</li>
+<li><strong>Vending HTML</strong> — the doc-site system already evaluates components in a
+DOM-shimmed subprocess and emits prerendered, hydrating pages. The machinery
+for &quot;definition → markup on demand&quot; exists; it needs pointing at app state.</li>
+<li><strong>Session sync</strong> — <code>share.ts</code>/<code>sync.ts</code> already move <code>{path, value}</code> deltas
+between contexts. A human&#39;s late-joining browser is just another sync peer of
+the headless app — as is the agent.</li>
+<li><strong>Wiring without DOM</strong> — bindings are <em>declared</em> (<code>bindValue: app.filter</code>,
+<code>onClick: &#39;app.addItem&#39;</code>); headlessly, the declarations themselves are the
+wiring graph. <code>describe()</code> doesn&#39;t need elements to exist — elements are what
+the declarations <em>become</em> when a human needs them.</li>
+</ul>
+<h3>Mechanics: vending is closer than it looks</h3>
+<p>Three levels of headlessness, all grounded in existing machinery:</p>
+<ul>
+<li><p><strong>Level 0 — <code>elementsSSR</code> (no DOM at all).</strong> An elements-shaped proxy whose
+factories emit <strong>HTML strings</strong> instead of nodes is almost trivial — same
+call signatures, same sugar, string concatenation underneath. The two
+apparent hard parts dissolve on inspection:</p>
+<ol>
+<li><strong>Bindings serialize to markers, and the hydration seam already exists:</strong>
+<code>bindParts(root, bindingMap, dataAttribute = &#39;part&#39;)</code> (shipped, tested)
+applies ElementProps to elements found by <code>data-part</code> markers. So
+<code>elementsSSR</code> emits <code>data-part=&quot;searchBox&quot;</code> where the live version would
+have bound directly, and the client re-wires with one <code>bindParts</code> call —
+the binding map itself is isomorphic to the wiring graph <code>describe()</code>
+already knows.</li>
+<li><strong>Components don&#39;t need server-side rendering at all</strong>, because tosijs
+components <em>self-hydrate on connection</em>: their content is built in
+<code>connectedCallback</code>, not baked into markup. SSR emits the host tag,
+attributes, and light children — the browser upgrade does the rest. (The
+framework&#39;s laziness turns out to be an SSR feature: there is nothing to
+serialize because there is nothing there yet.)
+State travels alongside as a <code>hotReload</code>-style serialized overlay. Vending a
+UI = <code>elementsSSR</code> markup + state snapshot + hydrate-on-load.</li>
+</ol>
+<p>(Level 0 is the live demo at the top of this page.)</p>
+</li>
+<li><p><strong>Level 1 — a real headless DOM (works today).</strong> The question &quot;is there a
 headless DOM that could actually run tosijs?&quot; is answered by the repo itself:
 <strong>happy-dom already runs tosijs in two production paths</strong> — the entire unit
 suite (bunfig preload) and the doc-site prerender, which <em>evaluates
@@ -194,11 +194,13 @@ slower, some spec areas better); linkedom is the fast-and-loose option for
 pure generate-markup workloads; a real headless browser (Playwright) remains
 the ground-truth tier. Known happy-dom limits (layout is zero-size,
 interaction timing lies — see #21) don&#39;t matter here: the headless embodiment
-serves <em>state, wiring, and markup</em>, not pixel behavior.</li>
-<li><strong>Level 2 — no DOM even loaded (tosijs#18).</strong> The state-only entry point:
+serves <em>state, wiring, and markup</em>, not pixel behavior.</p>
+</li>
+<li><p><strong>Level 2 — no DOM even loaded (tosijs#18).</strong> The state-only entry point:
 registry, observers, actions, and declared wiring with no DOM globals at
 import. Level 0&#39;s string vending bolts onto this; level 1 becomes an
-optional fidelity tier rather than a requirement.</li>
+optional fidelity tier rather than a requirement.</p>
+</li>
 </ul>
 <p><strong>Honest cost note (as human-facing SSR).</strong> Vending sidesteps the virtual-DOM
 diffing engine, but not hydration itself: the client still ships markup, then

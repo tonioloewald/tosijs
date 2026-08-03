@@ -49,281 +49,14 @@
 <!--{ "parent": "One User Interface", "order": 1, "description": "The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." }-->
 
 <p><em>Part of <a href="/one-user-interface/">One User Interface</a> — why the agent surface derives from what tosijs already knows.</em></p>
-<h2>The part nobody else can offer: the wiring diagram is already recorded</h2>
-<p>Here is the b8r inheritance paying off. In b8r it was the norm to put state
-<em>and</em> event handlers in the registry. tosijs kept that affordance
-(<code>onClick: &#39;app.doThing&#39;</code> binds a handler <strong>by path</strong>) but also allows the
-ergonomic shortcut (<code>onClick: (event) =&gt; { … }</code>) — and crucially, <strong>the shortcut
-still passes through tosijs</strong>. Every handler attached via element sugar or
-<code>on()</code> is recorded. Every data binding records element ↔ path. The framework
-doesn&#39;t just hold the model — it holds the complete map of <em>which widget is
-wired to what</em>, as a side effect of normal operation.</p>
-<p>That means an introspection surface costs the programmer <strong>nothing</strong>. Today,
-with shipped exports:</p>
-<table>
-<thead>
-<tr>
-<th>Question an agent asks</th>
-<th>Answer, today</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>What state exists?</td>
-<td><code>xin</code> / <code>boxed</code> — plain serializable objects (this is what <code>hotReload</code> already relies on)</td>
-</tr>
-<tr>
-<td>What is the value at a path?</td>
-<td><code>boxed[path].value</code></td>
-</tr>
-<tr>
-<td>Change it (and update the UI)</td>
-<td><code>xin[path] = value</code> — observers fire, DOM updates surgically</td>
-</tr>
-<tr>
-<td>Tell me when it changes</td>
-<td><code>observe(path, cb)</code> — and <code>unobserve</code> to hang up</td>
-</tr>
-<tr>
-<td>Which elements are data-bound?</td>
-<td><code>document.getElementsByClassName(BOUND_CLASS)</code> — the marker class <strong>is</strong> the enumerable index</td>
-</tr>
-<tr>
-<td>What is <em>this</em> element wired to?</td>
-<td><code>getElementBindings(el)</code> → its data bindings (paths + binding types) <strong>and</strong> its event handlers <em>(one <code>export</code> away from public)</em></td>
-</tr>
-<tr>
-<td>Which datum does this row render?</td>
-<td><code>getListItem(el)</code> — DOM → model, including virtual list rows</td>
-</tr>
-<tr>
-<td>What actions exist?</td>
-<td>Functions in the registry (<code>app.addItem</code>) — addressable, callable, and already supported as by-path event handlers</td>
-</tr>
-<tr>
-<td>What happened while I watched?</td>
-<td>The path-touch stream — the <code>connectDevTools</code> pattern (every touch is <code>{path, snapshot}</code>)</td>
-</tr>
-</tbody></table>
-<p>The React/Angular worlds cannot produce this table without becoming tosijs: it
-requires a universal addressing scheme, a central observable registry, stable
-DOM, and recorded wiring — which is simply a description of the observant model.
-This is the &quot;two steps beyond&quot; claim, made concrete.</p>
-<p>A useful subtlety: <strong>shadow-DOM components are already agent-shaped.</strong> A shadow
-component is bound like an <code>&lt;input&gt;</code> — its <code>value</code> is the interface and its
-internals are private by design. That&#39;s precisely the affordance/implementation
-split an agent needs: it should set the date-picker&#39;s <em>value</em>, not fumble with
-its internal buttons. (Closed shadow roots stay closed — for agents too.)</p>
-<h2>The opportunistic harvest</h2>
-<p>The wiring table above is what tosijs records <em>deliberately</em>. There is a second,
-larger layer it can harvest <em>opportunistically</em> — metadata that exists only
-because developers use elementCreators and their syntax sugar. Every prop passed
-to <code>div({…})</code>, every <code>initAttributes</code>, every <code>listBinding</code> flows through one
-chokepoint (<code>elementSet</code> / the creator machinery), and almost all of it persists
-somewhere recoverable (the element&#39;s attributes, the binding WeakMaps, the
-component class). Nothing new needs recording — <code>describe()</code> computes the
-harvest <strong>on demand</strong> from what&#39;s already there:</p>
-<table>
-<thead>
-<tr>
-<th>The developer wrote (for their own reasons)</th>
-<th>What it tells an agent, free</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>onClick: (e) =&gt; {…}</code></td>
-<td>this element is interactive; event type known</td>
-</tr>
-<tr>
-<td><code>onClick: &#39;app.doThing&#39;</code></td>
-<td>the action is <em>addressable and nameable</em> — a tool with a path</td>
-</tr>
-<tr>
-<td><code>bindValue: app.filter</code> (binding has <code>fromDOM</code>)</td>
-<td><strong>this path is user-writable</strong> — an input affordance</td>
-</tr>
-<tr>
-<td><code>textContent: app.total</code> (prop binding is <code>toDOM</code>-only)</td>
-<td>this path is <em>displayed</em> — read-only output</td>
-</tr>
-<tr>
-<td><code>bindEnabled: app.cart.valid</code></td>
-<td>a <strong>precondition</strong>: the guarded action&#39;s availability depends on this path</td>
-</tr>
-<tr>
-<td><code>listBinding(template, { idPath: &#39;id&#39; })</code></td>
-<td><code>app.items</code> is a collection keyed by <code>id</code>; the template&#39;s relative (<code>^.field</code>) bindings enumerate <strong>which fields of each item the UI presents</strong>, and per-row handlers are per-row actions</td>
-</tr>
-<tr>
-<td><code>role</code>, <code>aria-*</code>, <code>title</code>, <code>placeholder</code>, <code>alt</code>, <code>label</code> wrapping</td>
-<td><strong>semantic labels</strong> — the same vocabulary a11y-tree agents already consume, but harvested at the source</td>
-</tr>
-<tr>
-<td><code>input({ type: &#39;email&#39; })</code>, <code>required</code>, <code>min</code>/<code>max</code>/<code>pattern</code></td>
-<td>value types and validation constraints, straight from the markup sugar</td>
-</tr>
-<tr>
-<td><code>part: &#39;searchBox&#39;</code></td>
-<td>the developer&#39;s <em>own name</em> for the affordance</td>
-</tr>
-<tr>
-<td><code>static initAttributes = { count: 0, live: false }</code></td>
-<td>a <strong>typed per-component attribute schema</strong> — types already inferred from defaults at runtime (<code>typeof</code> branch in the attribute machinery)</td>
-</tr>
-<tr>
-<td>component <code>value</code> + <code>formAssociated</code></td>
-<td>the component&#39;s value surface and its form contract</td>
-</tr>
-</tbody></table>
-<p>Two compounding effects make this more than a list of facts:</p>
-<ul>
-<li><strong>The join.</strong> Because everything is declared <em>on the same element through the
-same call</em>, tosijs can join what no one else can: <code>role=&quot;search&quot;</code> ×
-<code>bindValue: app.filter</code> × <code>onKeydown: app.submit</code> on one element is a complete
-<strong>affordance descriptor</strong> — semantic label, writable state, and action,
-co-located. The a11y-tree agents get the label but not the path; API tools get
-the action but not the label. tosijs stands in the middle when all three are
-declared, and the DOM + WeakMaps preserve the join for on-demand assembly.</li>
-<li><strong>The behavioral harvest.</strong> At runtime, the audit stream adds provenance:
-<code>call(&#39;app.addItem&#39;)</code> → touches observed on <code>app.items</code> teaches the agent the
-<strong>causal graph</strong> (which actions affect which paths) purely by watching.
-<code>describe()</code> gets richer the longer the app runs, with zero developer effort.</li>
-<li><strong>Triangulated typing without schema.</strong> <code>typeof</code> the state at the path ∧ the
-input&#39;s declared <code>type</code> ∧ <code>initAttributes</code> defaults: three independent
-signals agree on a field&#39;s type before tosijs-schema is even introduced —
-and flag a smell when they disagree.</li>
-</ul>
-<p>The punchline is the same as the wiring table&#39;s, one octave up: the WebMCP
-world asks developers to <em>author</em> tool schemas by hand; in tosijs, the app&#39;s
-ordinary construction <strong>is</strong> the authoring. The sugar was designed for
-ergonomics; it turns out to have been designing an agent interface all along.</p>
-<h3>Proof: the harvest, assembled live</h3>
-<p>The UI below is built with ordinary element sugar — a labeled filter input
-(two-way bound), a read-only total (one-way prop binding), and a button whose
-handler is attached <em>by path</em>. There is not one agent-specific declaration in
-it. Click <strong>describe()</strong> and the affordance graph is assembled on demand — and
-because this page runs in introspection mode, the graph is the <em>whole page&#39;s</em>:
-the <a href="/one-user-interface/">two-actors demo</a>, the doc site&#39;s own chrome, and the very button you
-clicked to ask.</p>
-<pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
-
-const { harvest } = tosi({
-  harvest: {
-    filter: &#39;&#39;,
-    total: 3,
-    restock() {
-      harvest.total = harvest.total.value + 1
-    },
-  },
-})
-
-// reuse the page&#39;s surface if one is already installed
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
-const { div, input, span, button, pre } = elements
-
-// output as a DIRECT preview child: height 100% is a no-op inline and
-// fills the box when the example is maximized
-const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
-// an ordinary UI — no agent-specific declarations anywhere
-preview.append(
-  div(
-    input({ placeholder: &#39;filter stock…&#39;, bindValue: harvest.filter }),
-    &#39; &#39;,
-    span({ title: &#39;items in stock&#39;, textContent: harvest.total }),
-    &#39; &#39;,
-    button(&#39;restock&#39;, { onClick: &#39;harvest.restock&#39; }),
-    &#39; &#39;,
-    button(&#39;describe()&#39;, {
-      onClick() {
-        const d = agent.describe()
-        const summary = [
-          `exposure: ${d.exposure}`,
-          `roots: ${Object.keys(d.roots).join(&#39;, &#39;)}`,
-          `actions: ${d.actions.join(&#39;, &#39;)}`,
-          `wired elements: ${d.wiring.length}`,
-        ].join(&#39;\n&#39;)
-        out.textContent = summary + &#39;\n\n&#39; + JSON.stringify(d.wiring, null, 2)
-      },
-    })
-  ),
-  out
-)
-</code></pre>
-<pre><code class="language-test">import {
-  elements,
-  tosi,
-  enableAgentInterface,
-  bind,
-  bindings,
-  updates,
-} from &#39;tosijs&#39;
-
-test(&#39;describe() harvests the affordance join from ordinary declarations&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
-  tosi({ harvestTest: { q: &#39;&#39; } })
-  const input = elements.input({ placeholder: &#39;harvest-test…&#39; })
-  preview.append(input)
-  bind(input, &#39;harvestTest.q&#39;, bindings.value)
-  await updates()
-  const d = agent.describe()
-  const record = d.wiring.find((w) =&gt; w.label === &#39;harvest-test…&#39;)
-  expect(record != null).toBe(true)
-  // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
-  expect(String(record.value).includes(&#39;⟷ harvestTest.q&#39;)).toBe(true)
-  // geometry rides in the map — in a real browser the input has real bounds
-  // (this line is exactly what happy-dom cannot assert: it reports zero-size)
-  expect(record.bounds.width &gt; 0).toBe(true)
-  input.remove()
-})
-</code></pre>
-<p>Read what it prints. Records are <strong>flat</strong> — the semantically visible facts sit
-at the top level, sized for an LLM to scan. The input&#39;s record joins its human
-label (the <code>placeholder</code>) to its live value and its path in one string:
-<code>value: &quot;⟷ harvest.filter&quot;</code> — the two-way arrow means <em>user-writable
-affordance</em>. The total is the same idea, one-way: <code>text: &quot;3 ⟵ harvest.total&quot;</code>
-(current value, display-only; a plain <code>text: &quot;restock&quot;</code> with no arrow is
-static). The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
-<code>on: { click: &quot;harvest.restock&quot; }</code> — and the same path appears under
-<code>actions</code>. That is the affordance descriptor from the table above: harvested,
-joined, and serialized, authored by nobody.</p>
-<h3>The map, drawn: a schematic embodiment</h3>
-<p>If the visual architecture <em>is</em> the information architecture, the information
-architecture can be <strong>drawn</strong>: one rectangle per wired element, <strong>at the
-element&#39;s actual position and size</strong> — every record carries <code>bounds</code>, because
-the layout is part of the semantics (and zero-size means &quot;not currently
-visible&quot;, which is itself information). With <code>describe({ styles: true })</code> the
-records also carry computed border and background colors, so the map can wear
-the app&#39;s own palette. Not a screenshot and not a designer&#39;s wireframe — the
-app&#39;s <em>actual</em> affordance graph at its actual geometry, minus the decorative
-pixels. And since <code>bounds</code> is plain data, it crosses the wire: a <strong>remote</strong>
-agent can draw the schematic of a page nobody is looking at. Three reasons
-this is more than a pretty view:</p>
-<ul>
-<li><strong>Visual token compression.</strong> DeepSeek&#39;s OCR work showed text <em>rendered as
-an image</em> costs the vision encoder roughly a tenth of the tokens the same
-text costs as text — and a schematic is denser still, because <strong>layout is
-free structure</strong>: containment says nesting, adjacency says order, arrows say
-direction, and none of it spends a token on syntax. For a large app,
-&quot;one PNG of the schematic&quot; may be the cheapest complete overview an agent
-can ingest.</li>
-<li><strong>The image is an index.</strong> Each rectangle links to its JSON record (below,
-clicking one shows exactly that). An agent — or a human — glances at the
-picture, decides where to act, and fetches only that subtree&#39;s precise JSON.
-Glance-then-zoom is how people use UIs; progressive disclosure is how agents
-should read them.</li>
-<li><strong>Different encodings of one structure teach you different things.</strong> A
-logographic script and braille are both &quot;text&quot;, and each reveals properties
-of reading the other conceals. The JSON map, the rendered DOM, and the
-schematic are three encodings of one wiring — diffs that are invisible in
-one are glaring in another (a schematic diff between builds is a regression
-artifact a human can <em>see</em>).</li>
-<li><strong>And it&#39;s the demo of the thesis itself.</strong> The claim &quot;your app already
-describes itself to agents&quot; is invisible when the evidence is JSON — and
-<em>self-evident</em> when a map of the page draws itself from a page that never
-declared one. The schematic lets humans see the app the way agents see it,
-which makes it the marketing artifact for the whole idea: every tosijs demo
-can end with the reveal.</li>
-</ul>
-<p>Here it is live — a todo list this time, because a list&#39;s map <strong>changes shape
+<p>Your app already wrote its own agent map — every binding and handler tosijs
+records is a line in it. Below: a todo list built the ordinary way, and the
+<strong>schematic</strong> — the map, drawn — growing as you add items.</p>
+<h2>The map, drawn: a schematic embodiment (live)</h2>
+<p>One rectangle per wired element, at its <strong>actual position and size</strong>, wearing
+the app&#39;s own colors (<code>describe({ styles: true })</code>) — and since <code>bounds</code> is
+plain data, a <em>remote</em> agent can draw a page nobody is looking at.</p>
+<p>Live, here — a todo list this time, because a list&#39;s map <strong>changes shape
 as you use it</strong>: every item you add is new wired elements, so redraw the
 schematic and watch it grow. Scoped <strong>by hierarchy</strong> — <code>agent.describe({ scope: preview })</code> walks only
 this demo&#39;s subtree, so the map is the same whether the example is inline or
@@ -482,16 +215,50 @@ this implies: <code>schematicSVG(description) → string</code>, a pure DOM-free
 and a remote agent can draw a page nobody is viewing), plus a rasterize step —
 canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for ePub
 covers).</p>
-<p><strong>Aspect ratio is the raster budget, not bytes.</strong> Vision encoders normalize
-the LONG edge before tokenizing (≈1568px / 2048px classes), so even a
-whole-app map costs only ~650–800 vision tokens — blowout is impossible by
-construction. What dies instead is <em>legibility</em>: a 5:1-tall page map gets
-crushed ~4×, and 11px captions land unreadable. So rasterize by role: the
-<strong>whole-page PNG is the glance</strong> (topology and the dashed structural rhythm
-survive downscale; captions needn&#39;t), and <strong>region maps are the zoom</strong> —
-<code>scope</code>/<code>within</code> slices at ≲3:1 aspect keep full label fidelity for the same
-few hundred tokens. Compression and index are the same design: the glance is
-cheap <em>because</em> the zoom exists to recover what it discarded.</p>
+<p><strong>Why the map beats pixels:</strong></p>
+<ul>
+<li><strong>Layout is free structure</strong> — containment says nesting, adjacency says
+order, arrows say direction; none of it spends a token on syntax
+(the DeepSeek-OCR result, applied to UI).</li>
+<li><strong>The image is an index</strong> — every rectangle links to its JSON record:
+glance at the picture, zoom into the one subtree you need.</li>
+<li><strong>Three encodings, one wiring</strong> — JSON, DOM, schematic; a diff invisible in
+one is glaring in another (a schematic diff is a regression a human <em>sees</em>).</li>
+<li><strong>It&#39;s the demo of the thesis</strong> — a map that draws itself from a page that
+never declared one. Every tosijs demo can end with the reveal.</li>
+</ul>
+<p><strong>The raster economics</strong> (encoders normalize the long edge, so cost is capped
+by construction — the budget is <em>aspect ratio</em>, not bytes):</p>
+<table>
+<thead>
+<tr>
+<th>what you rasterize</th>
+<th>vision tokens</th>
+<th>labels readable?</th>
+<th>role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>whole page (≈1300×6500)</td>
+<td>~650–800</td>
+<td>no (crushed ~4×)</td>
+<td><strong>the glance</strong> — topology + structure</td>
+</tr>
+<tr>
+<td>region map, ≤3:1 (<code>scope</code>/<code>within</code>)</td>
+<td>~600–1500</td>
+<td>yes</td>
+<td><strong>the zoom</strong> — full fidelity</td>
+</tr>
+<tr>
+<td>JSON map, 60-control app (haltija&#39;s measurement)</td>
+<td>~1,567 (text)</td>
+<td>exact</td>
+<td>the reasoning form</td>
+</tr>
+</tbody></table>
+<p>Compression and index are the same design: the glance is cheap <em>because</em> the
+zoom exists to recover what it discarded.</p>
 <p>The schematic above is ~60 lines of vanilla SVG generation over <code>describe()</code>
 output — no layout engine, no rendering, no screenshots. <strong>This code and the
 thinking belong in haltija too</strong>: a test driver that can draw the schematic of
@@ -499,6 +266,242 @@ any page it&#39;s driving has a map view humans can check at a glance and a
 compressed overview a vision model can ingest — the natural shared artifact
 between the agent surface and the test harness (they are, after all, the same
 interface).</p>
+<h2>Proof: the harvest, assembled live</h2>
+<p>The UI below is built with ordinary element sugar — a labeled filter input
+(two-way bound), a read-only total (one-way prop binding), and a button whose
+handler is attached <em>by path</em>. There is not one agent-specific declaration in
+it. Click <strong>describe()</strong> and the affordance graph is assembled on demand — and
+because this page runs in introspection mode, the graph is the <em>whole page&#39;s</em>:
+the <a href="/one-user-interface/">two-actors demo</a>, the doc site&#39;s own chrome, and the very button you
+clicked to ask.</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
+
+const { harvest } = tosi({
+  harvest: {
+    filter: &#39;&#39;,
+    total: 3,
+    restock() {
+      harvest.total = harvest.total.value + 1
+    },
+  },
+})
+
+// reuse the page&#39;s surface if one is already installed
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, input, span, button, pre } = elements
+
+// output as a DIRECT preview child: height 100% is a no-op inline and
+// fills the box when the example is maximized
+const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+// an ordinary UI — no agent-specific declarations anywhere
+preview.append(
+  div(
+    input({ placeholder: &#39;filter stock…&#39;, bindValue: harvest.filter }),
+    &#39; &#39;,
+    span({ title: &#39;items in stock&#39;, textContent: harvest.total }),
+    &#39; &#39;,
+    button(&#39;restock&#39;, { onClick: &#39;harvest.restock&#39; }),
+    &#39; &#39;,
+    button(&#39;describe()&#39;, {
+      onClick() {
+        const d = agent.describe()
+        const summary = [
+          `exposure: ${d.exposure}`,
+          `roots: ${Object.keys(d.roots).join(&#39;, &#39;)}`,
+          `actions: ${d.actions.join(&#39;, &#39;)}`,
+          `wired elements: ${d.wiring.length}`,
+        ].join(&#39;\n&#39;)
+        out.textContent = summary + &#39;\n\n&#39; + JSON.stringify(d.wiring, null, 2)
+      },
+    })
+  ),
+  out
+)
+</code></pre>
+<pre><code class="language-test">import {
+  elements,
+  tosi,
+  enableAgentInterface,
+  bind,
+  bindings,
+  updates,
+} from &#39;tosijs&#39;
+
+test(&#39;describe() harvests the affordance join from ordinary declarations&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  tosi({ harvestTest: { q: &#39;&#39; } })
+  const input = elements.input({ placeholder: &#39;harvest-test…&#39; })
+  preview.append(input)
+  bind(input, &#39;harvestTest.q&#39;, bindings.value)
+  await updates()
+  const d = agent.describe()
+  const record = d.wiring.find((w) =&gt; w.label === &#39;harvest-test…&#39;)
+  expect(record != null).toBe(true)
+  // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
+  expect(String(record.value).includes(&#39;⟷ harvestTest.q&#39;)).toBe(true)
+  // geometry rides in the map — in a real browser the input has real bounds
+  // (this line is exactly what happy-dom cannot assert: it reports zero-size)
+  expect(record.bounds.width &gt; 0).toBe(true)
+  input.remove()
+})
+</code></pre>
+<p>Read what it prints. Records are <strong>flat</strong> — the semantically visible facts sit
+at the top level, sized for an LLM to scan. The input&#39;s record joins its human
+label (the <code>placeholder</code>) to its live value and its path in one string:
+<code>value: &quot;⟷ harvest.filter&quot;</code> — the two-way arrow means <em>user-writable
+affordance</em>. The total is the same idea, one-way: <code>text: &quot;3 ⟵ harvest.total&quot;</code>
+(current value, display-only; a plain <code>text: &quot;restock&quot;</code> with no arrow is
+static). The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
+<code>on: { click: &quot;harvest.restock&quot; }</code> — and the same path appears under
+<code>actions</code>. That is the affordance descriptor from the table above: harvested,
+joined, and serialized, authored by nobody.</p>
+<h2>The part nobody else can offer: the wiring diagram is already recorded</h2>
+<p>Here is the b8r inheritance paying off. In b8r it was the norm to put state
+<em>and</em> event handlers in the registry. tosijs kept that affordance
+(<code>onClick: &#39;app.doThing&#39;</code> binds a handler <strong>by path</strong>) but also allows the
+ergonomic shortcut (<code>onClick: (event) =&gt; { … }</code>) — and crucially, <strong>the shortcut
+still passes through tosijs</strong>. Every handler attached via element sugar or
+<code>on()</code> is recorded. Every data binding records element ↔ path. The framework
+doesn&#39;t just hold the model — it holds the complete map of <em>which widget is
+wired to what</em>, as a side effect of normal operation.</p>
+<p>That means an introspection surface costs the programmer <strong>nothing</strong>. Today,
+with shipped exports:</p>
+<table>
+<thead>
+<tr>
+<th>Question an agent asks</th>
+<th>Answer, today</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>What state exists?</td>
+<td><code>xin</code> / <code>boxed</code> — plain serializable objects (this is what <code>hotReload</code> already relies on)</td>
+</tr>
+<tr>
+<td>What is the value at a path?</td>
+<td><code>boxed[path].value</code></td>
+</tr>
+<tr>
+<td>Change it (and update the UI)</td>
+<td><code>xin[path] = value</code> — observers fire, DOM updates surgically</td>
+</tr>
+<tr>
+<td>Tell me when it changes</td>
+<td><code>observe(path, cb)</code> — and <code>unobserve</code> to hang up</td>
+</tr>
+<tr>
+<td>Which elements are data-bound?</td>
+<td><code>document.getElementsByClassName(BOUND_CLASS)</code> — the marker class <strong>is</strong> the enumerable index</td>
+</tr>
+<tr>
+<td>What is <em>this</em> element wired to?</td>
+<td><code>getElementBindings(el)</code> → its data bindings (paths + binding types) <strong>and</strong> its event handlers <em>(one <code>export</code> away from public)</em></td>
+</tr>
+<tr>
+<td>Which datum does this row render?</td>
+<td><code>getListItem(el)</code> — DOM → model, including virtual list rows</td>
+</tr>
+<tr>
+<td>What actions exist?</td>
+<td>Functions in the registry (<code>app.addItem</code>) — addressable, callable, and already supported as by-path event handlers</td>
+</tr>
+<tr>
+<td>What happened while I watched?</td>
+<td>The path-touch stream — the <code>connectDevTools</code> pattern (every touch is <code>{path, snapshot}</code>)</td>
+</tr>
+</tbody></table>
+<p>The React/Angular worlds cannot produce this table without becoming tosijs: it
+requires a universal addressing scheme, a central observable registry, stable
+DOM, and recorded wiring — which is simply a description of the observant model.
+This is the &quot;two steps beyond&quot; claim, made concrete.</p>
+<p>A useful subtlety: <strong>shadow-DOM components are already agent-shaped.</strong> A shadow
+component is bound like an <code>&lt;input&gt;</code> — its <code>value</code> is the interface and its
+internals are private by design. That&#39;s precisely the affordance/implementation
+split an agent needs: it should set the date-picker&#39;s <em>value</em>, not fumble with
+its internal buttons. (Closed shadow roots stay closed — for agents too.)</p>
+<h2>The opportunistic harvest</h2>
+<p>The wiring table above is what tosijs records <em>deliberately</em>. There is a second,
+larger layer it can harvest <em>opportunistically</em> — metadata that exists only
+because developers use elementCreators and their syntax sugar. Every prop passed
+to <code>div({…})</code>, every <code>initAttributes</code>, every <code>listBinding</code> flows through one
+chokepoint (<code>elementSet</code> / the creator machinery), and almost all of it persists
+somewhere recoverable (the element&#39;s attributes, the binding WeakMaps, the
+component class). Nothing new needs recording — <code>describe()</code> computes the
+harvest <strong>on demand</strong> from what&#39;s already there:</p>
+<table>
+<thead>
+<tr>
+<th>The developer wrote (for their own reasons)</th>
+<th>What it tells an agent, free</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>onClick: (e) =&gt; {…}</code></td>
+<td>this element is interactive; event type known</td>
+</tr>
+<tr>
+<td><code>onClick: &#39;app.doThing&#39;</code></td>
+<td>the action is <em>addressable and nameable</em> — a tool with a path</td>
+</tr>
+<tr>
+<td><code>bindValue: app.filter</code> (binding has <code>fromDOM</code>)</td>
+<td><strong>this path is user-writable</strong> — an input affordance</td>
+</tr>
+<tr>
+<td><code>textContent: app.total</code> (prop binding is <code>toDOM</code>-only)</td>
+<td>this path is <em>displayed</em> — read-only output</td>
+</tr>
+<tr>
+<td><code>bindEnabled: app.cart.valid</code></td>
+<td>a <strong>precondition</strong>: the guarded action&#39;s availability depends on this path</td>
+</tr>
+<tr>
+<td><code>listBinding(template, { idPath: &#39;id&#39; })</code></td>
+<td><code>app.items</code> is a collection keyed by <code>id</code>; the template&#39;s relative (<code>^.field</code>) bindings enumerate <strong>which fields of each item the UI presents</strong>, and per-row handlers are per-row actions</td>
+</tr>
+<tr>
+<td><code>role</code>, <code>aria-*</code>, <code>title</code>, <code>placeholder</code>, <code>alt</code>, <code>label</code> wrapping</td>
+<td><strong>semantic labels</strong> — the same vocabulary a11y-tree agents already consume, but harvested at the source</td>
+</tr>
+<tr>
+<td><code>input({ type: &#39;email&#39; })</code>, <code>required</code>, <code>min</code>/<code>max</code>/<code>pattern</code></td>
+<td>value types and validation constraints, straight from the markup sugar</td>
+</tr>
+<tr>
+<td><code>part: &#39;searchBox&#39;</code></td>
+<td>the developer&#39;s <em>own name</em> for the affordance</td>
+</tr>
+<tr>
+<td><code>static initAttributes = { count: 0, live: false }</code></td>
+<td>a <strong>typed per-component attribute schema</strong> — types already inferred from defaults at runtime (<code>typeof</code> branch in the attribute machinery)</td>
+</tr>
+<tr>
+<td>component <code>value</code> + <code>formAssociated</code></td>
+<td>the component&#39;s value surface and its form contract</td>
+</tr>
+</tbody></table>
+<p>Two compounding effects make this more than a list of facts:</p>
+<ul>
+<li><strong>The join.</strong> Because everything is declared <em>on the same element through the
+same call</em>, tosijs can join what no one else can: <code>role=&quot;search&quot;</code> ×
+<code>bindValue: app.filter</code> × <code>onKeydown: app.submit</code> on one element is a complete
+<strong>affordance descriptor</strong> — semantic label, writable state, and action,
+co-located. The a11y-tree agents get the label but not the path; API tools get
+the action but not the label. tosijs stands in the middle when all three are
+declared, and the DOM + WeakMaps preserve the join for on-demand assembly.</li>
+<li><strong>The behavioral harvest.</strong> At runtime, the audit stream adds provenance:
+<code>call(&#39;app.addItem&#39;)</code> → touches observed on <code>app.items</code> teaches the agent the
+<strong>causal graph</strong> (which actions affect which paths) purely by watching.
+<code>describe()</code> gets richer the longer the app runs, with zero developer effort.</li>
+<li><strong>Triangulated typing without schema.</strong> <code>typeof</code> the state at the path ∧ the
+input&#39;s declared <code>type</code> ∧ <code>initAttributes</code> defaults: three independent
+signals agree on a field&#39;s type before tosijs-schema is even introduced —
+and flag a smell when they disagree.</li>
+</ul>
+<p>The punchline is the same as the wiring table&#39;s, one octave up: the WebMCP
+world asks developers to <em>author</em> tool schemas by hand; in tosijs, the app&#39;s
+ordinary construction <strong>is</strong> the authoring. The sugar was designed for
+ergonomics; it turns out to have been designing an agent interface all along.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">

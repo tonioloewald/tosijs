@@ -10,51 +10,29 @@
 > runs on them. Nothing is *published* yet; everything is EXPERIMENTAL and
 > shapes may still move (see [Plan & Prior Art](/plan-and-prior-art/)).
 
-## The thesis
+## The thesis, in five claims
 
-Every application now has (at least) three kinds of user:
+Every app now has three kinds of user — **humans** (rendered DOM), **code**
+(state), and **agents**, who today are forced to *impersonate humans*:
+screenshot, guess, forge clicks. tosijs never needed the workaround:
 
-1. **Humans**, who see rendered DOM and click on it.
-2. **Code**, which reads and mutates application state.
-3. **Agents** — LLM-driven browsers, assistants, and automations — which today are
-   forced to impersonate user #1: screenshot the page, guess at pixels, forge
-   clicks and keystrokes, and hope the framework's synthetic event system deigns
-   to notice.
-
-That third user is about to be the norm. And the way the industry serves it —
-vision models puppeting a mouse — is a workaround for a self-inflicted wound:
-mainstream frameworks trap the application model inside components, hooks,
-closures, and stores. There is no address you can ask for. The DOM is a render
-artifact that gets rebuilt under you. The *only* interface left standing is the
-human one, so agents are stuck cosplaying as humans.
-
-`tosijs` never made that mistake, because the observant model is older than the
-problem:
-
-- **State lives in one registry, addressed by paths.**
-  `app.cart.items[id=123].qty` is a serializable, human-readable, LLM-friendly
-  *string*. No DOM required to name a thing.
-- **Writes are legitimate at any entry point.** Assign to a path and every bound
-  widget updates surgically — exactly as if the human had done it. No synthetic
-  event forgery, no native-setter hacks.
-- **The DOM is persistent.** Bindings wire real elements to paths once; nothing
-  is rebuilt out from under an observer — human or agent.
-- **Observation is push, not poll.** `observe(path, …)` replaces screenshot
+- **State lives in one registry, addressed by paths** — `app.cart.items[id=123].qty`
+  is a serializable, LLM-friendly *string*. No DOM required to name a thing.
+- **Writes are legitimate from any entry point** — assign to a path and every
+  bound widget updates, exactly as if the human had done it.
+- **The DOM is persistent** — bindings wire real elements once; nothing is
+  rebuilt out from under an observer, human or agent.
+- **Observation is push, not poll** — `observe(path, …)` replaces screenshot
   diffing with notifications.
-
-An agent is not a special case. **An agent is just another observer with a
-different intelligence behind it.** Human via widgets, agent via paths, code via
-either — three users, one interface, zero sync layers. That's the manifesto in
-one line: we don't need to *extend* the architecture to serve AI; we need to
-*describe* it to AI.
+- Therefore: **an agent is just another observer with a different intelligence
+  behind it.** We don't extend the architecture to serve AI — we *describe* it.
 
 ## Proof: two users, one interface (live)
 
-Below, the human side is an ordinary bound tosijs UI. The agent side never
-touches the DOM — it uses the EXPERIMENTAL `enableAgentInterface()` surface:
-paths, actions, and push observation only. Add items from either side; both
-stay in sync because there is nothing to sync — and the observation log shows
-the agent being *notified* of your edits (and its own).
+The human side is ordinary bound UI. The agent side never touches the DOM —
+paths, actions, and push observation only. Add items from either side: both
+stay in sync because **there is nothing to sync**, and the log shows the agent
+being notified of your edits.
 
 ```js
 import { elements, tosi, enableAgentInterface } from 'tosijs'
@@ -118,11 +96,9 @@ preview.append(
 )
 ```
 
-The surface is also installed as a global — so **open the browser console on
-this page and you are the second user**: `tosiAgent.describe()`,
+**Open the console — you are the second user**: `tosiAgent.describe()`,
 `tosiAgent.call('oneUI.addItem', 'from the console')`, `tosiAgent.changes()`.
-An agentic browser gets exactly the same deal, with no extension, no vision
-model, and no selector-guessing.
+An agentic browser gets the same deal: no extension, no vision, no selectors.
 
 
 ## The full argument, in five parts

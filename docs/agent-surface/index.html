@@ -49,66 +49,15 @@
 <!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
 
 <p><em>Part of <a href="/one-user-interface/">One User Interface</a> — the design of the surface itself.</em></p>
-<h2>The design: a launch toggle, not a framework</h2>
-<p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
-<pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
-// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
-
-const agent = enableAgentInterface({
-  // DEV: expose everything tosijs already knows (introspection mode)
-  // PROD: expose exactly what you declare (manifest mode) — see below
-})
-</code></pre>
-<p>The returned surface (also reachable as a global for injected/extension
-contexts) is small and protocol-neutral:</p>
-<pre><code>agent.describe()            // the app&#39;s self-description: state roots, wiring
-                            // graph (element ↔ path ↔ handlers), declared
-                            // actions, schemas if present
-agent.read(path)            // serializable value
-agent.write(path, value)    // through the same validation as any other write
-agent.observe(path, cb)     // push notifications; returns unsubscribe
-agent.call(actionPath, ...) // invoke a declared action (a function in state)
-agent.log()                 // the audit trail: every touch since enable
-agent.changes(since)        // turn-based drain: final-value-per-path since cursor
-agent.when(path, predicate) // await a state condition (see push and drain)
-</code></pre>
-<p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs
-already records — enumerate <code>BOUND_CLASS</code>, map each element through
-<code>getElementBindings</code>, walk the tree probing event wiring, list registry
-functions. A sketch of what an agent sees:</p>
-<pre><code class="language-json">{
-  &quot;roots&quot;: { &quot;app&quot;: &quot;object&quot; },
-  &quot;wiring&quot;: [
-    { &quot;tag&quot;: &quot;input&quot;, &quot;label&quot;: &quot;search products…&quot;, &quot;value&quot;: &quot;milk ⟷ app.filter&quot; },
-    { &quot;tag&quot;: &quot;ul&quot;, &quot;list&quot;: { &quot;path&quot;: &quot;app.items&quot;, &quot;idPath&quot;: &quot;id&quot; } },
-    { &quot;tag&quot;: &quot;button&quot;, &quot;text&quot;: &quot;Add&quot;, &quot;on&quot;: { &quot;click&quot;: &quot;app.addItem&quot; } }
-  ],
-  &quot;actions&quot;: [&quot;app.addItem&quot;]
-}
-</code></pre>
-<p>Records are deliberately <strong>flat and small</strong>: the semantically visible facts —
-tag, label, text, bound props, handlers — sit at the top level; anything
-obscure drops one level into <code>detail</code>. Bound props carry <em>value and provenance
-in one string</em>: <code>&quot;milk ⟷ app.filter&quot;</code> is the current value, the fact that it&#39;s
-live, and its address — and the arrow encodes <strong>direction</strong>, <code>⟷</code> two-way (a
-user-writable affordance) vs <code>⟵</code> display-only. A value with no arrow is
-static. The tokens are chosen to be unlikely in real data and are exported
-(<code>BOUND_TWO_WAY</code>, <code>BOUND_TO_DOM</code>) for parsers.</p>
-<p>An agent reading that doesn&#39;t need vision, doesn&#39;t need to guess selectors, and
-doesn&#39;t need to forge events. It needs <code>write(&#39;app.filter&#39;, &#39;milk&#39;)</code> and
-<code>call(&#39;app.addItem&#39;, &#39;buy milk&#39;)</code> — and the human watching the screen sees the
-UI respond, because there is only one interface.</p>
-<h3>Proof: the tools write themselves (live)</h3>
-<p>WebMCP is the standard slot for exposing <strong>tools</strong> to browser agents — and
-every existing integration authors those tools by hand. Below, a tiny app is
-built the ordinary way, and <code>webmcpTools(agent)</code> <strong>generates</strong> its WebMCP tool
-set from the surface: the core quartet plus one <em>named</em> tool per action the
-registry already holds. If this browser has a WebMCP host
-(<code>document.modelContext</code> / <code>navigator.modelContext</code> — Chrome Canary), the
-tools are registered live; otherwise you see exactly what would register.
-Note <code>tosi_write</code> appears because this page runs in introspection (dev) mode —
-in manifest mode it&#39;s absent unless explicitly allowed, per
-<a href="/trust-and-transports/">Trust</a>.</p>
+<p>One line enables the surface; everything else derives. Watch a WebMCP tool
+set write itself from an ordinary little app:</p>
+<h2>Proof: the tools write themselves (live)</h2>
+<p>Every existing WebMCP integration authors its tools by hand.
+<code>webmcpTools(agent)</code> <strong>generates</strong> them: the core quartet plus one <em>named</em>
+tool per action the registry already holds. With a WebMCP host present
+(Chrome Canary), they register live; without one, you see exactly what would.
+(<code>tosi_write</code> appears only because this page runs in dev/introspection mode —
+see <a href="/trust-and-transports/">Trust</a>.)</p>
 <pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
 
 const { mcpDemo } = tosi({
@@ -168,6 +117,55 @@ runnable: Angular&#39;s Signal-Forms-to-tools is the closest anyone else gets, a
 it covers forms. Here <em>every action and every affordance</em> is a tool candidate,
 because the framework already holds the wiring — tosijs can be the first
 framework where the WebMCP tools write themselves.</p>
+<h2>The design: a launch toggle, not a framework</h2>
+<p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
+<pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
+// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
+
+const agent = enableAgentInterface({
+  // DEV: expose everything tosijs already knows (introspection mode)
+  // PROD: expose exactly what you declare (manifest mode) — see below
+})
+</code></pre>
+<p>The returned surface (also reachable as a global for injected/extension
+contexts) is small and protocol-neutral:</p>
+<pre><code>agent.describe()            // the app&#39;s self-description: state roots, wiring
+                            // graph (element ↔ path ↔ handlers), declared
+                            // actions, schemas if present
+agent.read(path)            // serializable value
+agent.write(path, value)    // through the same validation as any other write
+agent.observe(path, cb)     // push notifications; returns unsubscribe
+agent.call(actionPath, ...) // invoke a declared action (a function in state)
+agent.log()                 // the audit trail: every touch since enable
+agent.changes(since)        // turn-based drain: final-value-per-path since cursor
+agent.when(path, predicate) // await a state condition (see push and drain)
+</code></pre>
+<p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs
+already records — enumerate <code>BOUND_CLASS</code>, map each element through
+<code>getElementBindings</code>, walk the tree probing event wiring, list registry
+functions. A sketch of what an agent sees:</p>
+<pre><code class="language-json">{
+  &quot;roots&quot;: { &quot;app&quot;: &quot;object&quot; },
+  &quot;wiring&quot;: [
+    { &quot;tag&quot;: &quot;input&quot;, &quot;label&quot;: &quot;search products…&quot;, &quot;value&quot;: &quot;milk ⟷ app.filter&quot; },
+    { &quot;tag&quot;: &quot;ul&quot;, &quot;list&quot;: { &quot;path&quot;: &quot;app.items&quot;, &quot;idPath&quot;: &quot;id&quot; } },
+    { &quot;tag&quot;: &quot;button&quot;, &quot;text&quot;: &quot;Add&quot;, &quot;on&quot;: { &quot;click&quot;: &quot;app.addItem&quot; } }
+  ],
+  &quot;actions&quot;: [&quot;app.addItem&quot;]
+}
+</code></pre>
+<p>Records are deliberately <strong>flat and small</strong>: the semantically visible facts —
+tag, label, text, bound props, handlers — sit at the top level; anything
+obscure drops one level into <code>detail</code>. Bound props carry <em>value and provenance
+in one string</em>: <code>&quot;milk ⟷ app.filter&quot;</code> is the current value, the fact that it&#39;s
+live, and its address — and the arrow encodes <strong>direction</strong>, <code>⟷</code> two-way (a
+user-writable affordance) vs <code>⟵</code> display-only. A value with no arrow is
+static. The tokens are chosen to be unlikely in real data and are exported
+(<code>BOUND_TWO_WAY</code>, <code>BOUND_TO_DOM</code>) for parsers.</p>
+<p>An agent reading that doesn&#39;t need vision, doesn&#39;t need to guess selectors, and
+doesn&#39;t need to forge events. It needs <code>write(&#39;app.filter&#39;, &#39;milk&#39;)</code> and
+<code>call(&#39;app.addItem&#39;, &#39;buy milk&#39;)</code> — and the human watching the screen sees the
+UI respond, because there is only one interface.</p>
 <h3>Observation: push and drain</h3>
 <p>The subscription channel is the delta nobody else can even feed (see
 <a href="/plan-and-prior-art/">Plan &amp; Prior Art</a>:
@@ -272,24 +270,13 @@ discovery tool that makes declaring cheap.</strong> The auto-map is how you find
 what to put in the schema — it should never be what anyone scripts against.
 Two reasons, and only one of them is security:</p>
 <ul>
-<li><strong>Security (the asterisked half).</strong> In a zero-trust app the <em>write</em> path adds
-no attack surface — anything the surface can invoke, devtools could already
-invoke. The asterisk is the read path: <strong>the UI exposes what&#39;s rendered; the
-automatic map exposes what&#39;s resident.</strong> Prefetched data, client-side caches,
-feature flags, records loaded for other views — invisible on screen, all
-greppable in the map. &quot;We never hold client-side data we don&#39;t show&quot; is a
-discipline worth stating as a rule rather than assuming, because it&#39;s exactly
-the invariant that holds until one convenient cache breaks it. And an
-undeclared <code>call()</code> surface is <strong>an RPC endpoint with good documentation</strong> —
-<em>which handlers are agent-invokable</em> is a security boundary, not a
-convenience.</li>
-<li><strong>Hyrum&#39;s law (the half that always applies).</strong> UI users tolerate UI change;
-scripts don&#39;t. The moment fifty tests and an agent workflow depend on the
-accidental shape of the auto-map, every internal rename is a breaking change
-— refactoring freedom lost over precisely the code you most want to keep
-fluid. You would never promise pixel-stable UI; don&#39;t accidentally promise
-structure-stable internals. The schema is the contract: version <em>it</em>, and
-refactor freely behind it.</li>
+<li><strong>Security (asterisked).</strong> Writes add no attack surface in a zero-trust app
+— but <strong>the UI exposes what&#39;s <em>rendered</em>; the map exposes what&#39;s
+<em>resident</em></strong> (caches, prefetch, feature flags). And an undeclared <code>call()</code>
+surface is an RPC endpoint with good documentation.</li>
+<li><strong>Hyrum&#39;s law (always applies).</strong> Scripts don&#39;t tolerate change the way
+users do: once fifty tests depend on the auto-map&#39;s accidental shape, every
+rename is breaking. Version the <em>schema</em>; refactor freely behind it.</li>
 </ul>
 <p>The resolution costs one boolean: expose both, mark the auto-map explicitly
 unstable, and keep everything durable on the schema&#39;d view. A bonus falls out:
