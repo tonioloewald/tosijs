@@ -1,7 +1,7 @@
 # The Agent Surface
 <!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
 
-*Part of [One User Interface](/ONE_USER_INTERFACE/) — the design of the surface itself.*
+*Part of [One User Interface](/one-user-interface/) — the design of the surface itself.*
 
 ## The design: a launch toggle, not a framework
 
@@ -75,7 +75,7 @@ registry already holds. If this browser has a WebMCP host
 tools are registered live; otherwise you see exactly what would register.
 Note `tosi_write` appears because this page runs in introspection (dev) mode —
 in manifest mode it's absent unless explicitly allowed, per
-[Trust](/ONE_UI_TRUST/).
+[Trust](/trust-and-transports/).
 
 ```js
 import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from 'tosijs'
@@ -135,7 +135,7 @@ test('the WebMCP tool set derives from the page, and registration round-trips', 
 })
 ```
 
-The punchline is the table from [Plan & Prior Art](/ONE_UI_PLAN/) made
+The punchline is the table from [Plan & Prior Art](/plan-and-prior-art/) made
 runnable: Angular's Signal-Forms-to-tools is the closest anyone else gets, and
 it covers forms. Here *every action and every affordance* is a tool candidate,
 because the framework already holds the wiring — tosijs can be the first
@@ -144,7 +144,7 @@ framework where the WebMCP tools write themselves.
 ### Observation: push and drain
 
 The subscription channel is the delta nobody else can even feed (see
-[Plan & Prior Art](/ONE_UI_PLAN/):
+[Plan & Prior Art](/plan-and-prior-art/):
 WebMCP is tools-only, blind between calls; MCP has `resources/subscribe` but no
 framework can supply it without hand-wired change events per feature). tosijs's
 core competency *is* change notification, so agents get it for free — and the

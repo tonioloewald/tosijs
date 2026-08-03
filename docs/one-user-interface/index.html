@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>One User Interface — tosijs</title>
   <meta name="description" content="One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." />
-  <link rel="canonical" href="https://tosijs.net/ONE_USER_INTERFACE/" />
+  <link rel="canonical" href="https://tosijs.net/one-user-interface/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="One User Interface — tosijs" />
   <meta property="og:description" content="One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." />
-  <meta property="og:url" content="https://tosijs.net/ONE_USER_INTERFACE/" />
+  <meta property="og:url" content="https://tosijs.net/one-user-interface/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"One User Interface","description":"One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels.","url":"https://tosijs.net/ONE_USER_INTERFACE/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"One User Interface","description":"One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels.","url":"https://tosijs.net/one-user-interface/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -55,7 +55,7 @@
 (<code>schematicSVG</code> / <code>rasterizeSVG</code>), and the WebMCP adapter (<code>webmcpTools</code> /
 <code>webmcpAdapter</code>) are real, tested code here — every proof on these pages
 runs on them. Nothing is <em>published</em> yet; everything is EXPERIMENTAL and
-shapes may still move (see <a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a>).</p>
+shapes may still move (see <a href="/plan-and-prior-art/">Plan &amp; Prior Art</a>).</p>
 </blockquote>
 <h2>The thesis</h2>
 <p>Every application now has (at least) three kinds of user:</p>
@@ -134,8 +134,11 @@ preview.append(
   )
 )
 
-// THE AGENT SIDE — no DOM access: paths, actions, observation only
-const log = pre({ style: { maxHeight: &#39;5em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+// THE AGENT SIDE — no DOM access: paths, actions, observation only.
+// The log is a direct preview child so it grows when the example is maximized.
+const log = pre({
+  style: { height: &#39;100%&#39;, minHeight: &#39;5em&#39;, overflow: &#39;auto&#39;, margin: 0 },
+})
 agent.observe(&#39;oneUI&#39;, (path) =&gt; log.append(`observed: ${path}\n`))
 preview.append(
   div(
@@ -150,9 +153,9 @@ preview.append(
       onClick() {
         log.append(JSON.stringify(agent.read(&#39;oneUI.list&#39;)) + &#39;\n&#39;)
       },
-    }),
-    log
-  )
+    })
+  ),
+  log
 )
 </code></pre>
 <p>The surface is also installed as a global — so <strong>open the browser console on
@@ -164,20 +167,20 @@ model, and no selector-guessing.</p>
 <p>This page is the thesis and its live proof. The detail lives in five child
 documents:</p>
 <ol>
-<li><strong><a href="/ONE_UI_DERIVED/">The Derived Surface</a></strong> — the wiring diagram tosijs
+<li><strong><a href="/derived-surface/">The Derived Surface</a></strong> — the wiring diagram tosijs
 already records, the opportunistic harvest, and <code>describe()</code> assembling the
 whole page&#39;s affordance graph — live.</li>
-<li><strong><a href="/ONE_UI_DESIGN/">The Agent Surface</a></strong> — the launch toggle, the
+<li><strong><a href="/agent-surface/">The Agent Surface</a></strong> — the launch toggle, the
 protocol-neutral surface, push-and-drain observation, and the exposure
 tiers — where the <strong>schema-declared surface is the product</strong> and the
 automatic map is the discovery tool. Plus ComponentMap.</li>
-<li><strong><a href="/ONE_UI_TRUST/">Trust &amp; Transports</a></strong> — the honest section: constraint
+<li><strong><a href="/trust-and-transports/">Trust &amp; Transports</a></strong> — the honest section: constraint
 bypass, capability scoping, secrets, prompt injection, audit — and the
 three distances an agent can stand at (in-page, bridged, remote peer).</li>
-<li><strong><a href="/ONE_UI_HEADLESS/">Headless Embodiment</a></strong> — the inversion:
+<li><strong><a href="/headless-embodiment/">Headless Embodiment</a></strong> — the inversion:
 &quot;server-side rendering of an MCP&quot; — the app running as its abstract self,
 vending UI on demand, with <code>elementsSSR</code> proven live.</li>
-<li><strong><a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a></strong> — phases 0–5, the open questions,
+<li><strong><a href="/plan-and-prior-art/">Plan &amp; Prior Art</a></strong> — phases 0–5, the open questions,
 and why the window is real (WebMCP is standardizing the transport slot
 <em>right now</em>; the core idea remains unclaimed).</li>
 </ol>
@@ -187,11 +190,11 @@ the UI. A human is an observer with eyes. An agent is an observer with a model.
 Neither needs a special interface, because there is only one.</em></p>
 <!-- toc -->
 <ul>
-<li><a href="/ONE_UI_DERIVED/">The Derived Surface</a></li>
-<li><a href="/ONE_UI_DESIGN/">The Agent Surface</a></li>
-<li><a href="/ONE_UI_TRUST/">Trust &amp; Transports</a></li>
-<li><a href="/ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-<li><a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a></li>
+<li><a href="/derived-surface/">The Derived Surface</a></li>
+<li><a href="/agent-surface/">The Agent Surface</a></li>
+<li><a href="/trust-and-transports/">Trust &amp; Transports</a></li>
+<li><a href="/headless-embodiment/">Headless Embodiment</a></li>
+<li><a href="/plan-and-prior-art/">Plan &amp; Prior Art</a></li>
 </ul>
 <!-- /toc -->
 
@@ -242,13 +245,13 @@ Neither needs a special interface, because there is only one.</em></p>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
-    <li><details open><summary><a class="doc-link current" href="../ONE_USER_INTERFACE/" aria-current="page">One User Interface</a></summary>
+    <li><details open><summary><a class="doc-link current" href="../one-user-interface/" aria-current="page">One User Interface</a></summary>
     <ul>
-      <li><a class="doc-link" href="../ONE_UI_DERIVED/">The Derived Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_DESIGN/">The Agent Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_TRUST/">Trust &amp; Transports</a></li>
-      <li><a class="doc-link" href="../ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-      <li><a class="doc-link" href="../ONE_UI_PLAN/">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>

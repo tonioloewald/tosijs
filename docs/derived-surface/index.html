@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>The Derived Surface — tosijs</title>
   <meta name="description" content="The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." />
-  <link rel="canonical" href="https://tosijs.net/ONE_UI_DERIVED/" />
+  <link rel="canonical" href="https://tosijs.net/derived-surface/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="The Derived Surface — tosijs" />
   <meta property="og:description" content="The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." />
-  <meta property="og:url" content="https://tosijs.net/ONE_UI_DERIVED/" />
+  <meta property="og:url" content="https://tosijs.net/derived-surface/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The Derived Surface","description":"The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live.","url":"https://tosijs.net/ONE_UI_DERIVED/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The Derived Surface","description":"The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live.","url":"https://tosijs.net/derived-surface/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -48,7 +48,7 @@
 <h1>The Derived Surface</h1>
 <!--{ "parent": "One User Interface", "order": 1, "description": "The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." }-->
 
-<p><em>Part of <a href="/ONE_USER_INTERFACE/">One User Interface</a> — why the agent surface derives from what tosijs already knows.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — why the agent surface derives from what tosijs already knows.</em></p>
 <h2>The part nobody else can offer: the wiring diagram is already recorded</h2>
 <p>Here is the b8r inheritance paying off. In b8r it was the norm to put state
 <em>and</em> event handlers in the registry. tosijs kept that affordance
@@ -202,7 +202,7 @@ ergonomics; it turns out to have been designing an agent interface all along.</p
 handler is attached <em>by path</em>. There is not one agent-specific declaration in
 it. Click <strong>describe()</strong> and the affordance graph is assembled on demand — and
 because this page runs in introspection mode, the graph is the <em>whole page&#39;s</em>:
-the <a href="/ONE_USER_INTERFACE/">two-actors demo</a>, the doc site&#39;s own chrome, and the very button you
+the <a href="/one-user-interface/">two-actors demo</a>, the doc site&#39;s own chrome, and the very button you
 clicked to ask.</p>
 <pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
 
@@ -220,7 +220,9 @@ const { harvest } = tosi({
 const agent = globalThis.tosiAgent ?? enableAgentInterface()
 const { div, input, span, button, pre } = elements
 
-const out = pre({ style: { maxHeight: &#39;12em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+// output as a DIRECT preview child: height 100% is a no-op inline and
+// fills the box when the example is maximized
+const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
 // an ordinary UI — no agent-specific declarations anywhere
 preview.append(
   div(
@@ -241,9 +243,9 @@ preview.append(
         ].join(&#39;\n&#39;)
         out.textContent = summary + &#39;\n\n&#39; + JSON.stringify(d.wiring, null, 2)
       },
-    }),
-    out
-  )
+    })
+  ),
+  out
 )
 </code></pre>
 <pre><code class="language-test">import {
@@ -321,113 +323,118 @@ declared one. The schematic lets humans see the app the way agents see it,
 which makes it the marketing artifact for the whole idea: every tosijs demo
 can end with the reveal.</li>
 </ul>
-<p>Here it is live — the same harvest UI as above, then <strong>schematic()</strong> draws the
-whole page&#39;s map; click any rectangle for its JSON:</p>
+<p>Here it is live — a todo list this time, because a list&#39;s map <strong>changes shape
+as you use it</strong>: every item you add is new wired elements, so redraw the
+schematic and watch it grow. Scoped <strong>spatially</strong> — <code>schematicSVG(map, { within: boundsOf(preview) })</code> draws exactly this demo&#39;s region of the page,
+the general form of &quot;map this part&quot; (no demo-specific filtering; <strong>whole
+page()</strong> drops the scope for the full reveal); click any rectangle for its
+JSON record:</p>
 <pre><code class="language-js">import {
   elements,
-  svgElements,
   tosi,
   enableAgentInterface,
   schematicSVG,
   rasterizeSVG,
+  boundsOf,
 } from &#39;tosijs&#39;
 
-const { schem } = tosi({
-  schem: {
-    filter: &#39;&#39;,
-    stock: 3,
-    restock() {
-      schem.stock = schem.stock.value + 1
+const { mapDemo } = tosi({
+  mapDemo: {
+    newItem: &#39;&#39;,
+    items: [
+      { id: 1, text: &#39;draw the map&#39;, done: true },
+      { id: 2, text: &#39;add more todos&#39;, done: false },
+    ],
+    addItem() {
+      const text = mapDemo.newItem.value.trim()
+      if (!text) return
+      mapDemo.items.push({ id: Math.random(), text, done: false })
+      mapDemo.newItem = &#39;&#39;
     },
   },
 })
 const agent = globalThis.tosiAgent ?? enableAgentInterface()
-const { div, input, span, button, pre } = elements
-const { svg, rect, text } = svgElements
+const { div, input, button, ul, pre, img } = elements
 
-// an ordinary UI to map
+// an ordinary todo list — each row&#39;s checkbox and label are WIRED, so every
+// item is part of the map, and the map grows as the list does
 preview.append(
   div(
-    input({ placeholder: &#39;filter stock…&#39;, bindValue: schem.filter }),
+    input({
+      placeholder: &#39;add a todo…&#39;,
+      bindValue: mapDemo.newItem,
+      onKeydown(event) {
+        if (event.key === &#39;Enter&#39;) mapDemo.addItem()
+      },
+    }),
     &#39; &#39;,
-    span({ title: &#39;in stock&#39;, textContent: schem.stock }),
+    button(&#39;add&#39;, { onClick: &#39;mapDemo.addItem&#39; }),
+    ul(
+      ...mapDemo.items.listBinding(
+        ({ li, input: check, span }, item) =&gt;
+          li(check({ type: &#39;checkbox&#39;, bindValue: item.done }), &#39; &#39;, span(item.text)),
+        { idPath: &#39;id&#39; }
+      )
+    ),
+    button(&#39;schematic()&#39;, {
+      onClick() {
+        const d = agent.describe({ styles: true })
+        // scope SPATIALLY: the map of this demo&#39;s region — general tools,
+        // no demo-specific logic (boundsOf converts to page coordinates)
+        drawing.innerHTML = schematicSVG(d, { within: boundsOf(preview) })
+        // the image is an index: data-record links each box to its JSON
+        drawing.onclick = (event) =&gt; {
+          const g = event.target.closest(&#39;[data-record]&#39;)
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    }),
     &#39; &#39;,
-    button(&#39;restock&#39;, { onClick: &#39;schem.restock&#39; })
+    // the vision-encoder form: shipped helpers, map -&gt; SVG string -&gt; PNG
+    button(&#39;png()&#39;, {
+      async onClick() {
+        const d = agent.describe({ styles: true })
+        const svg = schematicSVG(d, { within: boundsOf(preview) })
+        const blob = await rasterizeSVG(svg, { scale: 2 })
+        drawing.innerHTML = &#39;&#39;
+        drawing.append(
+          img({
+            src: URL.createObjectURL(blob),
+            alt: &#39;rasterized schematic&#39;,
+            style: { maxWidth: &#39;100%&#39; },
+          })
+        )
+      },
+    }),
+    &#39; &#39;,
+    // and the reveal: the ENTIRE host app — this page, chrome and all —
+    // drawn from its own map (best maximized)
+    button(&#39;whole page()&#39;, {
+      onClick() {
+        const d = agent.describe({ styles: true })
+        drawing.innerHTML = schematicSVG(d)
+        drawing.onclick = (event) =&gt; {
+          const g = event.target.closest(&#39;[data-record]&#39;)
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    })
   )
 )
 
-// height: 100% so maximizing the example gives the map the room
 const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
 const drawing = div({
   style: { height: &#39;100%&#39;, width: &#39;auto&#39;, overflow: &#39;auto&#39; },
 })
-
-preview.append(
-  button(&#39;schematic()&#39;, {
-    onClick() {
-      const d = agent.describe({ styles: true })
-      // visible wired elements, drawn where they actually are
-      const boxes = d.wiring.filter((w) =&gt; w.bounds &amp;&amp; w.bounds.width &gt; 0)
-      const pad = 8
-      const minX = Math.min(...boxes.map((w) =&gt; w.bounds.x)) - pad
-      const minY = Math.min(...boxes.map((w) =&gt; w.bounds.y)) - pad
-      const maxX = Math.max(...boxes.map((w) =&gt; w.bounds.x + w.bounds.width))
-      const maxY = Math.max(...boxes.map((w) =&gt; w.bounds.y + w.bounds.height))
-      drawing.textContent = &#39;&#39;
-      drawing.append(
-        svg(
-          {
-            viewBox: `${minX} ${minY} ${maxX - minX + pad} ${maxY - minY + pad}`,
-            width: &#39;100%&#39;,
-          },
-          ...boxes.map((w) =&gt; {
-            const { x, y, width, height } = w.bounds
-            const caption = w.label || w.text || w.value || `&lt;${w.tag}&gt;`
-            const stroke =
-              w.style &amp;&amp; w.style.borderColor !== &#39;rgba(0, 0, 0, 0)&#39;
-                ? w.style.borderColor
-                : &#39;currentColor&#39;
-            return svgElements.g(
-              { style: { cursor: &#39;pointer&#39; } },
-              rect({
-                x: `${x}`, y: `${y}`, width: `${width}`, height: `${height}`,
-                fill: w.style ? w.style.background : &#39;transparent&#39;,
-                stroke, rx: &#39;3&#39;,
-              }),
-              height &gt;= 14
-                ? text(String(caption).slice(0, 36), {
-                    x: `${x + 4}`, y: `${y + Math.min(height - 4, 13)}`,
-                    &#39;font-size&#39;: &#39;11&#39;, &#39;font-family&#39;: &#39;monospace&#39;,
-                    fill: w.style ? w.style.color : &#39;currentColor&#39;,
-                  })
-                : &#39;&#39;,
-              // every rectangle links back to its JSON record
-              { onClick: () =&gt; (detail.textContent = JSON.stringify(w, null, 2)) }
-            )
-          })
-        ),
-        detail
-      )
-    },
-  }),
-  &#39; &#39;,
-  // the vision-encoder form: shipped helpers, map -&gt; SVG string -&gt; PNG
-  button(&#39;png()&#39;, {
-    async onClick() {
-      const svgString = schematicSVG(agent.describe({ styles: true }))
-      const blob = await rasterizeSVG(svgString, { scale: 2 })
-      drawing.textContent = &#39;&#39;
-      drawing.append(
-        elements.img({
-          src: URL.createObjectURL(blob),
-          alt: &#39;rasterized schematic&#39;,
-          style: { maxWidth: &#39;100%&#39; },
-        })
-      )
-    },
-  }),
-  drawing
-)
+preview.append(drawing, detail)
 </code></pre>
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;
 
@@ -513,13 +520,13 @@ interface).</p>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
-    <li><details open><summary><a class="doc-link" href="../ONE_USER_INTERFACE/">One User Interface</a></summary>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
     <ul>
-      <li><a class="doc-link current" href="../ONE_UI_DERIVED/" aria-current="page">The Derived Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_DESIGN/">The Agent Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_TRUST/">Trust &amp; Transports</a></li>
-      <li><a class="doc-link" href="../ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-      <li><a class="doc-link" href="../ONE_UI_PLAN/">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link current" href="../derived-surface/" aria-current="page">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>

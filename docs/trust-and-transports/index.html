@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>Trust &amp; Transports — tosijs</title>
   <meta name="description" content="The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances." />
-  <link rel="canonical" href="https://tosijs.net/ONE_UI_TRUST/" />
+  <link rel="canonical" href="https://tosijs.net/trust-and-transports/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="Trust &amp; Transports — tosijs" />
   <meta property="og:description" content="The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances." />
-  <meta property="og:url" content="https://tosijs.net/ONE_UI_TRUST/" />
+  <meta property="og:url" content="https://tosijs.net/trust-and-transports/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Trust & Transports","description":"The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances.","url":"https://tosijs.net/ONE_UI_TRUST/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Trust & Transports","description":"The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances.","url":"https://tosijs.net/trust-and-transports/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -48,7 +48,7 @@
 <h1>Trust &amp; Transports</h1>
 <!--{ "parent": "One User Interface", "order": 3, "description": "The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances." }-->
 
-<p><em>Part of <a href="/ONE_USER_INTERFACE/">One User Interface</a> — what could go wrong, the planned governors, and how far away an agent can stand.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — what could go wrong, the planned governors, and how far away an agent can stand.</em></p>
 <h2>Trust: the honest section</h2>
 <p>Direct model access is a superpower, and superpowers need governors. Naming the
 problems now, with their planned answers:</p>
@@ -75,7 +75,7 @@ design should serve both.)</li>
 manifest-only, allowlist, never denylist. The registry commonly holds tokens
 and user data — <code>describe()</code> must make <em>not</em> exposing them the path of least
 resistance. (This is the rendered-vs-resident asymmetry from
-<a href="/ONE_UI_DESIGN/">The Agent Surface</a>’s exposure tiers:
+<a href="/agent-surface/">The Agent Surface</a>’s exposure tiers:
 the map can see everything the app is <em>holding</em>, not just showing.)</li>
 <li><strong>Prompt injection.</strong> An agent&#39;s <em>inputs</em> (page content, fetched data) can be
 hostile even when its state access is scoped. Scoping limits blast radius —
@@ -148,13 +148,13 @@ browser at all.</li>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
-    <li><details open><summary><a class="doc-link" href="../ONE_USER_INTERFACE/">One User Interface</a></summary>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
     <ul>
-      <li><a class="doc-link" href="../ONE_UI_DERIVED/">The Derived Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_DESIGN/">The Agent Surface</a></li>
-      <li><a class="doc-link current" href="../ONE_UI_TRUST/" aria-current="page">Trust &amp; Transports</a></li>
-      <li><a class="doc-link" href="../ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-      <li><a class="doc-link" href="../ONE_UI_PLAN/">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link current" href="../trust-and-transports/" aria-current="page">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>

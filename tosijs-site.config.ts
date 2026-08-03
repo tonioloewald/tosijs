@@ -42,14 +42,29 @@ export default defineSiteConfig({
     'React.md',
     'Angular.md',
     // branch-only for now: the ONE USER INTERFACE plan-ifesto (private branch)
-    'ONE_USER_INTERFACE.md',
-    'ONE_UI_DERIVED.md',
-    'ONE_UI_DESIGN.md',
-    'ONE_UI_TRUST.md',
-    'ONE_UI_HEADLESS.md',
-    'ONE_UI_PLAN.md',
+    'one-user-interface.md',
+    'derived-surface.md',
+    'agent-surface.md',
+    'trust-and-transports.md',
+    'headless-embodiment.md',
+    'plan-and-prior-art.md',
   ],
   staticDirs: ['demo/static'],
+
+  // the dev watcher only covers README.md/src/demo/icons by default — root
+  // markdown docs need listing explicitly or edits never trigger rebuilds
+  watchPaths: [
+    'Building-Apps.md',
+    'Migration.md',
+    'React.md',
+    'Angular.md',
+    'one-user-interface.md',
+    'derived-surface.md',
+    'agent-surface.md',
+    'trust-and-transports.md',
+    'headless-embodiment.md',
+    'plan-and-prior-art.md',
+  ],
 
   // dev-only: let the in-browser "edit page source" / live-example "Save to
   // source" read+write the actual repo files via /__docstore/source. Off by

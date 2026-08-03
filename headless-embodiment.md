@@ -1,7 +1,7 @@
 # Headless Embodiment
 <!--{ "parent": "One User Interface", "order": 4, "description": "The inversion: server-side rendering of an MCP — a tosijs app running as its abstract self, vending UI on demand (elementsSSR, live)." }-->
 
-*Part of [One User Interface](/ONE_USER_INTERFACE/) — the app as its abstract self, embodiment on demand.*
+*Part of [One User Interface](/one-user-interface/) — the app as its abstract self, embodiment on demand.*
 
 ## The inversion: headless embodiment ("server-side rendering of an MCP")
 
@@ -193,7 +193,7 @@ The endgame framing: **an app is a model plus a set of embodiments.** Browser
 DOM for humans present now; prerendered HTML for humans arriving; MCP for
 agents; sync peers for other machines; the test harness, which is an agent
 that never gets bored — and the **schematic** (see
-[The Derived Surface](/ONE_UI_DERIVED/)): the wiring drawn as labeled
+[The Derived Surface](/derived-surface/)): the wiring drawn as labeled
 rectangles, a map view for humans and a token-compressed overview for vision
 models. tosijs is the model and the switchboard.
 

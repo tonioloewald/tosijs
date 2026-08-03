@@ -8,7 +8,7 @@
 > (`schematicSVG` / `rasterizeSVG`), and the WebMCP adapter (`webmcpTools` /
 > `webmcpAdapter`) are real, tested code here — every proof on these pages
 > runs on them. Nothing is *published* yet; everything is EXPERIMENTAL and
-> shapes may still move (see [Plan & Prior Art](/ONE_UI_PLAN/)).
+> shapes may still move (see [Plan & Prior Art](/plan-and-prior-art/)).
 
 ## The thesis
 
@@ -93,8 +93,11 @@ preview.append(
   )
 )
 
-// THE AGENT SIDE — no DOM access: paths, actions, observation only
-const log = pre({ style: { maxHeight: '5em', overflow: 'auto', margin: 0 } })
+// THE AGENT SIDE — no DOM access: paths, actions, observation only.
+// The log is a direct preview child so it grows when the example is maximized.
+const log = pre({
+  style: { height: '100%', minHeight: '5em', overflow: 'auto', margin: 0 },
+})
 agent.observe('oneUI', (path) => log.append(`observed: ${path}\n`))
 preview.append(
   div(
@@ -109,9 +112,9 @@ preview.append(
       onClick() {
         log.append(JSON.stringify(agent.read('oneUI.list')) + '\n')
       },
-    }),
-    log
-  )
+    })
+  ),
+  log
 )
 ```
 
@@ -127,20 +130,20 @@ model, and no selector-guessing.
 This page is the thesis and its live proof. The detail lives in five child
 documents:
 
-1. **[The Derived Surface](/ONE_UI_DERIVED/)** — the wiring diagram tosijs
+1. **[The Derived Surface](/derived-surface/)** — the wiring diagram tosijs
    already records, the opportunistic harvest, and `describe()` assembling the
    whole page's affordance graph — live.
-2. **[The Agent Surface](/ONE_UI_DESIGN/)** — the launch toggle, the
+2. **[The Agent Surface](/agent-surface/)** — the launch toggle, the
    protocol-neutral surface, push-and-drain observation, and the exposure
    tiers — where the **schema-declared surface is the product** and the
    automatic map is the discovery tool. Plus ComponentMap.
-3. **[Trust & Transports](/ONE_UI_TRUST/)** — the honest section: constraint
+3. **[Trust & Transports](/trust-and-transports/)** — the honest section: constraint
    bypass, capability scoping, secrets, prompt injection, audit — and the
    three distances an agent can stand at (in-page, bridged, remote peer).
-4. **[Headless Embodiment](/ONE_UI_HEADLESS/)** — the inversion:
+4. **[Headless Embodiment](/headless-embodiment/)** — the inversion:
    "server-side rendering of an MCP" — the app running as its abstract self,
    vending UI on demand, with `elementsSSR` proven live.
-5. **[Plan & Prior Art](/ONE_UI_PLAN/)** — phases 0–5, the open questions,
+5. **[Plan & Prior Art](/plan-and-prior-art/)** — phases 0–5, the open questions,
    and why the window is real (WebMCP is standardizing the transport slot
    *right now*; the core idea remains unclaimed).
 
@@ -151,9 +154,9 @@ the UI. A human is an observer with eyes. An agent is an observer with a model.
 Neither needs a special interface, because there is only one.*
 
 <!-- toc -->
-- [The Derived Surface](/ONE_UI_DERIVED/)
-- [The Agent Surface](/ONE_UI_DESIGN/)
-- [Trust & Transports](/ONE_UI_TRUST/)
-- [Headless Embodiment](/ONE_UI_HEADLESS/)
-- [Plan & Prior Art](/ONE_UI_PLAN/)
+- [The Derived Surface](/derived-surface/)
+- [The Agent Surface](/agent-surface/)
+- [Trust & Transports](/trust-and-transports/)
+- [Headless Embodiment](/headless-embodiment/)
+- [Plan & Prior Art](/plan-and-prior-art/)
 <!-- /toc -->

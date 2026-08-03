@@ -27,6 +27,13 @@ linking it back to `description.wiring[i]` — the image as index).
 */
 import { AgentDescription } from './agent'
 
+export interface SchematicBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface SchematicOptions {
   /** padding around the drawn region, px (default 8) */
   pad?: number
@@ -36,7 +43,34 @@ export interface SchematicOptions {
   maxCaption?: number
   /** caption font size, px (default 11) */
   fontSize?: number
+  /**
+   * Scope the map SPATIALLY: only records whose bounds intersect this
+   * page-coordinate rect are drawn, and the viewBox IS the rect — the
+   * schematic becomes "this region of the page". Use `boundsOf(element)`
+   * to scope to an element's region; omit for the whole map.
+   */
+  within?: SchematicBounds
 }
+
+/**
+ * An element's page-coordinate bounds (the same space describe() records) —
+ * the natural `within` argument for a region-scoped schematic.
+ */
+export const boundsOf = (element: Element): SchematicBounds => {
+  const rect = element.getBoundingClientRect()
+  return {
+    x: Math.round(rect.x + ((globalThis as any).scrollX ?? 0)),
+    y: Math.round(rect.y + ((globalThis as any).scrollY ?? 0)),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+  }
+}
+
+const intersects = (a: SchematicBounds, b: SchematicBounds): boolean =>
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height
 
 // string args (not regexes) — tjs convert's lexer mis-reads a quote inside a
 // regex literal (/"/g) as a string opener; see tjs-lang issue
@@ -53,17 +87,36 @@ export const schematicSVG = (
   description: AgentDescription,
   options: SchematicOptions = {}
 ): string => {
-  const { pad = 8, minLabelHeight = 14, maxCaption = 36, fontSize = 11 } = options
+  const {
+    pad = 8,
+    minLabelHeight = 14,
+    maxCaption = 36,
+    fontSize = 11,
+    within,
+  } = options
   const boxes = description.wiring.filter(
-    (w) => w.bounds != null && w.bounds.width > 0 && w.bounds.height > 0
+    (w) =>
+      w.bounds != null &&
+      w.bounds.width > 0 &&
+      w.bounds.height > 0 &&
+      (within == null || intersects(w.bounds, within))
   )
   if (boxes.length === 0) {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>'
   }
-  const minX = Math.min(...boxes.map((w) => w.bounds!.x)) - pad
-  const minY = Math.min(...boxes.map((w) => w.bounds!.y)) - pad
-  const maxX = Math.max(...boxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
-  const maxY = Math.max(...boxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
+  // scoped: the viewBox IS the region; unscoped: fit the drawn boxes
+  const minX =
+    within != null ? within.x - pad : Math.min(...boxes.map((w) => w.bounds!.x)) - pad
+  const minY =
+    within != null ? within.y - pad : Math.min(...boxes.map((w) => w.bounds!.y)) - pad
+  const maxX =
+    within != null
+      ? within.x + within.width + pad
+      : Math.max(...boxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
+  const maxY =
+    within != null
+      ? within.y + within.height + pad
+      : Math.max(...boxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
 
   // explicit width/height (not just viewBox): gives the svg an intrinsic
   // size as a document/img, and Firefox refuses to draw an svg image onto a

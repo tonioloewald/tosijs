@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>Plan &amp; Prior Art — tosijs</title>
   <meta name="description" content="Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." />
-  <link rel="canonical" href="https://tosijs.net/ONE_UI_PLAN/" />
+  <link rel="canonical" href="https://tosijs.net/plan-and-prior-art/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="Plan &amp; Prior Art — tosijs" />
   <meta property="og:description" content="Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." />
-  <meta property="og:url" content="https://tosijs.net/ONE_UI_PLAN/" />
+  <meta property="og:url" content="https://tosijs.net/plan-and-prior-art/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Plan & Prior Art","description":"Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta.","url":"https://tosijs.net/ONE_UI_PLAN/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Plan & Prior Art","description":"Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta.","url":"https://tosijs.net/plan-and-prior-art/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -48,15 +48,15 @@
 <h1>Plan &amp; Prior Art</h1>
 <!--{ "parent": "One User Interface", "order": 5, "description": "Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." }-->
 
-<p><em>Part of <a href="/ONE_USER_INTERFACE/">One User Interface</a> — how we get there, what remains open, and why the window is real.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — how we get there, what remains open, and why the window is real.</em></p>
 <h2>The plan</h2>
 <ul>
 <li><strong>Phase 0 — prove it (no new code).</strong> A doc-site demo: an &quot;agent panel&quot;
 drives the todo example through raw paths while the reader clicks the same
 UI. Two actors, one state, zero sync. <strong>Done — and split across the family:</strong>
-the proofs live as live examples in the <a href="/ONE_USER_INTERFACE/">intro</a>
-(two actors), <a href="/ONE_UI_DERIVED/">The Derived Surface</a> (describe()), and
-<a href="/ONE_UI_HEADLESS/">Headless Embodiment</a> (elementsSSR) — the manifesto
+the proofs live as live examples in the <a href="/one-user-interface/">intro</a>
+(two actors), <a href="/derived-surface/">The Derived Surface</a> (describe()), and
+<a href="/headless-embodiment/">Headless Embodiment</a> (elementsSSR) — the manifesto
 demonstrating its own thesis inline.</li>
 <li><strong>Phase 1 — the surface (introspection). Built</strong> — <code>enableAgentInterface()</code>
 with <code>describe</code>/<code>read</code>/<code>write</code>/<code>observe</code>/<code>call</code>/<code>changes</code>/<code>when</code>/<code>log</code>,
@@ -73,7 +73,7 @@ zero-dependency contract seam (<code>expose.contract = { check, describe }</code
 (&quot;what&#39;s legal&quot;), and <strong><code>exerciseContract()</code></strong> — contracts carrying
 <code>examples</code> / <code>$counterexamples</code> are executable specs, the contract
 equivalent of tjs signature tests (see
-<a href="/ONE_UI_DESIGN/">The Agent Surface</a>). The blessed tosijs-schema adapter
+<a href="/agent-surface/">The Agent Surface</a>). The blessed tosijs-schema adapter
 (~10 lines over <code>validate</code> + <code>onError</code>; <code>$predicate</code> strings ride into
 <code>describe()</code> as legible preconditions) is proven in tests here and should
 ship FROM tosijs-schema (file, don&#39;t fix). <strong>ComponentMap
@@ -96,7 +96,7 @@ as the whole root they would produce (proposal = clone + hypothetical
 apply; adapters validate roots, core owns paths). Remaining: the AJS
 <code>$exercise</code> future. Feeds directly
 into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
-for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
+for production <code>write()</code> access (see <a href="/trust-and-transports/">Trust</a>) — until this
 phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>
 — the episodic agent&#39;s await-a-condition primitive — <strong>shipped early</strong>
 (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
@@ -109,7 +109,7 @@ waits.</li>
 quartet + one named tool per action; <code>tosi_write</code> dev-gated per Trust);
 <code>webmcpAdapter()</code> feature-detects the host and tolerates both registration
 shapes (<code>registerTool</code> / <code>provideContext</code>) while the spec churns — live
-proof in <a href="/ONE_UI_DESIGN/">The Agent Surface</a>. <strong>The real-agent e2e has
+proof in <a href="/agent-surface/">The Agent Surface</a>. <strong>The real-agent e2e has
 RUN</strong> (2026-08-02): haltija shipped <code>hj map</code> with a native <code>tosi-agent</code>
 source that returns <code>describe()</code> <strong>verbatim</strong> (its own decision — reshaping
 would be the lossy reconstruction the tier exists to avoid), and a live
@@ -302,13 +302,13 @@ unclaimed for long.</p>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
-    <li><details open><summary><a class="doc-link" href="../ONE_USER_INTERFACE/">One User Interface</a></summary>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
     <ul>
-      <li><a class="doc-link" href="../ONE_UI_DERIVED/">The Derived Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_DESIGN/">The Agent Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_TRUST/">Trust &amp; Transports</a></li>
-      <li><a class="doc-link" href="../ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-      <li><a class="doc-link current" href="../ONE_UI_PLAN/" aria-current="page">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link current" href="../plan-and-prior-art/" aria-current="page">Plan &amp; Prior Art</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>

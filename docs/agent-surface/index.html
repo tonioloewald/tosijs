@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>The Agent Surface — tosijs</title>
   <meta name="description" content="enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." />
-  <link rel="canonical" href="https://tosijs.net/ONE_UI_DESIGN/" />
+  <link rel="canonical" href="https://tosijs.net/agent-surface/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="The Agent Surface — tosijs" />
   <meta property="og:description" content="enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." />
-  <meta property="og:url" content="https://tosijs.net/ONE_UI_DESIGN/" />
+  <meta property="og:url" content="https://tosijs.net/agent-surface/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The Agent Surface","description":"enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap.","url":"https://tosijs.net/ONE_UI_DESIGN/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The Agent Surface","description":"enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap.","url":"https://tosijs.net/agent-surface/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -48,7 +48,7 @@
 <h1>The Agent Surface</h1>
 <!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
 
-<p><em>Part of <a href="/ONE_USER_INTERFACE/">One User Interface</a> — the design of the surface itself.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — the design of the surface itself.</em></p>
 <h2>The design: a launch toggle, not a framework</h2>
 <p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
 <pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
@@ -108,7 +108,7 @@ registry already holds. If this browser has a WebMCP host
 tools are registered live; otherwise you see exactly what would register.
 Note <code>tosi_write</code> appears because this page runs in introspection (dev) mode —
 in manifest mode it&#39;s absent unless explicitly allowed, per
-<a href="/ONE_UI_TRUST/">Trust</a>.</p>
+<a href="/trust-and-transports/">Trust</a>.</p>
 <pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
 
 const { mcpDemo } = tosi({
@@ -163,14 +163,14 @@ test(&#39;the WebMCP tool set derives from the page, and registration round-trip
   expect(mcp.tools.length === registered.length).toBe(true)
 })
 </code></pre>
-<p>The punchline is the table from <a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a> made
+<p>The punchline is the table from <a href="/plan-and-prior-art/">Plan &amp; Prior Art</a> made
 runnable: Angular&#39;s Signal-Forms-to-tools is the closest anyone else gets, and
 it covers forms. Here <em>every action and every affordance</em> is a tool candidate,
 because the framework already holds the wiring — tosijs can be the first
 framework where the WebMCP tools write themselves.</p>
 <h3>Observation: push and drain</h3>
 <p>The subscription channel is the delta nobody else can even feed (see
-<a href="/ONE_UI_PLAN/">Plan &amp; Prior Art</a>:
+<a href="/plan-and-prior-art/">Plan &amp; Prior Art</a>:
 WebMCP is tools-only, blind between calls; MCP has <code>resources/subscribe</code> but no
 framework can supply it without hand-wired change events per feature). tosijs&#39;s
 core competency <em>is</em> change notification, so agents get it for free — and the
@@ -486,13 +486,13 @@ a component <em>says so in a checkable form</em>.</p>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
-    <li><details open><summary><a class="doc-link" href="../ONE_USER_INTERFACE/">One User Interface</a></summary>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
     <ul>
-      <li><a class="doc-link" href="../ONE_UI_DERIVED/">The Derived Surface</a></li>
-      <li><a class="doc-link current" href="../ONE_UI_DESIGN/" aria-current="page">The Agent Surface</a></li>
-      <li><a class="doc-link" href="../ONE_UI_TRUST/">Trust &amp; Transports</a></li>
-      <li><a class="doc-link" href="../ONE_UI_HEADLESS/">Headless Embodiment</a></li>
-      <li><a class="doc-link" href="../ONE_UI_PLAN/">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link current" href="../agent-surface/" aria-current="page">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>

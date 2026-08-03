@@ -1,7 +1,7 @@
 # Trust & Transports
 <!--{ "parent": "One User Interface", "order": 3, "description": "The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances." }-->
 
-*Part of [One User Interface](/ONE_USER_INTERFACE/) — what could go wrong, the planned governors, and how far away an agent can stand.*
+*Part of [One User Interface](/one-user-interface/) — what could go wrong, the planned governors, and how far away an agent can stand.*
 
 ## Trust: the honest section
 
@@ -30,7 +30,7 @@ problems now, with their planned answers:
   manifest-only, allowlist, never denylist. The registry commonly holds tokens
   and user data — `describe()` must make *not* exposing them the path of least
   resistance. (This is the rendered-vs-resident asymmetry from
-  [The Agent Surface](/ONE_UI_DESIGN/)’s exposure tiers:
+  [The Agent Surface](/agent-surface/)’s exposure tiers:
   the map can see everything the app is *holding*, not just showing.)
 - **Prompt injection.** An agent's *inputs* (page content, fetched data) can be
   hostile even when its state access is scoped. Scoping limits blast radius —

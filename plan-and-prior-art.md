@@ -1,16 +1,16 @@
 # Plan & Prior Art
 <!--{ "parent": "One User Interface", "order": 5, "description": "Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." }-->
 
-*Part of [One User Interface](/ONE_USER_INTERFACE/) — how we get there, what remains open, and why the window is real.*
+*Part of [One User Interface](/one-user-interface/) — how we get there, what remains open, and why the window is real.*
 
 ## The plan
 
 - **Phase 0 — prove it (no new code).** A doc-site demo: an "agent panel"
   drives the todo example through raw paths while the reader clicks the same
   UI. Two actors, one state, zero sync. **Done — and split across the family:**
-  the proofs live as live examples in the [intro](/ONE_USER_INTERFACE/)
-  (two actors), [The Derived Surface](/ONE_UI_DERIVED/) (describe()), and
-  [Headless Embodiment](/ONE_UI_HEADLESS/) (elementsSSR) — the manifesto
+  the proofs live as live examples in the [intro](/one-user-interface/)
+  (two actors), [The Derived Surface](/derived-surface/) (describe()), and
+  [Headless Embodiment](/headless-embodiment/) (elementsSSR) — the manifesto
   demonstrating its own thesis inline.
 - **Phase 1 — the surface (introspection). Built** — `enableAgentInterface()`
   with `describe`/`read`/`write`/`observe`/`call`/`changes`/`when`/`log`,
@@ -27,7 +27,7 @@
   ("what's legal"), and **`exerciseContract()`** — contracts carrying
   `examples` / `$counterexamples` are executable specs, the contract
   equivalent of tjs signature tests (see
-  [The Agent Surface](/ONE_UI_DESIGN/)). The blessed tosijs-schema adapter
+  [The Agent Surface](/agent-surface/)). The blessed tosijs-schema adapter
   (~10 lines over `validate` + `onError`; `$predicate` strings ride into
   `describe()` as legible preconditions) is proven in tests here and should
   ship FROM tosijs-schema (file, don't fix). **ComponentMap
@@ -50,7 +50,7 @@
   apply; adapters validate roots, core owns paths). Remaining: the AJS
   `$exercise` future. Feeds directly
   into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
-  for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
+  for production `write()` access (see [Trust](/trust-and-transports/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`
   — the episodic agent's await-a-condition primitive — **shipped early**
   (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
@@ -61,7 +61,7 @@
   quartet + one named tool per action; `tosi_write` dev-gated per Trust);
   `webmcpAdapter()` feature-detects the host and tolerates both registration
   shapes (`registerTool` / `provideContext`) while the spec churns — live
-  proof in [The Agent Surface](/ONE_UI_DESIGN/). **The real-agent e2e has
+  proof in [The Agent Surface](/agent-surface/). **The real-agent e2e has
   RUN** (2026-08-02): haltija shipped `hj map` with a native `tosi-agent`
   source that returns `describe()` **verbatim** (its own decision — reshaping
   would be the lossy reconstruction the tier exists to avoid), and a live

@@ -1,7 +1,7 @@
 # The Derived Surface
 <!--{ "parent": "One User Interface", "order": 1, "description": "The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." }-->
 
-*Part of [One User Interface](/ONE_USER_INTERFACE/) — why the agent surface derives from what tosijs already knows.*
+*Part of [One User Interface](/one-user-interface/) — why the agent surface derives from what tosijs already knows.*
 
 ## The part nobody else can offer: the wiring diagram is already recorded
 
@@ -95,7 +95,7 @@ The UI below is built with ordinary element sugar — a labeled filter input
 handler is attached *by path*. There is not one agent-specific declaration in
 it. Click **describe()** and the affordance graph is assembled on demand — and
 because this page runs in introspection mode, the graph is the *whole page's*:
-the [two-actors demo](/ONE_USER_INTERFACE/), the doc site's own chrome, and the very button you
+the [two-actors demo](/one-user-interface/), the doc site's own chrome, and the very button you
 clicked to ask.
 
 ```js
@@ -115,7 +115,9 @@ const { harvest } = tosi({
 const agent = globalThis.tosiAgent ?? enableAgentInterface()
 const { div, input, span, button, pre } = elements
 
-const out = pre({ style: { maxHeight: '12em', overflow: 'auto', margin: 0 } })
+// output as a DIRECT preview child: height 100% is a no-op inline and
+// fills the box when the example is maximized
+const out = pre({ style: { height: '100%', overflow: 'auto', margin: 0 } })
 // an ordinary UI — no agent-specific declarations anywhere
 preview.append(
   div(
@@ -136,9 +138,9 @@ preview.append(
         ].join('\n')
         out.textContent = summary + '\n\n' + JSON.stringify(d.wiring, null, 2)
       },
-    }),
-    out
-  )
+    })
+  ),
+  out
 )
 ```
 
@@ -221,115 +223,121 @@ this is more than a pretty view:
   which makes it the marketing artifact for the whole idea: every tosijs demo
   can end with the reveal.
 
-Here it is live — the same harvest UI as above, then **schematic()** draws the
-whole page's map; click any rectangle for its JSON:
+Here it is live — a todo list this time, because a list's map **changes shape
+as you use it**: every item you add is new wired elements, so redraw the
+schematic and watch it grow. Scoped **spatially** — `schematicSVG(map,
+{ within: boundsOf(preview) })` draws exactly this demo's region of the page,
+the general form of "map this part" (no demo-specific filtering; **whole
+page()** drops the scope for the full reveal); click any rectangle for its
+JSON record:
 
 ```js
 import {
   elements,
-  svgElements,
   tosi,
   enableAgentInterface,
   schematicSVG,
   rasterizeSVG,
+  boundsOf,
 } from 'tosijs'
 
-const { schem } = tosi({
-  schem: {
-    filter: '',
-    stock: 3,
-    restock() {
-      schem.stock = schem.stock.value + 1
+const { mapDemo } = tosi({
+  mapDemo: {
+    newItem: '',
+    items: [
+      { id: 1, text: 'draw the map', done: true },
+      { id: 2, text: 'add more todos', done: false },
+    ],
+    addItem() {
+      const text = mapDemo.newItem.value.trim()
+      if (!text) return
+      mapDemo.items.push({ id: Math.random(), text, done: false })
+      mapDemo.newItem = ''
     },
   },
 })
 const agent = globalThis.tosiAgent ?? enableAgentInterface()
-const { div, input, span, button, pre } = elements
-const { svg, rect, text } = svgElements
+const { div, input, button, ul, pre, img } = elements
 
-// an ordinary UI to map
+// an ordinary todo list — each row's checkbox and label are WIRED, so every
+// item is part of the map, and the map grows as the list does
 preview.append(
   div(
-    input({ placeholder: 'filter stock…', bindValue: schem.filter }),
+    input({
+      placeholder: 'add a todo…',
+      bindValue: mapDemo.newItem,
+      onKeydown(event) {
+        if (event.key === 'Enter') mapDemo.addItem()
+      },
+    }),
     ' ',
-    span({ title: 'in stock', textContent: schem.stock }),
+    button('add', { onClick: 'mapDemo.addItem' }),
+    ul(
+      ...mapDemo.items.listBinding(
+        ({ li, input: check, span }, item) =>
+          li(check({ type: 'checkbox', bindValue: item.done }), ' ', span(item.text)),
+        { idPath: 'id' }
+      )
+    ),
+    button('schematic()', {
+      onClick() {
+        const d = agent.describe({ styles: true })
+        // scope SPATIALLY: the map of this demo's region — general tools,
+        // no demo-specific logic (boundsOf converts to page coordinates)
+        drawing.innerHTML = schematicSVG(d, { within: boundsOf(preview) })
+        // the image is an index: data-record links each box to its JSON
+        drawing.onclick = (event) => {
+          const g = event.target.closest('[data-record]')
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    }),
     ' ',
-    button('restock', { onClick: 'schem.restock' })
+    // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
+    button('png()', {
+      async onClick() {
+        const d = agent.describe({ styles: true })
+        const svg = schematicSVG(d, { within: boundsOf(preview) })
+        const blob = await rasterizeSVG(svg, { scale: 2 })
+        drawing.innerHTML = ''
+        drawing.append(
+          img({
+            src: URL.createObjectURL(blob),
+            alt: 'rasterized schematic',
+            style: { maxWidth: '100%' },
+          })
+        )
+      },
+    }),
+    ' ',
+    // and the reveal: the ENTIRE host app — this page, chrome and all —
+    // drawn from its own map (best maximized)
+    button('whole page()', {
+      onClick() {
+        const d = agent.describe({ styles: true })
+        drawing.innerHTML = schematicSVG(d)
+        drawing.onclick = (event) => {
+          const g = event.target.closest('[data-record]')
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    })
   )
 )
 
-// height: 100% so maximizing the example gives the map the room
 const detail = pre({ style: { maxHeight: '8em', overflow: 'auto', margin: 0 } })
 const drawing = div({
   style: { height: '100%', width: 'auto', overflow: 'auto' },
 })
-
-preview.append(
-  button('schematic()', {
-    onClick() {
-      const d = agent.describe({ styles: true })
-      // visible wired elements, drawn where they actually are
-      const boxes = d.wiring.filter((w) => w.bounds && w.bounds.width > 0)
-      const pad = 8
-      const minX = Math.min(...boxes.map((w) => w.bounds.x)) - pad
-      const minY = Math.min(...boxes.map((w) => w.bounds.y)) - pad
-      const maxX = Math.max(...boxes.map((w) => w.bounds.x + w.bounds.width))
-      const maxY = Math.max(...boxes.map((w) => w.bounds.y + w.bounds.height))
-      drawing.textContent = ''
-      drawing.append(
-        svg(
-          {
-            viewBox: `${minX} ${minY} ${maxX - minX + pad} ${maxY - minY + pad}`,
-            width: '100%',
-          },
-          ...boxes.map((w) => {
-            const { x, y, width, height } = w.bounds
-            const caption = w.label || w.text || w.value || `<${w.tag}>`
-            const stroke =
-              w.style && w.style.borderColor !== 'rgba(0, 0, 0, 0)'
-                ? w.style.borderColor
-                : 'currentColor'
-            return svgElements.g(
-              { style: { cursor: 'pointer' } },
-              rect({
-                x: `${x}`, y: `${y}`, width: `${width}`, height: `${height}`,
-                fill: w.style ? w.style.background : 'transparent',
-                stroke, rx: '3',
-              }),
-              height >= 14
-                ? text(String(caption).slice(0, 36), {
-                    x: `${x + 4}`, y: `${y + Math.min(height - 4, 13)}`,
-                    'font-size': '11', 'font-family': 'monospace',
-                    fill: w.style ? w.style.color : 'currentColor',
-                  })
-                : '',
-              // every rectangle links back to its JSON record
-              { onClick: () => (detail.textContent = JSON.stringify(w, null, 2)) }
-            )
-          })
-        ),
-        detail
-      )
-    },
-  }),
-  ' ',
-  // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
-  button('png()', {
-    async onClick() {
-      const svgString = schematicSVG(agent.describe({ styles: true }))
-      const blob = await rasterizeSVG(svgString, { scale: 2 })
-      drawing.textContent = ''
-      drawing.append(
-        elements.img({
-          src: URL.createObjectURL(blob),
-          alt: 'rasterized schematic',
-          style: { maxWidth: '100%' },
-        })
-      )
-    },
-  }),
-  drawing
-)
+preview.append(drawing, detail)
 ```
 
 ```test

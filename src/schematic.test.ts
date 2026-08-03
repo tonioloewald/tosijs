@@ -94,3 +94,24 @@ describe('schematicSVG — pure, DOM-free rendering of the map', () => {
     expect(svg).toContain('<svg')
   })
 })
+
+describe('spatial scoping — within', () => {
+  test('within keeps intersecting records and the viewBox IS the region', () => {
+    const region = { x: 0, y: 0, width: 300, height: 60 }
+    const svg = schematicSVG(description, { within: region })
+    // input (10,20 200x30) and span (220,20 40x30) intersect; button at y60
+    // height 8 touches the edge? y:60 vs region 0..60 — 60 < 60 false → excluded
+    expect(svg).toContain('data-record="0"')
+    expect(svg).toContain('data-record="1"')
+    expect(svg).not.toContain('data-record="3"')
+    // viewBox is the region (padded by default 8)
+    expect(svg).toContain('viewBox="-8 -8 316 76"')
+  })
+
+  test('a region intersecting nothing yields the empty svg', () => {
+    const svg = schematicSVG(description, {
+      within: { x: 5000, y: 5000, width: 10, height: 10 },
+    })
+    expect(svg).toContain('viewBox="0 0 0 0"')
+  })
+})

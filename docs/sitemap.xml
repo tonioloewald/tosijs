@@ -2,16 +2,16 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://tosijs.net/</loc></url>
   <url><loc>https://tosijs.net/Building-Apps/</loc></url>
-  <url><loc>https://tosijs.net/ONE_UI_DERIVED/</loc></url>
+  <url><loc>https://tosijs.net/derived-surface/</loc></url>
   <url><loc>https://tosijs.net/xin/</loc></url>
   <url><loc>https://tosijs.net/elements/</loc></url>
-  <url><loc>https://tosijs.net/ONE_UI_DESIGN/</loc></url>
+  <url><loc>https://tosijs.net/agent-surface/</loc></url>
   <url><loc>https://tosijs.net/css/</loc></url>
-  <url><loc>https://tosijs.net/ONE_UI_TRUST/</loc></url>
-  <url><loc>https://tosijs.net/ONE_UI_HEADLESS/</loc></url>
+  <url><loc>https://tosijs.net/trust-and-transports/</loc></url>
+  <url><loc>https://tosijs.net/headless-embodiment/</loc></url>
   <url><loc>https://tosijs.net/tosi/</loc></url>
   <url><loc>https://tosijs.net/bind/</loc></url>
-  <url><loc>https://tosijs.net/ONE_UI_PLAN/</loc></url>
+  <url><loc>https://tosijs.net/plan-and-prior-art/</loc></url>
   <url><loc>https://tosijs.net/component/</loc></url>
   <url><loc>https://tosijs.net/utilities/</loc></url>
   <url><loc>https://tosijs.net/agent/</loc></url>
@@ -34,7 +34,7 @@
   <url><loc>https://tosijs.net/webmcp/</loc></url>
   <url><loc>https://tosijs.net/React/</loc></url>
   <url><loc>https://tosijs.net/Angular/</loc></url>
-  <url><loc>https://tosijs.net/ONE_USER_INTERFACE/</loc></url>
+  <url><loc>https://tosijs.net/one-user-interface/</loc></url>
   <url><loc>https://tosijs.net/Migration/</loc></url>
   <url><loc>https://tosijs.net/history/</loc></url>
 </urlset>
