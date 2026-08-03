@@ -90,8 +90,11 @@ exerciseComponent(). initAttributes subsumption + value-setter enforcement
 BOTH shipped 2026-08-03 (contract.attributes with defaults drives the
 machinery, both-declared throws, nudge-warn toward the ideal; setter
 enforces declared value contracts — native type/enum/const subset +
-pluggable setContractValidator; no contract, no check). Remaining:
-sub-path schema routing (v1 root-exact); the AJS <code>$exercise</code> future. Feeds directly
+pluggable setContractValidator; no contract, no check). Sub-path schema
+routing shipped (2026-08-03): writes at/under a contracted root are judged
+as the whole root they would produce (proposal = clone + hypothetical
+apply; adapters validate roots, core owns paths). Remaining: the AJS
+<code>$exercise</code> future. Feeds directly
 into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
 for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
 phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>

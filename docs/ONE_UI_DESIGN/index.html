@@ -239,13 +239,21 @@ shapes, constraints, computed predicates. Now <code>write()</code> validates aga
 the contract, <code>describe()</code> tells the agent <em>what&#39;s legal</em> rather than what
 exists — and since tosijs-schema already embeds serialized predicates,
 <strong>preconditions ride along free</strong>. <strong>The seam is shipped:</strong>
-<code>expose.contract = { check(path, value) → true | Error, describe() }</code> —
-tosijs stays zero-dependency (the core knows a <em>check</em>, not a schema
-language); the blessed adapter is ~10 lines over tosijs-schema&#39;s
-<code>validate</code> (its <code>onError</code> messages become the refusal text). Refused
-writes throw the <em>reason</em> and land in the audit log as
+<code>expose.contract = { check(path, value, proposal?) → true | Error, describe() }</code> — tosijs stays zero-dependency (the core knows a <em>check</em>,
+not a schema language); the blessed adapter is ~10 lines over
+tosijs-schema&#39;s <code>validate</code> (its <code>onError</code> messages become the refusal
+text). Refused writes throw the <em>reason</em> and land in the audit log as
 <code>write rejected: …</code> notes — a refusal is part of the surface, because
-agents self-correct from reasons, not booleans. Free, and crucially <strong>legible</strong>: a bare
+agents self-correct from reasons, not booleans. <strong>Sub-path writes are
+routed, not bypassed:</strong> core judges a write at or under a contracted
+root as the <em>whole root it would produce</em> (clone + hypothetical apply —
+&quot;route the write, not the schema&quot;), handing the adapter a <code>proposal</code>
+<code>{ root, proposed }</code>. A word processor contracting <code>app.docs</code> therefore
+validates an edit to <code>app.docs[2].editor.value</code> as the docs array it
+yields — deep edits can&#39;t slip past, replacing an item with an
+incomplete document is caught by <code>required</code> at root context, and
+root-level cross-field constraints and <code>$predicate</code>s see every edit.
+Adapters never touch path mechanics; core never touches schemas. Free, and crucially <strong>legible</strong>: a bare
 <code>bindEnabled: app.cart.valid</code> tells the agent <em>that</em> an action is gated
 but not <em>why</em> — when the flag is <code>false</code> a human infers the reason from
 visual context; an agent hits a causal dead end. A serialized predicate

@@ -44,8 +44,11 @@
   BOTH shipped 2026-08-03 (contract.attributes with defaults drives the
   machinery, both-declared throws, nudge-warn toward the ideal; setter
   enforces declared value contracts — native type/enum/const subset +
-  pluggable setContractValidator; no contract, no check). Remaining:
-  sub-path schema routing (v1 root-exact); the AJS `$exercise` future. Feeds directly
+  pluggable setContractValidator; no contract, no check). Sub-path schema
+  routing shipped (2026-08-03): writes at/under a contracted root are judged
+  as the whole root they would produce (proposal = clone + hypothetical
+  apply; adapters validate roots, core owns paths). Remaining: the AJS
+  `$exercise` future. Feeds directly
   into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`

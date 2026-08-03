@@ -35,6 +35,7 @@ In production, expose only what you declare:
 */
 import { registry } from './registry'
 import { observe, unobserve, Listener } from './path-listener'
+import { setByPath } from './by-path'
 import { xin } from './xin'
 import {
   BOUND_CLASS,
@@ -52,11 +53,27 @@ import { propBindingKey } from './elements'
  * anything that can say "no, and here's why" fits.
  */
 export interface AgentContract {
-  /** validate a write at `path`; `true`, or an Error saying WHY (the refusal
-   * is part of the surface — agents self-correct from reasons, not booleans) */
-  check: (path: string, value: any) => true | Error
+  /**
+   * Validate a write at `path`; `true`, or an Error saying WHY (the refusal
+   * is part of the surface — agents self-correct from reasons, not booleans).
+   *
+   * When the write lands at or under a contracted root (a key of
+   * `describe()`), core supplies `proposal`: the root path and the
+   * HYPOTHETICAL value of that whole root after this write. Validate the
+   * proposal, not the leaf — sub-path writes then bypass nothing, and
+   * root-level cross-field constraints and $predicates see every edit in
+   * full context (a write to `app.docs[2].editor.value` is judged as the
+   * docs array it would produce).
+   */
+  check: (
+    path: string,
+    value: any,
+    proposal?: { root: string; proposed: any }
+  ) => true | Error
   /** serializable per-root contract (JSON-Schema-shaped, by convention) —
-   * lands in describe().contract: "what's legal", not just what exists */
+   * lands in describe().contract: "what's legal", not just what exists.
+   * Its KEYS also tell core which roots are contracted (read once at
+   * enable time) so proposals can be routed. */
   describe?: () => Record<string, any>
 }
 
@@ -277,6 +294,10 @@ export function enableAgentInterface(
   const roots = expose?.roots
   const exposedActions = expose?.actions
   const contract = expose?.contract
+  // contracted roots (the describe() keys) are read ONCE at enable time so
+  // sub-path writes can be routed to a whole-root proposal
+  const contractRoots =
+    contract?.describe != null ? Object.keys(contract.describe()) : []
   const manifestMode = expose != null
 
   const inScope = (path: string): boolean =>
@@ -473,7 +494,31 @@ export function enableAgentInterface(
         )
       }
       if (contract != null) {
-        const verdict = contract.check(path, value)
+        // route the WRITE, not the schema: judge a sub-path write as the
+        // whole contracted root it would produce (clone + hypothetical
+        // apply) — closes the sub-path bypass, and root-level cross-field
+        // constraints and $predicates see the edit in context
+        let proposal: { root: string; proposed: any } | undefined
+        const root = contractRoots
+          .filter((contractRoot) => underRoot(path, contractRoot))
+          .sort((a, b) => b.length - a.length)[0]
+        if (root != null) {
+          if (path === root) {
+            proposal = { root, proposed: value }
+          } else {
+            const wrapper = { root: serialize(xin[root]) }
+            const relative = path.slice(root.length)
+            setByPath(
+              wrapper,
+              relative.startsWith('[')
+                ? `root${relative}`
+                : `root.${relative.replace(/^\./, '')}`,
+              value
+            )
+            proposal = { root, proposed: wrapper.root }
+          }
+        }
+        const verdict = contract.check(path, value, proposal)
         if (verdict !== true) {
           // refusals are audit events: what an agent TRIED matters as much
           // as what it did

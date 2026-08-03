@@ -5,11 +5,26 @@
  * anything that can say "no, and here's why" fits.
  */
 export interface AgentContract {
-    /** validate a write at `path`; `true`, or an Error saying WHY (the refusal
-     * is part of the surface — agents self-correct from reasons, not booleans) */
-    check: (path: string, value: any) => true | Error;
+    /**
+     * Validate a write at `path`; `true`, or an Error saying WHY (the refusal
+     * is part of the surface — agents self-correct from reasons, not booleans).
+     *
+     * When the write lands at or under a contracted root (a key of
+     * `describe()`), core supplies `proposal`: the root path and the
+     * HYPOTHETICAL value of that whole root after this write. Validate the
+     * proposal, not the leaf — sub-path writes then bypass nothing, and
+     * root-level cross-field constraints and $predicates see every edit in
+     * full context (a write to `app.docs[2].editor.value` is judged as the
+     * docs array it would produce).
+     */
+    check: (path: string, value: any, proposal?: {
+        root: string;
+        proposed: any;
+    }) => true | Error;
     /** serializable per-root contract (JSON-Schema-shaped, by convention) —
-     * lands in describe().contract: "what's legal", not just what exists */
+     * lands in describe().contract: "what's legal", not just what exists.
+     * Its KEYS also tell core which roots are contracted (read once at
+     * enable time) so proposals can be routed. */
     describe?: () => Record<string, any>;
 }
 /**

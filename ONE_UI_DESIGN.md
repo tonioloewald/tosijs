@@ -216,13 +216,22 @@ channel.)
    the contract, `describe()` tells the agent *what's legal* rather than what
    exists — and since tosijs-schema already embeds serialized predicates,
    **preconditions ride along free**. **The seam is shipped:**
-   `expose.contract = { check(path, value) → true | Error, describe() }` —
-   tosijs stays zero-dependency (the core knows a *check*, not a schema
-   language); the blessed adapter is ~10 lines over tosijs-schema's
-   `validate` (its `onError` messages become the refusal text). Refused
-   writes throw the *reason* and land in the audit log as
+   `expose.contract = { check(path, value, proposal?) → true | Error,
+   describe() }` — tosijs stays zero-dependency (the core knows a *check*,
+   not a schema language); the blessed adapter is ~10 lines over
+   tosijs-schema's `validate` (its `onError` messages become the refusal
+   text). Refused writes throw the *reason* and land in the audit log as
    `write rejected: …` notes — a refusal is part of the surface, because
-   agents self-correct from reasons, not booleans. Free, and crucially **legible**: a bare
+   agents self-correct from reasons, not booleans. **Sub-path writes are
+   routed, not bypassed:** core judges a write at or under a contracted
+   root as the *whole root it would produce* (clone + hypothetical apply —
+   "route the write, not the schema"), handing the adapter a `proposal`
+   `{ root, proposed }`. A word processor contracting `app.docs` therefore
+   validates an edit to `app.docs[2].editor.value` as the docs array it
+   yields — deep edits can't slip past, replacing an item with an
+   incomplete document is caught by `required` at root context, and
+   root-level cross-field constraints and `$predicate`s see every edit.
+   Adapters never touch path mechanics; core never touches schemas. Free, and crucially **legible**: a bare
    `bindEnabled: app.cart.valid` tells the agent *that* an action is gated
    but not *why* — when the flag is `false` a human infers the reason from
    visual context; an agent hits a causal dead end. A serialized predicate

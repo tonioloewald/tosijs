@@ -17,11 +17,14 @@ afterEach(() => {
 // knows nothing about schemas — this is what an app (or eventually
 // tosijs-schema itself) supplies.
 const schemaContract = (schemas: Record<string, any>): AgentContract => ({
-  check(path, value) {
-    const schema = schemas[path]
-    if (schema == null) return true // no contract at this root — allow
+  check(path, _value, proposal) {
+    // core routes every at-or-under-contract write into a whole-root
+    // proposal — the adapter never touches path mechanics
+    if (proposal == null) return true // outside any contracted root
+    const schema = schemas[proposal.root]
+    if (schema == null) return true
     const reasons: string[] = []
-    const ok = validate(value, schema, {
+    const ok = validate(proposal.proposed, schema, {
       onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
     })
     return ok ? true : new Error(`contract violation at ${path} — ${reasons.join('; ')}`)
@@ -467,5 +470,68 @@ describe('value-setter enforcement — a contract is an opt-in to being held to 
       setContractValidator(null)
     }
     el.remove()
+  })
+})
+
+describe('sub-path schema routing — a write is judged as the root it would produce', () => {
+  const docsSchema = {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { title: { type: 'string' }, body: { type: 'string' } },
+      required: ['title', 'body'],
+    },
+  }
+
+  test('word processor: edits inside docs[n] validate against the whole docs contract', async () => {
+    tosi({
+      wp: {
+        docs: [
+          { title: 'Alpha', body: 'aaa' },
+          { title: 'Beta', body: 'bbb' },
+        ],
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['wp'],
+        contract: schemaContract({ 'wp.docs': docsSchema }),
+      },
+    }))
+
+    // a deep, valid edit lands
+    agent.write('wp.docs[1].title', 'Beta (edited)')
+    expect(agent.read('wp.docs[1].title')).toBe('Beta (edited)')
+
+    // a deep edit of the wrong type is refused — the sub-path bypass is closed
+    expect(() => agent.write('wp.docs[1].title', 42)).toThrow(
+      'contract violation'
+    )
+
+    // replacing an item with an incomplete document: only ROOT context can
+    // see the missing required field — a leaf check never would
+    expect(() => agent.write('wp.docs[0]', { title: 'orphan' })).toThrow(
+      'contract violation'
+    )
+
+    // refused writes changed nothing
+    expect(agent.read('wp.docs[0]')).toEqual({ title: 'Alpha', body: 'aaa' })
+    expect(agent.read('wp.docs[1].title')).toBe('Beta (edited)')
+  })
+
+  test('writes outside any contracted root still pass through (scope allows, contract silent)', async () => {
+    tosi({ wpFree: { docs: [{ title: 'x', body: 'y' }], scratch: 'anything' } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['wpFree'],
+        contract: schemaContract({ 'wpFree.docs': docsSchema }),
+      },
+    }))
+    agent.write('wpFree.scratch', { totally: 'unconstrained' })
+    expect(agent.read('wpFree.scratch')).toEqual({ totally: 'unconstrained' })
   })
 })
