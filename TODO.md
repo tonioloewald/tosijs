@@ -1,5 +1,31 @@
 # todo
 
+## Bundle diet (1.8.0-era; scoped 2026-08-03)
+
+**Tree-shaking / subpaths.** `share.ts` + `sync.ts` (~2.3 KB gz), `hot-reload.ts`
+(~0.3 KB), and `blueprint-loader.ts` + `make-component.ts` (~1.8 KB) are clean leaves —
+only `index.ts` imports them. Options: subpath exports (`tosijs/share`, `tosijs/blueprint`
+— guaranteed shake) and/or a `sideEffects` **array** in package.json. ⚠️ Never a blanket
+`sideEffects: false`: `component.ts` registers `tosi-slot`/`xin-slot` at import
+(necessary), and `blueprint-loader.ts` registers FOUR custom elements at import
+(`tosi-blueprint`, `tosi-loader`, + two deprecated aliases — the 1.8.0 alias removal
+halves that). A naive flag lets bundlers drop registrations out from under markup-only
+consumers. Entangled on the merits (leave alone): `color.ts` (via `css.ts`),
+`form-validation.ts` (via `component.ts`).
+
+**CSS-native color math.** The computed-color-variable subsystem
+(`Color.registerComputedColor` + `Color.queueRecompute` wired into
+`onStylesheetChange`) reimplements what relative color syntax
+(`oklch(from var(--x) calc(l * 1.5) c h)`, baseline 2024) and `color-mix()`
+(baseline 2023) now do natively — emit those instead and the recompute loop,
+its stylesheet observers, and the css.ts↔Color runtime coupling all delete,
+and derived colors become live by construction. Keep in JS: contrast math
+(`color-contrast()` unshipped everywhere; WCAG measurement is a JS-value job),
+`invertLuminance`'s parser, `Color.fromCss`. Minor-version work: raises the
+support floor to 2024 engines for derived colors; deprecation cycle for
+`registerComputedColor`. Quick win regardless: `css-types.ts` imports `Color`
+as a value but uses it only in types — make it `import type`.
+
 ## ✅ CI + real-browser lane (2026-07-20) — the review's "test:browser rots" finding, resolved durably
 
 First CI for the repo (`.github/workflows/ci.yml`): `unit` (bun test) + `e2e` (Playwright).
