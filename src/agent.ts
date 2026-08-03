@@ -62,11 +62,31 @@ export interface AgentContract {
 
 /**
  * A component's self-declaration: contract, description, part map, and test
- * fixture in ONE structure. Declared as `static componentMap` on a Component
- * subclass; harvested by describe() for any wired instance; exercised by
- * `exerciseComponent()` — a declaration that feeds the map, the agent, and
- * the harness breaks visibly when it lies.
+ * fixture in ONE structure. Declared as `static contract` on a Component
+ * subclass (one word everywhere: the app manifest takes `expose.contract`,
+ * the component declares `static contract`); harvested by describe() for any
+ * wired instance; exercised by `exerciseComponent()` — a declaration that
+ * feeds the map, the agent, and the harness breaks visibly when it lies.
+ *
+ * Declared tests here are SHIPPED, serializable claims (an agent can
+ * self-verify a component wherever it mounts). Dev-only tests belong in tjs
+ * `test {}` blocks instead (stripped from bundles) — and once components go
+ * native-TJS, the bridge is a test block that calls exerciseComponent().
  */
+/**
+ * One step of a declared component test — PURE DATA, deliberately: today the
+ * runner is exerciseComponent, tomorrow the same steps can be authored in
+ * AJS, shipped over the wire, and replayed anywhere the component mounts.
+ */
+export interface ComponentTestStep {
+  /** assign properties on the instance, e.g. { value: 3 } */
+  set?: Record<string, any>
+  /** click a declared part by name */
+  click?: string
+  /** assertions: value (faithful deep-equal) and/or per-part textContent */
+  expect?: { value?: any; text?: Record<string, string> }
+}
+
 export interface ComponentMap {
   /** one line for humans and agents alike */
   description?: string
@@ -77,8 +97,13 @@ export interface ComponentMap {
   attributes?: Record<string, Record<string, any>>
   /** methods the component exposes, by name */
   methods?: Record<string, { description?: string }>
-  /** declared parts: part name → expected tag (lowercase) */
+  /** declared parts: part name → expected tag (lowercase). When the class is
+   * declared `Component<typeof map>` (map `as const`), these tags TYPE
+   * `this.parts` — the declaration is the type. */
   parts?: Record<string, string>
+  /** named behavioral tests as serializable step scripts — run by
+   * exerciseComponent, declared beside the behavior they pin */
+  tests?: Record<string, ComponentTestStep[]>
 }
 
 export interface AgentExpose {
@@ -353,11 +378,18 @@ export function enableAgentInterface(
             const text = (el.textContent || '').trim().slice(0, 40)
             if (text) record.text = text
           }
-          // a custom element may carry its own self-declaration
+          // a custom element may carry its own self-declaration. OWN statics
+          // only: statics inherit through the prototype chain, and a subclass
+          // must not silently wear its parent's claims (the _elementCreator
+          // lesson, applied to contracts)
           if (record.tag.includes('-')) {
             const cls = (globalThis as any).customElements?.get?.(record.tag)
-            const map = (cls as any)?.componentMap
-            if (map != null) record.component = map
+            if (
+              cls != null &&
+              Object.prototype.hasOwnProperty.call(cls, 'contract')
+            ) {
+              record.component = (cls as any).contract
+            }
           }
           // geometry: the layout is part of the semantics
           const rect = (el as HTMLElement).getBoundingClientRect?.()

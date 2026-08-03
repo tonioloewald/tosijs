@@ -179,61 +179,106 @@ describe('exerciseContract — the contract is a test', () => {
 })
 
 describe('exerciseComponent — the component is its own test fixture', () => {
-  class HonestCounter extends Component {
+  // declared first so `typeof counterContract` can type the class generic:
+  // THE DECLARATION IS THE TYPE (as const keeps part tags literal)
+  const counterContract = {
+    description: 'a counter with a labeled readout and a reset',
+    value: { type: 'number', examples: [0, 42] },
+    methods: { reset: { description: 'set the count back to zero' } },
+    parts: { readout: 'span', increment: 'button' },
+    tests: {
+      'increment increments and renders': [
+        { set: { value: 3 } },
+        { click: 'increment' },
+        { expect: { value: 4, text: { readout: '4' } } },
+      ],
+    },
+  } as const satisfies ComponentMap
+
+  class HonestCounter extends Component<typeof counterContract> {
     static preferredTagName = 'honest-counter'
-    static componentMap: ComponentMap = {
-      description: 'a counter with a labeled readout and a reset',
-      value: { type: 'number', examples: [0, 42] },
-      methods: { reset: { description: 'set the count back to zero' } },
-      parts: { readout: 'span', increment: 'button' },
-    }
+    static contract = counterContract
     value = 0
     reset() {
       this.value = 0
     }
     content = ({ span, button }: any) => [
       span({ part: 'readout' }),
-      button({ part: 'increment' }, '+1'),
+      button(
+        {
+          part: 'increment',
+          onClick: () => {
+            this.value = (this.value as number) + 1
+          },
+        },
+        '+1'
+      ),
     ]
+    render() {
+      super.render()
+      if (!this.hydrated) return
+      // typed by the contract: readout is HTMLSpanElement, not Element
+      this.parts.readout.textContent = String(this.value)
+    }
   }
   const honestCounter = HonestCounter.elementCreator()
 
-  test('a truthful componentMap passes every claim', async () => {
+  test('the contract types this.parts — the declaration is the type', async () => {
     const el = honestCounter() as HonestCounter
     document.body.append(el)
     await updates()
-    const report = exerciseComponent(el)
-    expect(report.failed).toBe(0)
-    // 2 parts + 1 method + 2 value examples
-    expect(report.passed).toBe(5)
+    // compile-time: readout is an HTMLSpanElement (style exists on it)…
+    el.parts.readout.style.fontWeight = 'bold'
+    // …and increment is an HTMLButtonElement-flavored element
+    expect(el.parts.increment.tagName).toBe('BUTTON')
+    // @ts-expect-error — a span has no `href`
+    void el.parts.readout.href
+    el.remove()
+  })
+
+  test('a truthful contract passes every claim, including declared step tests', async () => {
+    const el = honestCounter() as HonestCounter
+    document.body.append(el)
+    await updates()
+    const report = await exerciseComponent(el)
+    expect(report.trials.filter((t) => !t.passed)).toEqual([])
+    // 2 parts + 1 method + 2 value examples + 1 declared test
+    expect(report.passed).toBe(6)
     expect(el.value).toBe(0) // snapshot restored
     el.remove()
   })
 
-  test('a lying componentMap is caught, claim by claim', async () => {
+  test('a lying contract is caught, claim by claim', async () => {
     const el = honestCounter() as HonestCounter
     document.body.append(el)
     await updates()
     const liar: ComponentMap = {
       parts: { readout: 'div', missing: 'input' }, // wrong tag + nonexistent
       methods: { reset: {}, explode: {} }, // one real, one imaginary
-      value: { examples: ['not a number kept as-is'] }, // still round-trips (no coercion) — passes
+      tests: {
+        'a behavioral lie': [
+          { set: { value: 1 } },
+          { click: 'increment' },
+          { expect: { value: 999 } }, // the component honestly disagrees
+        ],
+      },
     }
-    const report = exerciseComponent(el, liar)
+    const report = await exerciseComponent(el, liar)
     const failures = report.trials.filter((t) => !t.passed)
     expect(failures.map((t) => t.claim)).toEqual([
       'part "readout" is <div>',
       'part "missing" resolves',
       'method "explode" exists',
+      'test "a behavioral lie"',
     ])
+    expect(failures[3].error).toContain('expected value 999')
     el.remove()
   })
 
-  test('describe() harvests a wired custom element self-declaration', async () => {
+  test('describe() harvests a wired custom element self-declaration (own static only)', async () => {
     const { counterApp } = tosi({ counterApp: { n: 5 } })
     const el = honestCounter() as HonestCounter
     document.body.append(el)
-    el.constructor // (silence unused)
     // wire it so it appears in describe()'s wiring at all
     const { bind } = await import('./bind')
     const { bindings } = await import('./bindings')
@@ -247,7 +292,26 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     expect(record.component).toBeDefined()
     expect(record.component!.description).toContain('counter')
     expect(record.component!.parts!.readout).toBe('span')
+    // the shipped tests travel with the description — an agent can
+    // self-verify the component wherever it mounts
+    expect(Object.keys(record.component!.tests!)).toEqual([
+      'increment increments and renders',
+    ])
     void counterApp
+    el.remove()
+  })
+
+  test('a subclass does not inherit its parent contract silently', async () => {
+    class Grandchild extends HonestCounter {
+      static preferredTagName = 'grandchild-counter'
+    }
+    const grandchild = Grandchild.elementCreator()
+    const el = grandchild() as Grandchild
+    document.body.append(el)
+    await updates()
+    const report = await exerciseComponent(el)
+    expect(report.failed).toBe(1)
+    expect(report.trials[0].error).toContain('no own static contract')
     el.remove()
   })
 })

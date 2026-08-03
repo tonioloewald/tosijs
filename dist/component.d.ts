@@ -2,6 +2,24 @@ import { XinStyleSheet } from './css-types';
 import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
+import type { ComponentMap } from './agent';
+/** tag-name literal → element type, for parts declared in a component contract */
+type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[T] : Element;
+/**
+ * Resolve the `parts` type from the Component generic. Two shapes are
+ * accepted in the same slot:
+ *
+ * - a classic PartsMap (`{ readout: HTMLSpanElement }`) — used as-is;
+ * - `typeof <contract>` (declare the contract `as const` so tags stay
+ *   literal) — parts derive from `contract.parts` tag names, so THE
+ *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
+ *   exerciseComponent(), and this.parts typing.
+ */
+export type PartsOf<T> = T extends {
+    parts: infer P extends Record<string, string>;
+} ? {
+    [K in keyof P]: TagToElement<P[K]>;
+} & PartsMap : T extends Record<string, Element> ? T : T extends ComponentMap ? PartsMap : T;
 interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
     styleSpec?: XinStyleSheet;
@@ -56,7 +74,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private initValue;
     private _parts?;
     private _partsCache;
-    get parts(): T;
+    get parts(): PartsOf<T>;
     /**
      * Native web component callback for attribute changes.
      * Only called for attributes declared in static observedAttributes.

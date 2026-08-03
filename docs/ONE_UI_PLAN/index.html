@@ -76,15 +76,19 @@ equivalent of tjs signature tests (see
 <a href="/ONE_UI_DESIGN/">The Agent Surface</a>). The blessed tosijs-schema adapter
 (~10 lines over <code>validate</code> + <code>onError</code>; <code>$predicate</code> strings ride into
 <code>describe()</code> as legible preconditions) is proven in tests here and should
-ship FROM tosijs-schema (file, don&#39;t fix). <strong>ComponentMap&#39;s additive slice
-also shipped</strong> (2026-08-03): <code>static componentMap</code> = contract + description<ul>
-<li>test fixture + parts map in one declaration; <code>describe()</code> harvests it per
-wired instance; <code>exerciseComponent()</code> executes it (parts resolve via the
-saga-hardened proxy and match declared tags, methods exist, value examples
-round-trip). Remaining: the core-API reshaping half (PartsMap generic
-superseded so the declaration IS the type; initAttributes subsumption;
-value-setter enforcement) — decide shape before building; sub-path schema
-routing (v1 checks root-exact); the AJS <code>$exercise</code> future. Feeds directly
+ship FROM tosijs-schema (file, don&#39;t fix). <strong>ComponentMap
+shipped</strong> (2026-08-03): <code>static contract</code> (one word everywhere) = contract<ul>
+<li>description + test fixture + parts map in one declaration;
+<code>Component&lt;typeof contract&gt;</code> types <code>this.parts</code> from the declared tags —
+THE DECLARATION IS THE TYPE (classic PartsMap still accepted in the same
+slot); <code>describe()</code> harvests own-statics only; <code>exerciseComponent()</code>
+executes parts/methods/value-examples AND declared <code>tests</code> (serializable
+set/click/expect step scripts, updates()+rAF settled). Shipped tests
+travel with the contract; dev-only tests go to tjs <code>test {}</code> blocks
+(stripped) — the native-TJS bridge is a test block calling
+exerciseComponent(). Remaining: initAttributes subsumption + value-setter
+enforcement (decide shape first); sub-path schema routing (v1 root-exact);
+the AJS <code>$exercise</code> future. Feeds directly
 into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
 for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
 phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>

@@ -14,11 +14,33 @@ export interface AgentContract {
 }
 /**
  * A component's self-declaration: contract, description, part map, and test
- * fixture in ONE structure. Declared as `static componentMap` on a Component
- * subclass; harvested by describe() for any wired instance; exercised by
- * `exerciseComponent()` — a declaration that feeds the map, the agent, and
- * the harness breaks visibly when it lies.
+ * fixture in ONE structure. Declared as `static contract` on a Component
+ * subclass (one word everywhere: the app manifest takes `expose.contract`,
+ * the component declares `static contract`); harvested by describe() for any
+ * wired instance; exercised by `exerciseComponent()` — a declaration that
+ * feeds the map, the agent, and the harness breaks visibly when it lies.
+ *
+ * Declared tests here are SHIPPED, serializable claims (an agent can
+ * self-verify a component wherever it mounts). Dev-only tests belong in tjs
+ * `test {}` blocks instead (stripped from bundles) — and once components go
+ * native-TJS, the bridge is a test block that calls exerciseComponent().
  */
+/**
+ * One step of a declared component test — PURE DATA, deliberately: today the
+ * runner is exerciseComponent, tomorrow the same steps can be authored in
+ * AJS, shipped over the wire, and replayed anywhere the component mounts.
+ */
+export interface ComponentTestStep {
+    /** assign properties on the instance, e.g. { value: 3 } */
+    set?: Record<string, any>;
+    /** click a declared part by name */
+    click?: string;
+    /** assertions: value (faithful deep-equal) and/or per-part textContent */
+    expect?: {
+        value?: any;
+        text?: Record<string, string>;
+    };
+}
 export interface ComponentMap {
     /** one line for humans and agents alike */
     description?: string;
@@ -31,8 +53,13 @@ export interface ComponentMap {
     methods?: Record<string, {
         description?: string;
     }>;
-    /** declared parts: part name → expected tag (lowercase) */
+    /** declared parts: part name → expected tag (lowercase). When the class is
+     * declared `Component<typeof map>` (map `as const`), these tags TYPE
+     * `this.parts` — the declaration is the type. */
     parts?: Record<string, string>;
+    /** named behavioral tests as serializable step scripts — run by
+     * exerciseComponent, declared beside the behavior they pin */
+    tests?: Record<string, ComponentTestStep[]>;
 }
 export interface AgentExpose {
     roots?: string[];

@@ -32,7 +32,8 @@ the whole conformance suite, shippable over the wire.
 
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
-import { AgentInterface, ComponentMap } from './agent'
+import { AgentInterface, ComponentMap, ComponentTestStep } from './agent'
+import { updates } from './path-listener'
 
 export interface ContractTrial {
   root: string
@@ -149,12 +150,18 @@ export interface ComponentReport {
  * the parts, informs the agent, and documents the component is the same one
  * the harness executes.
  */
-export const exerciseComponent = (
+export const exerciseComponent = async (
   element: HTMLElement,
   map?: ComponentMap
-): ComponentReport => {
+): Promise<ComponentReport> => {
+  // OWN static only — statics inherit through the prototype chain, and a
+  // subclass must not silently wear its parent's claims
+  const cls = element.constructor as any
   const declared: ComponentMap | undefined =
-    map ?? (element.constructor as any)?.componentMap
+    map ??
+    (Object.prototype.hasOwnProperty.call(cls, 'contract')
+      ? cls.contract
+      : undefined)
   const trials: ComponentTrial[] = []
   if (declared == null) {
     return {
@@ -162,19 +169,19 @@ export const exerciseComponent = (
       failed: 1,
       trials: [
         {
-          claim: 'component declares a componentMap',
+          claim: 'component declares a static contract',
           passed: false,
-          error: 'no componentMap declared (and none passed in)',
+          error: 'no own static contract declared (and none passed in)',
         },
       ],
     }
   }
 
   const root = ((element as any).shadowRoot ?? element) as ParentNode
-  for (const [name, tag] of Object.entries(declared.parts ?? {})) {
-    // prefer the component's own parts proxy — its resolution is
-    // ownership-correct (pre-hydration capture); a bare querySelector can
-    // false-positive on a nested component's same-named part
+  // prefer the component's own parts proxy — its resolution is
+  // ownership-correct (pre-hydration capture); a bare querySelector can
+  // false-positive on a nested component's same-named part
+  const resolvePart = (name: string): Element | null => {
     let found: Element | null = null
     if ((element as any).parts != null) {
       try {
@@ -183,7 +190,11 @@ export const exerciseComponent = (
         found = null // the proxy throws for parts it never owned
       }
     }
-    found ??= root.querySelector(`[part="${name}"]`)
+    return found ?? root.querySelector(`[part="${name}"]`)
+  }
+
+  for (const [name, tag] of Object.entries(declared.parts ?? {})) {
+    const found = resolvePart(name)
     trials.push(
       found == null
         ? {
@@ -227,6 +238,55 @@ export const exerciseComponent = (
       )
     }
     ;(element as any).value = snapshot
+  }
+
+  // observers settle via updates(); component renders queue on rAF — a step
+  // assertion must wait for BOTH (the same discipline as the doc-test lane)
+  const settle = async () => {
+    await updates()
+    if (typeof requestAnimationFrame === 'function') {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    }
+  }
+
+  // declared behavioral tests: serializable step scripts, run live
+  for (const [name, steps] of Object.entries(declared.tests ?? {})) {
+    const snapshot = (element as any).value
+    let error: string | undefined
+    try {
+      for (const step of steps as ComponentTestStep[]) {
+        if (step.set != null) Object.assign(element, step.set)
+        if (step.click != null) {
+          const target = resolvePart(step.click)
+          if (target == null) {
+            throw new Error(`click target part "${step.click}" not found`)
+          }
+          ;(target as HTMLElement).click()
+        }
+        await settle()
+        if (step.expect != null) {
+          if ('value' in step.expect && !same((element as any).value, step.expect.value)) {
+            throw new Error(
+              `expected value ${JSON.stringify(step.expect.value)}, got ${JSON.stringify((element as any).value)}`
+            )
+          }
+          for (const [part, text] of Object.entries(step.expect.text ?? {})) {
+            const target = resolvePart(part)
+            const actual = (target?.textContent ?? '').trim()
+            if (actual !== text) {
+              throw new Error(
+                `expected part "${part}" text "${text}", got "${actual}"`
+              )
+            }
+          }
+        }
+      }
+    } catch (e) {
+      error = (e as Error).message
+    }
+    ;(element as any).value = snapshot
+    await settle()
+    trials.push({ claim: `test "${name}"`, passed: error == null, error })
   }
 
   const failed = trials.filter((trial) => !trial.passed).length

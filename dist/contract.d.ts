@@ -41,4 +41,4 @@ export interface ComponentReport {
  * the parts, informs the agent, and documents the component is the same one
  * the harness executes.
  */
-export declare const exerciseComponent: (element: HTMLElement, map?: ComponentMap) => ComponentReport;
+export declare const exerciseComponent: (element: HTMLElement, map?: ComponentMap) => Promise<ComponentReport>;

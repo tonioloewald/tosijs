@@ -612,8 +612,34 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
+import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
+
+/** tag-name literal → element type, for parts declared in a component contract */
+type TagToElement<T> = T extends keyof HTMLElementTagNameMap
+  ? HTMLElementTagNameMap[T]
+  : Element
+
+/**
+ * Resolve the `parts` type from the Component generic. Two shapes are
+ * accepted in the same slot:
+ *
+ * - a classic PartsMap (`{ readout: HTMLSpanElement }`) — used as-is;
+ * - `typeof <contract>` (declare the contract `as const` so tags stay
+ *   literal) — parts derive from `contract.parts` tag names, so THE
+ *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
+ *   exerciseComponent(), and this.parts typing.
+ */
+export type PartsOf<T> = T extends {
+  parts: infer P extends Record<string, string>
+}
+  ? { [K in keyof P]: TagToElement<P[K]> } & PartsMap
+  : T extends Record<string, Element>
+    ? T // classic PartsMap, verbatim
+    : T extends ComponentMap
+      ? PartsMap // a contract with no parts declared — untyped parts
+      : T
 
 function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
@@ -1026,14 +1052,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     })
   }
 
-  private _parts?: T
+  private _parts?: PartsOf<T>
   // Resolved parts, keyed by ref. Seeded at hydration with this component's OWN
   // [part] elements — captured from the content tree BEFORE it is inserted, so
   // nesting/slotting can't contaminate them (see capturePartsFrom + hydrate) —
   // and filled lazily for anything not declared in content. Shadow and static
   // (cloned) content start empty and resolve entirely via querySelector.
   private _partsCache: Record<string, Element> = Object.create(null)
-  get parts(): T {
+  get parts(): PartsOf<T> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- the Proxy handler's methods have their own `this`
     const self = this
     if (this._parts == null) {
@@ -1089,7 +1115,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             return element
           },
         }
-      ) as T
+      ) as PartsOf<T>
     }
     return this._parts
   }

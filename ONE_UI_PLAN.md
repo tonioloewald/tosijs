@@ -30,15 +30,19 @@
   [The Agent Surface](/ONE_UI_DESIGN/)). The blessed tosijs-schema adapter
   (~10 lines over `validate` + `onError`; `$predicate` strings ride into
   `describe()` as legible preconditions) is proven in tests here and should
-  ship FROM tosijs-schema (file, don't fix). **ComponentMap's additive slice
-  also shipped** (2026-08-03): `static componentMap` = contract + description
-  + test fixture + parts map in one declaration; `describe()` harvests it per
-  wired instance; `exerciseComponent()` executes it (parts resolve via the
-  saga-hardened proxy and match declared tags, methods exist, value examples
-  round-trip). Remaining: the core-API reshaping half (PartsMap generic
-  superseded so the declaration IS the type; initAttributes subsumption;
-  value-setter enforcement) — decide shape before building; sub-path schema
-  routing (v1 checks root-exact); the AJS `$exercise` future. Feeds directly
+  ship FROM tosijs-schema (file, don't fix). **ComponentMap
+  shipped** (2026-08-03): `static contract` (one word everywhere) = contract
+  + description + test fixture + parts map in one declaration;
+  `Component<typeof contract>` types `this.parts` from the declared tags —
+  THE DECLARATION IS THE TYPE (classic PartsMap still accepted in the same
+  slot); `describe()` harvests own-statics only; `exerciseComponent()`
+  executes parts/methods/value-examples AND declared `tests` (serializable
+  set/click/expect step scripts, updates()+rAF settled). Shipped tests
+  travel with the contract; dev-only tests go to tjs `test {}` blocks
+  (stripped) — the native-TJS bridge is a test block calling
+  exerciseComponent(). Remaining: initAttributes subsumption + value-setter
+  enforcement (decide shape first); sub-path schema routing (v1 root-exact);
+  the AJS `$exercise` future. Feeds directly
   into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`

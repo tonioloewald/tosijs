@@ -333,34 +333,55 @@ reader — is told), **the test harness** (the declaration is exercisable), and
 `static componentMap`, four consumers — a component that lies about itself
 fails tests, not users.
 
-**Shipped (the additive slice):**
+**Shipped:** one word everywhere — the app manifest takes `expose.contract`,
+the component declares `static contract`:
 
-    class Counter extends Component {
-      static componentMap: ComponentMap = {
-        description: 'a counter with a labeled readout and a reset',
-        value: { type: 'number', examples: [0, 42] },
-        methods: { reset: { description: 'set the count back to zero' } },
-        parts: { readout: 'span', increment: 'button' },
-      }
+    const counterContract = {
+      description: 'a counter with a labeled readout and a reset',
+      value: { type: 'number', examples: [0, 42] },
+      methods: { reset: { description: 'set the count back to zero' } },
+      parts: { readout: 'span', increment: 'button' },
+      tests: {
+        'increment increments and renders': [
+          { set: { value: 3 } },
+          { click: 'increment' },
+          { expect: { value: 4, text: { readout: '4' } } },
+        ],
+      },
+    } as const satisfies ComponentMap
+
+    class Counter extends Component<typeof counterContract> {
+      static contract = counterContract
       …
     }
 
+- **The declaration is the type.** `Component<T>` accepts a classic PartsMap
+  *or* `typeof <contract>` in the same slot: with the latter,
+  `this.parts.readout` is an `HTMLSpanElement` because the contract said
+  `'span'` — parts typing, agent description, and the harness now share one
+  source. (Declare the contract `as const` so tags stay literal.)
 - `describe()` harvests it: any wired instance's record carries
-  `component: <the map>` — the element doesn't just *have* affordances, it
-  **describes** them, per class, once.
-- `exerciseComponent(el)` executes it: every declared part must resolve
-  *inside the instance* (via the saga-hardened parts proxy — ownership-
-  correct, where a bare querySelector could false-positive on a nested
-  component's same-named part) and match its declared tag; every declared
-  method must exist; every `value` example must round-trip faithfully. The
-  component equivalent of a signature test.
+  `component: <the contract>` — **own statics only**; statics inherit through
+  the prototype chain and a subclass must not silently wear its parent's
+  claims.
+- `exerciseComponent(el)` executes it: declared parts resolve *inside the
+  instance* (via the saga-hardened parts proxy — ownership-correct, where a
+  bare querySelector could false-positive on a nested component's same-named
+  part) and match their tags; methods exist; value examples round-trip; and
+  **declared `tests` run** — serializable step scripts (`set` / `click` /
+  `expect` on value and per-part text), settled through the same
+  updates()+rAF discipline as the doc-test lane.
+- **Shipped tests vs. stripped tests:** `contract.tests` deliberately ship —
+  they're claims an agent can self-verify wherever the component mounts.
+  Dev-only tests belong in tjs `test {}` blocks (erased from bundles); once
+  components go native-TJS, the bridge is one line — a test block calling
+  `exerciseComponent()`. The steps being pure data is the AJS on-ramp:
+  serializable like the schema, executable like a test.
 
-**Not yet (core-API reshaping — decide before building):** superseding the
-`PartsMap` generic (so `this.parts.readout` is *typed by* the map — the
-declaration becomes the type); subsuming `initAttributes` (attribute schemas
-with defaults replacing type-inferred defaults); and enforcing the `value`
-contract in the value setter (needs a validation hook in core, and should
+**Not yet (decide before building):** subsuming `initAttributes` (attribute
+schemas with defaults replacing type-inferred defaults) and enforcing the
+`value` contract in the value setter (needs a core validation hook; should
 share the app-level contract seam). Shadow components stay agent-shaped
-(the value is the interface; the internals are private) — ComponentMap is how
+(the value is the interface; the internals are private) — the contract is how
 a component *says so in a checkable form*.
 
