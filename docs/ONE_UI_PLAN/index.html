@@ -67,14 +67,19 @@ Publishing shape TBD: likely a tree-shaken <code>tosijs/agent</code> subpath, sh
 EXPERIMENTAL like <code>tosijs/debug</code>. Still open from the original scope:
 preconditions from enabled-bindings and item schemas from list templates
 (both land naturally with Phase 2&#39;s contracts).</li>
-<li><strong>Phase 2 — manifest + contracts.</strong> The <code>expose</code> allowlist; tosijs-schema
-integration for shapes/constraints; <code>describe()</code> grows &quot;what&#39;s legal.&quot; This
-is where the hierarchy inverts for real: the declared surface becomes the
-product and introspection is demoted to the discovery tool (see
-<a href="/ONE_UI_DESIGN/">The Agent Surface</a>). Includes the <strong>ComponentMap</strong> design
-(the component-level contract
-superseding PartsMap). Feeds directly into 2.0&#39;s <code>schematic</code> design rather
-than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
+<li><strong>Phase 2 — manifest + contracts.</strong> <strong>Core shipped</strong> (2026-08-03): the
+zero-dependency contract seam (<code>expose.contract = { check, describe }</code>),
+<code>write()</code> enforcement with audited refusals, <code>describe().contract</code>
+(&quot;what&#39;s legal&quot;), and <strong><code>exerciseContract()</code></strong> — contracts carrying
+<code>examples</code> / <code>$counterexamples</code> are executable specs, the contract
+equivalent of tjs signature tests (see
+<a href="/ONE_UI_DESIGN/">The Agent Surface</a>). The blessed tosijs-schema adapter
+(~10 lines over <code>validate</code> + <code>onError</code>; <code>$predicate</code> strings ride into
+<code>describe()</code> as legible preconditions) is proven in tests here and should
+ship FROM tosijs-schema (file, don&#39;t fix). Remaining: the <strong>ComponentMap</strong>
+design (component-level contract superseding PartsMap), sub-path schema
+routing (v1 checks root-exact), and the AJS <code>$exercise</code> future. Feeds
+directly into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
 for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
 phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>
 — the episodic agent&#39;s await-a-condition primitive — <strong>shipped early</strong>
@@ -255,6 +260,7 @@ unclaimed for long.</p>
     <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

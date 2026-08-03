@@ -5,6 +5,7 @@ These are lightweight but powerful general useful things. They're used internall
 
 <!-- toc -->
 - [agent (EXPERIMENTAL)](/agent/)
+- [contract harness (EXPERIMENTAL)](/contract/)
 - [hotReload](/hot-reload/)
 - [more-math](/more-math/)
 - [schematic (EXPERIMENTAL)](/schematic/)

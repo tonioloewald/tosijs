@@ -35,6 +35,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   How to think about building applications with tosijs: state in a proxy, UI built with live bindings, list bindings for collections. Read this first.
 - https://tosijs.net/color/ — color
   The Color class: parse CSS colors, do color math (brighten, saturate, blend, mix), convert between HSL and RGB, generate contrasting colors.
+- https://tosijs.net/contract/ — contract harness (EXPERIMENTAL)
+  EXPERIMENTAL contract harness: exercise an agent surface's declared contract — schema examples must be accepted, counterexamples refused — through the real surface.
 - https://tosijs.net/elements/ — Creating Elements
   The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required.
 - https://tosijs.net/css/ — CSS

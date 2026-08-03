@@ -1,12 +1,15 @@
 export { bind, on, touchElement } from './bind'
 export { enableAgentInterface, BOUND_TO_DOM, BOUND_TWO_WAY } from './agent'
 export { schematicSVG, rasterizeSVG } from './schematic'
+export { exerciseContract } from './contract'
+export type { ContractReport, ContractTrial } from './contract'
 export { webmcpTools, webmcpAdapter } from './webmcp'
 export type { WebMCPTool, WebMCPAdapterOptions } from './webmcp'
 export type { SchematicOptions } from './schematic'
 export type {
   AgentInterface,
   AgentInterfaceOptions,
+  AgentContract,
   AgentDescription,
   AgentWiringRecord,
   AgentLogEntry,

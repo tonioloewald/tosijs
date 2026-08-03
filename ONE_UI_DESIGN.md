@@ -215,7 +215,14 @@ channel.)
    shapes, constraints, computed predicates. Now `write()` validates against
    the contract, `describe()` tells the agent *what's legal* rather than what
    exists — and since tosijs-schema already embeds serialized predicates,
-   **preconditions ride along free**. Free, and crucially **legible**: a bare
+   **preconditions ride along free**. **The seam is shipped:**
+   `expose.contract = { check(path, value) → true | Error, describe() }` —
+   tosijs stays zero-dependency (the core knows a *check*, not a schema
+   language); the blessed adapter is ~10 lines over tosijs-schema's
+   `validate` (its `onError` messages become the refusal text). Refused
+   writes throw the *reason* and land in the audit log as
+   `write rejected: …` notes — a refusal is part of the surface, because
+   agents self-correct from reasons, not booleans. Free, and crucially **legible**: a bare
    `bindEnabled: app.cart.valid` tells the agent *that* an action is gated
    but not *why* — when the flag is `false` a human infers the reason from
    visual context; an agent hits a causal dead end. A serialized predicate
@@ -278,6 +285,28 @@ the auto-map (the actuality) side by side:
   against actuality. This turns the agent from a blind navigator into a
   structural debugger — a class of introspection that DOM-scraping automation
   cannot express, because it only ever sees the build.
+
+### The contract is a test (shipped: `exerciseContract`)
+
+If a contract carries **example values**, the contract is executable — the
+equivalent of tjs-lang's signature tests, one layer up. `exerciseContract(agent)`
+reads the declared contract and exercises it **through the real surface**:
+
+- every `examples:` entry (standard JSON Schema keyword) must be *accepted*
+  by `write()` **and round-trip** — `read()` must return exactly what was
+  written, with faithful (not JSON-normalizing) comparison, so a contract
+  whose own spec can't survive the surface (a `Date` in an example, an app
+  that mangles writes) is caught, not just values the contract refuses;
+- every `$counterexamples:` entry (our convention) must be *refused* — a
+  gate that never says no isn't a gate, and the harness proves the no.
+
+State snapshots and restores around each root, and the report is per-trial,
+so a lying contract says exactly which claim lied. This is why the
+declaration stays true: it isn't a comment, it feeds a harness that breaks
+visibly. Future: richer exercise steps as custom properties (`$exercise`)
+written in **AJS** — serializable like the schema, executable like a test,
+sandboxable like neither `Function` nor `eval` — making the contract file
+the entire conformance suite, shippable over the wire.
 
 ### Why declaration wins: intent captured at authoring time
 

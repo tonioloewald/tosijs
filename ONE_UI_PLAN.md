@@ -21,14 +21,19 @@
   EXPERIMENTAL like `tosijs/debug`. Still open from the original scope:
   preconditions from enabled-bindings and item schemas from list templates
   (both land naturally with Phase 2's contracts).
-- **Phase 2 — manifest + contracts.** The `expose` allowlist; tosijs-schema
-  integration for shapes/constraints; `describe()` grows "what's legal." This
-  is where the hierarchy inverts for real: the declared surface becomes the
-  product and introspection is demoted to the discovery tool (see
-  [The Agent Surface](/ONE_UI_DESIGN/)). Includes the **ComponentMap** design
-  (the component-level contract
-  superseding PartsMap). Feeds directly into 2.0's `schematic` design rather
-  than duplicating it. **Gate:** state-level validation is a hard prerequisite
+- **Phase 2 — manifest + contracts.** **Core shipped** (2026-08-03): the
+  zero-dependency contract seam (`expose.contract = { check, describe }`),
+  `write()` enforcement with audited refusals, `describe().contract`
+  ("what's legal"), and **`exerciseContract()`** — contracts carrying
+  `examples` / `$counterexamples` are executable specs, the contract
+  equivalent of tjs signature tests (see
+  [The Agent Surface](/ONE_UI_DESIGN/)). The blessed tosijs-schema adapter
+  (~10 lines over `validate` + `onError`; `$predicate` strings ride into
+  `describe()` as legible preconditions) is proven in tests here and should
+  ship FROM tosijs-schema (file, don't fix). Remaining: the **ComponentMap**
+  design (component-level contract superseding PartsMap), sub-path schema
+  routing (v1 checks root-exact), and the AJS `$exercise` future. Feeds
+  directly into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`
   — the episodic agent's await-a-condition primitive — **shipped early**

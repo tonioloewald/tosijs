@@ -1,6 +1,21 @@
+/**
+ * The contract seam — tosijs stays zero-dependency, so the core doesn't know
+ * any schema language; it knows a CHECK. The blessed adapter is a few lines
+ * over tosijs-schema (`validate` on write, schemas into `describe()`), but
+ * anything that can say "no, and here's why" fits.
+ */
+export interface AgentContract {
+    /** validate a write at `path`; `true`, or an Error saying WHY (the refusal
+     * is part of the surface — agents self-correct from reasons, not booleans) */
+    check: (path: string, value: any) => true | Error;
+    /** serializable per-root contract (JSON-Schema-shaped, by convention) —
+     * lands in describe().contract: "what's legal", not just what exists */
+    describe?: () => Record<string, any>;
+}
 export interface AgentExpose {
     roots?: string[];
     actions?: string[];
+    contract?: AgentContract;
 }
 export interface AgentInterfaceOptions {
     expose?: AgentExpose;
@@ -67,6 +82,8 @@ export interface AgentDescription {
     wiring: AgentWiringRecord[];
     actions: string[];
     exposure: 'introspection' | 'manifest';
+    /** what's LEGAL, per root — present when the manifest declares a contract */
+    contract?: Record<string, any>;
 }
 export interface AgentChange {
     path: string;

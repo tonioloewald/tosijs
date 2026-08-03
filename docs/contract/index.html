@@ -29,52 +29,50 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
-  <title>agent (EXPERIMENTAL) — tosijs</title>
-  <meta name="description" content="EXPERIMENTAL agent interface: expose a tosijs app&#39;s state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface." />
-  <link rel="canonical" href="https://tosijs.net/agent/" />
+  <title>contract harness (EXPERIMENTAL) — tosijs</title>
+  <meta name="description" content="EXPERIMENTAL contract harness: exercise an agent surface&#39;s declared contract — schema examples must be accepted, counterexamples refused — through the real surface." />
+  <link rel="canonical" href="https://tosijs.net/contract/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
-  <meta property="og:title" content="agent (EXPERIMENTAL) — tosijs" />
-  <meta property="og:description" content="EXPERIMENTAL agent interface: expose a tosijs app&#39;s state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface." />
-  <meta property="og:url" content="https://tosijs.net/agent/" />
+  <meta property="og:title" content="contract harness (EXPERIMENTAL) — tosijs" />
+  <meta property="og:description" content="EXPERIMENTAL contract harness: exercise an agent surface&#39;s declared contract — schema examples must be accepted, counterexamples refused — through the real surface." />
+  <meta property="og:url" content="https://tosijs.net/contract/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"agent (EXPERIMENTAL)","description":"EXPERIMENTAL agent interface: expose a tosijs app's state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface.","url":"https://tosijs.net/agent/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"contract harness (EXPERIMENTAL)","description":"EXPERIMENTAL contract harness: exercise an agent surface's declared contract — schema examples must be accepted, counterexamples refused — through the real surface.","url":"https://tosijs.net/contract/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
-<h1>agent (EXPERIMENTAL)</h1>
-<p><code>enableAgentInterface()</code> turns a tosijs app&#39;s existing records — the state
-registry, the binding wiring, the event handlers — into a described,
-path-addressed surface for <em>non-human users</em>: AI agents, test harnesses,
-automation. Nothing is recorded that tosijs doesn&#39;t already know; <code>describe()</code>
-assembles the picture on demand.</p>
-<pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
+<h1>contract harness (EXPERIMENTAL)</h1>
+<p>If a contract carries <strong>example values</strong>, the contract is a test. This is the
+contract equivalent of tjs-lang&#39;s signature tests: the declaration proves
+itself by execution, and a declaration that feeds tests is load-bearing —
+it breaks visibly when it lies.</p>
+<pre><code>import { enableAgentInterface, exerciseContract } from &#39;tosijs&#39;
 
-const agent = enableAgentInterface() // introspection mode: expose everything
-
-agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
-agent.read(&#39;app.filter&#39;)  // serializable value
-agent.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
-agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
-agent.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)        // invoke an action by path
-agent.changes(cursor)     // turn-based drain: final value per changed path
-await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
-agent.log()               // the audit trail
+const agent = enableAgentInterface({ expose: { roots, contract } })
+const report = exerciseContract(agent)
+// report.failed === 0, or report.trials says exactly what lied
 </code></pre>
-<p>In production, expose only what you declare:</p>
-<pre><code>enableAgentInterface({
-  expose: {
-    roots: [&#39;app.cart&#39;, &#39;app.filter&#39;],
-    actions: [&#39;app.addItem&#39;, &#39;app.checkout&#39;],
-  },
-})
-</code></pre>
+<p>Conventions read from each root&#39;s serialized contract (<code>describe().contract</code>):</p>
+<ul>
+<li><strong><code>examples: [...]</code></strong> (standard JSON Schema keyword) — every example is
+WRITTEN through the real surface: it must be accepted, and it must
+round-trip (<code>read()</code> returns what was written — catching contracts the app
+itself violates, not just values the contract refuses).</li>
+<li><strong><code>$counterexamples: [...]</code></strong> (our convention) — every one must be
+REFUSED by <code>write()</code>. A contract that never refuses anything isn&#39;t a
+contract; counterexamples prove the gate exists.</li>
+</ul>
+<p>State is snapshotted per root and restored after each root&#39;s trials.</p>
+<p>Future: richer exercise steps as custom properties (e.g. <code>$exercise</code>)
+written in <strong>AJS</strong> — serializable like the schema, executable like a test,
+sandboxable like neither <code>Function</code> nor <code>eval</code>. The contract file becomes
+the whole conformance suite, shippable over the wire.</p>
 <blockquote>
-<p><strong>EXPERIMENTAL.</strong> Shapes and names may change. The surface is deliberately
-protocol-neutral — MCP / WebMCP adapters sit on top of it, not inside it.</p>
+<p><strong>EXPERIMENTAL.</strong> Ships alongside the agent surface; shapes may change.</p>
 </blockquote>
 
   </article>
@@ -111,8 +109,8 @@ protocol-neutral — MCP / WebMCP adapters sit on top of it, not inside it.</p>
     </details></li>
     <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
-      <li><a class="doc-link current" href="../agent/" aria-current="page">agent (EXPERIMENTAL)</a></li>
-      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link current" href="../contract/" aria-current="page">contract harness (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

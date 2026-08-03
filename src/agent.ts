@@ -45,9 +45,25 @@ import {
 import { bindings } from './bindings'
 import { propBindingKey } from './elements'
 
+/**
+ * The contract seam — tosijs stays zero-dependency, so the core doesn't know
+ * any schema language; it knows a CHECK. The blessed adapter is a few lines
+ * over tosijs-schema (`validate` on write, schemas into `describe()`), but
+ * anything that can say "no, and here's why" fits.
+ */
+export interface AgentContract {
+  /** validate a write at `path`; `true`, or an Error saying WHY (the refusal
+   * is part of the surface — agents self-correct from reasons, not booleans) */
+  check: (path: string, value: any) => true | Error
+  /** serializable per-root contract (JSON-Schema-shaped, by convention) —
+   * lands in describe().contract: "what's legal", not just what exists */
+  describe?: () => Record<string, any>
+}
+
 export interface AgentExpose {
   roots?: string[]
   actions?: string[]
+  contract?: AgentContract
 }
 
 export interface AgentInterfaceOptions {
@@ -102,6 +118,8 @@ export interface AgentDescription {
   wiring: AgentWiringRecord[]
   actions: string[]
   exposure: 'introspection' | 'manifest'
+  /** what's LEGAL, per root — present when the manifest declares a contract */
+  contract?: Record<string, any>
 }
 
 export interface AgentChange {
@@ -204,6 +222,7 @@ export function enableAgentInterface(
   const { expose, global = true } = options
   const roots = expose?.roots
   const exposedActions = expose?.actions
+  const contract = expose?.contract
   const manifestMode = expose != null
 
   const inScope = (path: string): boolean =>
@@ -365,12 +384,16 @@ export function enableAgentInterface(
         }
       }
 
-      return {
+      const description: AgentDescription = {
         roots: rootSummary,
         wiring,
         actions,
         exposure: manifestMode ? 'manifest' : 'introspection',
       }
+      if (contract?.describe != null) {
+        description.contract = contract.describe()
+      }
+      return description
     },
 
     read,
@@ -381,6 +404,19 @@ export function enableAgentInterface(
         throw new Error(
           `agent interface: "${path}" is callable, not writable (declare it under roots to allow writes)`
         )
+      }
+      if (contract != null) {
+        const verdict = contract.check(path, value)
+        if (verdict !== true) {
+          // refusals are audit events: what an agent TRIED matters as much
+          // as what it did
+          ledger.push({
+            seq: ++seq,
+            path,
+            note: `write rejected: ${verdict.message}`,
+          })
+          throw verdict
+        }
       }
       xin[path] = value
     },
