@@ -90,6 +90,15 @@ export interface AgentExpose {
 }
 export interface AgentInterfaceOptions {
     expose?: AgentExpose;
+    /**
+     * POST-HOC component contracts, by tag name — for lofting components whose
+     * classes you don't control (a legacy app, a library's widgets, the doc
+     * system itself). A class's OWN `static contract` always wins; these fill
+     * the gaps. Works in ANY mode: the whole surface can be attached from
+     * outside the app — a console, a userscript, an extension — and with this,
+     * so can the component-level self-descriptions.
+     */
+    components?: Record<string, ComponentMap>;
     /** install as globalThis.tosiAgent (default true); pass a string to rename */
     global?: boolean | string;
 }

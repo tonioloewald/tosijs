@@ -413,6 +413,15 @@ the component declares `static contract`:
   (`settings.strictness`) — this enforces what was *declared*, which is
   narrower and already promised.
 
+**Post-hoc lofting (shipped):** `enableAgentInterface({ components:
+{ 'legacy-tag': contract } })` patches contracts onto components whose
+classes you don't control — a library's widgets, a react-tosijs or
+ngx-tosijs legacy app, the doc system itself. A class's own `static
+contract` always wins; post-hoc maps fill the gaps. Since the whole surface
+attaches from *outside* the app (a console, a userscript, an extension),
+the entire ladder — introspection, manifest, contracts, component maps —
+can be lofted onto a running app that never heard of any of this.
+
 Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component *says so in a checkable form*.

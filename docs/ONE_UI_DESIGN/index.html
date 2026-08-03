@@ -426,6 +426,12 @@ untouched. The <em>general</em> runtime-type-drift axis still belongs to tjs 2.0
 (<code>settings.strictness</code>) — this enforces what was <em>declared</em>, which is
 narrower and already promised.</li>
 </ul>
+<p><strong>Post-hoc lofting (shipped):</strong> <code>enableAgentInterface({ components: { &#39;legacy-tag&#39;: contract } })</code> patches contracts onto components whose
+classes you don&#39;t control — a library&#39;s widgets, a react-tosijs or
+ngx-tosijs legacy app, the doc system itself. A class&#39;s own <code>static contract</code> always wins; post-hoc maps fill the gaps. Since the whole surface
+attaches from <em>outside</em> the app (a console, a userscript, an extension),
+the entire ladder — introspection, manifest, contracts, component maps —
+can be lofted onto a running app that never heard of any of this.</p>
 <p>Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component <em>says so in a checkable form</em>.</p>

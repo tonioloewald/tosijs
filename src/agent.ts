@@ -135,6 +135,15 @@ export interface AgentExpose {
 
 export interface AgentInterfaceOptions {
   expose?: AgentExpose
+  /**
+   * POST-HOC component contracts, by tag name — for lofting components whose
+   * classes you don't control (a legacy app, a library's widgets, the doc
+   * system itself). A class's OWN `static contract` always wins; these fill
+   * the gaps. Works in ANY mode: the whole surface can be attached from
+   * outside the app — a console, a userscript, an extension — and with this,
+   * so can the component-level self-descriptions.
+   */
+  components?: Record<string, ComponentMap>
   /** install as globalThis.tosiAgent (default true); pass a string to rename */
   global?: boolean | string
 }
@@ -290,7 +299,7 @@ export function enableAgentInterface(
   // re-enabling reconfigures: tear down the previous surface first
   if (active != null) active.disable()
 
-  const { expose, global = true } = options
+  const { expose, components, global = true } = options
   const roots = expose?.roots
   const exposedActions = expose?.actions
   const contract = expose?.contract
@@ -406,7 +415,9 @@ export function enableAgentInterface(
           // a custom element may carry its own self-declaration. OWN statics
           // only: statics inherit through the prototype chain, and a subclass
           // must not silently wear its parent's claims (the _elementCreator
-          // lesson, applied to contracts)
+          // lesson, applied to contracts). Post-hoc contracts (expose.
+          // components, keyed by tag) fill the gaps for classes you don't
+          // control — the class's own declaration always wins.
           if (record.tag.includes('-')) {
             const cls = (globalThis as any).customElements?.get?.(record.tag)
             if (
@@ -414,6 +425,8 @@ export function enableAgentInterface(
               Object.prototype.hasOwnProperty.call(cls, 'contract')
             ) {
               record.component = (cls as any).contract
+            } else if (components?.[record.tag] != null) {
+              record.component = components[record.tag]
             }
           }
           // geometry: the layout is part of the semantics

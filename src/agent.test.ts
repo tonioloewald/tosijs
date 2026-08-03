@@ -363,3 +363,41 @@ describe('agent interface — lifecycle', () => {
     expect((globalThis as any).tosiAgent).toBeUndefined()
   })
 })
+
+describe('post-hoc component contracts — lofting classes you do not control', () => {
+  test('components option fills the gap; an own static contract always wins', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    // a "legacy" custom element with no static contract at all
+    class LegacyThing extends HTMLElement {}
+    if (customElements.get('legacy-thing') == null) {
+      customElements.define('legacy-thing', LegacyThing)
+    }
+    tosi({ loftApp: { x: 1 } })
+    const el = document.createElement('legacy-thing') as HTMLElement
+    document.body.append(el)
+    bind(el as any, 'loftApp.x', bindings.value)
+    const span = elements.span()
+    document.body.append(span)
+    bind(span, 'loftApp.x', bindings.text)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      components: {
+        'legacy-thing': {
+          description: 'lofted from outside — the class never knew',
+          value: { type: 'number' },
+        },
+      },
+    }))
+    const record = agent
+      .describe()
+      .wiring.find((w) => w.tag === 'legacy-thing')!
+    expect(record.component).toBeDefined()
+    expect(record.component!.description).toContain('lofted from outside')
+    el.remove()
+    span.remove()
+  })
+})
