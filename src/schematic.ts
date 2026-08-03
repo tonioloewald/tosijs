@@ -105,6 +105,10 @@ export const schematicSVG = (
       w.bounds != null &&
       w.bounds.width > 0 &&
       w.bounds.height > 0 &&
+      // fully negative coordinates = hidden by off-page positioning (the
+      // spatial analog of zero-size): invisible to humans, invisible here
+      (w.viewportFixed === true ||
+        (w.bounds.x + w.bounds.width > 0 && w.bounds.y + w.bounds.height > 0)) &&
       (within == null ||
         w.viewportFixed === true ||
         intersects(w.bounds, within))

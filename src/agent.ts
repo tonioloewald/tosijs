@@ -465,8 +465,20 @@ export function enableAgentInterface(
                 probe = probe.parentElement
               }
             }
-            const scrollX = fixed ? 0 : ((globalThis as any).scrollX ?? 0)
-            const scrollY = fixed ? 0 : ((globalThis as any).scrollY ?? 0)
+            // true document coordinates: accumulate EVERY ancestor's scroll
+            // (apps commonly scroll an inner container, not the window — the
+            // walk reaches <html>, whose scrollTop IS the window scroll, so
+            // nothing is double-counted)
+            let scrollX = 0
+            let scrollY = 0
+            if (!fixed) {
+              let ancestor: Element | null = el.parentElement
+              while (ancestor != null) {
+                scrollX += (ancestor as HTMLElement).scrollLeft ?? 0
+                scrollY += (ancestor as HTMLElement).scrollTop ?? 0
+                ancestor = ancestor.parentElement
+              }
+            }
             record.bounds = {
               x: Math.round(rect.x + scrollX),
               y: Math.round(rect.y + scrollY),

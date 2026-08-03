@@ -197,3 +197,28 @@ describe('viewport-fixed furniture', () => {
     expect(svg).toContain('<rect x="100" y="5000"')
   })
 })
+
+describe('off-page hiding', () => {
+  test('fully negative-coordinate records are excluded — hidden is hidden', () => {
+    const stashed: AgentDescription = {
+      exposure: 'introspection',
+      roots: {},
+      actions: [],
+      wiring: [
+        {
+          tag: 'input',
+          text: 'visible',
+          bounds: { x: 10, y: 10, width: 100, height: 30 },
+        },
+        {
+          tag: 'button',
+          text: 'stashed off-page',
+          bounds: { x: 400, y: -1358, width: 90, height: 36 },
+        },
+      ],
+    }
+    const svg = schematicSVG(stashed)
+    expect(svg).not.toContain('stashed off-page')
+    expect(svg).toContain('viewBox="2 2 116 46"') // fits the visible box only
+  })
+})
