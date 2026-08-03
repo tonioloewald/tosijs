@@ -200,6 +200,11 @@ export interface AgentInterface {
         /** include the structural tier (headings/landmarks/containers) —
          * default true; pass false for affordances only */
         structure?: boolean;
+        /** 'page' (default): every record, true unrolled-document coordinates —
+         * the atlas. 'viewport': only what is VISIBLE right now, in screen
+         * coordinates — the camera. Users see the viewport; pages are designed
+         * to be legible in that frame, and so is its map. */
+        view?: 'page' | 'viewport';
     }) => AgentDescription;
     read: (path: string) => any;
     write: (path: string, value: any) => void;

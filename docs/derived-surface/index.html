@@ -145,7 +145,25 @@ preview.append(
       },
     }),
     &#39; &#39;,
-    // and the reveal: the ENTIRE host app — this page, chrome and all —
+    // the camera: what the USER sees right now, in screen coordinates —
+    // pages are designed to be legible in this frame, and so is its map
+    button(&#39;screen()&#39;, {
+      onClick() {
+        const d = agent.describe({ styles: true, view: &#39;viewport&#39; })
+        drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
+        drawing.onclick = (event) =&gt; {
+          const g = event.target.closest(&#39;[data-record]&#39;)
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    }),
+    &#39; &#39;,
+    // and the atlas: the ENTIRE host app — this page, chrome and all —
     // drawn from its own map (best maximized)
     button(&#39;whole page()&#39;, {
       async onClick(event) {
@@ -239,10 +257,16 @@ by construction — the budget is <em>aspect ratio</em>, not bytes):</p>
 </tr>
 </thead>
 <tbody><tr>
+<td><strong>viewport render</strong> (<code>view: &#39;viewport&#39;</code>, ≈16:10)</td>
+<td>~700–1100</td>
+<td><strong>yes</strong> — the frame pages are designed for</td>
+<td><strong>the user&#39;s-eye glance</strong></td>
+</tr>
+<tr>
 <td>whole page (≈1300×6500)</td>
 <td>~650–800</td>
 <td>no (crushed ~4×)</td>
-<td><strong>the glance</strong> — topology + structure</td>
+<td>the atlas — topology + structure</td>
 </tr>
 <tr>
 <td>region map, ≤3:1 (<code>scope</code>/<code>within</code>)</td>

@@ -104,7 +104,25 @@ preview.append(
       },
     }),
     ' ',
-    // and the reveal: the ENTIRE host app — this page, chrome and all —
+    // the camera: what the USER sees right now, in screen coordinates —
+    // pages are designed to be legible in this frame, and so is its map
+    button('screen()', {
+      onClick() {
+        const d = agent.describe({ styles: true, view: 'viewport' })
+        drawing.innerHTML = schematicSVG(d)
+        fitToDrawing()
+        drawing.onclick = (event) => {
+          const g = event.target.closest('[data-record]')
+          if (g) {
+            detail.textContent = JSON.stringify(
+              d.wiring[Number(g.dataset.record)], null, 2
+            )
+          }
+        }
+      },
+    }),
+    ' ',
+    // and the atlas: the ENTIRE host app — this page, chrome and all —
     // drawn from its own map (best maximized)
     button('whole page()', {
       async onClick(event) {
@@ -195,7 +213,8 @@ by construction — the budget is *aspect ratio*, not bytes):
 
 | what you rasterize | vision tokens | labels readable? | role |
 | --- | --- | --- | --- |
-| whole page (≈1300×6500) | ~650–800 | no (crushed ~4×) | **the glance** — topology + structure |
+| **viewport render** (`view: 'viewport'`, ≈16:10) | ~700–1100 | **yes** — the frame pages are designed for | **the user's-eye glance** |
+| whole page (≈1300×6500) | ~650–800 | no (crushed ~4×) | the atlas — topology + structure |
 | region map, ≤3:1 (`scope`/`within`) | ~600–1500 | yes | **the zoom** — full fidelity |
 | JSON map, 60-control app (haltija's measurement) | ~1,567 (text) | exact | the reasoning form |
 

@@ -471,3 +471,36 @@ describe('the structural tier', () => {
     section.remove()
   })
 })
+
+describe("describe({ view: 'viewport' }) — the camera", () => {
+  test('only on-screen records, in screen coordinates', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    tosi({ camApp: { a: 1, b: 2 } })
+    const onScreen = elements.input()
+    const offScreen = elements.input()
+    document.body.append(onScreen, offScreen)
+    bind(onScreen, 'camApp.a', bindings.value)
+    bind(offScreen, 'camApp.b', bindings.value)
+    ;(onScreen as any).getBoundingClientRect = () =>
+      ({ x: 50, y: 100, width: 200, height: 30 }) as DOMRect
+    ;(offScreen as any).getBoundingClientRect = () =>
+      ({ x: 50, y: 5000, width: 200, height: 30 }) as DOMRect
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+
+    const cam = agent.describe({ view: 'viewport' })
+    const paths = JSON.stringify(cam.wiring)
+    expect(paths).toContain('camApp.a')
+    expect(paths).not.toContain('camApp.b') // the camera can't see it
+    const rec = cam.wiring.find((w) => JSON.stringify(w).includes('camApp.a'))!
+    expect(rec.bounds!.y).toBe(100) // screen coordinates, no scroll math
+
+    // the atlas still sees both
+    const atlas = agent.describe()
+    expect(JSON.stringify(atlas.wiring)).toContain('camApp.b')
+    onScreen.remove()
+    offScreen.remove()
+  })
+})

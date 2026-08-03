@@ -235,6 +235,11 @@ export interface AgentInterface {
     /** include the structural tier (headings/landmarks/containers) —
      * default true; pass false for affordances only */
     structure?: boolean
+    /** 'page' (default): every record, true unrolled-document coordinates —
+     * the atlas. 'viewport': only what is VISIBLE right now, in screen
+     * coordinates — the camera. Users see the viewport; pages are designed
+     * to be legible in that frame, and so is its map. */
+    view?: 'page' | 'viewport'
   }) => AgentDescription
   read: (path: string) => any
   write: (path: string, value: any) => void
@@ -277,10 +282,28 @@ const serialize = (value: any): any => {
 // Fixed/sticky elements ride the viewport: they keep viewport coordinates
 // and are flagged, because screen furniture has no stable page position.
 const measureBounds = (
-  el: Element
+  el: Element,
+  viewportView = false
 ): { bounds: NonNullable<AgentWiringRecord['bounds']>; fixed: boolean } | null => {
   const rect = (el as HTMLElement).getBoundingClientRect?.()
   if (rect == null) return null
+  if (viewportView) {
+    // the camera: screen coordinates, and only what the screen shows
+    const vw = (globalThis as any).innerWidth ?? 0
+    const vh = (globalThis as any).innerHeight ?? 0
+    const onScreen =
+      rect.x < vw && rect.y < vh && rect.x + rect.width > 0 && rect.y + rect.height > 0
+    if (!onScreen) return null
+    return {
+      bounds: {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+      fixed: false, // everything is viewport-anchored in this view
+    }
+  }
   let fixed = false
   if (typeof (globalThis as any).getComputedStyle === 'function') {
     let probe: Element | null = el
@@ -413,8 +436,14 @@ export function enableAgentInterface(
 
   const surface: AgentInterface = {
     describe(
-      options: { styles?: boolean; scope?: Element; structure?: boolean } = {}
+      options: {
+        styles?: boolean
+        scope?: Element
+        structure?: boolean
+        view?: 'page' | 'viewport'
+      } = {}
     ): AgentDescription {
+      const viewportView = options.view === 'viewport'
       const rootNames = manifestMode
         ? (roots ?? []).slice()
         : Object.keys(registry)
@@ -499,10 +528,12 @@ export function enableAgentInterface(
             }
           }
           // geometry: the layout is part of the semantics
-          const measured = measureBounds(el)
+          const measured = measureBounds(el, viewportView)
           if (measured != null) {
             record.bounds = measured.bounds
             if (measured.fixed) record.viewportFixed = true
+          } else if (viewportView) {
+            return undefined // the camera doesn't record what it can't see
           }
           if (
             options.styles === true &&
@@ -556,7 +587,7 @@ export function enableAgentInterface(
               const text = (el.textContent || '').trim().slice(0, 60)
               if (text) record.text = text
             }
-            const measured = measureBounds(el)
+            const measured = measureBounds(el, viewportView)
             if (
               measured == null ||
               measured.bounds.width === 0 ||
