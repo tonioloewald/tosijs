@@ -150,6 +150,10 @@ export interface AgentWiringRecord {
      * viewport coordinates, not page coordinates — screen furniture has no
      * stable page position */
     viewportFixed?: boolean;
+    /** structure, not affordance: headings, landmarks, and the containers of
+     * wired elements — the page's information architecture, mappable and
+     * filterable */
+    structural?: boolean;
     /** computed colors, harvested when describe({ styles: true }) */
     style?: {
         background: string;
@@ -193,6 +197,9 @@ export interface AgentInterface {
     describe: (options?: {
         styles?: boolean;
         scope?: Element;
+        /** include the structural tier (headings/landmarks/containers) —
+         * default true; pass false for affordances only */
+        structure?: boolean;
     }) => AgentDescription;
     read: (path: string) => any;
     write: (path: string, value: any) => void;

@@ -149,7 +149,12 @@ export const schematicSVG = (
       maxX - minX
     } ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
   ]
-  for (const w of boxes) {
+  // structure behind affordances: dashed outlines the eye (and the raster)
+  // reads as grouping, not controls
+  const drawOrder = [...boxes].sort(
+    (a, b) => Number(b.structural === true) - Number(a.structural === true)
+  )
+  for (const w of drawOrder) {
     const index = description.wiring.indexOf(w)
     const pinOffsetX = w.viewportFixed === true ? minX + pad : 0
     const pinOffsetY = w.viewportFixed === true ? minY + pad : 0
@@ -171,16 +176,23 @@ export const schematicSVG = (
     const caption = isContainer
       ? String(w.label ?? '')
       : String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`)
-    const fill = w.style != null ? w.style.background : 'transparent'
+    const structural = w.structural === true
+    const fill = structural
+      ? 'none'
+      : w.style != null
+        ? w.style.background
+        : 'transparent'
     const stroke =
-      w.style != null && w.style.borderColor !== TRANSPARENT
+      !structural && w.style != null && w.style.borderColor !== TRANSPARENT
         ? w.style.borderColor
         : 'currentColor'
     const color = w.style != null ? w.style.color : 'currentColor'
     parts.push(`<g data-record="${index}">`)
     parts.push(
       `<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
-        `fill="${esc(fill)}" stroke="${esc(stroke)}"/>`
+        `fill="${esc(fill)}" stroke="${esc(stroke)}"${
+          structural ? ' stroke-dasharray="4 3" opacity="0.6"' : ''
+        }/>`
     )
     if (height >= minLabelHeight && caption !== '') {
       parts.push(

@@ -1,0 +1,715 @@
+/*{ "order": 2, "description": "The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required." }*/
+/*#
+# Creating Elements
+
+`tosijs` provides `elements` for easily and efficiently generating DOM elements
+without using `innerHTML` or other unsafe methods.
+
+> The design goal of `elements` was to make creating DOM elements using javascript simpler and faster than using HTML or
+JSX / TSX while requiring no build-time tooling and no DSLs.
+
+```js
+import { elements } from 'tosijs'
+
+const { div, input, label, span } = elements
+
+preview.append(
+  div(
+    {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 10,
+        gap: 10
+      }
+    },
+    label(
+      {
+        style: {
+          display: 'inline-flex'
+        }
+      },
+      span('text'),
+      input({value: 'hello world', placeholder: 'type something'})
+    ),
+    label(
+      {
+        style: {
+          display: 'inline-flex'
+        }
+      },
+      span('checkbox'),
+      input({type: 'checkbox', checked: true})
+    )
+  )
+)
+```
+
+## `ElementCreator` functions
+
+`elements` is a proxy whose properties are element factory functions,
+referred to throughout this documentation as `elementCreator`s, functions
+of type `ElementCreator`. So `elements.div` is a function that returns a `<div>`
+element, `elements.foo` creates <foo> elements, and elements.fooBar creates
+`<foo-bar>` elements.
+
+The arguments of `elementCreator`s can be strings, numbers, other
+elements, or property-maps, which are converted into attributes or properties
+(or bindings).
+
+E.g.
+
+```js
+import { elements, tosi } from 'tosijs'
+
+const { elementCreatorDemo } = tosi({
+  elementCreatorDemo: {
+    isChecked: true,
+    someString: 'hello elementCreator',
+    someColor: 'blue',
+    clicks: 0
+  }
+})
+
+const { div, button, label, input } = elements
+
+preview.append(
+  div('I am a div'),
+  div(
+    {
+      style: { color: 'blue' }
+    },
+    elementCreatorDemo.someString
+  ),
+  label(
+    'Edit someString',
+    input({bindValue: elementCreatorDemo.someString})
+  ),
+  div(
+    button(
+      'Click me',
+      {
+        onClick() {
+          elementCreatorDemo.clicks += 1
+        }
+      }
+    ),
+    div(elementCreatorDemo.clicks, ' clicks so far'),
+  ),
+  label(
+    'isChecked?',
+    input({type: 'checkbox', bindValue: elementCreatorDemo.isChecked})
+  )
+)
+```
+
+## camelCase conversion
+
+Attributes in camelCase, e.g. `dataInfo`, will be converted to kebab-case,
+so:
+
+    span({dataInfo: 'foo'})        // produces <span data-info="foo"></span>
+
+## style properties
+
+`style` properties can be objects, and these are used to modify the
+element's `style` object (while a string property will just change the
+element's `style` attribute, eliminating previous changes).
+
+    span({style: 'border: 1px solid red'}, {style: 'font-size: 15px'})
+
+…produces `<span style="font-size: 15px"></span>`, which is probably
+not what was wanted.
+
+    span({style: {border: '1px solid red'}, {style: {fontSize: '15px'}}})
+
+…produces `<span style="border: 1px solid red; fon-size: 15px></span>`
+which is probably what was wanted.
+
+## class property
+
+The `class` property accepts three forms:
+
+- **a string** — one or more space-separated class names are added:
+
+      div({ class: 'card selected' })   // adds both classes
+
+- **an array** — each entry is added (entries may themselves be space-separated):
+
+      div({ class: ['card', 'selected'] })
+
+- **a boolean map** — each key is toggled on/off by its (truthy) value, so you
+  can add and remove classes conditionally in one place:
+
+      div({ class: { card: true, selected: isSelected, hidden: false } })
+
+  adds `card`, adds or removes `selected` depending on `isSelected`, and removes
+  `hidden`.
+
+Extra whitespace is tolerated. Falsy values — `''`, `null`, `undefined`, and
+`false` (e.g. from `cond ? 'active' : undefined` or `cond && 'active'`) — add no
+class, so conditional class expressions work without special-casing. Array
+entries are treated the same way (falsy entries are skipped).
+
+## event handlers
+
+Properties starting with `on` (followed by an uppercase letter)
+will be converted into event-handlers, so `onMouseup` will be
+turned into a `mouseup` listener.
+
+## binding
+
+You can [bind](/bind/) an element to state using [bindings](/bindings/)
+using convenient properties, e.g.
+
+    import { elements } from 'tosijs'
+    const {div} = elements
+    div({ bindValue: 'app.title' })
+
+…is syntax sugar for:
+
+    import { elements, bind, bindings } from 'tosijs'
+    const { div } = elements
+    bind( div(), 'app.title', bindings.value )
+
+If you want to use your own bindings, you can use `apply`:
+
+    const visibleBinding = {
+      toDOM(element, value) {
+        element.classList.toggle('hidden', !value)
+      }
+    }
+
+    div({ apply(elt){
+      bind(elt, 'app.prefs.isVisible', visibleBinding})
+    } })
+
+## event-handlers
+
+You can attach event handlers to elements using `on<EventType>`
+as syntax sugar, e.g.
+
+    import { elements } from 'tosijs'
+    const { button } = elements
+    document.body.append(
+      button('click me', {onClick() {
+        alert('clicked!')
+      }})
+    )
+
+…is syntax sugar for:
+
+    import { elements, on } from 'tosijs'
+    const { button } = elements
+    const aButton = button('click me')
+    on(aButton, 'click', () => {
+      alert('clicked!')
+    })
+    document.body.append(
+      aButton
+    )
+
+There are some subtle but important differences between `on()` and
+`addEventListener` which are discussed in detail in the section on
+[bind](/bind/).
+
+## apply
+
+A property named `apply` is assumed to be a function that will be called
+on the element.
+
+    span({
+      apply(element){ element.textContent = 'foobar'}
+    })
+
+…produces `<span>foobar</span>`.
+
+## fragment
+
+`elements.fragment` is produces `DocumentFragment`s, but is otherwise
+just like other element factory functions.
+
+## svgElements
+
+`svgElements` is a proxy just like `elements` but it produces **SVG** elements in
+the appropriate namespace.
+
+```js
+import { svgElements, tosi, xin } from 'tosijs'
+
+const { svg, g, path, circle, polygon } = svgElements
+
+// --- radar background ---
+const outerRing = 'M128,8 C194.274,8,248,61.7258,248,128 C248,194.274,194.274,248,128,248 C61.7258,248,8.00001,194.274,8.00001,128 C8.00001,61.7258,61.7258,8,128,8 z'
+const vLine = 'M128,53 C128,53,128,203,128,203'
+const hRight = 'M203,128 C203,128,143,128,143,128'
+const hLeft = 'M113,128 C113,128,53,128,53,128'
+const guide = 'fill:#00a79e;fill-opacity:0.127;fill-rule:evenodd;stroke:#00a79e;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-width:4;'
+const axis = guide + 'stroke-opacity:0.24;'
+
+// --- two separate arrays: friendlies and hostiles ---
+let nextId = 0
+const RANGE = 115
+
+function spawnFriendly() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.6 + Math.random() * 0.8)
+  const speed = 0.2 + Math.random() * 0.3
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 105, y: 128 + Math.sin(angle) * 105,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+function spawnHostile() {
+  const angle = Math.random() * Math.PI * 2
+  const heading = angle + Math.PI * (0.7 + Math.random() * 0.6)
+  const speed = 0.5 + Math.random() * 0.6
+  return {
+    id: nextId++,
+    x: 128 + Math.cos(angle) * 110, y: 128 + Math.sin(angle) * 110,
+    dx: Math.cos(heading) * speed, dy: Math.sin(heading) * speed,
+  }
+}
+
+const { friendlies, hostiles } = tosi({
+  friendlies: Array.from({ length: 6 }, spawnFriendly),
+  hostiles: Array.from({ length: 4 }, spawnHostile),
+})
+
+// custom binding: position a <g> from its list item's x,y
+const position = (el, item) => {
+  if (item) el.setAttribute('transform', `translate(${item.x},${item.y})`)
+}
+
+// --- list-bound blip layers (one per array, no filter needed) ---
+const friendlyLayer = g(
+  g(
+    circle({ r: '5', fill: 'none', stroke: '#8cc63f', 'stroke-width': '1' }),
+    { bind: { value: '^', binding: position } }
+  ),
+  { bindList: { value: friendlies, idPath: 'id' } }
+)
+const hostileLayer = g(
+  g(
+    polygon({ points: '0,-6 5.2,3 -5.2,3', fill: 'none', stroke: '#ff1d25', 'stroke-width': '1.5', 'stroke-linejoin': 'round' }),
+    { bind: { value: '^', binding: position } }
+  ),
+  { bindList: { value: hostiles, idPath: 'id' } }
+)
+
+preview.append(
+  svg(
+    { width: '256', height: '256', viewBox: '0 0 256 256' },
+    g(
+      path({ style: guide + 'stroke-opacity:0.5;', d: outerRing }),
+      path({ style: axis, d: vLine }),
+      path({ style: axis, d: hRight }),
+      path({ style: axis, d: hLeft }),
+    ),
+    friendlyLayer,
+    hostileLayer,
+  )
+)
+
+// animate: advance, cull out-of-range, spawn new
+function tick(arr) {
+  const kept = []
+  for (const b of arr) {
+    const nx = b.x + b.dx, ny = b.y + b.dy
+    if (Math.sqrt((nx - 128) ** 2 + (ny - 128) ** 2) < RANGE) {
+      kept.push({ ...b, x: nx, y: ny })
+    }
+  }
+  return kept
+}
+setInterval(() => {
+  const f = tick(xin.friendlies)
+  if (Math.random() < 0.06) f.push(spawnFriendly())
+  xin.friendlies = f
+
+  const h = tick(xin.hostiles)
+  if (Math.random() < 0.04) h.push(spawnHostile())
+  xin.hostiles = h
+}, 50)
+```
+
+## mathML
+
+`mathML` is a proxy just like `elements` but it products **MathML** elements in
+the appropriate namespace.
+
+> ### Caution
+>
+> Both `svgElements` and `mathML` are experimental and do not have anything like  the
+> degree of testing behind them as `elements`. In particular, the properties of
+> SVG elements (and possible MathML elements) are quite different from ordinary
+> elements, so the underlying `ElementCreator` will never try to set properties
+> directly and will always use `setAttribute(...)`.
+>
+> E.g. `svgElements.svg({viewBox: '0 0 100 100'})` will call `setAttribute()` and
+> not set the property directly, because the `viewBox` property is… weird, but
+> setting the attribute works.
+>
+> Again, use with caution!
+
+## `bindParts()`
+
+```
+bindParts(
+  root: Element,
+  bindingMap: Record<string, ElementProps>,
+  dataAttribute?: string  // default: 'part'
+): void
+```
+
+`bindParts()` applies `ElementProps` to elements inside `root` that are identified
+by a `data-` attribute. This lets you take an existing chunk of DOM — from `innerHTML`,
+a CMS, a server-rendered page, or an HTML `<template>` — and wire up bindings,
+event handlers, and properties without having to build the DOM programmatically.
+
+    const root = document.querySelector('.my-widget')
+    root.innerHTML = `
+      <h2 data-part="title"></h2>
+      <input data-part="search">
+      <button data-part="submit">Go</button>
+    `
+
+    bindParts(root, {
+      title:  { bindText: app.title },
+      search: { bindValue: app.query },
+      submit: { onClick: () => performSearch() },
+    })
+
+Each key in `bindingMap` is matched against the value of `data-part` (or whatever
+`dataAttribute` you specify). Matching elements receive the full `ElementProps`
+treatment — the same logic used by element creators — so `bind`, `bindText`,
+`on*` handlers, `style`, `class`, `apply`, and proxy values all work.
+
+Elements are tracked via a `WeakSet` so calling `bindParts()` again on the same
+root is safe — already-bound elements are skipped.
+
+### Custom data attribute
+
+Pass a third argument to use a different attribute name:
+
+    bindParts(root, map, 'role')  // matches data-role="..."
+*/
+import { bind, on } from './bind';
+import { bindings } from './bindings';
+import { camelToKabob } from './string-case';
+import { processProp } from './css';
+import { tosiPath, warnDeprecated, TAKE_DESCRIPTOR } from './metadata';
+import { MATH, SVG } from './elements-types';
+const templates = {};
+const elementStyle = (elt, prop, value) => {
+    const processed = processProp(camelToKabob(prop), value);
+    if (processed.prop.startsWith('--')) {
+        elt.style.setProperty(processed.prop, processed.value);
+    }
+    else {
+        ;
+        elt.style[prop] = processed.value;
+    }
+};
+const elementStyleBinding = (prop) => {
+    return {
+        toDOM(element, value) {
+            elementStyle(element, prop, value);
+        },
+    };
+};
+// per-element record of the classes the `class` prop binding last applied,
+// so a reactive class binding can replace (not accumulate) on each update
+const appliedClasses = new WeakMap();
+const elementProp = (elt, key, value) => {
+    if (key === 'style') {
+        if (typeof value === 'object') {
+            for (const prop of Object.keys(value)) {
+                if (tosiPath(value[prop])) {
+                    bind(elt, value[prop], elementStyleBinding(prop));
+                }
+                else {
+                    elementStyle(elt, prop, value[prop]);
+                }
+            }
+        }
+        else {
+            elt.setAttribute('style', value);
+        }
+    }
+    else {
+        const attr = camelToKabob(key);
+        // Check if declared in observedAttributes (works for third-party web components)
+        const observedAttrs = elt.constructor.observedAttributes;
+        const isObservedAttr = observedAttrs?.includes(key) || observedAttrs?.includes(attr);
+        if (isObservedAttr) {
+            if (typeof value === 'boolean') {
+                if (value) {
+                    elt.setAttribute(attr, '');
+                }
+                else {
+                    elt.removeAttribute(attr);
+                }
+            }
+            else {
+                elt.setAttribute(attr, value);
+            }
+        }
+        else if (elt[key] !== undefined) {
+            // MathML is only supported on 91% of browsers, and not on the Raspberry Pi Chromium
+            const { MathMLElement } = globalThis;
+            if (elt instanceof SVGElement ||
+                (MathMLElement !== undefined && elt instanceof MathMLElement)) {
+                elt.setAttribute(key, value);
+            }
+            else {
+                ;
+                elt[key] = value;
+            }
+        }
+        else if (attr === 'class') {
+            // `v || ''` collapses null/undefined/false — idiomatic conditional
+            // "no class" (`cond ? 'active' : undefined`, `cond && 'active'`, or an
+            // explicit null) — to an empty string, so it adds NO class rather than a
+            // literal "null"/"undefined"/"false". Also tolerates extra whitespace.
+            const splitClasses = (v) => String(v || '')
+                .split(/\s+/)
+                .filter(Boolean);
+            // classes this binding wants ON, and (boolean-map only) explicitly OFF
+            const on = new Set();
+            const off = new Set();
+            if (Array.isArray(value)) {
+                // ['foo', 'bar'] (each entry may itself be space-separated)
+                for (const entry of value)
+                    for (const c of splitClasses(entry))
+                        on.add(c);
+            }
+            else if (value != null && typeof value === 'object') {
+                // { foo: true, bar: false } adds foo, removes bar
+                for (const [key, isOn] of Object.entries(value))
+                    for (const c of splitClasses(key))
+                        (isOn ? on : off).add(c);
+            }
+            else {
+                // 'foo bar baz' (and null/undefined/false/'' -> no class)
+                for (const c of splitClasses(value))
+                    on.add(c);
+            }
+            // Diff against what THIS binding applied last time, so a reactive
+            // `class` binding REPLACES rather than accumulates (a change from
+            // 'red' to 'blue' must not leave 'red bl ue'). Only classes this
+            // binding previously added are candidates for removal — classes from
+            // other sources (a static `class`, `-tosi-data`, etc.) are untouched.
+            const prev = appliedClasses.get(elt);
+            if (prev)
+                for (const c of prev)
+                    if (!on.has(c))
+                        elt.classList.remove(c);
+            for (const c of off)
+                elt.classList.remove(c);
+            for (const c of on)
+                elt.classList.add(c);
+            appliedClasses.set(elt, on);
+        }
+        else if (elt[attr] !== undefined) {
+            ;
+            elt[attr] = value;
+        }
+        else if (typeof value === 'boolean') {
+            if (value) {
+                elt.setAttribute(attr, '');
+            }
+            else {
+                elt.removeAttribute(attr);
+            }
+        }
+        else {
+            elt.setAttribute(attr, value);
+        }
+    }
+};
+const propBindingCache = {};
+// reverse lookup: which element prop does this (cached) prop binding drive?
+// used by the agent surface to name bindings in describe() output
+export const propBindingKey = (binding) => {
+    for (const key of Object.keys(propBindingCache)) {
+        if (propBindingCache[key] === binding)
+            return key;
+    }
+    return undefined;
+};
+const elementPropBinding = (key) => {
+    if (!propBindingCache[key]) {
+        propBindingCache[key] = {
+            toDOM(element, value) {
+                elementProp(element, key, value);
+            },
+        };
+    }
+    return propBindingCache[key];
+};
+export const elementSet = (elt, key, value) => {
+    if (key === 'apply') {
+        value(elt);
+    }
+    else if (key.match(/^on[A-Z]/) != null) {
+        const eventType = key.substring(2).toLowerCase();
+        on(elt, eventType, value);
+    }
+    else if (key === 'bind') {
+        const binding = typeof value.binding === 'string'
+            ? bindings[value.binding]
+            : value.binding;
+        if (binding !== undefined && value.value !== undefined) {
+            // pass the RESOLVED binding, not value.binding — a string name
+            // (`binding: 'text'`) was passed through raw, so bind() got a string
+            // with no toDOM and silently did nothing
+            bind(elt, value.value, binding instanceof Function ? { toDOM: binding } : binding);
+        }
+        else {
+            throw new Error(`bad binding`);
+        }
+    }
+    else if (key.match(/^bind[A-Z]/) != null) {
+        const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5);
+        if (bindingType !== 'value') {
+            const alt = bindingType === 'text'
+                ? 'textContent'
+                : bindingType === 'enabled'
+                    ? 'disabled (with .tosi.take(v => !v))'
+                    : bindingType === 'disabled'
+                        ? 'disabled'
+                        : bindingType === 'list'
+                            ? '.tosi.listBinding()'
+                            : null;
+            if (alt) {
+                warnDeprecated(`bind${bindingType}`, `bind${key.substring(4)} is deprecated. Use { ${alt}: ... } instead.`);
+            }
+        }
+        const binding = bindings[bindingType];
+        if (binding !== undefined) {
+            bind(elt, value, binding);
+        }
+        else {
+            throw new Error(`${key} is not allowed, bindings.${bindingType} is not defined`);
+        }
+    }
+    else if (value != null &&
+        typeof value === 'object' &&
+        value[TAKE_DESCRIPTOR]) {
+        // TakeDescriptor used as a bare property binding
+        bind(elt, value, elementPropBinding(key));
+    }
+    else if (tosiPath(value)) {
+        bind(elt, value, elementPropBinding(key));
+    }
+    else {
+        elementProp(elt, key, value);
+    }
+};
+const create = (tagType, ...contents) => {
+    if (templates[tagType] === undefined) {
+        const [tag, namespace] = tagType.split('|');
+        if (namespace === undefined) {
+            templates[tagType] = globalThis.document.createElement(tag);
+        }
+        else {
+            templates[tagType] = globalThis.document.createElementNS(namespace, tag);
+        }
+    }
+    const elt = templates[tagType].cloneNode();
+    const elementProps = {};
+    for (const item of contents) {
+        if (item instanceof Element ||
+            item instanceof DocumentFragment ||
+            typeof item === 'string' ||
+            typeof item === 'number') {
+            if (elt instanceof HTMLTemplateElement) {
+                elt.content.append(item);
+            }
+            else {
+                elt.append(item);
+            }
+        }
+        else if (tosiPath(item)) {
+            elt.append(elements.span({ bindText: item }));
+        }
+        else {
+            Object.assign(elementProps, item);
+        }
+    }
+    for (const key of Object.keys(elementProps)) {
+        const value = elementProps[key];
+        elementSet(elt, key, value);
+    }
+    return elt;
+};
+const fragment = (...contents) => {
+    const frag = globalThis.document.createDocumentFragment();
+    for (const item of contents) {
+        frag.append(item);
+    }
+    return frag;
+};
+/**
+ * elements is a proxy that produces ElementCreators, e.g.
+ * elements.div() creates <div> elements and
+ * elements.myElement() creates <my-element> elements.
+ */
+export const elements = new Proxy({ fragment }, {
+    get(target, tagName) {
+        tagName = tagName.replace(/[A-Z]/g, (c) => `-${c.toLocaleLowerCase()}`);
+        if (target[tagName] === undefined) {
+            ;
+            target[tagName] = (...contents) => create(tagName, ...contents);
+        }
+        return target[tagName];
+    },
+    set() {
+        throw new Error('You may not add new properties to elements');
+    },
+});
+export const svgElements = new Proxy({ fragment }, {
+    get(target, tagName) {
+        if (target[tagName] === undefined) {
+            ;
+            target[tagName] = (...contents) => create(`${tagName}|${SVG}`, ...contents);
+        }
+        return target[tagName];
+    },
+    set() {
+        throw new Error('You may not add new properties to elements');
+    },
+});
+export const mathML = new Proxy({ fragment }, {
+    get(target, tagName) {
+        if (target[tagName] === undefined) {
+            ;
+            target[tagName] = (...contents) => create(`${tagName}|${MATH}`, ...contents);
+        }
+        return target[tagName];
+    },
+    set() {
+        throw new Error('You may not add new properties to elements');
+    },
+});
+const boundParts = new WeakSet();
+export function bindParts(root, bindingMap, dataAttribute = 'part') {
+    const selector = `[data-${dataAttribute}]`;
+    for (const el of Array.from(root.querySelectorAll(selector))) {
+        if (boundParts.has(el))
+            continue;
+        const key = el.getAttribute(`data-${dataAttribute}`);
+        if (key == null)
+            continue;
+        const props = bindingMap[key];
+        if (props == null)
+            continue;
+        boundParts.add(el);
+        for (const k of Object.keys(props)) {
+            elementSet(el, k, props[k]);
+        }
+    }
+}

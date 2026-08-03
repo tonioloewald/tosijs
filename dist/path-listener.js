@@ -1,0 +1,257 @@
+/*{ "parent": "tosi", "description": "The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system." }*/
+/*#
+# path-listener
+
+`path-listener` implements the `tosijs` observer model. Although these events
+are exported from `tosijs` they shouldn't need to be used very often. Mostly
+they're used to manage state.
+
+## `touch(path: string)` and `.touch()`
+
+This is used to inform `xin` that a value at a path has changed. Remember that
+xin simply wraps an object, and if you change the object directly, `xin` won't
+necessarily know about it.
+
+The two most common uses for `touch()` are:
+
+1. You want to make lots of changes to a large data structure, possibly
+   over a period of time (e.g. update hundreds of thousands of values
+   in a table that involve service calls or heavy computation) and don't
+   want to thrash the UI so you just change the object directly.
+2. You want to change the content of an object but need a something that
+   is bound to the "outer" object to be refreshed.
+
+Every `BoxedProxy` also has a `.touch()` method, so you can call it directly
+on any proxied value:
+
+    app.user.name.touch()   // force update for this scalar
+    app.user.touch()        // force update for the whole object
+    app.items[2].touch()    // force update for a list item
+
+### Id-path synthesis
+
+When you touch a path that contains an array index (e.g. `items[2]` or
+`items[2].name`), `touch()` automatically synthesizes the equivalent id-path
+touches (e.g. `items[id=abc]` or `items[id=abc].name`). This means that
+`.touch()` on list items correctly updates DOM elements bound via `idPath`,
+even when you've mutated the underlying data behind the proxy's back.
+
+## `observe()` and `unobserve()`
+
+    const listener = observe(
+      path: string | RegExp | (path: string) => boolean,
+      (changedPath: string) => {
+        ...
+      }
+    )
+
+    // and later, when you're done
+    unobserve(listener);
+
+`observe(…)` lets you call a function whenever a specified path changes. You'll
+be passed the path that changed and you can do whatever you like. It returns
+a reference to the listener to allow you to dispose of it later.
+
+`unobserve(listener)` removes the listener.
+
+> This is how binding works. When you bind a path to an interface element, an
+> observer is created that knows when to update the interface element. (If the
+> binding is "two-way" (i.e. provides a `fromDOM` callback) then an `input` or
+> `change` event that hits that element will update the value at the bound
+> path.
+
+## `async updates()`
+
+You can `await updates()` or use `updates().then(…)` to execute code
+after any changes have been rendered to the DOM. Typically, you shouldn't
+have to mess with this, but sometimes—for example—you might need to know
+how large a rendered UI element is to adjust something else.
+
+It's also used a lot in unit tests. After you perform some logic, does
+it appear correctly in the UI?
+*/
+import { tosiPath, getArrayIdPaths } from './metadata';
+import { settings } from './settings';
+import { getByPath } from './by-path';
+import { registry } from './registry';
+export const observerShouldBeRemoved = Symbol('observer should be removed');
+export const listeners = []; // { path_string_or_test, callback }
+const touchedPaths = [];
+let updateTriggered = false;
+let updatePromise;
+let resolveUpdate;
+/**
+ * Synthesize id-path touches for a given array path, item index, and property suffix.
+ * Called when we know we're touching something inside an array item.
+ */
+export function synthesizeIdPathTouches(arrayPath, index, item, suffix) {
+    const idPaths = getArrayIdPaths(arrayPath);
+    if (idPaths === undefined)
+        return [];
+    const synthesized = [];
+    for (const idPath of idPaths) {
+        const idValue = getByPath(item, idPath);
+        if (idValue !== undefined) {
+            synthesized.push(`${arrayPath}[${idPath}=${idValue}]${suffix}`);
+        }
+    }
+    return synthesized;
+}
+// True when `path` IS `prefix` or lies under it — the character after the
+// prefix must be a segment boundary ('.' or '['). A raw startsWith matched
+// name-prefix SIBLINGS: observers on 'foo' heard 'foobar', touch dedupe
+// swallowed 'foobar' after 'foo', and bound elements re-rendered for
+// unrelated paths like list[50] when list[5] changed.
+export const extendsPath = (prefix, path) => {
+    if (!path.startsWith(prefix))
+        return false;
+    if (path.length === prefix.length)
+        return true;
+    const c = path.charAt(prefix.length);
+    return c === '.' || c === '[';
+};
+export class Listener {
+    description;
+    test;
+    callback;
+    constructor(test, callback) {
+        const callbackDescription = typeof callback === 'string'
+            ? `"${callback}"`
+            : `function ${callback.name}`;
+        let testDescription;
+        if (typeof test === 'string') {
+            this.test = (t) => typeof t === 'string' &&
+                t !== '' &&
+                (extendsPath(t, test) || extendsPath(test, t));
+            testDescription = `test = "${test}"`;
+        }
+        else if (test instanceof RegExp) {
+            this.test = test.test.bind(test);
+            testDescription = `test = "${test.toString()}"`;
+        }
+        else if (test instanceof Function) {
+            this.test = test;
+            testDescription = `test = function ${test.name}`;
+        }
+        else {
+            throw new Error('expect listener test to be a string, RegExp, or test function');
+        }
+        this.description = `${testDescription}, ${callbackDescription}`;
+        if (typeof callback === 'function') {
+            this.callback = callback;
+        }
+        else {
+            throw new Error('expect callback to be a path or function');
+        }
+        listeners.push(this);
+    }
+}
+export const updates = async () => {
+    if (updatePromise === undefined) {
+        return;
+    }
+    await updatePromise;
+};
+const update = () => {
+    if (settings.perf) {
+        console.time('xin async update');
+    }
+    const paths = Array.from(touchedPaths);
+    touchedPaths.length = 0;
+    updateTriggered = false;
+    // Capture THIS drain's resolver before dispatch. An observer that writes
+    // state re-arms the queue mid-drain, which creates a new promise and
+    // resolver for the NEXT round — without the capture, that overwrite
+    // orphans the promise our awaiters hold (it never resolves) and the
+    // resolve call below would settle the next round's promise before its
+    // drain has run. Each round resolves exactly the promise that belongs to
+    // it, so the long-standing "one await per settling round" semantics hold.
+    const resolve = resolveUpdate;
+    resolveUpdate = undefined;
+    try {
+        for (const path of paths) {
+            listeners
+                .filter((listener) => {
+                let heard;
+                try {
+                    heard = listener.test(path);
+                }
+                catch (e) {
+                    // a throwing test must not abort the drain: touchedPaths is
+                    // already cleared, so rethrowing would silently drop every
+                    // remaining notification in this batch
+                    console.error(`Listener ${listener.description} threw "${e}" at "${path}"`);
+                    return false;
+                }
+                if (heard === observerShouldBeRemoved) {
+                    unobserve(listener);
+                    return false;
+                }
+                return heard;
+            })
+                .forEach((listener) => {
+                let outcome;
+                try {
+                    outcome = listener.callback(path);
+                }
+                catch (e) {
+                    console.error(`Listener ${listener.description} threw "${e}" handling "${path}"`);
+                }
+                if (outcome === observerShouldBeRemoved) {
+                    unobserve(listener);
+                }
+            });
+        }
+    }
+    finally {
+        if (typeof resolve === 'function') {
+            resolve();
+        }
+        if (settings.perf) {
+            console.timeEnd('xin async update');
+        }
+    }
+};
+export const touch = (touchable) => {
+    const path = typeof touchable === 'string' ? touchable : tosiPath(touchable);
+    if (path === undefined) {
+        console.error('touch was called on an invalid target', touchable);
+        throw new Error('touch was called on an invalid target');
+    }
+    if (updateTriggered === false) {
+        updatePromise = new Promise((resolve) => {
+            resolveUpdate = resolve;
+        });
+        updateTriggered = setTimeout(update);
+    }
+    if (touchedPaths.find((touchedPath) => extendsPath(touchedPath, path)) == null) {
+        touchedPaths.push(path);
+    }
+    // Synthesize id-path touches when touching an array item by index
+    const indexMatch = path.match(/^(.+)\[(\d+)\](.*)$/);
+    if (indexMatch !== null) {
+        const [, arrayPath, indexStr, suffix] = indexMatch;
+        const index = parseInt(indexStr, 10);
+        const item = getByPath(registry, `${arrayPath}[${index}]`);
+        if (item != null) {
+            const idPathTouches = synthesizeIdPathTouches(arrayPath, index, item, suffix);
+            for (const idTouch of idPathTouches) {
+                if (touchedPaths.find((touchedPath) => extendsPath(touchedPath, idTouch)) == null) {
+                    touchedPaths.push(idTouch);
+                }
+            }
+        }
+    }
+};
+export const observe = (test, callback) => {
+    return new Listener(test, callback);
+};
+export const unobserve = (listener) => {
+    const index = listeners.indexOf(listener);
+    if (index > -1) {
+        listeners.splice(index, 1);
+    }
+    else {
+        throw new Error('unobserve failed, listener not found');
+    }
+};

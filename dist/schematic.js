@@ -1,0 +1,165 @@
+/**
+ * An element's page-coordinate bounds (the same space describe() records) —
+ * the natural `within` argument for a region-scoped schematic.
+ */
+export const boundsOf = (element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+        x: Math.round(rect.x + (globalThis.scrollX ?? 0)),
+        y: Math.round(rect.y + (globalThis.scrollY ?? 0)),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+    };
+};
+const intersects = (a, b) => a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+const contains = (outer, inner) => inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height;
+// string args (not regexes) — tjs convert's lexer mis-reads a quote inside a
+// regex literal (/"/g) as a string opener; see tjs-lang issue
+const esc = (s) => s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+export const schematicSVG = (description, options = {}) => {
+    const { pad = 8, minLabelHeight = 14, maxCaption = 36, fontSize = 11, within, } = options;
+    const boxes = description.wiring.filter((w) => w.bounds != null &&
+        w.bounds.width > 0 &&
+        w.bounds.height > 0 &&
+        // fully negative coordinates = hidden by off-page positioning (the
+        // spatial analog of zero-size): invisible to humans, invisible here
+        (w.viewportFixed === true ||
+            (w.bounds.x + w.bounds.width > 0 && w.bounds.y + w.bounds.height > 0)) &&
+        (within == null ||
+            w.viewportFixed === true ||
+            intersects(w.bounds, within)));
+    // viewport furniture (fixed/sticky) has viewport coordinates: it neither
+    // stretches the viewBox nor sits at a page position — it gets PINNED as an
+    // overlay at the map's origin, which is where it lives on screen
+    const flow = boxes.filter((w) => w.viewportFixed !== true);
+    const pinned = boxes.filter((w) => w.viewportFixed === true);
+    if (boxes.length === 0) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>';
+    }
+    // scoped: the viewBox IS the region; unscoped: fit the FLOW boxes (pinned
+    // furniture must not stretch the map)
+    const fitBoxes = flow.length > 0 ? flow : boxes;
+    const minX = within != null
+        ? within.x - pad
+        : Math.min(...fitBoxes.map((w) => w.bounds.x)) - pad;
+    const minY = within != null
+        ? within.y - pad
+        : Math.min(...fitBoxes.map((w) => w.bounds.y)) - pad;
+    const maxX = within != null
+        ? within.x + within.width + pad
+        : Math.max(...fitBoxes.map((w) => w.bounds.x + w.bounds.width)) + pad;
+    const maxY = within != null
+        ? within.y + within.height + pad
+        : Math.max(...fitBoxes.map((w) => w.bounds.y + w.bounds.height)) + pad;
+    // explicit width/height (not just viewBox): gives the svg an intrinsic
+    // size as a document/img, and Firefox refuses to draw an svg image onto a
+    // canvas without them — which rasterizeSVG depends on
+    const parts = [
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
+    ];
+    // structure behind affordances: dashed outlines the eye (and the raster)
+    // reads as grouping, not controls
+    const drawOrder = [...boxes].sort((a, b) => Number(b.structural === true) - Number(a.structural === true));
+    for (const w of drawOrder) {
+        const index = description.wiring.indexOf(w);
+        const pinOffsetX = w.viewportFixed === true ? minX + pad : 0;
+        const pinOffsetY = w.viewportFixed === true ? minY + pad : 0;
+        const x = w.bounds.x + pinOffsetX;
+        const y = w.bounds.y + pinOffsetY;
+        const { width, height } = w.bounds;
+        // a box that CONTAINS other drawn boxes is a container: its textContent
+        // is its children's text concatenated, so a text-derived caption would
+        // overprint the children's own captions — the children speak for
+        // themselves. Only an explicit label earns a container a caption.
+        const isContainer = w.viewportFixed !== true &&
+            boxes.some((other) => other !== w &&
+                other.viewportFixed !== true &&
+                contains(w.bounds, other.bounds));
+        const caption = isContainer
+            ? String(w.label ?? '')
+            : String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`);
+        const structural = w.structural === true;
+        const fill = structural
+            ? 'none'
+            : w.style != null
+                ? w.style.background
+                : 'transparent';
+        const stroke = !structural && w.style != null && w.style.borderColor !== TRANSPARENT
+            ? w.style.borderColor
+            : 'currentColor';
+        const color = w.style != null ? w.style.color : 'currentColor';
+        parts.push(`<g data-record="${index}">`);
+        parts.push(`<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
+            `fill="${esc(fill)}" stroke="${esc(stroke)}"${structural ? ' stroke-dasharray="4 3" opacity="0.6"' : ''}/>`);
+        if (height >= minLabelHeight && caption !== '') {
+            parts.push(`<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
+                `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}">` +
+                `${esc(caption.slice(0, maxCaption))}</text>`);
+        }
+        parts.push('</g>');
+    }
+    parts.push('</svg>');
+    return parts.join('');
+};
+/**
+ * Rasterize an SVG string to a PNG Blob — the vision-encoder form of the map
+ * (rasterize at 2× so labels land large enough to OCR near-losslessly).
+ *
+ * Browser-only by design: it uses Image + canvas, which keeps tosijs at zero
+ * dependencies. Under bun/node, use `@resvg/resvg-js` directly instead:
+ *
+ *     const { Resvg } = await import('@resvg/resvg-js')
+ *     const png = new Resvg(svg, { fitTo: { mode: 'zoom', value: 2 } })
+ *       .render().asPng()
+ */
+export const rasterizeSVG = (svg, options = {}) => {
+    const { scale = 2 } = options;
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+        return Promise.reject(new Error('rasterizeSVG needs a browser (Image + canvas); under bun/node use @resvg/resvg-js — see the doc comment'));
+    }
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const img = new Image();
+    return new Promise((resolve, reject) => {
+        img.onload = () => {
+            try {
+                const width = (img.naturalWidth || 800) * scale;
+                const height = (img.naturalHeight || 600) * scale;
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx == null)
+                    throw new Error('no 2d context');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (blob != null)
+                        resolve(blob);
+                    else
+                        reject(new Error('canvas.toBlob produced no data'));
+                }, 'image/png');
+            }
+            catch (e) {
+                reject(e);
+            }
+            finally {
+                URL.revokeObjectURL(url);
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('SVG failed to load as an image'));
+        };
+        img.src = url;
+    });
+};

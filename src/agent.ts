@@ -189,6 +189,10 @@ export interface AgentWiringRecord {
    * viewport coordinates, not page coordinates — screen furniture has no
    * stable page position */
   viewportFixed?: boolean
+  /** structure, not affordance: headings, landmarks, and the containers of
+   * wired elements — the page's information architecture, mappable and
+   * filterable */
+  structural?: boolean
   /** computed colors, harvested when describe({ styles: true }) */
   style?: { background: string; borderColor: string; color: string }
   /** bindings that couldn't be named as a flat prop */
@@ -225,7 +229,13 @@ export interface AgentInterface {
    * subtree renders. Contrast schematicSVG's `within` rect, which is
    * REGIONAL ("this area of the page") and includes whatever overlaps it.
    */
-  describe: (options?: { styles?: boolean; scope?: Element }) => AgentDescription
+  describe: (options?: {
+    styles?: boolean
+    scope?: Element
+    /** include the structural tier (headings/landmarks/containers) —
+     * default true; pass false for affordances only */
+    structure?: boolean
+  }) => AgentDescription
   read: (path: string) => any
   write: (path: string, value: any) => void
   observe: (path: string, callback: (path: string) => void) => () => void
@@ -258,6 +268,49 @@ const serialize = (value: any): any => {
     return JSON.parse(JSON.stringify(raw))
   } catch (_e) {
     return undefined
+  }
+}
+
+// measure an element in TRUE DOCUMENT coordinates: accumulate every
+// ancestor's scroll (apps commonly scroll an inner container, not the
+// window; the walk reaches <html>, whose scrollTop IS the window scroll).
+// Fixed/sticky elements ride the viewport: they keep viewport coordinates
+// and are flagged, because screen furniture has no stable page position.
+const measureBounds = (
+  el: Element
+): { bounds: NonNullable<AgentWiringRecord['bounds']>; fixed: boolean } | null => {
+  const rect = (el as HTMLElement).getBoundingClientRect?.()
+  if (rect == null) return null
+  let fixed = false
+  if (typeof (globalThis as any).getComputedStyle === 'function') {
+    let probe: Element | null = el
+    for (let hop = 0; probe != null && hop < 12; hop++) {
+      const position = (globalThis as any).getComputedStyle(probe).position
+      if (position === 'fixed' || position === 'sticky') {
+        fixed = true
+        break
+      }
+      probe = probe.parentElement
+    }
+  }
+  let scrollX = 0
+  let scrollY = 0
+  if (!fixed) {
+    let ancestor: Element | null = el.parentElement
+    while (ancestor != null) {
+      scrollX += (ancestor as HTMLElement).scrollLeft ?? 0
+      scrollY += (ancestor as HTMLElement).scrollTop ?? 0
+      ancestor = ancestor.parentElement
+    }
+  }
+  return {
+    bounds: {
+      x: Math.round(rect.x + scrollX),
+      y: Math.round(rect.y + scrollY),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    },
+    fixed,
   }
 }
 
@@ -360,7 +413,7 @@ export function enableAgentInterface(
 
   const surface: AgentInterface = {
     describe(
-      options: { styles?: boolean; scope?: Element } = {}
+      options: { styles?: boolean; scope?: Element; structure?: boolean } = {}
     ): AgentDescription {
       const rootNames = manifestMode
         ? (roots ?? []).slice()
@@ -445,47 +498,11 @@ export function enableAgentInterface(
               record.component = components[record.tag]
             }
           }
-          // geometry: the layout is part of the semantics. Fixed/sticky
-          // elements ride the viewport — adding scroll offsets would scatter
-          // them mid-document in page space (they were being drawn "way
-          // down" the whole-page map when captured while scrolled)
-          const rect = (el as HTMLElement).getBoundingClientRect?.()
-          if (rect != null) {
-            let fixed = false
-            if (typeof (globalThis as any).getComputedStyle === 'function') {
-              let probe: Element | null = el
-              for (let hop = 0; probe != null && hop < 12; hop++) {
-                const position = (globalThis as any).getComputedStyle(
-                  probe
-                ).position
-                if (position === 'fixed' || position === 'sticky') {
-                  fixed = true
-                  break
-                }
-                probe = probe.parentElement
-              }
-            }
-            // true document coordinates: accumulate EVERY ancestor's scroll
-            // (apps commonly scroll an inner container, not the window — the
-            // walk reaches <html>, whose scrollTop IS the window scroll, so
-            // nothing is double-counted)
-            let scrollX = 0
-            let scrollY = 0
-            if (!fixed) {
-              let ancestor: Element | null = el.parentElement
-              while (ancestor != null) {
-                scrollX += (ancestor as HTMLElement).scrollLeft ?? 0
-                scrollY += (ancestor as HTMLElement).scrollTop ?? 0
-                ancestor = ancestor.parentElement
-              }
-            }
-            record.bounds = {
-              x: Math.round(rect.x + scrollX),
-              y: Math.round(rect.y + scrollY),
-              width: Math.round(rect.width),
-              height: Math.round(rect.height),
-            }
-            if (fixed) record.viewportFixed = true
+          // geometry: the layout is part of the semantics
+          const measured = measureBounds(el)
+          if (measured != null) {
+            record.bounds = measured.bounds
+            if (measured.fixed) record.viewportFixed = true
           }
           if (
             options.styles === true &&
@@ -510,6 +527,46 @@ export function enableAgentInterface(
           if (elementToHandlers.has(el)) {
             const record = recordFor(el)
             if (record) wiring.push(record)
+          }
+        }
+        // the structural tier (unless structure: false): headings and
+        // landmarks — the page's information architecture — plus the
+        // custom-element containers wired elements live inside. Structure
+        // is what turns a scatter of affordances into a MAP.
+        if (options.structure !== false) {
+          const structural: Element[] = Array.from(
+            walkRoot.querySelectorAll(
+              'h1,h2,h3,h4,h5,h6,main,article,section,nav,aside,header,footer'
+            )
+          )
+          for (const wired of Array.from(seen)) {
+            let ancestor = wired.parentElement
+            while (ancestor != null && ancestor !== walkRoot) {
+              if (ancestor.tagName.includes('-')) structural.push(ancestor)
+              ancestor = ancestor.parentElement
+            }
+          }
+          for (const el of structural) {
+            if (seen.has(el)) continue
+            seen.add(el)
+            const record = describeElement(el)
+            record.structural = true
+            const heading = /^H[1-6]$/.test(el.tagName)
+            if (heading && record.text === undefined) {
+              const text = (el.textContent || '').trim().slice(0, 60)
+              if (text) record.text = text
+            }
+            const measured = measureBounds(el)
+            if (
+              measured == null ||
+              measured.bounds.width === 0 ||
+              measured.bounds.height === 0
+            ) {
+              continue
+            }
+            record.bounds = measured.bounds
+            if (measured.fixed) record.viewportFixed = true
+            wiring.push(record)
           }
         }
       }

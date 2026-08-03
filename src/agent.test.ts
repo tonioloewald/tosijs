@@ -435,3 +435,39 @@ describe('describe({ scope }) — hierarchy scoping', () => {
     thereBox.remove()
   })
 })
+
+describe('the structural tier', () => {
+  test('headings and containers of wired elements appear, flagged structural', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    tosi({ structApp: { q: '' } })
+    const section = elements.section()
+    const heading = elements.h2('Search Settings')
+    const box = document.createElement('demo-box') // custom container
+    const field = elements.input()
+    box.append(field)
+    section.append(heading, box)
+    document.body.append(section)
+    bind(field, 'structApp.q', bindings.value)
+    // happy-dom reports zero-size for everything; structural records
+    // correctly skip sizeless elements, so give these real geometry
+    ;(heading as any).getBoundingClientRect = () =>
+      ({ x: 10, y: 10, width: 300, height: 24 }) as DOMRect
+    ;(box as any).getBoundingClientRect = () =>
+      ({ x: 10, y: 40, width: 300, height: 60 }) as DOMRect
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+
+    const d = agent.describe({ scope: section })
+    const h = d.wiring.find((w) => w.tag === 'h2')
+    expect(h?.structural).toBe(true)
+    expect(h?.text).toBe('Search Settings')
+    const container = d.wiring.find((w) => w.tag === 'demo-box')
+    expect(container?.structural).toBe(true)
+    // and structure: false yields affordances only
+    const bare = agent.describe({ scope: section, structure: false })
+    expect(bare.wiring.some((w) => w.structural)).toBe(false)
+    section.remove()
+  })
+})

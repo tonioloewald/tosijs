@@ -1,0 +1,49 @@
+/*{ "parent": "utilities", "description": "hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads." }*/
+/*#
+# hotReload
+
+`hotReload()` persists any root-level paths in `xin` that its test function evaluates as true
+to `localStorage`.
+
+```
+hotReload(test: PathTestFunction = () => true): void
+```
+*/
+import { xin, observe } from './xin';
+import { tosiValue } from './metadata';
+import { debounce } from './throttle';
+// TODO reimplement using IndexedDB
+export const hotReload = (test = () => true) => {
+    const savedState = localStorage.getItem('xin-state');
+    if (savedState != null) {
+        const state = JSON.parse(savedState);
+        for (const key of Object.keys(state).filter(test)) {
+            // Wholesale replace, never Object.assign: assigning onto a scalar
+            // default (xin[key] === 0) silently dropped the saved value, and
+            // merging a saved array over a longer default left stale tail
+            // elements (['a'] over ['x','y','z'] => ['a','y','z']). A plain
+            // assignment through the proxy restores the saved value exactly.
+            xin[key] = state[key];
+        }
+    }
+    const saveState = debounce(() => {
+        const obj = {};
+        const state = tosiValue(xin);
+        for (const key of Object.keys(state).filter(test)) {
+            obj[key] = state[key];
+        }
+        localStorage.setItem('xin-state', JSON.stringify(obj));
+        console.log('xin state saved to localStorage');
+    }, 500);
+    // The observer fires with the FULL changed path (e.g. 'app.user.name'),
+    // but `test` judges ROOT keys ('app'). Match on the path's root segment so
+    // a deep write still triggers a save — a raw `test(fullPath)` only saved
+    // when a root key itself was reassigned.
+    // returns boolean | symbol because a PathTestFunction may return
+    // observerShouldBeRemoved, which must be passed through unchanged
+    const rootMatches = (changedPath) => {
+        const root = changedPath.split(/[.[]/)[0];
+        return test(root);
+    };
+    observe(rootMatches, saveState);
+};
