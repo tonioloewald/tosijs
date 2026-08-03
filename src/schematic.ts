@@ -153,7 +153,7 @@ export const schematicSVG = (
     const color = w.style != null ? w.style.color : 'currentColor'
     parts.push(`<g data-record="${index}">`)
     parts.push(
-      `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3" ` +
+      `<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
         `fill="${esc(fill)}" stroke="${esc(stroke)}"/>`
     )
     if (height >= minLabelHeight && caption !== '') {
