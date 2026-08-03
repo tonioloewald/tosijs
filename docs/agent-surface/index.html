@@ -132,17 +132,46 @@ const agent = enableAgentInterface({
 </code></pre>
 <p>The returned surface (also reachable as a global for injected/extension
 contexts) is small and protocol-neutral:</p>
-<pre><code>agent.describe()            // the app&#39;s self-description: state roots, wiring
-                            // graph (element ↔ path ↔ handlers), declared
-                            // actions, schemas if present
-agent.read(path)            // serializable value
-agent.write(path, value)    // through the same validation as any other write
-agent.observe(path, cb)     // push notifications; returns unsubscribe
-agent.call(actionPath, ...) // invoke a declared action (a function in state)
-agent.log()                 // the audit trail: every touch since enable
-agent.changes(since)        // turn-based drain: final-value-per-path since cursor
-agent.when(path, predicate) // await a state condition (see push and drain)
-</code></pre>
+<table>
+<thead>
+<tr>
+<th>call</th>
+<th>does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agent.describe()</code></td>
+<td>the app&#39;s self-description: state roots, wiring graph (element ↔ path ↔ handlers), actions, contract</td>
+</tr>
+<tr>
+<td><code>agent.read(path)</code></td>
+<td>serializable value</td>
+</tr>
+<tr>
+<td><code>agent.write(path, value)</code></td>
+<td>through the same validation as any other write</td>
+</tr>
+<tr>
+<td><code>agent.observe(path, cb)</code></td>
+<td>push notifications; returns unsubscribe</td>
+</tr>
+<tr>
+<td><code>agent.call(actionPath, …)</code></td>
+<td>invoke a declared action (a function in state)</td>
+</tr>
+<tr>
+<td><code>agent.changes(since)</code></td>
+<td>turn-based drain: final-value-per-path since your cursor</td>
+</tr>
+<tr>
+<td><code>agent.when(path, predicate)</code></td>
+<td>await a state <em>condition</em> (see push and drain)</td>
+</tr>
+<tr>
+<td><code>agent.log()</code></td>
+<td>the audit trail: every touch — and refusal — since enable</td>
+</tr>
+</tbody></table>
 <p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs
 already records — enumerate <code>BOUND_CLASS</code>, map each element through
 <code>getElementBindings</code>, walk the tree probing event wiring, list registry

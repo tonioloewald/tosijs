@@ -99,18 +99,16 @@ const agent = enableAgentInterface({
 The returned surface (also reachable as a global for injected/extension
 contexts) is small and protocol-neutral:
 
-```
-agent.describe()            // the app's self-description: state roots, wiring
-                            // graph (element ↔ path ↔ handlers), declared
-                            // actions, schemas if present
-agent.read(path)            // serializable value
-agent.write(path, value)    // through the same validation as any other write
-agent.observe(path, cb)     // push notifications; returns unsubscribe
-agent.call(actionPath, ...) // invoke a declared action (a function in state)
-agent.log()                 // the audit trail: every touch since enable
-agent.changes(since)        // turn-based drain: final-value-per-path since cursor
-agent.when(path, predicate) // await a state condition (see push and drain)
-```
+| call | does |
+| --- | --- |
+| `agent.describe()` | the app's self-description: state roots, wiring graph (element ↔ path ↔ handlers), actions, contract |
+| `agent.read(path)` | serializable value |
+| `agent.write(path, value)` | through the same validation as any other write |
+| `agent.observe(path, cb)` | push notifications; returns unsubscribe |
+| `agent.call(actionPath, …)` | invoke a declared action (a function in state) |
+| `agent.changes(since)` | turn-based drain: final-value-per-path since your cursor |
+| `agent.when(path, predicate)` | await a state *condition* (see push and drain) |
+| `agent.log()` | the audit trail: every touch — and refusal — since enable |
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
 already records — enumerate `BOUND_CLASS`, map each element through
