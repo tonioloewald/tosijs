@@ -2,16 +2,23 @@
 
 ## Bundle diet (1.8.0-era; scoped 2026-08-03)
 
-**Tree-shaking / subpaths.** `share.ts` + `sync.ts` (~2.3 KB gz), `hot-reload.ts`
-(~0.3 KB), and `blueprint-loader.ts` + `make-component.ts` (~1.8 KB) are clean leaves —
-only `index.ts` imports them. Options: subpath exports (`tosijs/share`, `tosijs/blueprint`
-— guaranteed shake) and/or a `sideEffects` **array** in package.json. ⚠️ Never a blanket
-`sideEffects: false`: `component.ts` registers `tosi-slot`/`xin-slot` at import
-(necessary), and `blueprint-loader.ts` registers FOUR custom elements at import
-(`tosi-blueprint`, `tosi-loader`, + two deprecated aliases — the 1.8.0 alias removal
-halves that). A naive flag lets bundlers drop registrations out from under markup-only
-consumers. Entangled on the merits (leave alone): `color.ts` (via `css.ts`),
-`form-validation.ts` (via `component.ts`).
+**Tree-shaking / subpaths.** `share.ts` + `sync.ts` (~2.3 KB gz) and `hot-reload.ts`
+(~0.3 KB) are clean, pure leaves — shake them via a `sideEffects` **array** and/or
+subpaths. ⚠️ Never a blanket `sideEffects: false`: `component.ts` registers
+`tosi-slot`/`xin-slot` at import (necessary), and `blueprint-loader.ts` registers FOUR
+custom elements at import (`tosi-blueprint`, `tosi-loader`, + two deprecated aliases —
+the 1.8.0 alias removal halves that).
+
+**DECIDED (2026-08-03): blueprints are NOT shaken from the default entry.** Blueprint
+consumers' contract is *markup* — they have no import statement to protect them, and a
+shaken registration fails SILENTLY (unknown element, no error, nothing hydrates; the
+code that would warn is the code that's gone). So: `blueprint-loader.ts` stays listed
+side-effectful and resident in `tosijs`; the size win ships as an opt-in **slim entry**
+(`tosijs/core`) for consumers who choose minimalism — inverting who can get hurt from
+"anyone upgrading" to "someone making an explicit choice". The slim entry should carry a
+dev-mode check (scan `tosi-blueprint:not(:defined)` after load, warn) since unlike the
+shaken case, slim core is present and can speak. Entangled on the merits (leave alone):
+`color.ts` (via `css.ts`), `form-validation.ts` (via `component.ts`).
 
 **CSS-native color math.** The computed-color-variable subsystem
 (`Color.registerComputedColor` + `Color.queueRecompute` wired into
