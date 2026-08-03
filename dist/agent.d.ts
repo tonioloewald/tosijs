@@ -146,6 +146,10 @@ export interface AgentWiringRecord {
         width: number;
         height: number;
     };
+    /** the element rides the VIEWPORT (fixed/sticky ancestry): bounds are
+     * viewport coordinates, not page coordinates — screen furniture has no
+     * stable page position */
+    viewportFixed?: boolean;
     /** computed colors, harvested when describe({ styles: true }) */
     style?: {
         background: string;

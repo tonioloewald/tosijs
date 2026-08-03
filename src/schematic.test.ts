@@ -169,3 +169,31 @@ describe('containment-aware captions', () => {
     expect(svg).toContain('todo list')
   })
 })
+
+describe('viewport-fixed furniture', () => {
+  test('pinned records neither stretch the viewBox nor sit mid-document', () => {
+    const withChrome: AgentDescription = {
+      exposure: 'introspection',
+      roots: {},
+      actions: [],
+      wiring: [
+        {
+          tag: 'input',
+          text: 'content',
+          bounds: { x: 100, y: 5000, width: 200, height: 30 },
+        },
+        {
+          tag: 'nav',
+          label: 'site nav',
+          viewportFixed: true,
+          bounds: { x: 0, y: 0, width: 180, height: 400 },
+        },
+      ],
+    }
+    const svg = schematicSVG(withChrome)
+    // viewBox fits the FLOW content only (y around 5000), not the nav
+    expect(svg).toContain('viewBox="92 4992 216 46"')
+    // the nav is pinned at the map origin (min + pad), not at page 0,0
+    expect(svg).toContain('<rect x="100" y="5000"')
+  })
+})

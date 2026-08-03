@@ -185,6 +185,10 @@ export interface AgentWiringRecord {
   /** page-relative geometry — the layout IS part of the semantics; zero-size
    * means "not currently visible", which is itself information */
   bounds?: { x: number; y: number; width: number; height: number }
+  /** the element rides the VIEWPORT (fixed/sticky ancestry): bounds are
+   * viewport coordinates, not page coordinates — screen furniture has no
+   * stable page position */
+  viewportFixed?: boolean
   /** computed colors, harvested when describe({ styles: true }) */
   style?: { background: string; borderColor: string; color: string }
   /** bindings that couldn't be named as a flat prop */
@@ -441,15 +445,35 @@ export function enableAgentInterface(
               record.component = components[record.tag]
             }
           }
-          // geometry: the layout is part of the semantics
+          // geometry: the layout is part of the semantics. Fixed/sticky
+          // elements ride the viewport — adding scroll offsets would scatter
+          // them mid-document in page space (they were being drawn "way
+          // down" the whole-page map when captured while scrolled)
           const rect = (el as HTMLElement).getBoundingClientRect?.()
           if (rect != null) {
+            let fixed = false
+            if (typeof (globalThis as any).getComputedStyle === 'function') {
+              let probe: Element | null = el
+              for (let hop = 0; probe != null && hop < 12; hop++) {
+                const position = (globalThis as any).getComputedStyle(
+                  probe
+                ).position
+                if (position === 'fixed' || position === 'sticky') {
+                  fixed = true
+                  break
+                }
+                probe = probe.parentElement
+              }
+            }
+            const scrollX = fixed ? 0 : ((globalThis as any).scrollX ?? 0)
+            const scrollY = fixed ? 0 : ((globalThis as any).scrollY ?? 0)
             record.bounds = {
-              x: Math.round(rect.x + ((globalThis as any).scrollX ?? 0)),
-              y: Math.round(rect.y + ((globalThis as any).scrollY ?? 0)),
+              x: Math.round(rect.x + scrollX),
+              y: Math.round(rect.y + scrollY),
               width: Math.round(rect.width),
               height: Math.round(rect.height),
             }
+            if (fixed) record.viewportFixed = true
           }
           if (
             options.styles === true &&

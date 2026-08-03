@@ -105,24 +105,37 @@ export const schematicSVG = (
       w.bounds != null &&
       w.bounds.width > 0 &&
       w.bounds.height > 0 &&
-      (within == null || intersects(w.bounds, within))
+      (within == null ||
+        w.viewportFixed === true ||
+        intersects(w.bounds, within))
   )
+  // viewport furniture (fixed/sticky) has viewport coordinates: it neither
+  // stretches the viewBox nor sits at a page position — it gets PINNED as an
+  // overlay at the map's origin, which is where it lives on screen
+  const flow = boxes.filter((w) => w.viewportFixed !== true)
+  const pinned = boxes.filter((w) => w.viewportFixed === true)
   if (boxes.length === 0) {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>'
   }
-  // scoped: the viewBox IS the region; unscoped: fit the drawn boxes
+  // scoped: the viewBox IS the region; unscoped: fit the FLOW boxes (pinned
+  // furniture must not stretch the map)
+  const fitBoxes = flow.length > 0 ? flow : boxes
   const minX =
-    within != null ? within.x - pad : Math.min(...boxes.map((w) => w.bounds!.x)) - pad
+    within != null
+      ? within.x - pad
+      : Math.min(...fitBoxes.map((w) => w.bounds!.x)) - pad
   const minY =
-    within != null ? within.y - pad : Math.min(...boxes.map((w) => w.bounds!.y)) - pad
+    within != null
+      ? within.y - pad
+      : Math.min(...fitBoxes.map((w) => w.bounds!.y)) - pad
   const maxX =
     within != null
       ? within.x + within.width + pad
-      : Math.max(...boxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
+      : Math.max(...fitBoxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
   const maxY =
     within != null
       ? within.y + within.height + pad
-      : Math.max(...boxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
+      : Math.max(...fitBoxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
 
   // explicit width/height (not just viewBox): gives the svg an intrinsic
   // size as a document/img, and Firefox refuses to draw an svg image onto a
@@ -134,14 +147,23 @@ export const schematicSVG = (
   ]
   for (const w of boxes) {
     const index = description.wiring.indexOf(w)
-    const { x, y, width, height } = w.bounds!
+    const pinOffsetX = w.viewportFixed === true ? minX + pad : 0
+    const pinOffsetY = w.viewportFixed === true ? minY + pad : 0
+    const x = w.bounds!.x + pinOffsetX
+    const y = w.bounds!.y + pinOffsetY
+    const { width, height } = w.bounds!
     // a box that CONTAINS other drawn boxes is a container: its textContent
     // is its children's text concatenated, so a text-derived caption would
     // overprint the children's own captions — the children speak for
     // themselves. Only an explicit label earns a container a caption.
-    const isContainer = boxes.some(
-      (other) => other !== w && contains(w.bounds!, other.bounds!)
-    )
+    const isContainer =
+      w.viewportFixed !== true &&
+      boxes.some(
+        (other) =>
+          other !== w &&
+          other.viewportFixed !== true &&
+          contains(w.bounds!, other.bounds!)
+      )
     const caption = isContainer
       ? String(w.label ?? '')
       : String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`)
