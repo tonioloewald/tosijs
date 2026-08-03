@@ -356,8 +356,12 @@ preview.append(
   )
 )
 
+// flex so maximizing the example gives the map the extra room
+Object.assign(preview.style, { display: &#39;flex&#39;, flexDirection: &#39;column&#39; })
 const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
-const drawing = div({ style: { maxHeight: &#39;24em&#39;, overflow: &#39;auto&#39; } })
+const drawing = div({
+  style: { flex: &#39;1 1 auto&#39;, minHeight: &#39;12em&#39;, overflow: &#39;auto&#39; },
+})
 
 preview.append(
   button(&#39;schematic()&#39;, {

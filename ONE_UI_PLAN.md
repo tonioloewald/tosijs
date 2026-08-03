@@ -68,8 +68,12 @@
   session drove this very page through the surface — `call('oneUI.addItem')`
   through a private headless haltija, observers fired, the human-facing list
   rendered the agent's item, the audit log recorded the act. No vision, no
-  selectors, no synthesized input. Remaining: the WebMCP-host registration
-  e2e (Chrome Canary) and the bridge-convergence answers on haltija#16.
+  selectors, no synthesized input. **The WebMCP-host
+  registration e2e is CONFIRMED** (2026-08-03, Chrome Canary with the WebMCP
+  flags enabled): the live demo detected the host and registered the
+  generated tool set — witnessed on the page's own self-report. Remaining:
+  driving the registered tools from a real browser agent, and the
+  bridge-convergence answers on haltija#16.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
   sandboxing for agent-submitted logic; lukko alignment.
 - **Phase 5 — headless embodiment.** The DOM-free core (tosijs#18) running an

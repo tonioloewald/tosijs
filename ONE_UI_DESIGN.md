@@ -102,7 +102,11 @@ preview.append(
 
 // the tool set derives itself; register it if a WebMCP host exists
 const registration = webmcpAdapter(agent)
-const out = pre({ style: { maxHeight: '14em', overflow: 'auto', margin: 0 } })
+// flex so maximizing the example gives the tool list the extra room
+Object.assign(preview.style, { display: 'flex', flexDirection: 'column' })
+const out = pre({
+  style: { flex: '1 1 auto', minHeight: '10em', overflow: 'auto', margin: 0 },
+})
 out.append(
   registration
     ? `WebMCP host detected — ${registration.tools.length} tools registered live:\n\n`
