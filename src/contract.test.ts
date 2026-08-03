@@ -321,3 +321,151 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     el.remove()
   })
 })
+
+describe('contract.attributes subsumes initAttributes', () => {
+  test('contract-declared attributes drive the machinery (defaults, types, attr sync)', async () => {
+    const contract = {
+      attributes: {
+        count: { type: 'number', default: 0 },
+        label: { type: 'string', default: 'untitled' },
+      },
+    } as const satisfies ComponentMap
+    class ContractAttrs extends Component<typeof contract> {
+      static preferredTagName = 'contract-attrs'
+      static contract = contract
+    }
+    const creator = ContractAttrs.elementCreator()
+    const el = creator() as ContractAttrs
+    document.body.append(el)
+    await updates()
+    expect(el.count).toBe(0)
+    expect(el.label).toBe('untitled')
+    el.setAttribute('count', '5')
+    await updates()
+    expect(el.count).toBe(5) // number, inferred from the default's type
+    el.remove()
+  })
+
+  test('declaring BOTH initAttributes and contract.attributes throws — one source of truth', () => {
+    class BothDeclared extends Component {
+      static preferredTagName = 'both-declared'
+      static initAttributes = { count: 0 }
+      static contract: ComponentMap = {
+        attributes: { count: { type: 'number', default: 0 } },
+      }
+    }
+    expect(() => BothDeclared._resolveInitAttributes()).toThrow(
+      'single source of truth'
+    )
+  })
+
+  test('a contract.attributes entry without a default throws, naming it', () => {
+    class NoDefault extends Component {
+      static preferredTagName = 'no-default'
+      static contract: ComponentMap = {
+        attributes: { count: { type: 'number' } },
+      }
+    }
+    expect(() => NoDefault._resolveInitAttributes()).toThrow(
+      "missing 'default': count"
+    )
+  })
+
+  test('initAttributes beside a contract without attributes warns once toward the ideal', () => {
+    class Nudged extends Component {
+      static preferredTagName = 'nudged-attrs'
+      static initAttributes = { count: 0 }
+      static contract: ComponentMap = { description: 'no attributes here' }
+    }
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (msg: string) => void warnings.push(String(msg))
+    try {
+      const resolved = Nudged._resolveInitAttributes()
+      Nudged._resolveInitAttributes() // second call — no second warning
+      expect(resolved).toEqual({ count: 0 }) // still works as before
+    } finally {
+      console.warn = original
+    }
+    expect(warnings.filter((w) => w.includes('Ideally attributes live in the contract')).length).toBe(1)
+  })
+})
+
+describe('value-setter enforcement — a contract is an opt-in to being held to it', () => {
+  const gated = {
+    value: { type: 'number' },
+  } as const satisfies ComponentMap
+  class GatedValue extends Component<typeof gated> {
+    static preferredTagName = 'gated-value'
+    static contract = gated
+    value = 0
+  }
+  const gatedValue = GatedValue.elementCreator()
+
+  test('violating writes throw with the reason; valid writes pass', async () => {
+    const el = gatedValue() as GatedValue
+    document.body.append(el)
+    await updates()
+    el.value = 7
+    expect(el.value).toBe(7)
+    expect(() => {
+      ;(el as any).value = 'seven'
+    }).toThrow('expected type number, got string')
+    expect(el.value).toBe(7) // the refused write changed nothing
+    el.remove()
+  })
+
+  test('no contract, no check — components without one behave as before', async () => {
+    class Unfenced extends Component {
+      static preferredTagName = 'unfenced-value'
+      value: any = 0
+    }
+    const creator = Unfenced.elementCreator()
+    const el = creator() as Unfenced
+    document.body.append(el)
+    await updates()
+    el.value = 'anything at all'
+    expect(el.value).toBe('anything at all')
+    el.remove()
+  })
+
+  test('a registered full validator extends enforcement beyond the native subset', async () => {
+    const { setContractValidator } = await import('./component')
+    const strict = {
+      value: {
+        type: 'object',
+        properties: { qty: { type: 'number' } },
+        required: ['qty'],
+      },
+    } as const satisfies ComponentMap
+    class StrictValue extends Component<typeof strict> {
+      static preferredTagName = 'strict-value'
+      static contract = strict
+      value: any = { qty: 1 }
+    }
+    const creator = StrictValue.elementCreator()
+    const el = creator() as StrictValue
+    document.body.append(el)
+    await updates()
+    // native subset alone: any object passes
+    el.value = { wrong: true }
+    // with tosijs-schema registered, required-field checking kicks in
+    setContractValidator((value, schema) => {
+      const reasons: string[] = []
+      const ok = validate(value, schema, {
+        onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
+      })
+      return ok ? true : new Error(reasons.join('; '))
+    })
+    try {
+      expect(() => {
+        el.value = { alsoWrong: 1 }
+      }).toThrow()
+      el.value = { qty: 3 } // legal per schema
+      expect(el.value).toEqual({ qty: 3 })
+    } finally {
+      setContractValidator(null)
+    }
+    el.remove()
+  })
+})

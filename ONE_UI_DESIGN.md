@@ -385,10 +385,26 @@ the component declares `static contract`:
   `exerciseComponent()`. The steps being pure data is the AJS on-ramp:
   serializable like the schema, executable like a test.
 
-**Not yet (decide before building):** subsuming `initAttributes` (attribute
-schemas with defaults replacing type-inferred defaults) and enforcing the
-`value` contract in the value setter (needs a core validation hook; should
-share the app-level contract seam). Shadow components stay agent-shaped
+**Both remaining pieces shipped (2026-08-03), by two rules the user set:**
+
+- **`contract.attributes` subsumes `initAttributes`.** Entries carry
+  JSON-Schema shapes *with `default`s*; the derived defaults feed the
+  existing attribute machinery unchanged. Declaring BOTH on one class
+  **throws** (one source of truth); `initAttributes` beside a contract that
+  lacks attributes **warns once**, pointing at the ideal; entries without a
+  `default` **throw, named** (the machinery infers runtime types from
+  defaults). No contract involved → classic behavior, untouched.
+- **The value setter enforces the declared `value` contract** — *a contract
+  is an opt-in to being held to it; no contract, no check, no cost.* Core
+  natively enforces the structural subset (`type` / `enum` / `const` — zero
+  dependencies, covers the common case); `setContractValidator()` plugs in
+  full-schema validation (the `setPredicateEvaluator` idiom — tosijs-schema's
+  `validate` in ~6 lines). Violations throw the reason and leave the value
+  untouched. The *general* runtime-type-drift axis still belongs to tjs 2.0
+  (`settings.strictness`) — this enforces what was *declared*, which is
+  narrower and already promised.
+
+Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component *says so in a checkable form*.
 

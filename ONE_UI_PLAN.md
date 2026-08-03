@@ -40,9 +40,12 @@
   set/click/expect step scripts, updates()+rAF settled). Shipped tests
   travel with the contract; dev-only tests go to tjs `test {}` blocks
   (stripped) — the native-TJS bridge is a test block calling
-  exerciseComponent(). Remaining: initAttributes subsumption + value-setter
-  enforcement (decide shape first); sub-path schema routing (v1 root-exact);
-  the AJS `$exercise` future. Feeds directly
+  exerciseComponent(). initAttributes subsumption + value-setter enforcement
+  BOTH shipped 2026-08-03 (contract.attributes with defaults drives the
+  machinery, both-declared throws, nudge-warn toward the ideal; setter
+  enforces declared value contracts — native type/enum/const subset +
+  pluggable setContractValidator; no contract, no check). Remaining:
+  sub-path schema routing (v1 root-exact); the AJS `$exercise` future. Feeds directly
   into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`

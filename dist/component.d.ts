@@ -3,6 +3,7 @@ import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
 import type { ComponentMap } from './agent';
+export declare function setContractValidator(validator: ((value: any, schema: Record<string, any>) => true | Error) | null): void;
 /** tag-name literal → element type, for parts declared in a component contract */
 type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[T] : Element;
 /**
@@ -49,6 +50,15 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Set the form value. Call this when your component's value changes.
      */
     setFormValue(value: File | string | FormData | null, state?: File | string | FormData | null): void;
+    /**
+     * The attribute map the machinery actually uses. `contract.attributes`
+     * (with `default`s) SUBSUMES `static initAttributes`:
+     * - both declared on the same class → throw (one source of truth);
+     * - initAttributes beside a contract that lacks attributes → warn once,
+     *   pointing at the ideal;
+     * - no contract involvement → classic initAttributes, unchanged.
+     */
+    static _resolveInitAttributes(): Record<string, any> | undefined;
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;

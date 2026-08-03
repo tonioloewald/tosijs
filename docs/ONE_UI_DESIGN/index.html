@@ -399,10 +399,26 @@ components go native-TJS, the bridge is one line — a test block calling
 <code>exerciseComponent()</code>. The steps being pure data is the AJS on-ramp:
 serializable like the schema, executable like a test.</li>
 </ul>
-<p><strong>Not yet (decide before building):</strong> subsuming <code>initAttributes</code> (attribute
-schemas with defaults replacing type-inferred defaults) and enforcing the
-<code>value</code> contract in the value setter (needs a core validation hook; should
-share the app-level contract seam). Shadow components stay agent-shaped
+<p><strong>Both remaining pieces shipped (2026-08-03), by two rules the user set:</strong></p>
+<ul>
+<li><strong><code>contract.attributes</code> subsumes <code>initAttributes</code>.</strong> Entries carry
+JSON-Schema shapes <em>with <code>default</code>s</em>; the derived defaults feed the
+existing attribute machinery unchanged. Declaring BOTH on one class
+<strong>throws</strong> (one source of truth); <code>initAttributes</code> beside a contract that
+lacks attributes <strong>warns once</strong>, pointing at the ideal; entries without a
+<code>default</code> <strong>throw, named</strong> (the machinery infers runtime types from
+defaults). No contract involved → classic behavior, untouched.</li>
+<li><strong>The value setter enforces the declared <code>value</code> contract</strong> — <em>a contract
+is an opt-in to being held to it; no contract, no check, no cost.</em> Core
+natively enforces the structural subset (<code>type</code> / <code>enum</code> / <code>const</code> — zero
+dependencies, covers the common case); <code>setContractValidator()</code> plugs in
+full-schema validation (the <code>setPredicateEvaluator</code> idiom — tosijs-schema&#39;s
+<code>validate</code> in ~6 lines). Violations throw the reason and leave the value
+untouched. The <em>general</em> runtime-type-drift axis still belongs to tjs 2.0
+(<code>settings.strictness</code>) — this enforces what was <em>declared</em>, which is
+narrower and already promised.</li>
+</ul>
+<p>Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component <em>says so in a checkable form</em>.</p>
 

@@ -616,6 +616,74 @@ import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
 
+// ---------------------------------------------------------------------------
+// component contract enforcement — a contract is an OPT-IN to being held to
+// it: components without one behave exactly as before.
+
+// full-schema validation is pluggable (the setPredicateEvaluator idiom —
+// tosijs stays zero-dep); until one is registered, the native structural
+// subset below (type / enum / const) still enforces
+let contractValidator:
+  | ((value: any, schema: Record<string, any>) => true | Error)
+  | null = null
+export function setContractValidator(
+  validator: ((value: any, schema: Record<string, any>) => true | Error) | null
+): void {
+  contractValidator = validator
+}
+
+// the zero-dependency structural subset — covers the common case
+// (value: { type: 'number' }) without any schema engine
+const contractViolation = (value: any, schema: any): string | null => {
+  if (schema.const !== undefined && value !== schema.const) {
+    return `expected const ${JSON.stringify(schema.const)}`
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
+    return `expected one of ${JSON.stringify(schema.enum)}`
+  }
+  if (typeof schema.type === 'string') {
+    const t = schema.type
+    const ok =
+      t === 'array'
+        ? Array.isArray(value)
+        : t === 'null'
+          ? value === null
+          : t === 'integer'
+            ? typeof value === 'number' && Number.isInteger(value)
+            : t === 'object'
+              ? typeof value === 'object' &&
+                value !== null &&
+                !Array.isArray(value)
+              : typeof value === t
+    if (!ok) {
+      return `expected type ${t}, got ${Array.isArray(value) ? 'array' : typeof value}`
+    }
+  }
+  if (contractValidator != null) {
+    const verdict = contractValidator(value, schema)
+    if (verdict !== true) return verdict.message
+  }
+  return null
+}
+
+const checkValueContract = (el: any, newValue: any): void => {
+  const cls = el.constructor
+  if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
+  const schema = (cls as any).contract?.value
+  if (schema == null) return
+  const err = contractViolation(newValue, schema)
+  if (err != null) {
+    throw new TypeError(
+      `<${el.tagName?.toLowerCase()}> value contract violation: ${err}`
+    )
+  }
+}
+
+// contract.attributes subsumes initAttributes: cache the derived map per
+// class (never mutate the class), warn/throw toward the ideal exactly once
+const derivedInitAttributes = new WeakMap<Function, Record<string, any>>()
+const attributeNudgeGiven = new Set<Function>()
+
 /** tag-name literal → element type, for parts declared in a component contract */
 type TagToElement<T> = T extends keyof HTMLElementTagNameMap
   ? HTMLElementTagNameMap[T]
@@ -801,8 +869,73 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this.internals?.setFormValue(value, state)
   }
 
+  /**
+   * The attribute map the machinery actually uses. `contract.attributes`
+   * (with `default`s) SUBSUMES `static initAttributes`:
+   * - both declared on the same class → throw (one source of truth);
+   * - initAttributes beside a contract that lacks attributes → warn once,
+   *   pointing at the ideal;
+   * - no contract involvement → classic initAttributes, unchanged.
+   */
+  static _resolveInitAttributes(): Record<string, any> | undefined {
+    const ownContract = Object.prototype.hasOwnProperty.call(this, 'contract')
+      ? (this as any).contract
+      : undefined
+    const ownInit = Object.prototype.hasOwnProperty.call(
+      this,
+      'initAttributes'
+    )
+      ? this.initAttributes
+      : undefined
+    if (ownContract?.attributes != null) {
+      if (ownInit != null) {
+        throw new Error(
+          `${this.name} declares BOTH static initAttributes AND ` +
+            `contract.attributes — the contract is the single source of ` +
+            `truth. Move the defaults into contract.attributes ` +
+            `({ name: { type, default } }) and delete initAttributes.`
+        )
+      }
+      const cached = derivedInitAttributes.get(this)
+      if (cached != null) return cached
+      const derived: Record<string, any> = {}
+      const missingDefaults: string[] = []
+      for (const [name, schema] of Object.entries(ownContract.attributes)) {
+        if (schema != null && 'default' in (schema as any)) {
+          derived[name] = (schema as any).default
+        } else {
+          missingDefaults.push(name)
+        }
+      }
+      if (missingDefaults.length > 0) {
+        throw new Error(
+          `${this.name} contract.attributes entries missing 'default': ` +
+            `${missingDefaults.join(', ')} — the attribute machinery infers ` +
+            `each attribute's runtime type from its default, so every ` +
+            `declared attribute needs one.`
+        )
+      }
+      derivedInitAttributes.set(this, derived)
+      return derived
+    }
+    if (
+      ownInit != null &&
+      ownContract != null &&
+      !attributeNudgeGiven.has(this)
+    ) {
+      attributeNudgeGiven.add(this)
+      console.warn(
+        `${this.name} declares a contract AND a separate static ` +
+          `initAttributes. Ideally attributes live in the contract ` +
+          `(contract.attributes: { name: { type, default } }) so one ` +
+          `declaration feeds the types, the docs, the agents, and the tests.`
+      )
+    }
+    return this.initAttributes
+  }
+
   static get observedAttributes(): string[] {
-    const initAttrs = this.initAttributes
+    const initAttrs = this._resolveInitAttributes()
     if (initAttrs) {
       return ['hidden', ...Object.keys(initAttrs).map(camelToKabob)]
     }
@@ -1044,6 +1177,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       },
       set(newValue: any) {
         if (value !== newValue) {
+          // a declared contract is an opt-in to being held to it — no
+          // contract, no check, no cost
+          checkValueContract(this, newValue)
           value = newValue
           this._valueChanged = true
           this.queueRender(true)
@@ -1168,8 +1304,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       this.internals = this.attachInternals()
     }
 
-    // Set up property accessors from static initAttributes
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    // Set up property accessors from static initAttributes (or the
+    // contract.attributes that subsume them)
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (initAttrs) {
       this._setupAttributeAccessors(initAttrs)
     }
@@ -1243,7 +1382,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // (parts proxy couldn't find a `[part="…"]` whose attribute hadn't
     // landed yet) and the spec violation it would have caused is just a
     // Chrome warning — all browsers actually run the code.
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (!initAttrs) return
     const guarded = new Set(Object.keys(initAttrs).map(camelToKabob))
     const queue: Array<['set', string, string] | ['remove', string]> = []
@@ -1449,7 +1590,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   // descriptor is an accessor again and the check passes it by.
   private _recoverShadowedAttrAccessors(): void {
     const installed = this._installedAttrAccessors
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (installed == null || initAttrs == null) return
     const shadowed: string[] = []
     for (const attrName of installed) {
