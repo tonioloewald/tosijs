@@ -30,10 +30,16 @@
   [The Agent Surface](/ONE_UI_DESIGN/)). The blessed tosijs-schema adapter
   (~10 lines over `validate` + `onError`; `$predicate` strings ride into
   `describe()` as legible preconditions) is proven in tests here and should
-  ship FROM tosijs-schema (file, don't fix). Remaining: the **ComponentMap**
-  design (component-level contract superseding PartsMap), sub-path schema
-  routing (v1 checks root-exact), and the AJS `$exercise` future. Feeds
-  directly into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
+  ship FROM tosijs-schema (file, don't fix). **ComponentMap's additive slice
+  also shipped** (2026-08-03): `static componentMap` = contract + description
+  + test fixture + parts map in one declaration; `describe()` harvests it per
+  wired instance; `exerciseComponent()` executes it (parts resolve via the
+  saga-hardened proxy and match declared tags, methods exist, value examples
+  round-trip). Remaining: the core-API reshaping half (PartsMap generic
+  superseded so the declaration IS the type; initAttributes subsumption;
+  value-setter enforcement) — decide shape before building; sub-path schema
+  routing (v1 checks root-exact); the AJS `$exercise` future. Feeds directly
+  into 2.0's `schematic` design rather than duplicating it. **Gate:** state-level validation is a hard prerequisite
   for production `write()` access (see [Trust](/ONE_UI_TRUST/)) — until this
   phase lands, production surfaces are read/observe/call-only. `agent.when(path, predicate)`
   — the episodic agent's await-a-condition primitive — **shipped early**

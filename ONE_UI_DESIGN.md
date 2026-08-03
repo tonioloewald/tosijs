@@ -323,17 +323,44 @@ declaration isn't a comment — **it's load-bearing**. Comments rot because
 nothing breaks when they lie. A declaration that feeds the map, the tests, and
 the agent's context breaks visibly when it lies. That's what keeps it true.
 
-### ComponentMap: the same contract at the component boundary
+### ComponentMap: one declaration, four consumers
 
-The manifest idea has a component-level counterpart. Components today declare
-a `PartsMap` (typed parts lookup). The natural extension is a **ComponentMap**
-— a tosijs-schema-backed declaration that supersedes PartsMap and declares the
-component's full public surface: parts, **attributes, properties, and
-methods**, exposed by default or filtered by the app's schema. Then
-`describe()` doesn't stop at "custom element, bound to a path" — the component
-contributes its own typed affordances (what `value` means, which methods are
-invokable, which attributes are live), the way `initAttributes` already
-contributes inferred attribute types today. Shadow components stay agent-shaped
+The manifest idea has a component-level counterpart, and it unifies four
+things that are today separate (or absent): **the contract** (what `value`,
+attributes, and methods are legal), **the description** (what an agent — or a
+reader — is told), **the test harness** (the declaration is exercisable), and
+**the map of parts to internal elements** (what PartsMap types today). One
+`static componentMap`, four consumers — a component that lies about itself
+fails tests, not users.
+
+**Shipped (the additive slice):**
+
+    class Counter extends Component {
+      static componentMap: ComponentMap = {
+        description: 'a counter with a labeled readout and a reset',
+        value: { type: 'number', examples: [0, 42] },
+        methods: { reset: { description: 'set the count back to zero' } },
+        parts: { readout: 'span', increment: 'button' },
+      }
+      …
+    }
+
+- `describe()` harvests it: any wired instance's record carries
+  `component: <the map>` — the element doesn't just *have* affordances, it
+  **describes** them, per class, once.
+- `exerciseComponent(el)` executes it: every declared part must resolve
+  *inside the instance* (via the saga-hardened parts proxy — ownership-
+  correct, where a bare querySelector could false-positive on a nested
+  component's same-named part) and match its declared tag; every declared
+  method must exist; every `value` example must round-trip faithfully. The
+  component equivalent of a signature test.
+
+**Not yet (core-API reshaping — decide before building):** superseding the
+`PartsMap` generic (so `this.parts.readout` is *typed by* the map — the
+declaration becomes the type); subsuming `initAttributes` (attribute schemas
+with defaults replacing type-inferred defaults); and enforcing the `value`
+contract in the value setter (needs a validation hook in core, and should
+share the app-level contract seam). Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — ComponentMap is how
 a component *says so in a checkable form*.
 

@@ -60,6 +60,27 @@ export interface AgentContract {
   describe?: () => Record<string, any>
 }
 
+/**
+ * A component's self-declaration: contract, description, part map, and test
+ * fixture in ONE structure. Declared as `static componentMap` on a Component
+ * subclass; harvested by describe() for any wired instance; exercised by
+ * `exerciseComponent()` — a declaration that feeds the map, the agent, and
+ * the harness breaks visibly when it lies.
+ */
+export interface ComponentMap {
+  /** one line for humans and agents alike */
+  description?: string
+  /** the value contract (JSON-Schema-shaped; examples/$counterexamples make
+   * it executable — see exerciseComponent) */
+  value?: Record<string, any>
+  /** attribute contracts by attribute name (JSON-Schema-shaped) */
+  attributes?: Record<string, Record<string, any>>
+  /** methods the component exposes, by name */
+  methods?: Record<string, { description?: string }>
+  /** declared parts: part name → expected tag (lowercase) */
+  parts?: Record<string, string>
+}
+
 export interface AgentExpose {
   roots?: string[]
   actions?: string[]
@@ -102,6 +123,10 @@ export interface AgentWiringRecord {
   on?: Record<string, string | string[]>
   /** a list binding rendering a collection */
   list?: { path: string; idPath?: string }
+  /** the component's own self-declaration, when its class carries a
+   * `static componentMap` — the element doesn't just have affordances, it
+   * DESCRIBES them */
+  component?: ComponentMap
   /** page-relative geometry — the layout IS part of the semantics; zero-size
    * means "not currently visible", which is itself information */
   bounds?: { x: number; y: number; width: number; height: number }
@@ -327,6 +352,12 @@ export function enableAgentInterface(
           if (record.text === undefined) {
             const text = (el.textContent || '').trim().slice(0, 40)
             if (text) record.text = text
+          }
+          // a custom element may carry its own self-declaration
+          if (record.tag.includes('-')) {
+            const cls = (globalThis as any).customElements?.get?.(record.tag)
+            const map = (cls as any)?.componentMap
+            if (map != null) record.component = map
           }
           // geometry: the layout is part of the semantics
           const rect = (el as HTMLElement).getBoundingClientRect?.()

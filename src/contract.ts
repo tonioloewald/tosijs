@@ -32,7 +32,7 @@ the whole conformance suite, shippable over the wire.
 
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
-import { AgentInterface } from './agent'
+import { AgentInterface, ComponentMap } from './agent'
 
 export interface ContractTrial {
   root: string
@@ -117,6 +117,116 @@ export const exerciseContract = (agent: AgentInterface): ContractReport => {
         // it will already have surfaced as a failed example or in app tests
       }
     }
+  }
+
+  const failed = trials.filter((trial) => !trial.passed).length
+  return { passed: trials.length - failed, failed, trials }
+}
+
+export interface ComponentTrial {
+  claim: string
+  passed: boolean
+  error?: string
+}
+
+export interface ComponentReport {
+  passed: number
+  failed: number
+  trials: ComponentTrial[]
+}
+
+/**
+ * Exercise a CONNECTED component instance against its own `componentMap`
+ * self-declaration (passed explicitly, or read from the instance's class):
+ *
+ * - every declared **part** must resolve inside the instance and match its
+ *   declared tag — the map of parts to internal elements, verified live;
+ * - every declared **method** must exist as a function;
+ * - every **value example** must round-trip through the instance's `value`
+ *   (faithful comparison — the same discipline as exerciseContract).
+ *
+ * The component equivalent of a signature test: the declaration that types
+ * the parts, informs the agent, and documents the component is the same one
+ * the harness executes.
+ */
+export const exerciseComponent = (
+  element: HTMLElement,
+  map?: ComponentMap
+): ComponentReport => {
+  const declared: ComponentMap | undefined =
+    map ?? (element.constructor as any)?.componentMap
+  const trials: ComponentTrial[] = []
+  if (declared == null) {
+    return {
+      passed: 0,
+      failed: 1,
+      trials: [
+        {
+          claim: 'component declares a componentMap',
+          passed: false,
+          error: 'no componentMap declared (and none passed in)',
+        },
+      ],
+    }
+  }
+
+  const root = ((element as any).shadowRoot ?? element) as ParentNode
+  for (const [name, tag] of Object.entries(declared.parts ?? {})) {
+    // prefer the component's own parts proxy — its resolution is
+    // ownership-correct (pre-hydration capture); a bare querySelector can
+    // false-positive on a nested component's same-named part
+    let found: Element | null = null
+    if ((element as any).parts != null) {
+      try {
+        found = (element as any).parts[name] ?? null
+      } catch {
+        found = null // the proxy throws for parts it never owned
+      }
+    }
+    found ??= root.querySelector(`[part="${name}"]`)
+    trials.push(
+      found == null
+        ? {
+            claim: `part "${name}" resolves`,
+            passed: false,
+            error: 'declared part not found in the instance',
+          }
+        : found.tagName.toLowerCase() !== tag
+          ? {
+              claim: `part "${name}" is <${tag}>`,
+              passed: false,
+              error: `found <${found.tagName.toLowerCase()}>`,
+            }
+          : { claim: `part "${name}" resolves as <${tag}>`, passed: true }
+    )
+  }
+
+  for (const name of Object.keys(declared.methods ?? {})) {
+    const isFn = typeof (element as any)[name] === 'function'
+    trials.push({
+      claim: `method "${name}" exists`,
+      passed: isFn,
+      error: isFn ? undefined : `typeof is ${typeof (element as any)[name]}`,
+    })
+  }
+
+  const valueExamples: any[] = (declared.value as any)?.examples ?? []
+  if (valueExamples.length > 0) {
+    const snapshot = (element as any).value
+    for (const example of valueExamples) {
+      ;(element as any).value = example
+      const back = (element as any).value
+      trials.push(
+        same(back, example)
+          ? { claim: `value example round-trips`, passed: true }
+          : {
+              claim: `value example round-trips`,
+              passed: false,
+              error: `wrote ${JSON.stringify(example)}, read ${JSON.stringify(back)}`,
+            }
+      )
+    }
+    ;(element as any).value = snapshot
   }
 
   const failed = trials.filter((trial) => !trial.passed).length

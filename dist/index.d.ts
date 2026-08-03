@@ -1,12 +1,12 @@
 export { bind, on, touchElement } from './bind';
 export { enableAgentInterface, BOUND_TO_DOM, BOUND_TWO_WAY } from './agent';
 export { schematicSVG, rasterizeSVG } from './schematic';
-export { exerciseContract } from './contract';
-export type { ContractReport, ContractTrial } from './contract';
+export { exerciseContract, exerciseComponent } from './contract';
+export type { ContractReport, ContractTrial, ComponentReport, ComponentTrial, } from './contract';
 export { webmcpTools, webmcpAdapter } from './webmcp';
 export type { WebMCPTool, WebMCPAdapterOptions } from './webmcp';
 export type { SchematicOptions } from './schematic';
-export type { AgentInterface, AgentInterfaceOptions, AgentContract, AgentDescription, AgentWiringRecord, AgentLogEntry, } from './agent';
+export type { AgentInterface, AgentInterfaceOptions, AgentContract, AgentDescription, AgentWiringRecord, AgentLogEntry, ComponentMap, } from './agent';
 export { bindings } from './bindings';
 export { css, invertLuminance, initVars, vars, varDefault, StyleSheet, onStylesheetChange, getThemePreferences, onThemePreferencesChange, } from './css';
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';

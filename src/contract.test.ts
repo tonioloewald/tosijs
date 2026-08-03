@@ -1,6 +1,7 @@
 import { test, expect, describe, afterEach } from 'bun:test'
-import { enableAgentInterface, AgentContract } from './agent'
-import { exerciseContract } from './contract'
+import { enableAgentInterface, AgentContract, ComponentMap } from './agent'
+import { exerciseContract, exerciseComponent } from './contract'
+import { Component } from './component'
 import { tosi } from './xin-proxy'
 import { updates } from './path-listener'
 import { validate } from 'tosijs-schema'
@@ -174,5 +175,79 @@ describe('exerciseContract — the contract is a test', () => {
     const report = exerciseContract(agent)
     expect(report.failed).toBe(1)
     expect(report.trials[0].error).toContain('round-trip mismatch')
+  })
+})
+
+describe('exerciseComponent — the component is its own test fixture', () => {
+  class HonestCounter extends Component {
+    static preferredTagName = 'honest-counter'
+    static componentMap: ComponentMap = {
+      description: 'a counter with a labeled readout and a reset',
+      value: { type: 'number', examples: [0, 42] },
+      methods: { reset: { description: 'set the count back to zero' } },
+      parts: { readout: 'span', increment: 'button' },
+    }
+    value = 0
+    reset() {
+      this.value = 0
+    }
+    content = ({ span, button }: any) => [
+      span({ part: 'readout' }),
+      button({ part: 'increment' }, '+1'),
+    ]
+  }
+  const honestCounter = HonestCounter.elementCreator()
+
+  test('a truthful componentMap passes every claim', async () => {
+    const el = honestCounter() as HonestCounter
+    document.body.append(el)
+    await updates()
+    const report = exerciseComponent(el)
+    expect(report.failed).toBe(0)
+    // 2 parts + 1 method + 2 value examples
+    expect(report.passed).toBe(5)
+    expect(el.value).toBe(0) // snapshot restored
+    el.remove()
+  })
+
+  test('a lying componentMap is caught, claim by claim', async () => {
+    const el = honestCounter() as HonestCounter
+    document.body.append(el)
+    await updates()
+    const liar: ComponentMap = {
+      parts: { readout: 'div', missing: 'input' }, // wrong tag + nonexistent
+      methods: { reset: {}, explode: {} }, // one real, one imaginary
+      value: { examples: ['not a number kept as-is'] }, // still round-trips (no coercion) — passes
+    }
+    const report = exerciseComponent(el, liar)
+    const failures = report.trials.filter((t) => !t.passed)
+    expect(failures.map((t) => t.claim)).toEqual([
+      'part "readout" is <div>',
+      'part "missing" resolves',
+      'method "explode" exists',
+    ])
+    el.remove()
+  })
+
+  test('describe() harvests a wired custom element self-declaration', async () => {
+    const { counterApp } = tosi({ counterApp: { n: 5 } })
+    const el = honestCounter() as HonestCounter
+    document.body.append(el)
+    el.constructor // (silence unused)
+    // wire it so it appears in describe()'s wiring at all
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    bind(el, 'counterApp.n', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+    const record = agent
+      .describe()
+      .wiring.find((w) => w.tag === 'honest-counter')!
+    expect(record).toBeDefined()
+    expect(record.component).toBeDefined()
+    expect(record.component!.description).toContain('counter')
+    expect(record.component!.parts!.readout).toBe('span')
+    void counterApp
+    el.remove()
   })
 })

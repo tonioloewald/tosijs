@@ -76,16 +76,24 @@ equivalent of tjs signature tests (see
 <a href="/ONE_UI_DESIGN/">The Agent Surface</a>). The blessed tosijs-schema adapter
 (~10 lines over <code>validate</code> + <code>onError</code>; <code>$predicate</code> strings ride into
 <code>describe()</code> as legible preconditions) is proven in tests here and should
-ship FROM tosijs-schema (file, don&#39;t fix). Remaining: the <strong>ComponentMap</strong>
-design (component-level contract superseding PartsMap), sub-path schema
-routing (v1 checks root-exact), and the AJS <code>$exercise</code> future. Feeds
-directly into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
+ship FROM tosijs-schema (file, don&#39;t fix). <strong>ComponentMap&#39;s additive slice
+also shipped</strong> (2026-08-03): <code>static componentMap</code> = contract + description<ul>
+<li>test fixture + parts map in one declaration; <code>describe()</code> harvests it per
+wired instance; <code>exerciseComponent()</code> executes it (parts resolve via the
+saga-hardened proxy and match declared tags, methods exist, value examples
+round-trip). Remaining: the core-API reshaping half (PartsMap generic
+superseded so the declaration IS the type; initAttributes subsumption;
+value-setter enforcement) — decide shape before building; sub-path schema
+routing (v1 checks root-exact); the AJS <code>$exercise</code> future. Feeds directly
+into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
 for production <code>write()</code> access (see <a href="/ONE_UI_TRUST/">Trust</a>) — until this
 phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>
 — the episodic agent&#39;s await-a-condition primitive — <strong>shipped early</strong>
 (2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
 the <code>changes()</code> drain, predicate errors reject, <code>disable()</code> rejects pending
 waits.</li>
+</ul>
+</li>
 <li><strong>Phase 3 — the bridge.</strong> <strong>WebMCP adapter prototype shipped</strong> (2026-08-02):
 <code>webmcpTools(agent)</code> generates the tool set pure from <code>describe()</code> (core
 quartet + one named tool per action; <code>tosi_write</code> dev-gated per Trust);
