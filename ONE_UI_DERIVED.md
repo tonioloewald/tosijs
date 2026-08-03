@@ -258,11 +258,10 @@ preview.append(
   )
 )
 
-// flex so maximizing the example gives the map the extra room
-Object.assign(preview.style, { display: 'flex', flexDirection: 'column' })
+// height: 100% so maximizing the example gives the map the room
 const detail = pre({ style: { maxHeight: '8em', overflow: 'auto', margin: 0 } })
 const drawing = div({
-  style: { flex: '1 1 auto', minHeight: '12em', overflow: 'auto' },
+  style: { height: '100%', width: 'auto', overflow: 'auto' },
 })
 
 preview.append(

@@ -102,10 +102,9 @@ preview.append(
 
 // the tool set derives itself; register it if a WebMCP host exists
 const registration = webmcpAdapter(agent)
-// flex so maximizing the example gives the tool list the extra room
-Object.assign(preview.style, { display: 'flex', flexDirection: 'column' })
+// height: 100% so maximizing the example gives the tool list the room
 const out = pre({
-  style: { flex: '1 1 auto', minHeight: '10em', overflow: 'auto', margin: 0 },
+  style: { height: '100%', width: 'auto', overflow: 'auto', margin: 0 },
 })
 out.append(
   registration

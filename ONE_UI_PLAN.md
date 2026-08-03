@@ -71,9 +71,17 @@
   selectors, no synthesized input. **The WebMCP-host
   registration e2e is CONFIRMED** (2026-08-03, Chrome Canary with the WebMCP
   flags enabled): the live demo detected the host and registered the
-  generated tool set — witnessed on the page's own self-report. Remaining:
-  driving the registered tools from a real browser agent, and the
-  bridge-convergence answers on haltija#16.
+  generated tool set — witnessed on the page's own self-report. **And the INVOCATION
+  e2e is done** (2026-08-03, later that night): through Chrome Canary 153's
+  shipped `document.modelContext` — `getTools()` listed our five (the
+  quartet + `tosi_act_mcpDemo_addNote`, derived not authored), and
+  `executeTool(tool, input)` ran the derived action through the browser's
+  own execution path: state updated, the human-visible list rendered the
+  item, the audit log recorded it. Wire contract learned live:
+  `executeTool` takes the `RegisteredTool` OBJECT (not a name) and the
+  input as a JSON **string**; `inputSchema` round-trips as a string too.
+  Our `registerTool` path matched the shipped API exactly. Remaining: only
+  the bridge-convergence answers on haltija#16.
 - **Phase 4 — distance.** The `SyncTransport` MCP peer; AJS capability
   sandboxing for agent-submitted logic; lukko alignment.
 - **Phase 5 — headless embodiment.** The DOM-free core (tosijs#18) running an
