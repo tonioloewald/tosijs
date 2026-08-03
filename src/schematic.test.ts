@@ -115,3 +115,57 @@ describe('spatial scoping — within', () => {
     expect(svg).toContain('viewBox="0 0 0 0"')
   })
 })
+
+describe('containment-aware captions', () => {
+  test('a container box gets no text-derived caption — its children speak', () => {
+    const nested: AgentDescription = {
+      exposure: 'introspection',
+      roots: {},
+      actions: [],
+      wiring: [
+        {
+          tag: 'ul',
+          text: 'alpha beta', // concatenated child text — must NOT render
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+        },
+        {
+          tag: 'span',
+          text: 'alpha',
+          bounds: { x: 10, y: 10, width: 80, height: 20 },
+        },
+        {
+          tag: 'span',
+          text: 'beta',
+          bounds: { x: 10, y: 40, width: 80, height: 20 },
+        },
+      ],
+    }
+    const svg = schematicSVG(nested)
+    expect(svg).not.toContain('alpha beta')
+    expect(svg).toContain('>alpha</text>')
+    expect(svg).toContain('>beta</text>')
+  })
+
+  test('a container with an explicit label keeps it', () => {
+    const labeled: AgentDescription = {
+      exposure: 'introspection',
+      roots: {},
+      actions: [],
+      wiring: [
+        {
+          tag: 'ul',
+          label: 'todo list',
+          text: 'alpha',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+        },
+        {
+          tag: 'span',
+          text: 'alpha',
+          bounds: { x: 10, y: 10, width: 80, height: 20 },
+        },
+      ],
+    }
+    const svg = schematicSVG(labeled)
+    expect(svg).toContain('todo list')
+  })
+})

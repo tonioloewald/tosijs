@@ -317,7 +317,13 @@ preview.append(
     // and the reveal: the ENTIRE host app — this page, chrome and all —
     // drawn from its own map (best maximized)
     button('whole page()', {
-      onClick() {
+      async onClick(event) {
+        // capture AFTER the click's focus/active styling settles, and with
+        // the previous drawing cleared — the map should show the page, not
+        // the moment of the click
+        event.target.blur()
+        drawing.innerHTML = ''
+        await new Promise((resolve) => setTimeout(resolve, 250))
         const d = agent.describe({ styles: true })
         drawing.innerHTML = schematicSVG(d)
         drawing.onclick = (event) => {

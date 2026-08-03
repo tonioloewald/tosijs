@@ -72,6 +72,12 @@ const intersects = (a: SchematicBounds, b: SchematicBounds): boolean =>
   a.y < b.y + b.height &&
   b.y < a.y + a.height
 
+const contains = (outer: SchematicBounds, inner: SchematicBounds): boolean =>
+  inner.x >= outer.x &&
+  inner.y >= outer.y &&
+  inner.x + inner.width <= outer.x + outer.width &&
+  inner.y + inner.height <= outer.y + outer.height
+
 // string args (not regexes) — tjs convert's lexer mis-reads a quote inside a
 // regex literal (/"/g) as a string opener; see tjs-lang issue
 const esc = (s: string): string =>
@@ -129,7 +135,16 @@ export const schematicSVG = (
   for (const w of boxes) {
     const index = description.wiring.indexOf(w)
     const { x, y, width, height } = w.bounds!
-    const caption = String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`)
+    // a box that CONTAINS other drawn boxes is a container: its textContent
+    // is its children's text concatenated, so a text-derived caption would
+    // overprint the children's own captions — the children speak for
+    // themselves. Only an explicit label earns a container a caption.
+    const isContainer = boxes.some(
+      (other) => other !== w && contains(w.bounds!, other.bounds!)
+    )
+    const caption = isContainer
+      ? String(w.label ?? '')
+      : String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`)
     const fill = w.style != null ? w.style.background : 'transparent'
     const stroke =
       w.style != null && w.style.borderColor !== TRANSPARENT
@@ -141,7 +156,7 @@ export const schematicSVG = (
       `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3" ` +
         `fill="${esc(fill)}" stroke="${esc(stroke)}"/>`
     )
-    if (height >= minLabelHeight) {
+    if (height >= minLabelHeight && caption !== '') {
       parts.push(
         `<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
           `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}">` +
