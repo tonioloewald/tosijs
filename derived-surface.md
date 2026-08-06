@@ -197,6 +197,10 @@ and a remote agent can draw a page nobody is viewing), plus a rasterize step —
 canvas in-browser, `@resvg/resvg-js` under bun (already a devDep for ePub
 covers).
 
+**The grammar** (explicit, so "can I act here?" never needs guessing):
+**bold outline** = wired to act (has handlers) · caption ending `⟷` =
+editable here · plain solid = display · dashed = structure.
+
 **Why the map beats pixels:**
 
 - **Layout is free structure** — containment says nesting, adjacency says

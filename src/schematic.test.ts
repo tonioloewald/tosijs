@@ -222,3 +222,38 @@ describe('off-page hiding', () => {
     expect(svg).toContain('viewBox="2 2 116 46"') // fits the visible box only
   })
 })
+
+describe('the affordance grammar — actionable is explicit', () => {
+  test('handler-wired elements get a bold outline; editable captions carry the arrow', () => {
+    const grammar: AgentDescription = {
+      exposure: 'introspection',
+      roots: {},
+      actions: [],
+      wiring: [
+        {
+          tag: 'input',
+          label: 'add a todo…', // label hides the bound-value arrow…
+          value: ' ⟷ app.newItem',
+          bounds: { x: 0, y: 0, width: 200, height: 30 },
+        },
+        {
+          tag: 'button',
+          text: 'add',
+          on: { click: 'app.addItem' },
+          bounds: { x: 210, y: 0, width: 60, height: 30 },
+        },
+        {
+          tag: 'span',
+          text: '3 ⟵ app.total', // display-only: no bold, no suffix
+          bounds: { x: 280, y: 0, width: 40, height: 30 },
+        },
+      ],
+    }
+    const svg = schematicSVG(grammar)
+    // …so the caption gets it back as a suffix: editable is explicit
+    expect(svg).toContain('add a todo… ⟷</text>')
+    // the wired button is BOLD; the display-only span is not
+    expect(svg).toContain('x="210" y="0" width="60" height="30" fill="transparent" stroke="currentColor" stroke-width="2"')
+    expect(svg).toContain('x="280" y="0" width="40" height="30" fill="transparent" stroke="currentColor"/>')
+  })
+})

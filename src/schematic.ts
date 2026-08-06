@@ -25,7 +25,7 @@ linking it back to `description.wiring[i]` — the image as index).
 
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
-import { AgentDescription } from './agent'
+import { AgentDescription, BOUND_TWO_WAY } from './agent'
 
 export interface SchematicBounds {
   x: number
@@ -177,6 +177,16 @@ export const schematicSVG = (
       ? String(w.label ?? '')
       : String(w.label ?? w.text ?? w.value ?? `<${w.tag}>`)
     const structural = w.structural === true
+    // the affordance grammar, explicit: BOLD outline = wired to act (has
+    // handlers); a trailing ⟷ on the caption = editable here (two-way
+    // binding), added when the caption is a label that would otherwise
+    // hide it. Solid = affordance, dashed = structure.
+    const actable = !structural && w.on != null
+    const editable =
+      !structural &&
+      Object.values(w).some(
+        (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
+      )
     const fill = structural
       ? 'none'
       : w.style != null
@@ -191,14 +201,22 @@ export const schematicSVG = (
     parts.push(
       `<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
         `fill="${esc(fill)}" stroke="${esc(stroke)}"${
-          structural ? ' stroke-dasharray="4 3" opacity="0.6"' : ''
+          structural
+            ? ' stroke-dasharray="4 3" opacity="0.6"'
+            : actable
+              ? ' stroke-width="2"'
+              : ''
         }/>`
     )
-    if (height >= minLabelHeight && caption !== '') {
+    const shownCaption =
+      editable && !caption.includes(BOUND_TWO_WAY)
+        ? `${caption} ${BOUND_TWO_WAY}`
+        : caption
+    if (height >= minLabelHeight && shownCaption !== '') {
       parts.push(
         `<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
           `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}">` +
-          `${esc(caption.slice(0, maxCaption))}</text>`
+          `${esc(shownCaption.slice(0, maxCaption + 2))}</text>`
       )
     }
     parts.push('</g>')
