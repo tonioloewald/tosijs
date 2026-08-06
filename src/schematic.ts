@@ -117,7 +117,6 @@ export const schematicSVG = (
   // stretches the viewBox nor sits at a page position — it gets PINNED as an
   // overlay at the map's origin, which is where it lives on screen
   const flow = boxes.filter((w) => w.viewportFixed !== true)
-  const pinned = boxes.filter((w) => w.viewportFixed === true)
   if (boxes.length === 0) {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>'
   }

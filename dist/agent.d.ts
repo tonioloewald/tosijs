@@ -153,6 +153,10 @@ export interface AgentWiringRecord {
      * `static componentMap` — the element doesn't just have affordances, it
      * DESCRIBES them */
     component?: ComponentMap;
+    /** inline contract declared where the element was built
+     * (`input({ bindValue, contract })`) — JSON-Schema-shaped; also aggregated
+     * into describe().contract under the element's bound path */
+    contract?: Record<string, any>;
     /** page-relative geometry — the layout IS part of the semantics; zero-size
      * means "not currently visible", which is itself information */
     bounds?: {

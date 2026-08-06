@@ -612,59 +612,18 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
+import { contractViolation, setContractValidator } from './contract-check'
 import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
 
 // ---------------------------------------------------------------------------
 // component contract enforcement — a contract is an OPT-IN to being held to
-// it: components without one behave exactly as before.
-
-// full-schema validation is pluggable (the setPredicateEvaluator idiom —
-// tosijs stays zero-dep); until one is registered, the native structural
-// subset below (type / enum / const) still enforces
-let contractValidator:
-  | ((value: any, schema: Record<string, any>) => true | Error)
-  | null = null
-export function setContractValidator(
-  validator: ((value: any, schema: Record<string, any>) => true | Error) | null
-): void {
-  contractValidator = validator
-}
-
-// the zero-dependency structural subset — covers the common case
-// (value: { type: 'number' }) without any schema engine
-const contractViolation = (value: any, schema: any): string | null => {
-  if (schema.const !== undefined && value !== schema.const) {
-    return `expected const ${JSON.stringify(schema.const)}`
-  }
-  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
-    return `expected one of ${JSON.stringify(schema.enum)}`
-  }
-  if (typeof schema.type === 'string') {
-    const t = schema.type
-    const ok =
-      t === 'array'
-        ? Array.isArray(value)
-        : t === 'null'
-          ? value === null
-          : t === 'integer'
-            ? typeof value === 'number' && Number.isInteger(value)
-            : t === 'object'
-              ? typeof value === 'object' &&
-                value !== null &&
-                !Array.isArray(value)
-              : typeof value === t
-    if (!ok) {
-      return `expected type ${t}, got ${Array.isArray(value) ? 'array' : typeof value}`
-    }
-  }
-  if (contractValidator != null) {
-    const verdict = contractValidator(value, schema)
-    if (verdict !== true) return verdict.message
-  }
-  return null
-}
+// it: components without one behave exactly as before. The validator itself
+// (structural subset + pluggable full-schema engine) lives in
+// contract-check.ts, shared with inline element contracts on the agent
+// surface — one gate, every declaration site.
+export { setContractValidator }
 
 const checkValueContract = (el: any, newValue: any): void => {
   const cls = el.constructor

@@ -535,3 +535,113 @@ describe('sub-path schema routing — a write is judged as the root it would pro
     expect(agent.read('wpFree.scratch')).toEqual({ totally: 'unconstrained' })
   })
 })
+
+// ---------------------------------------------------------------------------
+// inline contracts: declared where the element is built, harvested into the
+// map, aggregated into describe().contract by bound path, enforced on
+// write() — and curated away by a top-level contract, which always wins
+describe('inline element contracts', () => {
+  test('declared at the element, they surface in the record AND the aggregated contract', async () => {
+    const { elements } = await import('./elements')
+    const schema = {
+      type: 'integer',
+      minimum: 1,
+      maximum: 99,
+      description: 'quantity on hand',
+      examples: [1, 42],
+    }
+    tosi({ inlineShop: { qty: 5 } })
+    const el = elements.input({
+      bindValue: 'inlineShop.qty',
+      contract: schema,
+    })
+    document.body.append(el)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ global: false }))
+    const d = agent.describe()
+    const record = d.wiring.find((w) => w.contract != null)
+    expect(record?.contract).toEqual(schema)
+    // aggregation: the contract lands under the element's BOUND path
+    expect(d.contract?.['inlineShop.qty']).toEqual(schema)
+    el.remove()
+  })
+
+  test('write() enforces the inline contract (native subset) and audits the refusal', async () => {
+    const { elements } = await import('./elements')
+    tosi({ inlineGate: { level: 3 } })
+    const el = elements.input({
+      bindValue: 'inlineGate.level',
+      contract: { type: 'integer' },
+    })
+    document.body.append(el)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ global: false }))
+    agent.write('inlineGate.level', 7) // conforming: accepted
+    expect(agent.read('inlineGate.level')).toBe(7)
+    expect(() => agent.write('inlineGate.level', 'seven')).toThrow(
+      /inline contract violation/
+    )
+    expect(agent.read('inlineGate.level')).toBe(7) // refused = not written
+    const refusal = agent.log().find((e) => e.note?.includes('write rejected'))
+    expect(refusal?.path).toBe('inlineGate.level')
+    el.remove()
+  })
+
+  test('curation wins: a top-level contract covering the root supersedes inline', async () => {
+    const { elements } = await import('./elements')
+    tosi({ inlineCurated: { mode: 'auto' } })
+    const el = elements.input({
+      bindValue: 'inlineCurated.mode',
+      // the inline declaration is STRICTER than the curated one
+      contract: { enum: ['auto'] },
+    })
+    document.body.append(el)
+    await updates()
+
+    const curatedSchema = {
+      type: 'object',
+      properties: { mode: { type: 'string' } },
+    }
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['inlineCurated'],
+        contract: {
+          check: () => true, // curated: anything goes
+          describe: () => ({ inlineCurated: curatedSchema }),
+        },
+      },
+    }))
+    // inline would refuse 'manual'; curation covers the root, so it passes
+    agent.write('inlineCurated.mode', 'manual')
+    expect(agent.read('inlineCurated.mode')).toBe('manual')
+    // and in the aggregate, the curated key wins over the inline one
+    expect(agent.describe().contract?.['inlineCurated']).toEqual(curatedSchema)
+    el.remove()
+  })
+
+  test('inline examples are exercised by the existing harness — declaration IS test', async () => {
+    const { elements } = await import('./elements')
+    tosi({ inlineExercised: { name: 'ada' } })
+    const el = elements.input({
+      bindValue: 'inlineExercised.name',
+      contract: {
+        type: 'string',
+        examples: ['grace', 'ada'],
+        $counterexamples: [17, false],
+      },
+    })
+    document.body.append(el)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ global: false }))
+    const report = exerciseContract(agent)
+    const mine = report.trials.filter((t) => t.root === 'inlineExercised.name')
+    expect(mine.length).toBe(4) // 2 examples + 2 counterexamples
+    expect(mine.every((t) => t.passed)).toBe(true)
+    expect(agent.read('inlineExercised.name')).toBe('ada') // snapshot restored
+    el.remove()
+  })
+})

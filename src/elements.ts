@@ -409,7 +409,12 @@ import {
 } from './xin-types'
 import { camelToKabob } from './string-case'
 import { processProp } from './css'
-import { tosiPath, warnDeprecated, TAKE_DESCRIPTOR } from './metadata'
+import {
+  tosiPath,
+  warnDeprecated,
+  TAKE_DESCRIPTOR,
+  setElementContract,
+} from './metadata'
 import { MATH, SVG, type ElementsProxy } from './elements-types'
 
 const templates: { [key: string]: Element } = {}
@@ -550,6 +555,10 @@ const elementPropBinding = (key: string): XinBinding => {
 export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   if (key === 'apply') {
     value(elt)
+  } else if (key === 'contract') {
+    // inline contract: declared where the element is built, harvested by the
+    // agent surface, curated/overridden at enableAgentInterface if desired
+    setElementContract(elt, value)
   } else if (key.match(/^on[A-Z]/) != null) {
     const eventType = key.substring(2).toLowerCase()
     on(elt, eventType as EventType, value)

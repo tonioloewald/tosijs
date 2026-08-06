@@ -312,6 +312,95 @@ written in **AJS** — serializable like the schema, executable like a test,
 sandboxable like neither `Function` nor `eval` — making the contract file
 the entire conformance suite, shippable over the wire.
 
+### Inline contracts: declare where you build, curate at the top
+
+tosijs declares bindings at the moment of element creation, so contracts are
+declarable there too — a `contract` prop on any element (stored beside the
+binding metadata, never on the DOM):
+
+```js
+import { elements, tosi, enableAgentInterface, exerciseContract } from 'tosijs'
+
+const { inlineDemo } = tosi({ inlineDemo: { qty: 5 } })
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, label, input, button, pre } = elements
+
+const out = pre({ style: { height: '100%', overflow: 'auto', margin: 0 } })
+preview.append(
+  div(
+    label(
+      'quantity ',
+      input({
+        type: 'number',
+        bindValue: inlineDemo.qty,
+        // the contract, declared AT the affordance it governs
+        contract: {
+          type: 'integer',
+          description: 'quantity on hand',
+          examples: [1, 42],
+          $counterexamples: ['lots', 1.5],
+        },
+      })
+    ),
+    ' ',
+    button('agent tries qty = "lots"', {
+      onClick() {
+        try {
+          agent.write('inlineDemo.qty', 'lots')
+        } catch (e) {
+          const audit = agent.log().slice(-1)[0]
+          out.textContent = `${e.message}\n\naudit: ${JSON.stringify(audit)}`
+        }
+      },
+    }),
+    ' ',
+    button('exercise it', {
+      onClick() {
+        const trials = exerciseContract(agent).trials.filter(
+          (t) => t.root === 'inlineDemo.qty'
+        )
+        out.textContent = JSON.stringify(trials, null, 2)
+      },
+    })
+  ),
+  out
+)
+```
+
+```test
+test('inline contract: harvested, aggregated, enforced', async () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const d = agent.describe()
+  expect(d.contract?.['inlineDemo.qty']?.type).toBe('integer')
+  let refused = false
+  try {
+    agent.write('inlineDemo.qty', 'lots')
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+})
+```
+
+The declaration rides the harvest: it appears on the element's wiring record,
+aggregates into `describe().contract` under the element's **bound path**, is
+enforced by `write()` (the zero-dep type/enum/const subset natively; plug a
+full engine with `setContractValidator`), and its `examples` /
+`$counterexamples` feed `exerciseContract` — the input *is* a test case now.
+
+Declaration is distributed; curation is central. The precedence ladder, most
+deliberate wins:
+
+| level | declared | wins when |
+| --- | --- | --- |
+| `expose.contract` | at `enableAgentInterface()` | always — a curated root supersedes ("curates away") every inline declaration beneath it |
+| `static contract` | on the component class | for the component's own value/attributes/parts |
+| `contract:` prop | at the element, inline | when nothing above covers its bound path |
+| harvest | nowhere — derived | fills every remaining gap |
+
+And manifest mode's `roots` filter which inline declarations are visible at
+all — you can declare generously and expose narrowly.
+
 ### Why declaration wins: intent captured at authoring time
 
 The deep reason schema-first works is *when* the declaration happens: at

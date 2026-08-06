@@ -47,8 +47,10 @@ import {
   BOUND_CLASS,
   getElementBindings,
   elementToHandlers,
+  elementContract,
   tosiValue,
 } from './metadata'
+import { contractViolation } from './contract-check'
 import { bindings } from './bindings'
 import { propBindingKey } from './elements'
 import { webmcpAdapter, WebMCPAdapterOptions } from './webmcp'
@@ -203,6 +205,10 @@ export interface AgentWiringRecord {
    * `static componentMap` — the element doesn't just have affordances, it
    * DESCRIBES them */
   component?: ComponentMap
+  /** inline contract declared where the element was built
+   * (`input({ bindValue, contract })`) — JSON-Schema-shaped; also aggregated
+   * into describe().contract under the element's bound path */
+  contract?: Record<string, any>
   /** page-relative geometry — the layout IS part of the semantics; zero-size
    * means "not currently visible", which is itself information */
   bounds?: { x: number; y: number; width: number; height: number }
@@ -408,6 +414,25 @@ const describeElement = (el: Element): AgentWiringRecord => {
   return record
 }
 
+// resolve the inline contract governing a path, if any element declares one:
+// scanned from the live bound elements at write time — deliberately NOT a
+// path→element index (virtual lists thrash those; the DOM is the registry)
+const inlineSchemaFor = (path: string): Record<string, any> | undefined => {
+  const doc = (globalThis as any).document
+  if (doc?.getElementsByClassName == null) return undefined
+  for (const el of Array.from(
+    doc.getElementsByClassName(BOUND_CLASS)
+  ) as Element[]) {
+    const schema = elementContract(el)
+    if (schema == null) continue
+    const { dataBindings } = getElementBindings(el)
+    if (dataBindings?.some((b: any) => b.path === path)) {
+      return schema
+    }
+  }
+  return undefined
+}
+
 // aria-hidden means invisible to assistive tech — and the agent reads the
 // page the way assistive tech does. Hidden is hidden.
 const ariaHidden = (el: Element): boolean => {
@@ -524,6 +549,9 @@ export function enableAgentInterface(
       // With `scope`, both walks are confined to that element's subtree —
       // hierarchy scoping, stable however large the subtree renders.
       const wiring: AgentWiringRecord[] = []
+      // inline element contracts aggregate here, keyed by bound path —
+      // merged into describe().contract below (curation keys win)
+      const inlineContracts: Record<string, any> = {}
       if (typeof document !== 'undefined') {
         const walkRoot: Element =
           options.scope ?? (document.body as unknown as Element)
@@ -534,11 +562,25 @@ export function enableAgentInterface(
           if (ariaHidden(el)) return undefined // hidden from AT = hidden here
           const { dataBindings, eventBindings } = getElementBindings(el)
           const record = describeElement(el)
+          // inline contract: declared at the element, aggregated (below) into
+          // describe().contract under the element's bound path — declaration
+          // is distributed, curation is central
+          const inline = elementContract(el)
+          let inlinePath: string | undefined
+          let inlineTwoWay = false
           let wired = false
           if (dataBindings != null) {
             for (const b of dataBindings) {
               if (!inScope(b.path)) continue
               wired = true
+              if (inline != null && !inlineTwoWay) {
+                if (b.binding.fromDOM != null) {
+                  inlinePath = b.path // the writable path is the one it gates
+                  inlineTwoWay = true
+                } else {
+                  inlinePath ??= b.path
+                }
+              }
               const idPath = (b.options as any)?.idPath
               if (idPath != null || b.binding === (bindings as any).list) {
                 record.list = idPath ? { path: b.path, idPath } : { path: b.path }
@@ -575,6 +617,12 @@ export function enableAgentInterface(
           if (record.text === undefined) {
             const text = (el.textContent || '').trim().slice(0, 40)
             if (text) record.text = text
+          }
+          if (inline != null) {
+            record.contract = inline
+            if (inlinePath != null && inlineContracts[inlinePath] === undefined) {
+              inlineContracts[inlinePath] = inline
+            }
           }
           // a custom element may carry its own self-declaration. OWN statics
           // only: statics inherit through the prototype chain, and a subclass
@@ -693,8 +741,13 @@ export function enableAgentInterface(
         actions,
         exposure: manifestMode ? 'manifest' : 'introspection',
       }
-      if (contract?.describe != null) {
-        description.contract = contract.describe()
+      // inline declarations fill the contract; top-level curation OVERRIDES
+      // on collision — declare where you build, curate at the top
+      const declared =
+        contract?.describe != null ? contract.describe() : undefined
+      const merged = { ...inlineContracts, ...(declared ?? {}) }
+      if (Object.keys(merged).length > 0) {
+        description.contract = merged
       }
       return description
     },
@@ -743,6 +796,29 @@ export function enableAgentInterface(
             note: `write rejected: ${verdict.message}`,
           })
           throw verdict
+        }
+      }
+      // inline contracts gate wherever top-level curation does NOT cover the
+      // path — declared at the element, enforced at the surface. Curation
+      // always wins: an expose.contract root supersedes ("curate away") any
+      // inline declarations beneath it.
+      const curated =
+        contract != null &&
+        contractRoots.some((contractRoot) => underRoot(path, contractRoot))
+      if (!curated) {
+        const schema = inlineSchemaFor(path)
+        if (schema != null) {
+          const err = contractViolation(value, schema)
+          if (err != null) {
+            ledger.push({
+              seq: ++seq,
+              path,
+              note: `write rejected: ${err}`,
+            })
+            throw new TypeError(
+              `agent interface: inline contract violation at "${path}": ${err}`
+            )
+          }
         }
       }
       xin[path] = value

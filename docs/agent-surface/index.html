@@ -363,6 +363,108 @@ visibly. Future: richer exercise steps as custom properties (<code>$exercise</co
 written in <strong>AJS</strong> — serializable like the schema, executable like a test,
 sandboxable like neither <code>Function</code> nor <code>eval</code> — making the contract file
 the entire conformance suite, shippable over the wire.</p>
+<h3>Inline contracts: declare where you build, curate at the top</h3>
+<p>tosijs declares bindings at the moment of element creation, so contracts are
+declarable there too — a <code>contract</code> prop on any element (stored beside the
+binding metadata, never on the DOM):</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface, exerciseContract } from &#39;tosijs&#39;
+
+const { inlineDemo } = tosi({ inlineDemo: { qty: 5 } })
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, label, input, button, pre } = elements
+
+const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+preview.append(
+  div(
+    label(
+      &#39;quantity &#39;,
+      input({
+        type: &#39;number&#39;,
+        bindValue: inlineDemo.qty,
+        // the contract, declared AT the affordance it governs
+        contract: {
+          type: &#39;integer&#39;,
+          description: &#39;quantity on hand&#39;,
+          examples: [1, 42],
+          $counterexamples: [&#39;lots&#39;, 1.5],
+        },
+      })
+    ),
+    &#39; &#39;,
+    button(&#39;agent tries qty = &quot;lots&quot;&#39;, {
+      onClick() {
+        try {
+          agent.write(&#39;inlineDemo.qty&#39;, &#39;lots&#39;)
+        } catch (e) {
+          const audit = agent.log().slice(-1)[0]
+          out.textContent = `${e.message}\n\naudit: ${JSON.stringify(audit)}`
+        }
+      },
+    }),
+    &#39; &#39;,
+    button(&#39;exercise it&#39;, {
+      onClick() {
+        const trials = exerciseContract(agent).trials.filter(
+          (t) =&gt; t.root === &#39;inlineDemo.qty&#39;
+        )
+        out.textContent = JSON.stringify(trials, null, 2)
+      },
+    })
+  ),
+  out
+)
+</code></pre>
+<pre><code class="language-test">test(&#39;inline contract: harvested, aggregated, enforced&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const d = agent.describe()
+  expect(d.contract?.[&#39;inlineDemo.qty&#39;]?.type).toBe(&#39;integer&#39;)
+  let refused = false
+  try {
+    agent.write(&#39;inlineDemo.qty&#39;, &#39;lots&#39;)
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+})
+</code></pre>
+<p>The declaration rides the harvest: it appears on the element&#39;s wiring record,
+aggregates into <code>describe().contract</code> under the element&#39;s <strong>bound path</strong>, is
+enforced by <code>write()</code> (the zero-dep type/enum/const subset natively; plug a
+full engine with <code>setContractValidator</code>), and its <code>examples</code> /
+<code>$counterexamples</code> feed <code>exerciseContract</code> — the input <em>is</em> a test case now.</p>
+<p>Declaration is distributed; curation is central. The precedence ladder, most
+deliberate wins:</p>
+<table>
+<thead>
+<tr>
+<th>level</th>
+<th>declared</th>
+<th>wins when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>expose.contract</code></td>
+<td>at <code>enableAgentInterface()</code></td>
+<td>always — a curated root supersedes (&quot;curates away&quot;) every inline declaration beneath it</td>
+</tr>
+<tr>
+<td><code>static contract</code></td>
+<td>on the component class</td>
+<td>for the component&#39;s own value/attributes/parts</td>
+</tr>
+<tr>
+<td><code>contract:</code> prop</td>
+<td>at the element, inline</td>
+<td>when nothing above covers its bound path</td>
+</tr>
+<tr>
+<td>harvest</td>
+<td>nowhere — derived</td>
+<td>fills every remaining gap</td>
+</tr>
+</tbody></table>
+<p>And manifest mode&#39;s <code>roots</code> filter which inline declarations are visible at
+all — you can declare generously and expose narrowly.</p>
 <h3>Why declaration wins: intent captured at authoring time</h3>
 <p>The deep reason schema-first works is <em>when</em> the declaration happens: at
 authoring time, while the purpose is still known. Everything expensive in

@@ -411,6 +411,7 @@ harvest **on demand** from what's already there:
 | `aria-hidden` | hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does |
 | `input({ type: 'email' })`, `required`, `min`/`max`/`pattern` | value types and validation constraints, straight from the markup sugar |
 | `part: 'searchBox'` | the developer's *own name* for the affordance |
+| `contract: { type: 'integer', examples: [1, 42] }` | an **inline contract**, declared at the element: rides the record, aggregates into `describe().contract` under the bound path, gates agent writes, and its examples are executable — see [The Agent Surface](/agent-surface/) |
 | `static initAttributes = { count: 0, live: false }` | a **typed per-component attribute schema** — types already inferred from defaults at runtime (`typeof` branch in the attribute machinery) |
 | component `value` + `formAssociated` | the component's value surface and its form contract |
 

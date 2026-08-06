@@ -526,6 +526,10 @@ harvest <strong>on demand</strong> from what&#39;s already there:</p>
 <td>the developer&#39;s <em>own name</em> for the affordance</td>
 </tr>
 <tr>
+<td><code>contract: { type: &#39;integer&#39;, examples: [1, 42] }</code></td>
+<td>an <strong>inline contract</strong>, declared at the element: rides the record, aggregates into <code>describe().contract</code> under the bound path, gates agent writes, and its examples are executable — see <a href="/agent-surface/">The Agent Surface</a></td>
+</tr>
+<tr>
 <td><code>static initAttributes = { count: 0, live: false }</code></td>
 <td>a <strong>typed per-component attribute schema</strong> — types already inferred from defaults at runtime (<code>typeof</code> branch in the attribute machinery)</td>
 </tr>

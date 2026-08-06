@@ -2,8 +2,9 @@ import { XinStyleSheet } from './css-types';
 import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
+import { setContractValidator } from './contract-check';
 import type { ComponentMap } from './agent';
-export declare function setContractValidator(validator: ((value: any, schema: Record<string, any>) => true | Error) | null): void;
+export { setContractValidator };
 /** tag-name literal → element type, for parts declared in a component contract */
 type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[T] : Element;
 /**
@@ -171,4 +172,3 @@ declare class XinSlot extends Component<SlotParts> {
     static replaceSlot: typeof TosiSlot.replaceSlot;
 }
 export declare const xinSlot: ElementCreator<XinSlot>;
-export {};
