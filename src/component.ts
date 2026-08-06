@@ -1632,6 +1632,25 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     insertGlobalStyles((this.constructor as unknown as Component).tagName)
     this.hydrate()
     if (this.role != null) this.setAttribute('role', this.role)
+    // curation materializes as accessibility: a component's own contract
+    // description becomes its accessible name — UNLESS the author already
+    // provided one (explicit content always wins). The same declaration
+    // that informs agents now informs screen readers.
+    {
+      const cls = this.constructor as any
+      const description = Object.prototype.hasOwnProperty.call(cls, 'contract')
+        ? cls.contract?.description
+        : undefined
+      if (
+        typeof description === 'string' &&
+        description !== '' &&
+        !this.hasAttribute('aria-label') &&
+        !this.hasAttribute('aria-labelledby') &&
+        !this.hasAttribute('title')
+      ) {
+        this.setAttribute('aria-label', description)
+      }
+    }
     // Form-associated components must be focusable for validation to work
     if (
       (this.constructor as typeof Component).formAssociated &&

@@ -236,7 +236,8 @@ canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for 
 covers).</p>
 <p><strong>The grammar</strong> (explicit, so &quot;can I act here?&quot; never needs guessing):
 <strong>bold outline</strong> = wired to act (has handlers) · caption ending <code>⟷</code> =
-editable here · plain solid = display · dashed = structure.</p>
+editable here · <strong>faded</strong> = disabled right now · plain solid = display ·
+dashed = structure.</p>
 <p><strong>Why the map beats pixels:</strong></p>
 <ul>
 <li><strong>Layout is free structure</strong> — containment says nesting, adjacency says
@@ -488,8 +489,16 @@ harvest <strong>on demand</strong> from what&#39;s already there:</p>
 <td><code>app.items</code> is a collection keyed by <code>id</code>; the template&#39;s relative (<code>^.field</code>) bindings enumerate <strong>which fields of each item the UI presents</strong>, and per-row handlers are per-row actions</td>
 </tr>
 <tr>
-<td><code>role</code>, <code>aria-*</code>, <code>title</code>, <code>placeholder</code>, <code>alt</code>, <code>label</code> wrapping</td>
-<td><strong>semantic labels</strong> — the same vocabulary a11y-tree agents already consume, but harvested at the source</td>
+<td><code>aria-label(ledby)</code>, <code>title</code>, <code>placeholder</code>, <code>alt</code></td>
+<td><strong>the accessible name, resolved</strong> — what a screen reader would say, harvested at the source</td>
+</tr>
+<tr>
+<td><code>aria-describedby</code>, <code>aria-disabled</code>/<code>disabled</code>, <code>aria-required</code></td>
+<td>the author&#39;s own explanation + live affordance state (<code>description</code>, <code>disabled</code>, <code>required</code> on the record)</td>
+</tr>
+<tr>
+<td><code>aria-hidden</code></td>
+<td>hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does</td>
 </tr>
 <tr>
 <td><code>input({ type: &#39;email&#39; })</code>, <code>required</code>, <code>min</code>/<code>max</code>/<code>pattern</code></td>

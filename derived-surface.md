@@ -199,7 +199,8 @@ covers).
 
 **The grammar** (explicit, so "can I act here?" never needs guessing):
 **bold outline** = wired to act (has handlers) · caption ending `⟷` =
-editable here · plain solid = display · dashed = structure.
+editable here · **faded** = disabled right now · plain solid = display ·
+dashed = structure.
 
 **Why the map beats pixels:**
 
@@ -388,7 +389,9 @@ harvest **on demand** from what's already there:
 | `textContent: app.total` (prop binding is `toDOM`-only) | this path is *displayed* — read-only output |
 | `bindEnabled: app.cart.valid` | a **precondition**: the guarded action's availability depends on this path |
 | `listBinding(template, { idPath: 'id' })` | `app.items` is a collection keyed by `id`; the template's relative (`^.field`) bindings enumerate **which fields of each item the UI presents**, and per-row handlers are per-row actions |
-| `role`, `aria-*`, `title`, `placeholder`, `alt`, `label` wrapping | **semantic labels** — the same vocabulary a11y-tree agents already consume, but harvested at the source |
+| `aria-label(ledby)`, `title`, `placeholder`, `alt` | **the accessible name, resolved** — what a screen reader would say, harvested at the source |
+| `aria-describedby`, `aria-disabled`/`disabled`, `aria-required` | the author's own explanation + live affordance state (`description`, `disabled`, `required` on the record) |
+| `aria-hidden` | hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does |
 | `input({ type: 'email' })`, `required`, `min`/`max`/`pattern` | value types and validation constraints, straight from the markup sugar |
 | `part: 'searchBox'` | the developer's *own name* for the affordance |
 | `static initAttributes = { count: 0, live: false }` | a **typed per-component attribute schema** — types already inferred from defaults at runtime (`typeof` branch in the attribute machinery) |

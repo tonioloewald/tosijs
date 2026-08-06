@@ -123,8 +123,14 @@ export interface AgentWiringRecord {
     id?: string;
     part?: string;
     role?: string;
-    /** harvested from aria-label / title / placeholder / alt */
+    /** harvested from aria-label(ledby) / title / placeholder / alt */
     label?: string;
+    /** resolved aria-describedby text — the author's own explanation */
+    description?: string;
+    /** present and true when the affordance is currently disabled */
+    disabled?: boolean;
+    /** present and true when the field is required */
+    required?: boolean;
     /** textContent — static ("foo") or bound ("foo ⟵ path") */
     text?: string;
     /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */

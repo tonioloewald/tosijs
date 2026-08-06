@@ -454,6 +454,10 @@ ngx-tosijs legacy app, the doc system itself. A class&#39;s own <code>static con
 attaches from <em>outside</em> the app (a console, a userscript, an extension),
 the entire ladder — introspection, manifest, contracts, component maps —
 can be lofted onto a running app that never heard of any of this.</p>
+<p><strong>And curation flows back to humans:</strong> a component&#39;s <code>contract.description</code>
+materializes as its <code>aria-label</code> when the author didn&#39;t write one (explicit
+content always wins) — the same declaration that informs agents informs
+screen readers. ARIA in, ARIA out: the curb cut runs both directions.</p>
 <p>Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component <em>says so in a checkable form</em>.</p>

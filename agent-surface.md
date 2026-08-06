@@ -414,6 +414,11 @@ attaches from *outside* the app (a console, a userscript, an extension),
 the entire ladder — introspection, manifest, contracts, component maps —
 can be lofted onto a running app that never heard of any of this.
 
+**And curation flows back to humans:** a component's `contract.description`
+materializes as its `aria-label` when the author didn't write one (explicit
+content always wins) — the same declaration that informs agents informs
+screen readers. ARIA in, ARIA out: the curb cut runs both directions.
+
 Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
 a component *says so in a checkable form*.

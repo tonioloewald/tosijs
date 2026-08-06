@@ -504,3 +504,60 @@ describe("describe({ view: 'viewport' }) — the camera", () => {
     offScreen.remove()
   })
 })
+
+describe('ARIA is a two-way street', () => {
+  test('the harvest speaks screen reader: labelledby/describedby resolve, states surface, aria-hidden is hidden', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    tosi({ ariaApp: { qty: 1, ghost: 0 } })
+    const caption = elements.span({ id: 'qty-caption' }, 'Quantity')
+    const hint = elements.span({ id: 'qty-hint' }, 'between 1 and 99')
+    const field = elements.input({
+      ariaLabelledby: 'qty-caption',
+      ariaDescribedby: 'qty-hint',
+      ariaRequired: 'true',
+      ariaDisabled: 'true',
+    })
+    const invisible = elements.input({ ariaHidden: 'true' })
+    document.body.append(caption, hint, field, invisible)
+    bind(field, 'ariaApp.qty', bindings.value)
+    bind(invisible, 'ariaApp.ghost', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false }))
+
+    const d = agent.describe()
+    const rec = d.wiring.find((w) =>
+      JSON.stringify(w).includes('ariaApp.qty')
+    )!
+    expect(rec.label).toBe('Quantity') // resolved, not the raw id list
+    expect(rec.description).toBe('between 1 and 99')
+    expect(rec.required).toBe(true)
+    expect(rec.disabled).toBe(true)
+    // aria-hidden = hidden from assistive tech = hidden from the agent
+    expect(JSON.stringify(d.wiring)).not.toContain('ariaApp.ghost')
+    for (const el of [caption, hint, field, invisible]) el.remove()
+  })
+
+  test('curation materializes: contract.description becomes aria-label unless the author wrote one', async () => {
+    const { Component } = await import('./component')
+    class DescribedThing extends Component {
+      static preferredTagName = 'described-thing'
+      static contract = { description: 'a self-describing widget' }
+    }
+    const creator = DescribedThing.elementCreator()
+    const el = creator() as DescribedThing
+    document.body.append(el)
+    await updates()
+    expect(el.getAttribute('aria-label')).toBe('a self-describing widget')
+
+    // explicit content always wins
+    const el2 = creator() as DescribedThing
+    el2.setAttribute('aria-label', 'the author knows best')
+    document.body.append(el2)
+    await updates()
+    expect(el2.getAttribute('aria-label')).toBe('the author knows best')
+    el.remove()
+    el2.remove()
+  })
+})

@@ -170,8 +170,14 @@ export interface AgentWiringRecord {
   id?: string
   part?: string
   role?: string
-  /** harvested from aria-label / title / placeholder / alt */
+  /** harvested from aria-label(ledby) / title / placeholder / alt */
   label?: string
+  /** resolved aria-describedby text — the author's own explanation */
+  description?: string
+  /** present and true when the affordance is currently disabled */
+  disabled?: boolean
+  /** present and true when the field is required */
+  required?: boolean
   /** textContent — static ("foo") or bound ("foo ⟵ path") */
   text?: string
   /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */
@@ -339,6 +345,17 @@ const measureBounds = (
 
 // the join: the element's own semantic self-description, harvested from
 // attributes the developer wrote for humans and a11y
+const referencedText = (el: Element, attr: string): string | null => {
+  const ids = el.getAttribute(attr)
+  if (!ids) return null
+  const text = ids
+    .split(/\s+/)
+    .map((id) => el.ownerDocument?.getElementById(id)?.textContent?.trim())
+    .filter(Boolean)
+    .join(' ')
+  return text || null
+}
+
 const describeElement = (el: Element): AgentWiringRecord => {
   const record: AgentWiringRecord = {
     tag: el.tagName.toLowerCase(),
@@ -348,13 +365,40 @@ const describeElement = (el: Element): AgentWiringRecord => {
   if (part) record.part = part
   const role = el.getAttribute('role')
   if (role) record.role = role
+  // the accessible-name algorithm, abridged: what a screen reader would say
   const label =
     el.getAttribute('aria-label') ||
+    referencedText(el, 'aria-labelledby') ||
     el.getAttribute('title') ||
     el.getAttribute('placeholder') ||
     el.getAttribute('alt')
   if (label) record.label = label
+  const description = referencedText(el, 'aria-describedby')
+  if (description) record.description = description
+  if (
+    (el as any).disabled === true ||
+    el.getAttribute('aria-disabled') === 'true'
+  ) {
+    record.disabled = true
+  }
+  if (
+    (el as any).required === true ||
+    el.getAttribute('aria-required') === 'true'
+  ) {
+    record.required = true
+  }
   return record
+}
+
+// aria-hidden means invisible to assistive tech — and the agent reads the
+// page the way assistive tech does. Hidden is hidden.
+const ariaHidden = (el: Element): boolean => {
+  let probe: Element | null = el
+  for (let hop = 0; probe != null && hop < 12; hop++) {
+    if (probe.getAttribute?.('aria-hidden') === 'true') return true
+    probe = probe.parentElement
+  }
+  return false
 }
 
 // "value ⟷ path" — current value plus provenance in one parseable string
@@ -466,6 +510,7 @@ export function enableAgentInterface(
         const recordFor = (el: Element): AgentWiringRecord | undefined => {
           if (seen.has(el)) return undefined
           seen.add(el)
+          if (ariaHidden(el)) return undefined // hidden from AT = hidden here
           const { dataBindings, eventBindings } = getElementBindings(el)
           const record = describeElement(el)
           let wired = false

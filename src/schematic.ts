@@ -203,9 +203,11 @@ export const schematicSVG = (
         `fill="${esc(fill)}" stroke="${esc(stroke)}"${
           structural
             ? ' stroke-dasharray="4 3" opacity="0.6"'
-            : actable
-              ? ' stroke-width="2"'
-              : ''
+            : w.disabled === true
+              ? ' opacity="0.4"'
+              : actable
+                ? ' stroke-width="2"'
+                : ''
         }/>`
     )
     const shownCaption =
