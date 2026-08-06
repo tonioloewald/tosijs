@@ -1,4 +1,4 @@
-import { AgentInterface } from './agent';
+import type { AgentInterface } from './agent';
 export interface WebMCPTool {
     name: string;
     description: string;

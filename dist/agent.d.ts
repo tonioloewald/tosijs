@@ -1,3 +1,4 @@
+import { WebMCPAdapterOptions } from './webmcp';
 /**
  * The contract seam — tosijs stays zero-dependency, so the core doesn't know
  * any schema language; it knows a CHECK. The blessed adapter is a few lines
@@ -101,6 +102,14 @@ export interface AgentInterfaceOptions {
     components?: Record<string, ComponentMap>;
     /** install as globalThis.tosiAgent (default true); pass a string to rename */
     global?: boolean | string;
+    /**
+     * Auto-register the generated WebMCP tool set when the browser provides a
+     * model-context host (default true — a no-op where no host exists). Pass
+     * adapter options to configure, or `false` to keep the surface off the
+     * browser's tool registry. NOTE: per-action tools snapshot the surface at
+     * enable time — enable AFTER the UI is wired (re-enabling reconfigures).
+     */
+    webmcp?: boolean | WebMCPAdapterOptions;
 }
 /**
  * Provenance tokens for bound properties in describe() output. A bound prop
@@ -230,5 +239,10 @@ export interface AgentInterface {
     when: (path: string, predicate: (value: any) => boolean) => Promise<any>;
     log: () => AgentLogEntry[];
     disable: () => void;
+    /** names of the WebMCP tools auto-registered at enable time — set only
+     * when a model-context host was present (feature-detect by presence) */
+    webmcp?: {
+        tools: string[];
+    };
 }
 export declare function enableAgentInterface(options?: AgentInterfaceOptions): AgentInterface;

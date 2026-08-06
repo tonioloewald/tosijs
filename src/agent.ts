@@ -30,8 +30,14 @@ In production, expose only what you declare:
       },
     })
 
+One call is the whole story: where the browser provides a WebMCP host
+(`document.modelContext`), `enableAgentInterface()` also registers the
+generated tool set automatically — `agent.webmcp` is the receipt, and
+`webmcp: false` opts out. No host, no-op.
+
 > **EXPERIMENTAL.** Shapes and names may change. The surface is deliberately
-> protocol-neutral — MCP / WebMCP adapters sit on top of it, not inside it.
+> protocol-neutral — MCP / WebMCP adapters sit on top of it; the WebMCP
+> auto-registration is a convenience over that adapter, not a dependency.
 */
 import { registry } from './registry'
 import { observe, unobserve, Listener } from './path-listener'
@@ -45,6 +51,7 @@ import {
 } from './metadata'
 import { bindings } from './bindings'
 import { propBindingKey } from './elements'
+import { webmcpAdapter, WebMCPAdapterOptions } from './webmcp'
 
 /**
  * The contract seam — tosijs stays zero-dependency, so the core doesn't know
@@ -146,6 +153,14 @@ export interface AgentInterfaceOptions {
   components?: Record<string, ComponentMap>
   /** install as globalThis.tosiAgent (default true); pass a string to rename */
   global?: boolean | string
+  /**
+   * Auto-register the generated WebMCP tool set when the browser provides a
+   * model-context host (default true — a no-op where no host exists). Pass
+   * adapter options to configure, or `false` to keep the surface off the
+   * browser's tool registry. NOTE: per-action tools snapshot the surface at
+   * enable time — enable AFTER the UI is wired (re-enabling reconfigures).
+   */
+  webmcp?: boolean | WebMCPAdapterOptions
 }
 
 /**
@@ -262,6 +277,9 @@ export interface AgentInterface {
   when: (path: string, predicate: (value: any) => boolean) => Promise<any>
   log: () => AgentLogEntry[]
   disable: () => void
+  /** names of the WebMCP tools auto-registered at enable time — set only
+   * when a model-context host was present (feature-detect by presence) */
+  webmcp?: { tools: string[] }
 }
 
 // a path is "under" a root if it IS the root or extends it by a segment
@@ -429,7 +447,10 @@ export function enableAgentInterface(
   // re-enabling reconfigures: tear down the previous surface first
   if (active != null) active.disable()
 
-  const { expose, components, global = true } = options
+  const { expose, components, global = true, webmcp = true } = options
+  let webmcpRegistration:
+    | { tools: string[]; unregister: () => void }
+    | undefined
   const roots = expose?.roots
   const exposedActions = expose?.actions
   const contract = expose?.contract
@@ -820,6 +841,9 @@ export function enableAgentInterface(
     },
 
     disable(): void {
+      webmcpRegistration?.unregister()
+      webmcpRegistration = undefined
+      delete surface.webmcp
       unobserve(ledgerListener)
       for (const listener of subscriptions) unobserve(listener)
       subscriptions.clear()
@@ -838,6 +862,18 @@ export function enableAgentInterface(
   if (global !== false) {
     activeGlobalName = typeof global === 'string' ? global : 'tosiAgent'
     ;(globalThis as any)[activeGlobalName] = surface
+  }
+  // one call, whole surface: where the browser provides a model-context
+  // host, the generated WebMCP tool set registers automatically (and a
+  // re-enable or disable() unregisters it)
+  if (webmcp !== false) {
+    webmcpRegistration = webmcpAdapter(
+      surface,
+      typeof webmcp === 'object' ? webmcp : {}
+    )
+    if (webmcpRegistration != null) {
+      surface.webmcp = { tools: webmcpRegistration.tools }
+    }
   }
   active = surface
   return surface

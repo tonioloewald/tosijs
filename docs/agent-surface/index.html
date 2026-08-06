@@ -55,10 +55,12 @@ set write itself from an ordinary little app:</p>
 <p>Every existing WebMCP integration authors its tools by hand.
 <code>webmcpTools(agent)</code> <strong>generates</strong> them: the core quartet plus one <em>named</em>
 tool per action the registry already holds. With a WebMCP host present
-(Chrome Canary), they register live; without one, you see exactly what would.
+(Chrome Canary), <code>enableAgentInterface()</code> registers them <strong>automatically at
+enable time</strong> (<code>agent.webmcp</code> carries the receipt; <code>webmcp: false</code> opts out);
+without a host, you see exactly what would register.
 (<code>tosi_write</code> appears only because this page runs in dev/introspection mode —
 see <a href="/trust-and-transports/">Trust</a>.)</p>
-<pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools } from &#39;tosijs&#39;
 
 const { mcpDemo } = tosi({
   mcpDemo: {
@@ -83,15 +85,15 @@ preview.append(
   )
 )
 
-// the tool set derives itself; register it if a WebMCP host exists
-const registration = webmcpAdapter(agent)
+// no registration call: enableAgentInterface() already registered the set
+// if this browser has a WebMCP host — agent.webmcp is the receipt
 // height: 100% so maximizing the example gives the tool list the room
 const out = pre({
   style: { height: &#39;100%&#39;, width: &#39;auto&#39;, overflow: &#39;auto&#39;, margin: 0 },
 })
 out.append(
-  registration
-    ? `WebMCP host detected — ${registration.tools.length} tools registered live:\n\n`
+  agent.webmcp
+    ? `WebMCP host detected — ${agent.webmcp.tools.length} tools auto-registered when the surface was enabled:\n\n`
     : &#39;No WebMCP host in this browser — the generated set that WOULD register\n(derived from the page, authored by nobody):\n\n&#39;
 )
 for (const tool of webmcpTools(agent)) {
@@ -170,6 +172,10 @@ contexts) is small and protocol-neutral:</p>
 <tr>
 <td><code>agent.log()</code></td>
 <td>the audit trail: every touch — and refusal — since enable</td>
+</tr>
+<tr>
+<td><code>agent.webmcp</code></td>
+<td>receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host)</td>
 </tr>
 </tbody></table>
 <p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs

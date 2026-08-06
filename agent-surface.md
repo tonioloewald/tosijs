@@ -11,12 +11,14 @@ set write itself from an ordinary little app:
 Every existing WebMCP integration authors its tools by hand.
 `webmcpTools(agent)` **generates** them: the core quartet plus one *named*
 tool per action the registry already holds. With a WebMCP host present
-(Chrome Canary), they register live; without one, you see exactly what would.
+(Chrome Canary), `enableAgentInterface()` registers them **automatically at
+enable time** (`agent.webmcp` carries the receipt; `webmcp: false` opts out);
+without a host, you see exactly what would register.
 (`tosi_write` appears only because this page runs in dev/introspection mode —
 see [Trust](/trust-and-transports/).)
 
 ```js
-import { elements, tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from 'tosijs'
+import { elements, tosi, enableAgentInterface, webmcpTools } from 'tosijs'
 
 const { mcpDemo } = tosi({
   mcpDemo: {
@@ -41,15 +43,15 @@ preview.append(
   )
 )
 
-// the tool set derives itself; register it if a WebMCP host exists
-const registration = webmcpAdapter(agent)
+// no registration call: enableAgentInterface() already registered the set
+// if this browser has a WebMCP host — agent.webmcp is the receipt
 // height: 100% so maximizing the example gives the tool list the room
 const out = pre({
   style: { height: '100%', width: 'auto', overflow: 'auto', margin: 0 },
 })
 out.append(
-  registration
-    ? `WebMCP host detected — ${registration.tools.length} tools registered live:\n\n`
+  agent.webmcp
+    ? `WebMCP host detected — ${agent.webmcp.tools.length} tools auto-registered when the surface was enabled:\n\n`
     : 'No WebMCP host in this browser — the generated set that WOULD register\n(derived from the page, authored by nobody):\n\n'
 )
 for (const tool of webmcpTools(agent)) {
@@ -109,6 +111,7 @@ contexts) is small and protocol-neutral:
 | `agent.changes(since)` | turn-based drain: final-value-per-path since your cursor |
 | `agent.when(path, predicate)` | await a state *condition* (see push and drain) |
 | `agent.log()` | the audit trail: every touch — and refusal — since enable |
+| `agent.webmcp` | receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host) |
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
 already records — enumerate `BOUND_CLASS`, map each element through

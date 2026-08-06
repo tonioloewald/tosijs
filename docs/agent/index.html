@@ -72,9 +72,14 @@ agent.log()               // the audit trail
   },
 })
 </code></pre>
+<p>One call is the whole story: where the browser provides a WebMCP host
+(<code>document.modelContext</code>), <code>enableAgentInterface()</code> also registers the
+generated tool set automatically — <code>agent.webmcp</code> is the receipt, and
+<code>webmcp: false</code> opts out. No host, no-op.</p>
 <blockquote>
 <p><strong>EXPERIMENTAL.</strong> Shapes and names may change. The surface is deliberately
-protocol-neutral — MCP / WebMCP adapters sit on top of it, not inside it.</p>
+protocol-neutral — MCP / WebMCP adapters sit on top of it; the WebMCP
+auto-registration is a convenience over that adapter, not a dependency.</p>
 </blockquote>
 
   </article>

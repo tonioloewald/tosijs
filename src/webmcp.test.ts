@@ -118,3 +118,51 @@ describe('webmcpAdapter — registration against a host', () => {
     expect(calls[1].tools).toEqual([])
   })
 })
+
+describe('enableAgentInterface — one call, whole surface', () => {
+  test('auto-registers with the model-context host; disable() unregisters', () => {
+    tosi({ mcpAuto: { go() {} } })
+    const registered: string[] = []
+    const removed: string[] = []
+    const host = {
+      registerTool(tool: any) {
+        registered.push(tool.name)
+        return { unregister: () => removed.push(tool.name) }
+      },
+    }
+    current = enableAgentInterface({
+      global: false,
+      webmcp: { modelContext: host },
+    })
+    expect(registered).toContain('tosi_describe')
+    expect(registered).toContain('tosi_act_mcpAuto_go')
+    current.disable()
+    expect(removed).toEqual(registered)
+    current = undefined
+  })
+
+  test('webmcp: false keeps the surface off a detectable host; default finds it', () => {
+    tosi({ mcpOptOut: { x: 1 } })
+    const registered: string[] = []
+    const host = {
+      registerTool(tool: any) {
+        registered.push(tool.name)
+        return { unregister() {} }
+      },
+    }
+    ;(document as any).modelContext = host
+    try {
+      // the option gates registration even though detection WOULD succeed
+      current = enableAgentInterface({ global: false, webmcp: false })
+      expect(registered).toEqual([])
+      expect(current.webmcp).toBeUndefined()
+      current.disable()
+      // default true: the host is discovered without being injected
+      current = enableAgentInterface({ global: false })
+      expect(registered).toContain('tosi_describe')
+      expect(current.webmcp?.tools).toEqual(registered)
+    } finally {
+      delete (document as any).modelContext
+    }
+  })
+})

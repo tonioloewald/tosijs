@@ -45,7 +45,9 @@ with good documentation.
 > **EXPERIMENTAL.** The WebMCP spec is churning; the adapter is deliberately
 > tolerant of both registration shapes and takes an injected host for tests.
 */
-import { AgentInterface } from './agent'
+// type-only: keeps this module import-free at runtime, so agent.ts can
+// import the adapter for auto-registration without a module cycle
+import type { AgentInterface } from './agent'
 
 export interface WebMCPTool {
   name: string
