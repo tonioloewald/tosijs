@@ -388,6 +388,128 @@ enforced by `write()` (the zero-dep type/enum/const subset natively; plug a
 full engine with `setContractValidator`), and its `examples` /
 `$counterexamples` feed `exerciseContract` — the input *is* a test case now.
 
+And curation, live — the same input, then **ship day**: one curated contract
+at the top supersedes the inline declaration beneath it, and the manifest
+narrows the whole surface to the declared root. Watch the bound input update
+as the agent's writes land (and fail to update when they're refused):
+
+```js
+import { elements, tosi, enableAgentInterface } from 'tosijs'
+
+const { shipDay } = tosi({ shipDay: { qty: 5 } })
+const { div, label, input, button, pre } = elements
+
+const out = pre({ style: { height: '100%', overflow: 'auto', margin: 0 } })
+const attempt = (agent, path, value) => {
+  try {
+    agent.write(path, value)
+    return `  ✓ ${path} = ${JSON.stringify(value)}`
+  } catch (e) {
+    return `  ✗ ${JSON.stringify(value)} — ${e.message}`
+  }
+}
+
+preview.append(
+  div(
+    label(
+      'quantity ',
+      input({
+        type: 'number',
+        bindValue: shipDay.qty,
+        // dev-day gate: just a type — inline, beside the binding
+        contract: { type: 'integer', description: 'quantity on hand' },
+      })
+    ),
+    ' ',
+    button('dev day vs ship day', {
+      // the whole story is SYNCHRONOUS: swap in the curated surface, act,
+      // and hand the page back its introspection surface — atomically
+      onClick() {
+        const lines = []
+        let agent = enableAgentInterface()
+        lines.push(
+          `dev (introspection): ${Object.keys(agent.describe().roots).length} roots visible`
+        )
+        lines.push(attempt(agent, 'shipDay.qty', 'lots'))
+        lines.push(
+          attempt(agent, 'shipDay.qty', 150) + ' ← inline only checks type'
+        )
+        // ship day: ONE reviewed contract, declared at the top
+        agent = enableAgentInterface({
+          expose: {
+            roots: ['shipDay'],
+            contract: {
+              check(_path, value, proposal) {
+                const qty = proposal?.proposed?.qty ?? value
+                return Number.isInteger(qty) && qty >= 1 && qty <= 99
+                  ? true
+                  : new Error('qty must be an integer from 1 to 99')
+              },
+              describe: () => ({
+                shipDay: {
+                  type: 'object',
+                  properties: {
+                    qty: { type: 'integer', minimum: 1, maximum: 99 },
+                  },
+                },
+              }),
+            },
+          },
+        })
+        lines.push(
+          `ship (manifest + curated): ${Object.keys(agent.describe().roots).length} root visible`
+        )
+        lines.push(
+          attempt(agent, 'shipDay.qty', 150) +
+            ' ← the curated rule, not the inline one'
+        )
+        lines.push(attempt(agent, 'shipDay.qty', 7))
+        enableAgentInterface() // the page gets its introspection surface back
+        out.textContent = lines.join('\n')
+      },
+    })
+  ),
+  out
+)
+```
+
+```test
+import { enableAgentInterface } from 'tosijs'
+
+test('ship day: curation supersedes inline, the manifest narrows the world', () => {
+  // fully synchronous on purpose: surface swaps are atomic, so concurrent
+  // fence tests never observe the intermediate manifest mode
+  const dev = enableAgentInterface()
+  const devRoots = Object.keys(dev.describe().roots).length
+  const curated = enableAgentInterface({
+    expose: {
+      roots: ['shipDay'],
+      contract: {
+        check: (_p, value, proposal) => {
+          const qty = proposal?.proposed?.qty ?? value
+          return Number.isInteger(qty) && qty >= 1 && qty <= 99
+            ? true
+            : new Error('qty must be an integer from 1 to 99')
+        },
+        describe: () => ({ shipDay: { type: 'object' } }),
+      },
+    },
+  })
+  expect(Object.keys(curated.describe().roots).length).toBe(1)
+  expect(devRoots > 1).toBe(true)
+  let refused = false
+  try {
+    curated.write('shipDay.qty', 150)
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+  curated.write('shipDay.qty', 7) // within the curated rule
+  enableAgentInterface() // restore for the rest of the page
+  expect(globalThis.tosiAgent.describe().exposure).toBe('introspection')
+})
+```
+
 Declaration is distributed; curation is central. The precedence ladder, most
 deliberate wins:
 
