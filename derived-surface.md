@@ -72,26 +72,17 @@ preview.append(
     ),
     button('schematic()', {
       onClick() {
-        // scope by HIERARCHY: this demo's subtree, however large it renders
-        // (a within-rect is REGIONAL — it includes whatever overlaps it)
-        const d = agent.describe({ styles: true, scope: preview })
-        drawing.innerHTML = schematicSVG(d)
-        fitToDrawing()
-        // the image is an index: data-record links each box to its JSON
-        drawing.onclick = (event) => {
-          const g = event.target.closest('[data-record]')
-          if (g) {
-            detail.textContent = JSON.stringify(
-              d.wiring[Number(g.dataset.record)], null, 2
-            )
-          }
-        }
+        drawScoped()
+        // the MAP was always live — from here the DRAWING is too: state
+        // changes redraw it, hands off (add an item and watch)
+        autoRedraw.on = true
       },
     }),
     ' ',
     // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
     button('png()', {
       async onClick() {
+        autoRedraw.on = false
         const d = agent.describe({ styles: true, scope: preview })
         const blob = await rasterizeSVG(schematicSVG(d), { scale: 2 })
         drawing.innerHTML = ''
@@ -109,6 +100,7 @@ preview.append(
     // pages are designed to be legible in this frame, and so is its map
     button('screen()', {
       onClick() {
+        autoRedraw.on = false
         const d = agent.describe({ styles: true, view: 'viewport' })
         drawing.innerHTML = schematicSVG(d)
         fitToDrawing()
@@ -127,6 +119,7 @@ preview.append(
     // drawn from its own map (best maximized)
     button('whole page()', {
       async onClick(event) {
+        autoRedraw.on = false
         // capture AFTER the click's focus/active styling settles, and with
         // the previous drawing cleared — the map should show the page, not
         // the moment of the click
@@ -162,6 +155,30 @@ const fitToDrawing = () => {
     svg.removeAttribute('height')
   }
 }
+// scope by HIERARCHY: this demo's subtree, however large it renders
+// (a within-rect is REGIONAL — it includes whatever overlaps it)
+const drawScoped = () => {
+  const d = agent.describe({ styles: true, scope: preview })
+  drawing.innerHTML = schematicSVG(d)
+  fitToDrawing()
+  // the image is an index: data-record links each box to its JSON
+  drawing.onclick = (event) => {
+    const g = event.target.closest('[data-record]')
+    if (g) {
+      detail.textContent = JSON.stringify(
+        d.wiring[Number(g.dataset.record)], null, 2
+      )
+    }
+  }
+}
+// the schematic is just another observer of the same state — debounced a
+// beat so a burst of changes redraws once
+const autoRedraw = { on: false, timer: 0 }
+agent.observe('mapDemo', () => {
+  if (!autoRedraw.on) return
+  clearTimeout(autoRedraw.timer)
+  autoRedraw.timer = setTimeout(drawScoped, 150)
+})
 preview.append(drawing, detail)
 ```
 
