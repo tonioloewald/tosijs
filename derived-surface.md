@@ -60,15 +60,11 @@ preview.append(
     input({
       placeholder: 'add a todo…',
       bindValue: mapDemo.newItem,
-      onKeydown(event) {
-        if (event.key === 'Enter') {
-          mapDemo.addItem()
-          // Enter COMMITS the field (a sync change event) while the state
-          // clear dispatches async — clear the field at the source so the
-          // commit sees '' instead of echoing the old text back into state
-          event.target.value = ''
-        }
-      },
+      // Enter COMMITS the field — change fires after the binding writes
+      // state, so addItem acts on committed state, mutates atomically, and
+      // the UI catches up on its own. (Acting on keydown instead means
+      // racing the commit — the classic clear-that-doesn't.)
+      onChange: 'mapDemo.addItem',
     }),
     ' ',
     // another PRECONDITION: nothing to add = nothing to press (an
