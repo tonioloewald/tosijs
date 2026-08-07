@@ -53,6 +53,19 @@
 records is a line in it. Below: a todo list built the ordinary way, and the
 <strong>schematic</strong> — the map, drawn — growing as you add items.</p>
 <h2>The map, drawn: a schematic embodiment (live)</h2>
+<pre><code class="language-css">.preview.split-view {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  gap: 8px;
+}
+
+/* app above map on narrow displays */
+@media (max-width: 600px) {
+  .preview.split-view {
+    grid-template-columns: 100%;
+  }
+}
+</code></pre>
 <pre><code class="language-js">import {
   elements,
   tosi,
@@ -215,6 +228,10 @@ const cleanup = setInterval(() =&gt; {
   }
 }, 2000)
 requestRedraw()
+// side by side: the app IS the left pane, its map the right — same state,
+// two renderings (the JSON inspector runs full width below)
+preview.classList.add(&#39;split-view&#39;)
+detail.style.gridColumn = &#39;1 / -1&#39;
 preview.append(tabs, detail)
 </code></pre>
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;

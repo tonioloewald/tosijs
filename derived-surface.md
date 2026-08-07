@@ -9,6 +9,21 @@ records is a line in it. Below: a todo list built the ordinary way, and the
 
 ## The map, drawn: a schematic embodiment (live)
 
+```css
+.preview.split-view {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  gap: 8px;
+}
+
+/* app above map on narrow displays */
+@media (max-width: 600px) {
+  .preview.split-view {
+    grid-template-columns: 100%;
+  }
+}
+```
+
 ```js
 import {
   elements,
@@ -172,6 +187,10 @@ const cleanup = setInterval(() => {
   }
 }, 2000)
 requestRedraw()
+// side by side: the app IS the left pane, its map the right — same state,
+// two renderings (the JSON inspector runs full width below)
+preview.classList.add('split-view')
+detail.style.gridColumn = '1 / -1'
 preview.append(tabs, detail)
 ```
 
