@@ -25,7 +25,74 @@ linking it back to `description.wiring[i]` — the image as index).
 
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
-import { AgentDescription, BOUND_TWO_WAY, BOUND_TO_DOM } from './agent'
+
+// VENDORED from tosijs-schematic@0.1.1 — the upstream package
+// is the source of truth. DO NOT EDIT below this line: edit
+// tosijs-schematic and rebuild (this section regenerates at build time).
+// tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
+
+/**
+ * tosijs-schematic — render an agent-surface map as a schematic SVG.
+ *
+ * A PURE FUNCTION over plain data: one record per wired element, drawn at
+ * its true geometry, wearing the affordance grammar. No DOM, no framework,
+ * no dependencies — the map travels as JSON, so this runs in the page, in
+ * a headless embodiment, or on the far side of a wire from an app nobody
+ * is viewing.
+ *
+ * The RECORD FORMAT is the contract (see README): tosijs's describe()
+ * produces it, but anything that emits records gets the renderer — and
+ * every consumer inherits the grammar's hard-won rules (geometry over
+ * glyphs, hints are not content, ground is not figure).
+ */
+
+/** provenance tokens for bound values: "shown ⟵ path" (display-only) and
+ * "shown ⟷ path" (two-way — user-writable). Part of the record format. */
+export const BOUND_TO_DOM = '⟵'
+export const BOUND_TWO_WAY = '⟷'
+
+/**
+ * One wired element, flat. Producers may include fields beyond these —
+ * bound props ride as "value ⟷ path" strings under their own keys.
+ */
+export interface SchematicRecord {
+  tag: string
+  id?: string
+  part?: string
+  role?: string
+  label?: string
+  placeholder?: string
+  type?: string
+  checked?: boolean
+  focused?: boolean
+  invalid?: boolean
+  required?: boolean
+  disabled?: boolean
+  contentEditable?: boolean
+  description?: string
+  text?: string
+  on?: Record<string, string | string[]>
+  list?: { path: string; idPath?: string }
+  bounds?: { x: number; y: number; width: number; height: number }
+  viewportFixed?: boolean
+  structural?: boolean
+  style?: { background: string; borderColor: string; color: string }
+  [boundProp: string]: unknown
+}
+
+/** the map: only `wiring` is read. The named optional fields are the
+ * known producer extras (tosijs's describe() shape) — deliberately NOT an
+ * index signature, which would stop interface-typed producers (TS gives
+ * implicit index signatures to literals, never to interfaces) from
+ * assigning without casts. */
+export interface SchematicDescription {
+  wiring: SchematicRecord[]
+  roots?: unknown
+  actions?: unknown
+  exposure?: unknown
+  contract?: unknown
+}
+
 
 export interface SchematicBounds {
   x: number
@@ -56,6 +123,23 @@ export interface SchematicOptions {
    * and looks the record up in `description.wiring[n]` — image as legend.
    */
   index?: boolean
+  /**
+   * EXPERIMENTAL plugin seam: called once per drawn record, just before
+   * its <g> closes — emit extra SVG into the record's group. The corner
+   * slots already spoken for: top-left = invalid flag, top-right = index,
+   * bottom-right = ↔ badge, outline = focus ring / emphasis. Claim empty
+   * real estate; the first real plugins will shape the successor API.
+   */
+  decorate?: (ctx: {
+    record: SchematicRecord
+    index: number
+    x: number
+    y: number
+    width: number
+    height: number
+    structural: boolean
+    emit: (svg: string) => void
+  }) => void
 }
 
 // strip provenance from a bound-value string: "shown ⟷ path" → "shown"
@@ -108,7 +192,7 @@ const esc = (s: string): string =>
 const TRANSPARENT = 'rgba(0, 0, 0, 0)'
 
 export const schematicSVG = (
-  description: AgentDescription,
+  description: SchematicDescription,
   options: SchematicOptions = {}
 ): string => {
   const {
@@ -118,6 +202,7 @@ export const schematicSVG = (
     fontSize = 11,
     within,
     index: showIndex = false,
+    decorate,
   } = options
   const boxes = description.wiring.filter(
     (w) =>
@@ -358,6 +443,18 @@ export const schematicSVG = (
           `text-anchor="end" font-family="monospace" fill="black" ` +
           `opacity="0.8">${index}</text>`
       )
+    }
+    if (decorate != null) {
+      decorate({
+        record: w,
+        index,
+        x,
+        y,
+        width,
+        height,
+        structural,
+        emit: (svg) => parts.push(svg),
+      })
     }
     parts.push('</g>')
   }

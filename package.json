@@ -64,6 +64,7 @@
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
     "tosijs-schema": "1.5.0",
+    "tosijs-schematic": "^0.1.1",
     "tosijs-ui": "1.9.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"

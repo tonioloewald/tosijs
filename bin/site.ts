@@ -43,6 +43,36 @@ async function writeVersion() {
   console.log('tosijs package version', pkg.version)
 }
 
+async function vendorSchematic() {
+  // tosijs-schematic (devDependency) is the SOURCE OF TRUTH for the
+  // schematic renderer; tosijs inlines its dependency-free core at build
+  // time — batteries included, zero runtime dependencies, no divergence.
+  // tosijs's own doc-system header (the /*{...}*/ and /*# ... */ blocks)
+  // is preserved from the current file; everything below it regenerates.
+  const upstreamPkg = JSON.parse(
+    await Bun.file('node_modules/tosijs-schematic/package.json').text()
+  )
+  const upstream = await Bun.file(
+    'node_modules/tosijs-schematic/src/index.ts'
+  ).text()
+  const current = await Bun.file('src/schematic.ts').text()
+  const headerEnd = current.indexOf('*/', current.indexOf('/*#')) + 2
+  if (headerEnd < 2) {
+    throw new Error('vendorSchematic: src/schematic.ts doc header not found')
+  }
+  const header = current.slice(0, headerEnd + 1)
+  const banner =
+    `\n// VENDORED from tosijs-schematic@${upstreamPkg.version} — the upstream package\n` +
+    '// is the source of truth. DO NOT EDIT below this line: edit\n' +
+    '// tosijs-schematic and rebuild (this section regenerates at build time).\n' +
+    '// tosijs stays ZERO runtime dependencies — the core is inlined, not imported.\n\n'
+  const generated = header + banner + upstream
+  if (generated !== current) {
+    await Bun.write('src/schematic.ts', generated)
+    console.log('vendored tosijs-schematic', upstreamPkg.version)
+  }
+}
+
 async function buildLibrary() {
   console.time('library')
 
@@ -145,6 +175,7 @@ const config = {
   ...siteConfig,
   prebuild: async () => {
     await writeVersion()
+    await vendorSchematic()
   },
 }
 
