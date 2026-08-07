@@ -122,12 +122,16 @@ const render = [
       const d = agent.describe({ styles: true, scope: preview })
       const svg = schematicSVG(d, { index: true })
       const blob = await rasterizeSVG(svg, { scale: 2 })
-      const prior = panes[0].querySelector('img')
-      panes[0].innerHTML = ''
-      panes[0].append(
-        img({ src: URL.createObjectURL(blob), style: { maxWidth: '100%' } })
-      )
-      if (prior) URL.revokeObjectURL(prior.src)
+      // update the ONE img in place — the old frame stays up until the new
+      // src decodes, so the view never flickers
+      let shot = panes[0].querySelector('img')
+      if (!shot) {
+        shot = img({ style: { maxWidth: '100%' } })
+        panes[0].append(shot)
+      }
+      const prior = shot.src
+      shot.src = URL.createObjectURL(blob)
+      if (prior) URL.revokeObjectURL(prior)
     } finally {
       rasterBusy = false
     }
