@@ -4,7 +4,7 @@ import { exerciseContract, exerciseComponent } from './contract'
 import { Component } from './component'
 import { tosi } from './xin-proxy'
 import { updates } from './path-listener'
-import { validate } from 'tosijs-schema'
+import { validate, agentContract } from 'tosijs-schema'
 
 let current: ReturnType<typeof enableAgentInterface> | undefined
 afterEach(() => {
@@ -13,24 +13,13 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// the blessed adapter shape: a few lines over tosijs-schema. The core seam
-// knows nothing about schemas — this is what an app (or eventually
-// tosijs-schema itself) supplies.
-const schemaContract = (schemas: Record<string, any>): AgentContract => ({
-  check(path, _value, proposal) {
-    // core routes every at-or-under-contract write into a whole-root
-    // proposal — the adapter never touches path mechanics
-    if (proposal == null) return true // outside any contracted root
-    const schema = schemas[proposal.root]
-    if (schema == null) return true
-    const reasons: string[] = []
-    const ok = validate(proposal.proposed, schema, {
-      onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
-    })
-    return ok ? true : new Error(`contract violation at ${path} — ${reasons.join('; ')}`)
-  },
-  describe: () => schemas,
-})
+// the blessed adapter now ships FROM tosijs-schema (1.5.0, closing
+// tosijs-schema#2): `agentContract(schemas)` — stricter than the hand-rolled
+// original it replaced: fails CLOSED on contracted writes without a
+// proposal, and refuses (at construction) schemas using keywords validate
+// doesn't enforce. The core seam still knows nothing about schemas.
+const schemaContract = (schemas: Record<string, any>): AgentContract =>
+  agentContract(schemas)
 // ---------------------------------------------------------------------------
 
 const orderSchema = {
@@ -642,6 +631,100 @@ describe('inline element contracts', () => {
     expect(mine.length).toBe(4) // 2 examples + 2 counterexamples
     expect(mine.every((t) => t.passed)).toBe(true)
     expect(agent.read('inlineExercised.name')).toBe('ada') // snapshot restored
+    el.remove()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// the seam guarantee, pinned from OUR side (tosijs#25): tosijs-schema 1.5.0's
+// agentContract fails closed if a contracted write ever arrives without a
+// proposal — this test proves we never send one, at every write shape
+describe('seam guarantee — contracted writes always carry a whole-root proposal', () => {
+  test('root, dot sub-path, and bracket sub-path writes all propose the whole root', async () => {
+    tosi({
+      seamApp: { docs: [{ id: 1, title: 'a' }], count: 2 },
+      seamFree: { x: 1 },
+    })
+    await updates()
+    const calls: Array<{ path: string; proposal: any }> = []
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['seamApp', 'seamFree'],
+        contract: {
+          check(path, _value, proposal) {
+            // snapshot: later writes mutate the live objects a captured
+            // reference would alias
+            calls.push({
+              path,
+              proposal: proposal == null ? proposal : structuredClone(proposal),
+            })
+            return true
+          },
+          describe: () => ({ seamApp: { type: 'object' } }),
+        },
+      },
+    }))
+
+    agent.write('seamApp', { docs: [], count: 0 }) // at the root
+    agent.write('seamApp.count', 5) // dot sub-path
+    agent.write('seamApp.docs[0]', { id: 9, title: 'b' }) // bracket sub-path
+    await updates()
+    agent.write('seamApp.docs[id=9].title', 'c') // id-path sub-path
+    agent.write('seamFree.x', 2) // NOT under the contracted root
+
+    const [root, dot, bracket, idPath, free] = calls
+    // every contracted write: proposal present, root correct, proposed is
+    // the WHOLE-ROOT hypothetical (the edit in context, not the fragment)
+    for (const call of [root, dot, bracket, idPath]) {
+      expect(call.proposal).not.toBeNull()
+      expect(call.proposal.root).toBe('seamApp')
+    }
+    expect(root.proposal.proposed).toEqual({ docs: [], count: 0 })
+    expect(dot.proposal.proposed.count).toBe(5)
+    expect(dot.proposal.proposed.docs).toEqual([]) // context intact
+    expect(bracket.proposal.proposed.docs[0]).toEqual({ id: 9, title: 'b' })
+    expect(bracket.proposal.proposed.count).toBe(5)
+    expect(idPath.proposal.proposed.docs[0].title).toBe('c')
+    // outside every contracted root: no proposal (and agentContract's
+    // no-roots-affected branch returns true for exactly this shape)
+    expect(free.proposal).toBeUndefined()
+  })
+})
+
+// the shared validator plug upgrades INLINE contracts too — one gate, every
+// declaration site: minimum is inert natively, enforced once plugged
+describe('inline contracts + plugged full validator', () => {
+  test('setContractValidator(validate) makes inline minimum/required real', async () => {
+    const { elements } = await import('./elements')
+    const { setContractValidator } = await import('./component')
+    tosi({ inlineFull: { qty: 5 } })
+    const el = elements.input({
+      bindValue: 'inlineFull.qty',
+      contract: { type: 'integer', minimum: 1 },
+    })
+    document.body.append(el)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ global: false }))
+    agent.write('inlineFull.qty', 0) // native subset: integer, passes
+    expect(agent.read('inlineFull.qty')).toBe(0)
+    setContractValidator((value, schema) => {
+      const reasons: string[] = []
+      const ok = validate(value, schema, {
+        onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
+      })
+      return ok ? true : new Error(reasons.join('; '))
+    })
+    try {
+      expect(() => agent.write('inlineFull.qty', 0)).toThrow(
+        /inline contract violation/
+      )
+      agent.write('inlineFull.qty', 3)
+      expect(agent.read('inlineFull.qty')).toBe(3)
+    } finally {
+      setContractValidator(null)
+    }
     el.remove()
   })
 })

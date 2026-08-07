@@ -224,9 +224,11 @@ channel.)
    **preconditions ride along free**. **The seam is shipped:**
    `expose.contract = { check(path, value, proposal?) → true | Error,
    describe() }` — tosijs stays zero-dependency (the core knows a *check*,
-   not a schema language); the blessed adapter is ~10 lines over
-   tosijs-schema's `validate` (its `onError` messages become the refusal
-   text). Refused writes throw the *reason* and land in the audit log as
+   not a schema language); the blessed adapter **ships from tosijs-schema**
+   as `agentContract(schemas)` (1.5.0 — its `onError` messages become the
+   refusal text, and it fails *closed*: a contracted write without a
+   proposal, or a schema keyword `validate` doesn't enforce, is refused,
+   not waved through). Refused writes throw the *reason* and land in the audit log as
    `write rejected: …` notes — a refusal is part of the surface, because
    agents self-correct from reasons, not booleans. **Sub-path writes are
    routed, not bypassed:** core judges a write at or under a contracted

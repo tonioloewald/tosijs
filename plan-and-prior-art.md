@@ -42,10 +42,13 @@
   ("what's legal"), and **`exerciseContract()`** — contracts carrying
   `examples` / `$counterexamples` are executable specs, the contract
   equivalent of tjs signature tests (see
-  [The Agent Surface](/agent-surface/)). The blessed tosijs-schema adapter
-  (~10 lines over `validate` + `onError`; `$predicate` strings ride into
-  `describe()` as legible preconditions) is proven in tests here and should
-  ship FROM tosijs-schema (file, don't fix). **ComponentMap
+  [The Agent Surface](/agent-surface/)). The blessed adapter now **ships
+  FROM tosijs-schema** (1.5.0's `agentContract(schemas)`, closing
+  tosijs-schema#2) — stricter than our hand-rolled original: it fails
+  CLOSED on contracted writes without a proposal, and refuses at
+  construction any schema keyword `validate` doesn't enforce; our suite
+  runs against the published adapter and pins the proposal seam from this
+  side (tosijs#25). **ComponentMap
   shipped** (2026-08-03): `static contract` (one word everywhere) = contract
   + description + test fixture + parts map in one declaration;
   `Component<typeof contract>` types `this.parts` from the declared tags —

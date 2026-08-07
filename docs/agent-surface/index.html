@@ -279,9 +279,11 @@ the contract, <code>describe()</code> tells the agent <em>what&#39;s legal</em> 
 exists — and since tosijs-schema already embeds serialized predicates,
 <strong>preconditions ride along free</strong>. <strong>The seam is shipped:</strong>
 <code>expose.contract = { check(path, value, proposal?) → true | Error, describe() }</code> — tosijs stays zero-dependency (the core knows a <em>check</em>,
-not a schema language); the blessed adapter is ~10 lines over
-tosijs-schema&#39;s <code>validate</code> (its <code>onError</code> messages become the refusal
-text). Refused writes throw the <em>reason</em> and land in the audit log as
+not a schema language); the blessed adapter <strong>ships from tosijs-schema</strong>
+as <code>agentContract(schemas)</code> (1.5.0 — its <code>onError</code> messages become the
+refusal text, and it fails <em>closed</em>: a contracted write without a
+proposal, or a schema keyword <code>validate</code> doesn&#39;t enforce, is refused,
+not waved through). Refused writes throw the <em>reason</em> and land in the audit log as
 <code>write rejected: …</code> notes — a refusal is part of the surface, because
 agents self-correct from reasons, not booleans. <strong>Sub-path writes are
 routed, not bypassed:</strong> core judges a write at or under a contracted

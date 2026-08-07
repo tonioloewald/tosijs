@@ -112,10 +112,13 @@ zero-dependency contract seam (<code>expose.contract = { check, describe }</code
 (&quot;what&#39;s legal&quot;), and <strong><code>exerciseContract()</code></strong> — contracts carrying
 <code>examples</code> / <code>$counterexamples</code> are executable specs, the contract
 equivalent of tjs signature tests (see
-<a href="/agent-surface/">The Agent Surface</a>). The blessed tosijs-schema adapter
-(~10 lines over <code>validate</code> + <code>onError</code>; <code>$predicate</code> strings ride into
-<code>describe()</code> as legible preconditions) is proven in tests here and should
-ship FROM tosijs-schema (file, don&#39;t fix). <strong>ComponentMap
+<a href="/agent-surface/">The Agent Surface</a>). The blessed adapter now <strong>ships
+FROM tosijs-schema</strong> (1.5.0&#39;s <code>agentContract(schemas)</code>, closing
+tosijs-schema#2) — stricter than our hand-rolled original: it fails
+CLOSED on contracted writes without a proposal, and refuses at
+construction any schema keyword <code>validate</code> doesn&#39;t enforce; our suite
+runs against the published adapter and pins the proposal seam from this
+side (tosijs#25). <strong>ComponentMap
 shipped</strong> (2026-08-03): <code>static contract</code> (one word everywhere) = contract<ul>
 <li>description + test fixture + parts map in one declaration;
 <code>Component&lt;typeof contract&gt;</code> types <code>this.parts</code> from the declared tags —
