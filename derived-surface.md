@@ -13,14 +13,17 @@ One rectangle per wired element, at its **actual position and size**, wearing
 the app's own colors (`describe({ styles: true })`) — and since `bounds` is
 plain data, a *remote* agent can draw a page nobody is looking at.
 
-Live, here — a todo list this time, because a list's map **changes shape
-as you use it**: every item you add is new wired elements, so redraw the
-schematic and watch it grow. Scoped **by hierarchy** — `agent.describe({ scope: preview })` walks only
-this demo's subtree, so the map is the same whether the example is inline or
-maximized. (Spatial scoping — `schematicSVG(map, { within: rect })` — also
-exists, but a region includes whatever *overlaps* it, occluded or not; use it
-for viewport maps, not app parts.) **whole page()** drops the scope for the
-full reveal; click any rectangle for its JSON record:
+Live, here — a todo list this time, because a list's map **changes shape as
+you use it**: every item you add is new wired elements and the map grows with
+them, hands off — each tab redraws every 250ms while selected (drawing the
+map is cheap; that's the point). Type in the input and watch the caption
+change from italic hint to held value; check a box and watch the glyph flip.
+The **schematic** tab is scoped **by hierarchy** — `agent.describe({ scope:
+preview })` walks only this demo's subtree, so the map is the same whether
+the example is inline or maximized. (Spatial scoping — `schematicSVG(map, {
+within: rect })` — also exists, but a region includes whatever *overlaps* it,
+occluded or not; use it for viewport maps, not app parts.) **whole page**
+drops the scope for the full reveal; click any rectangle for its JSON record:
 
 ```js
 import {
@@ -30,6 +33,7 @@ import {
   schematicSVG,
   rasterizeSVG,
 } from 'tosijs'
+import { tosiTabs } from 'tosijs-ui'
 
 const { mapDemo } = tosi({
   mapDemo: {
@@ -70,99 +74,36 @@ preview.append(
         { idPath: 'id' }
       )
     ),
-    button('schematic()', {
-      onClick() {
-        drawScoped()
-        // the MAP was always live — from here the DRAWING is too: state
-        // changes redraw it, hands off (add an item and watch)
-        autoRedraw.on = true
-      },
-    }),
-    ' ',
-    // the vision-encoder form: shipped helpers, map -> SVG string -> PNG
-    button('png()', {
-      async onClick() {
-        autoRedraw.on = false
-        const d = agent.describe({ styles: true, scope: preview })
-        const blob = await rasterizeSVG(schematicSVG(d), { scale: 2 })
-        drawing.innerHTML = ''
-        drawing.append(
-          img({
-            src: URL.createObjectURL(blob),
-            alt: 'rasterized schematic',
-            style: { maxWidth: '100%' },
-          })
-        )
-      },
-    }),
-    ' ',
-    // the camera: what the USER sees right now, in screen coordinates —
-    // pages are designed to be legible in this frame, and so is its map
-    button('screen()', {
-      onClick() {
-        autoRedraw.on = false
-        const d = agent.describe({ styles: true, view: 'viewport' })
-        drawing.innerHTML = schematicSVG(d)
-        fitToDrawing()
-        drawing.onclick = (event) => {
-          const g = event.target.closest('[data-record]')
-          if (g) {
-            detail.textContent = JSON.stringify(
-              d.wiring[Number(g.dataset.record)], null, 2
-            )
-          }
-        }
-      },
-    }),
-    ' ',
-    // and the atlas: the ENTIRE host app — this page, chrome and all —
-    // drawn from its own map (best maximized)
-    button('whole page()', {
-      async onClick(event) {
-        autoRedraw.on = false
-        // capture AFTER the click's focus/active styling settles, and with
-        // the previous drawing cleared — the map should show the page, not
-        // the moment of the click
-        event.target.blur()
-        drawing.innerHTML = ''
-        await new Promise((resolve) => setTimeout(resolve, 250))
-        const d = agent.describe({ styles: true })
-        drawing.innerHTML = schematicSVG(d)
-        fitToDrawing()
-        drawing.onclick = (event) => {
-          const g = event.target.closest('[data-record]')
-          if (g) {
-            detail.textContent = JSON.stringify(
-              d.wiring[Number(g.dataset.record)], null, 2
-            )
-          }
-        }
-      },
-    })
   )
 )
 
+// four live views in tabs — the selected one redraws every 250ms: the map
+// follows the app, hands off
 const detail = pre({ style: { maxHeight: '8em', overflow: 'auto', margin: 0 } })
-const drawing = div({
-  style: { height: '100%', width: 'auto', overflow: 'auto' },
-})
-// the svg carries explicit width/height (rasterization needs them) — for
-// DISPLAY, scale it to the box instead of rendering at natural page size
-const fitToDrawing = () => {
-  const svg = drawing.querySelector('svg')
+const pane = (name) => div({ name, style: { overflow: 'auto', height: '100%' } })
+const panes = [
+  // what an agent's vision encoder receives: map -> SVG -> raster, 2× —
+  // the default view, because it's the one that has to stand alone
+  pane('image'),
+  // scoped by HIERARCHY: this demo's subtree (a within-rect is REGIONAL)
+  pane('schematic'),
+  // the camera: what the USER sees right now, in screen coordinates
+  pane('screen'),
+  // the atlas: the ENTIRE host app, chrome and all (best maximized)
+  pane('whole page'),
+]
+const tabs = tosiTabs({ style: { flex: '1 1 auto', minHeight: '160px' } }, ...panes)
+
+// display fit + click-to-inspect (the image is an index: data-record links
+// each box to its JSON record)
+const show = (target, d) => {
+  target.innerHTML = schematicSVG(d, { index: true })
+  const svg = target.querySelector('svg')
   if (svg) {
     svg.setAttribute('width', '100%')
     svg.removeAttribute('height')
   }
-}
-// scope by HIERARCHY: this demo's subtree, however large it renders
-// (a within-rect is REGIONAL — it includes whatever overlaps it)
-const drawScoped = () => {
-  const d = agent.describe({ styles: true, scope: preview })
-  drawing.innerHTML = schematicSVG(d)
-  fitToDrawing()
-  // the image is an index: data-record links each box to its JSON
-  drawing.onclick = (event) => {
+  target.onclick = (event) => {
     const g = event.target.closest('[data-record]')
     if (g) {
       detail.textContent = JSON.stringify(
@@ -171,15 +112,38 @@ const drawScoped = () => {
     }
   }
 }
-// the schematic is just another observer of the same state — debounced a
-// beat so a burst of changes redraws once
-const autoRedraw = { on: false, timer: 0 }
-agent.observe('mapDemo', () => {
-  if (!autoRedraw.on) return
-  clearTimeout(autoRedraw.timer)
-  autoRedraw.timer = setTimeout(drawScoped, 150)
-})
-preview.append(drawing, detail)
+
+let rasterBusy = false
+const render = [
+  async () => {
+    if (rasterBusy) return // rasterization is async — never overlap ticks
+    rasterBusy = true
+    try {
+      const d = agent.describe({ styles: true, scope: preview })
+      const svg = schematicSVG(d, { index: true })
+      const blob = await rasterizeSVG(svg, { scale: 2 })
+      const prior = panes[0].querySelector('img')
+      panes[0].innerHTML = ''
+      panes[0].append(
+        img({ src: URL.createObjectURL(blob), style: { maxWidth: '100%' } })
+      )
+      if (prior) URL.revokeObjectURL(prior.src)
+    } finally {
+      rasterBusy = false
+    }
+  },
+  () => show(panes[1], agent.describe({ styles: true, scope: preview })),
+  () => show(panes[2], agent.describe({ styles: true, view: 'viewport' })),
+  () => show(panes[3], agent.describe({ styles: true })),
+]
+const tick = setInterval(() => {
+  if (!tabs.isConnected) {
+    clearInterval(tick) // the demo left the page — stop drawing
+    return
+  }
+  render[tabs.value ?? 0]()
+}, 250)
+preview.append(tabs, detail)
 ```
 
 ```test
@@ -215,9 +179,180 @@ canvas in-browser, `@resvg/resvg-js` under bun (already a devDep for ePub
 covers).
 
 **The grammar** (explicit, so "can I act here?" never needs guessing):
-**bold outline** = wired to act (has handlers) · caption ending `⟷` =
-editable here · **faded** = disabled right now · plain solid = display ·
+**bold outline** = wired to act (has handlers) · an `↔` badge at the right
+edge = editable here · toggle state is drawn, live (an `✕`
+fills a checked box; radios are circles with a dot when selected) · a
+**double outline** = keyboard focus, where the user is right now · *italic* =
+placeholder hint, **not** content · **faded** = disabled right now (it beats
+bold: a disabled button is not an affordance) · plain solid = display ·
 dashed = structure.
+
+## Kitchen sink: the truth test
+
+Every "obvious" rendering claim, verifiable at a glance — one of everything,
+drawn live (250ms) with `index: true`, so each box wears its wiring index and
+the legend below maps numbers to records (the raster form of
+`data-record`: a vision consumer reads the number off the image and looks up
+the JSON). Interact with anything on the left; the map must never disagree:
+
+```js
+import { elements, tosi, enableAgentInterface, schematicSVG } from 'tosijs'
+
+const { sink } = tosi({
+  sink: {
+    text: '',
+    qty: 3,
+    volume: 7,
+    flavor: 'mango',
+    terms: true,
+    spam: false,
+    size: 'medium',
+    pick(event) {
+      sink.size = event.target.value
+    },
+    submit() {},
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, label, input, select, option, button, span, pre } = elements
+
+const radio = (value) =>
+  label(
+    input({
+      type: 'radio',
+      name: 'sink-size',
+      value,
+      checked: sink.size.value === value,
+      onChange: 'sink.pick',
+    }),
+    ' ',
+    value
+  )
+
+const controls = div(
+  { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+  input({ placeholder: 'type here…', bindValue: sink.text }),
+  label(input({ type: 'number', bindValue: sink.qty, style: { width: '4em' } }), ' qty'),
+  label(input({ type: 'range', min: 0, max: 10, bindValue: sink.volume }), ' volume'),
+  label(input({ type: 'checkbox', bindValue: sink.terms }), ' terms'),
+  label(input({ type: 'checkbox', bindValue: sink.spam }), ' spam me'),
+  div(radio('small'), radio('medium'), radio('large')),
+  select({ bindValue: sink.flavor }, option('mango'), option('lime')),
+  div(
+    button('submit', { onClick: 'sink.submit' }),
+    ' ',
+    button('disabled', { disabled: true, onClick: 'sink.submit' })
+  ),
+  // a DISPLAY affordance: bound text, colored — mapped, but neither bold
+  // nor badged (you can read it, not act on it)
+  span({
+    title: 'flavor',
+    textContent: sink.flavor,
+    style: {
+      background: 'rgb(0, 128, 96)',
+      color: 'white',
+      padding: '2px 6px',
+      alignSelf: 'flex-start',
+    },
+  })
+)
+
+const drawing = div({ style: { flex: '1 1 auto', overflow: 'auto' } })
+const legend = pre({
+  style: { maxHeight: '9em', overflow: 'auto', margin: 0, fontSize: '10px' },
+})
+const draw = () => {
+  const d = agent.describe({ styles: true, scope: preview })
+  drawing.innerHTML = schematicSVG(d, { index: true })
+  const svg = drawing.querySelector('svg')
+  if (svg) {
+    svg.setAttribute('width', '100%')
+    svg.removeAttribute('height')
+  }
+  legend.textContent = d.wiring
+    .map(
+      (w, i) =>
+        `${i} ${w.tag}${w.type ? ':' + w.type : ''}` +
+        `${w.disabled === true ? ' (disabled)' : ''} ` +
+        `${w.label ?? w.placeholder ?? w.text ?? w.value ?? ''}`
+    )
+    .join('\n')
+}
+// state changes redraw (the map is an observer); focus moves too, since
+// state can't see them
+const redraw = { timer: 0 }
+const requestRedraw = () => {
+  clearTimeout(redraw.timer)
+  redraw.timer = setTimeout(() => {
+    if (drawing.isConnected) draw()
+  }, 100)
+}
+const off = agent.observe(/./, requestRedraw)
+document.addEventListener('focusin', requestRedraw)
+const cleanup = setInterval(() => {
+  if (!drawing.isConnected) {
+    off()
+    document.removeEventListener('focusin', requestRedraw)
+    clearInterval(cleanup)
+  }
+}, 2000)
+requestRedraw()
+
+preview.append(
+  div(
+    { style: { display: 'flex', gap: '8px', height: '100%' } },
+    controls,
+    div(
+      {
+        style: {
+          flex: '1 1 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        },
+      },
+      drawing,
+      legend
+    )
+  )
+)
+```
+
+```test
+import { enableAgentInterface, schematicSVG, updates } from 'tosijs'
+
+test('kitchen sink: the map never disagrees with the controls', async () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const d = agent.describe({ styles: true })
+  // toggle state is harvested live, both ways
+  const checks = d.wiring.filter((w) => w.type === 'checkbox')
+  expect(checks.some((w) => w.checked === true)).toBe(true)
+  expect(checks.some((w) => w.checked === false)).toBe(true)
+  // exactly one radio in the group is checked
+  const radios = d.wiring.filter((w) => w.type === 'radio')
+  expect(radios.filter((w) => w.checked === true).length).toBe(1)
+  // a placeholder is a hint field, never the label
+  const hinted = d.wiring.find((w) => w.placeholder === 'type here…')
+  expect(hinted != null).toBe(true)
+  expect(hinted.label).toBe(undefined)
+  // disabled is a record fact
+  expect(
+    d.wiring.some((w) => w.tag === 'button' && w.disabled === true)
+  ).toBe(true)
+  // and the drawing carries all of it
+  const svg = schematicSVG(d, { index: true })
+  expect(svg.includes('<line')).toBe(true) // the checked box's ✕
+  expect(svg.includes('<circle')).toBe(true) // radios are circles
+  expect(svg.includes('font-style="italic"')).toBe(true) // the hint
+  expect(svg.includes('opacity="0.4"')).toBe(true) // the disabled button
+  // the agent types: the value must replace the hint
+  agent.write('sink.text', 'actual content')
+  await updates()
+  const after = schematicSVG(agent.describe({ styles: true }))
+  expect(after.includes('actual content')).toBe(true)
+  agent.write('sink.text', '') // leave the demo as found
+})
+```
 
 **Why the map beats pixels:**
 
@@ -328,8 +463,10 @@ test('describe() harvests the affordance join from ordinary declarations', async
   bind(input, 'harvestTest.q', bindings.value)
   await updates()
   const d = agent.describe()
-  const record = d.wiring.find((w) => w.label === 'harvest-test…')
+  // a placeholder is a HINT: its own field, never conflated with label
+  const record = d.wiring.find((w) => w.placeholder === 'harvest-test…')
   expect(record != null).toBe(true)
+  expect(record.label).toBe(undefined)
   // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
   expect(String(record.value).includes('⟷ harvestTest.q')).toBe(true)
   // geometry rides in the map — in a real browser the input has real bounds
@@ -340,8 +477,8 @@ test('describe() harvests the affordance join from ordinary declarations', async
 ```
 
 Read what it prints. Records are **flat** — the semantically visible facts sit
-at the top level, sized for an LLM to scan. The input's record joins its human
-label (the `placeholder`) to its live value and its path in one string:
+at the top level, sized for an LLM to scan. The input's record joins its
+`placeholder` hint to its live value and its path in one string:
 `value: "⟷ harvest.filter"` — the two-way arrow means *user-writable
 affordance*. The total is the same idea, one-way: `text: "3 ⟵ harvest.total"`
 (current value, display-only; a plain `text: "restock"` with no arrow is

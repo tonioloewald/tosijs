@@ -132,8 +132,17 @@ export interface AgentWiringRecord {
     id?: string;
     part?: string;
     role?: string;
-    /** harvested from aria-label(ledby) / title / placeholder / alt */
+    /** harvested from aria-label(ledby) / title / alt — the accessible NAME */
     label?: string;
+    /** the placeholder hint, kept distinct from label: an empty input with a
+     * placeholder must never read as an input with content */
+    placeholder?: string;
+    /** input kind when it isn't plain text (checkbox, radio, range, …) */
+    type?: string;
+    /** live checked state for checkboxes and radios — DOM truth at map time */
+    checked?: boolean;
+    /** this element holds keyboard focus right now — where the user IS */
+    focused?: boolean;
     /** resolved aria-describedby text — the author's own explanation */
     description?: string;
     /** present and true when the affordance is currently disabled */

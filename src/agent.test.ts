@@ -322,7 +322,9 @@ describe('agent interface — describe()', () => {
       (w) => w.id === 'agent-desc-input'
     )!
     expect(inputRecord).toBeDefined()
-    expect(inputRecord.label).toBe('search…') // harvested placeholder
+    // a placeholder is a HINT, not a name — its own field, never `label`
+    expect(inputRecord.placeholder).toBe('search…')
+    expect(inputRecord.label).toBeUndefined()
     // two-way arrow = user-writable affordance, provenance inline
     expect(inputRecord.value).toBe('⟷ agentDesc.filter') // '' value elided
     expect(inputRecord.on!.keydown).toBe('agentDesc.submit') // by-path handler is nameable
@@ -559,5 +561,89 @@ describe('ARIA is a two-way street', () => {
     expect(el2.getAttribute('aria-label')).toBe('the author knows best')
     el.remove()
     el2.remove()
+  })
+})
+
+describe('describe() — form-control state harvest', () => {
+  test('type, live checked state, and live unbound values are map facts', async () => {
+    tosi({ sinkApp: { on: true } })
+    const { elements } = await import('./elements')
+    const check = elements.input({ type: 'checkbox', bindValue: 'sinkApp.on' })
+    const radio = elements.input({ type: 'radio', checked: true })
+    on(radio, 'click', 'sinkApp.noop' as any) // wire it so it maps
+    const loose = elements.input({ value: 'typed by hand' })
+    on(loose, 'change', 'sinkApp.noop' as any)
+    document.body.append(check, radio, loose)
+    await updates()
+
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      const checkRec = d.wiring.find((w) => w.type === 'checkbox')!
+      expect(checkRec.checked).toBe(true) // live DOM truth
+      const radioRec = d.wiring.find((w) => w.type === 'radio')
+      expect(radioRec?.checked).toBe(true)
+      const looseRec = d.wiring.find((w) => w.value === 'typed by hand')!
+      // no arrow: current-but-unbound — honest provenance
+      expect(looseRec).toBeDefined()
+    } finally {
+      agent.disable()
+      check.remove()
+      radio.remove()
+      loose.remove()
+    }
+  })
+})
+
+describe('describe() — focus harvest', () => {
+  test('the focused element is marked: where the user is, in the map', async () => {
+    tosi({ focusApp: { q: '' } })
+    const focused = elements.input({ id: 'focus-me' })
+    const other = elements.input({ id: 'not-me' })
+    document.body.append(focused, other)
+    bind(focused, 'focusApp.q', bindings.value)
+    bind(other, 'focusApp.q', bindings.value)
+    focused.focus()
+    await updates()
+
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      expect(d.wiring.find((w) => w.id === 'focus-me')?.focused).toBe(true)
+      expect(
+        d.wiring.find((w) => w.id === 'not-me')?.focused
+      ).toBeUndefined()
+    } finally {
+      agent.disable()
+      focused.remove()
+      other.remove()
+    }
+  })
+})
+
+describe('describe() — label association (the kitchen-sink lesson)', () => {
+  test('a wrapping <label> or label[for] names the control, like a screen reader', async () => {
+    tosi({ labelApp: { qty: 3 } })
+    const { label } = elements
+    const wrapped = elements.input({ type: 'number' })
+    const wrapper = label(wrapped, ' qty')
+    const pointed = elements.input({ id: 'label-target' })
+    const pointer = label({ htmlFor: 'label-target' }, 'volume')
+    document.body.append(wrapper, pointed, pointer)
+    bind(wrapped, 'labelApp.qty', bindings.value)
+    bind(pointed, 'labelApp.qty', bindings.value)
+    await updates()
+
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      expect(d.wiring.find((w) => w.label === 'qty')).toBeDefined()
+      expect(d.wiring.find((w) => w.label === 'volume')).toBeDefined()
+    } finally {
+      agent.disable()
+      wrapper.remove()
+      pointed.remove()
+      pointer.remove()
+    }
   })
 })

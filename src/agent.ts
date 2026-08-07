@@ -187,8 +187,17 @@ export interface AgentWiringRecord {
   id?: string
   part?: string
   role?: string
-  /** harvested from aria-label(ledby) / title / placeholder / alt */
+  /** harvested from aria-label(ledby) / title / alt — the accessible NAME */
   label?: string
+  /** the placeholder hint, kept distinct from label: an empty input with a
+   * placeholder must never read as an input with content */
+  placeholder?: string
+  /** input kind when it isn't plain text (checkbox, radio, range, …) */
+  type?: string
+  /** live checked state for checkboxes and radios — DOM truth at map time */
+  checked?: boolean
+  /** this element holds keyboard focus right now — where the user IS */
+  focused?: boolean
   /** resolved aria-describedby text — the author's own explanation */
   description?: string
   /** present and true when the affordance is currently disabled */
@@ -380,6 +389,23 @@ const referencedText = (el: Element, attr: string): string | null => {
   return text || null
 }
 
+// a form control's <label> — wrapping, or associated via for="id" — names
+// it, exactly as the accessible-name algorithm says (the kitchen-sink
+// lesson: real HTML names controls with <label>, not aria-label)
+const associatedLabel = (el: Element): string | undefined => {
+  const tag = el.tagName
+  if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+    return undefined
+  }
+  let labelEl: Element | null = el.closest?.('label') ?? null
+  if (labelEl == null && el.id) {
+    labelEl =
+      el.ownerDocument?.querySelector?.(`label[for="${el.id}"]`) ?? null
+  }
+  const text = labelEl?.textContent?.trim().slice(0, 60)
+  return text || undefined
+}
+
 const describeElement = (el: Element): AgentWiringRecord => {
   const record: AgentWiringRecord = {
     tag: el.tagName.toLowerCase(),
@@ -389,14 +415,30 @@ const describeElement = (el: Element): AgentWiringRecord => {
   if (part) record.part = part
   const role = el.getAttribute('role')
   if (role) record.role = role
-  // the accessible-name algorithm, abridged: what a screen reader would say
+  // the accessible-name algorithm, abridged: what a screen reader would say.
+  // placeholder is deliberately NOT folded in — it's a hint, not a name, and
+  // conflating them makes an empty input read like it has content
   const label =
     el.getAttribute('aria-label') ||
     referencedText(el, 'aria-labelledby') ||
+    associatedLabel(el) ||
     el.getAttribute('title') ||
-    el.getAttribute('placeholder') ||
     el.getAttribute('alt')
   if (label) record.label = label
+  const placeholder = el.getAttribute('placeholder')
+  if (placeholder) record.placeholder = placeholder
+  // where the user IS: keyboard focus is part of the scene
+  if ((globalThis as any).document?.activeElement === el) {
+    record.focused = true
+  }
+  // form controls: the control's kind and LIVE state are facts of the map
+  if (record.tag === 'input') {
+    const type = (el as any).type || 'text'
+    if (type !== 'text') record.type = type
+    if (type === 'checkbox' || type === 'radio') {
+      record.checked = (el as any).checked === true
+    }
+  }
   const description = referencedText(el, 'aria-describedby')
   if (description) record.description = description
   if (
@@ -617,6 +659,18 @@ export function enableAgentInterface(
           if (record.text === undefined) {
             const text = (el.textContent || '').trim().slice(0, 40)
             if (text) record.text = text
+          }
+          // an UNBOUND form control still holds a live value — harvest it
+          // (no provenance arrow: a plain string means "current, not bound")
+          if (
+            record.value === undefined &&
+            record.checked === undefined &&
+            (record.tag === 'input' ||
+              record.tag === 'textarea' ||
+              record.tag === 'select')
+          ) {
+            const liveValue = String((el as any).value ?? '').slice(0, 40)
+            if (liveValue) record.value = liveValue
           }
           if (inline != null) {
             record.contract = inline

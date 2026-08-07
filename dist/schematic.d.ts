@@ -21,6 +21,12 @@ export interface SchematicOptions {
      * to scope to an element's region; omit for the whole map.
      */
     within?: SchematicBounds;
+    /**
+     * Stamp each box with its wiring index (top-right corner) — the raster
+     * form of `data-record`: a vision consumer reads the number off the image
+     * and looks the record up in `description.wiring[n]` — image as legend.
+     */
+    index?: boolean;
 }
 /**
  * An element's page-coordinate bounds (the same space describe() records) —

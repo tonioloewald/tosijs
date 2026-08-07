@@ -44,7 +44,10 @@ describe('schematicSVG — pure, DOM-free rendering of the map', () => {
     expect(svg.startsWith('<svg xmlns=')).toBe(true)
     expect(svg).toContain('<rect x="10" y="20" width="200" height="30"')
     expect(svg).toContain('<rect x="220" y="20" width="40" height="30"')
-    expect(svg).toContain('filter stock…')
+    // the input HOLDS a value — name and value both speak: "label: value" —
+    // and editability is a SEPARATE right-edge ↔ badge (rasterizer-safe)
+    expect(svg).toContain('filter stock…: milk</text>')
+    expect(svg).toContain('>↔</text>')
   })
 
   test('root svg carries explicit width/height (intrinsic size; Firefox canvas-draw requires it)', () => {
@@ -224,7 +227,7 @@ describe('off-page hiding', () => {
 })
 
 describe('the affordance grammar — actionable is explicit', () => {
-  test('handler-wired elements get a bold outline; editable captions carry the arrow', () => {
+  test('handler-wired elements get a bold outline; editable boxes wear the badge', () => {
     const grammar: AgentDescription = {
       exposure: 'introspection',
       roots: {},
@@ -250,10 +253,99 @@ describe('the affordance grammar — actionable is explicit', () => {
       ],
     }
     const svg = schematicSVG(grammar)
-    // …so the caption gets it back as a suffix: editable is explicit
-    expect(svg).toContain('add a todo… ⟷</text>')
+    // …so the ↔ badge carries it: editable is explicit, and isolated in its
+    // own text run so a font missing it can only tofu the badge itself
+    expect(svg).toContain('add a todo…</text>')
+    expect(svg).toContain('>↔</text>')
+    expect(svg).not.toContain('⟷</text>') // the rare glyph never rides a caption
     // the wired button is BOLD; the display-only span is not
     expect(svg).toContain('x="210" y="0" width="60" height="30" fill="transparent" stroke="currentColor" stroke-width="2"')
     expect(svg).toContain('x="280" y="0" width="40" height="30" fill="transparent" stroke="currentColor"/>')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// the kitchen-sink truths: control state must RENDER, hints must not read as
+// content, and the raster can carry its own legend
+describe('schematicSVG — control-state truth', () => {
+  const bounds = (x: number) => ({ x, y: 10, width: 120, height: 24 })
+  const sink: any = {
+    roots: {},
+    actions: [],
+    exposure: 'introspection',
+    wiring: [
+      // checkbox: checked and not — the state is the caption
+      { tag: 'input', type: 'checkbox', checked: true, value: 'true ⟷ a.on', bounds: { x: 10, y: 10, width: 13, height: 13 } },
+      { tag: 'input', type: 'checkbox', checked: false, bounds: { x: 30, y: 10, width: 13, height: 13 } },
+      // radios
+      { tag: 'input', type: 'radio', checked: true, label: 'medium', bounds: bounds(150) },
+      { tag: 'input', type: 'radio', checked: false, label: 'large', bounds: bounds(280) },
+      // empty input with placeholder: an italic HINT, not content
+      { tag: 'input', placeholder: 'add a todo…', value: '⟷ a.newItem', bounds: bounds(410) },
+      // input with BOTH: the value wins
+      { tag: 'input', placeholder: 'search…', value: 'milk ⟷ a.filter', bounds: bounds(540) },
+      // unbound input harvested live (plain string, no arrow)
+      { tag: 'input', value: 'typed by hand', bounds: bounds(670) },
+    ],
+  }
+
+  test('toggle state is GEOMETRY: ✕ in the checked box, dot in the checked radio', () => {
+    const svg = schematicSVG(sink)
+    // the checked checkbox draws an ✕ (two lines); the unchecked one none
+    expect(svg.match(/<line /g)!.length).toBe(2)
+    // radios are circles: two outlines, ONE filled dot (the checked one)
+    expect(svg.match(/<circle /g)!.length).toBe(3)
+    // toggle labels sit to the right of the control, not inside it
+    expect(svg).toContain('>medium</text>')
+    expect(svg).toContain('>large</text>')
+    // the radio rows draw no <rect> boxes — the circle IS the control
+    expect(svg).not.toContain('<rect x="150"')
+  })
+
+  test('placeholder renders as an italic hint; a held value beats it', () => {
+    const svg = schematicSVG(sink)
+    expect(svg).toContain('font-style="italic"')
+    expect(svg).toContain('add a todo…')
+    expect(svg).toContain('milk</text>')
+    expect(svg).not.toContain('search…') // value present — hint suppressed
+    expect(svg).toContain('typed by hand') // live unbound value surfaces
+  })
+
+  test('index: true stamps each box with its wiring index — image as legend', () => {
+    const svg = schematicSVG(sink, { index: true })
+    for (let i = 0; i < sink.wiring.length; i++) {
+      expect(svg).toContain(`data-record="${i}"`)
+    }
+    // one backdropped digit per record (the ↔ badge also anchors end, so
+    // count the backdrops — white, mostly opaque, always legible)
+    expect(svg.match(/data-index-backdrop/g)!.length).toBe(sink.wiring.length)
+  })
+})
+
+describe('focus — where the user is', () => {
+  test('a focused record draws a second outline just outside its box', () => {
+    const focusMap: any = {
+      roots: {},
+      actions: [],
+      exposure: 'introspection',
+      wiring: [
+        {
+          tag: 'input',
+          focused: true,
+          value: '⟷ a.q',
+          bounds: { x: 10, y: 10, width: 100, height: 24 },
+        },
+        {
+          tag: 'input',
+          value: '⟷ a.r',
+          bounds: { x: 10, y: 50, width: 100, height: 24 },
+        },
+      ],
+    }
+    const svg = schematicSVG(focusMap)
+    // the ring: offset 2.5px out, 5px larger, unfilled
+    expect(svg).toContain('<rect x="7.5" y="7.5" width="105" height="29"')
+    // exactly one ring — the unfocused input gets none
+    expect(svg.match(/stroke-width="1\.5"/g)!.length).toBe(1)
   })
 })
