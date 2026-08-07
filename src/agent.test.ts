@@ -750,3 +750,33 @@ describe('describe() — validity harvest (the haltija exchange)', () => {
     }
   })
 })
+
+describe('describe() — contenteditable surfaces as an input field', () => {
+  test('existence leads: mapped even unbound, live text as value, aria-placeholder as hint', async () => {
+    const region = elements.div({ id: 'ce-region' })
+    region.setAttribute('contenteditable', '')
+    region.setAttribute('aria-placeholder', 'jot something…')
+    region.textContent = 'draft text'
+    const empty = elements.div({ id: 'ce-empty' })
+    empty.setAttribute('contenteditable', 'true')
+    empty.setAttribute('aria-placeholder', 'jot something…')
+    document.body.append(region, empty)
+    await updates()
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      const rec = d.wiring.find((w) => w.id === 'ce-region')!
+      // no bindings, no handlers — surfaced anyway: the region EXISTS
+      expect(rec).toBeDefined()
+      expect(rec.contentEditable).toBe(true)
+      expect(rec.value).toBe('draft text') // live text, no provenance arrow
+      const hint = d.wiring.find((w) => w.id === 'ce-empty')!
+      expect(hint.placeholder).toBe('jot something…')
+      expect(hint.value).toBeUndefined()
+    } finally {
+      agent.disable()
+      region.remove()
+      empty.remove()
+    }
+  })
+})

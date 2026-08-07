@@ -152,6 +152,12 @@ export interface AgentWiringRecord {
     /** present and true when the control's live ValidityState says invalid
      * (or aria-invalid is set) — the map reads what :invalid styles */
     invalid?: boolean;
+    /** contenteditable: surfaces AS an input field. What matters to an agent
+     * is that the region EXISTS and which path feeds it — it will read and
+     * write the bound state directly, not synthesize keystrokes — so the
+     * record leads with existence + bindings (live text as value,
+     * aria-placeholder as hint), mapped even before bindings attach */
+    contentEditable?: boolean;
     /** textContent — static ("foo") or bound ("foo ⟵ path") */
     text?: string;
     /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */

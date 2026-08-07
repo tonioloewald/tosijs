@@ -415,3 +415,33 @@ describe('required and invalid — the form-truth grammar', () => {
     expect(svg.match(/#d32f2f/g)!.length).toBe(1)
   })
 })
+
+describe('contenteditable — drawn as an input', () => {
+  test('value captions, hints italicize, and the ↔ badge appears unbid', () => {
+    const map: any = {
+      roots: {},
+      actions: [],
+      exposure: 'introspection',
+      wiring: [
+        {
+          tag: 'div',
+          contentEditable: true,
+          value: 'draft text',
+          bounds: { x: 10, y: 10, width: 200, height: 60 },
+        },
+        {
+          tag: 'div',
+          contentEditable: true,
+          placeholder: 'jot something…',
+          bounds: { x: 10, y: 90, width: 200, height: 60 },
+        },
+      ],
+    }
+    const svg = schematicSVG(map)
+    expect(svg).toContain('draft text')
+    expect(svg).toContain('jot something…')
+    expect(svg).toContain('font-style="italic"')
+    // editable-by-hand is a fact of the element — no binding required
+    expect(svg.match(/>↔<\/text>/g)!.length).toBe(2)
+  })
+})

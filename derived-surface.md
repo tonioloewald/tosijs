@@ -326,6 +326,16 @@ const controls = div(
   label(input({ type: 'checkbox', bindValue: sink.spam }), ' spam me'),
   div(radio('small'), radio('medium'), radio('large')),
   select({ bindValue: sink.flavor }, option('mango'), option('lime')),
+  // contenteditable surfaces AS an input: the agent cares that the region
+  // EXISTS and which path feeds it (it writes state, not keystrokes)
+  div(
+    {
+      contenteditable: 'true',
+      ariaPlaceholder: 'editable region…',
+      style: { border: '1px dashed gray', padding: '2px 4px', minHeight: '1.2em' },
+    },
+    'edit me'
+  ),
   div(
     button('submit', { onClick: 'sink.submit' }),
     ' ',
@@ -429,6 +439,10 @@ test('kitchen sink: the map never disagrees with the controls', async () => {
   expect(
     d.wiring.some((w) => w.tag === 'button' && w.disabled === true)
   ).toBe(true)
+  // contenteditable: an affordance in itself, live text as value
+  const ce = d.wiring.find((w) => w.contentEditable === true)
+  expect(ce != null).toBe(true)
+  expect(ce.value).toBe('edit me')
   // required + empty email = invalid, live (ValidityState is map truth)
   const email = d.wiring.find((w) => w.type === 'email')
   expect(email != null).toBe(true)
@@ -643,6 +657,7 @@ harvest **on demand** from what's already there:
 | `aria-label(ledby)`, `title`, `placeholder`, `alt` | **the accessible name, resolved** — what a screen reader would say, harvested at the source |
 | `aria-describedby`, `aria-disabled`/`disabled`, `aria-required` | the author's own explanation + live affordance state (`description`, `disabled`, `required` on the record) |
 | `aria-hidden` | hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does |
+| `contenteditable` | **surfaces as an input field**, mapped even before bindings attach: live text as its value, `aria-placeholder` as its hint, ↔ unbid — what an agent needs is that the region *exists* and which path feeds it (it writes state, not keystrokes) |
 | `input({ type: 'email' })`, `required`, `min`/`max`/`pattern` | value types and validation constraints, straight from the markup sugar |
 | `part: 'searchBox'` | the developer's *own name* for the affordance |
 | `contract: { type: 'integer', examples: [1, 42] }` | an **inline contract**, declared at the element: rides the record, aggregates into `describe().contract` under the bound path, gates agent writes, and its examples are executable — see [The Agent Surface](/agent-surface/) |

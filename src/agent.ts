@@ -208,6 +208,12 @@ export interface AgentWiringRecord {
   /** present and true when the control's live ValidityState says invalid
    * (or aria-invalid is set) — the map reads what :invalid styles */
   invalid?: boolean
+  /** contenteditable: surfaces AS an input field. What matters to an agent
+   * is that the region EXISTS and which path feeds it — it will read and
+   * write the bound state directly, not synthesize keystrokes — so the
+   * record leads with existence + bindings (live text as value,
+   * aria-placeholder as hint), mapped even before bindings attach */
+  contentEditable?: boolean
   /** textContent — static ("foo") or bound ("foo ⟵ path") */
   text?: string
   /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */
@@ -429,8 +435,20 @@ const describeElement = (el: Element): AgentWiringRecord => {
     el.getAttribute('title') ||
     el.getAttribute('alt')
   if (label) record.label = label
-  const placeholder = el.getAttribute('placeholder')
+  const placeholder =
+    el.getAttribute('placeholder') || el.getAttribute('aria-placeholder')
   if (placeholder) record.placeholder = placeholder
+  // contenteditable IS an input field — an affordance in itself, whatever
+  // custom bindings ride it (and they usually do)
+  const editableAttr = el.getAttribute?.('contenteditable')
+  if (
+    (el as any).isContentEditable === true ||
+    editableAttr === '' ||
+    editableAttr === 'true' ||
+    editableAttr === 'plaintext-only'
+  ) {
+    record.contentEditable = true
+  }
   // where the user IS: keyboard focus is part of the scene
   if ((globalThis as any).document?.activeElement === el) {
     record.focused = true
@@ -698,6 +716,15 @@ export function enableAgentInterface(
             const liveValue = String((el as any).value ?? '').slice(0, 40)
             if (liveValue) record.value = liveValue
           }
+          // contenteditable: live text is its value; the region is an
+          // affordance in itself, mapped even before bindings attach
+          if (record.contentEditable === true) {
+            if (record.value === undefined) {
+              const liveText = (el.textContent || '').trim().slice(0, 40)
+              if (liveText) record.value = liveText
+            }
+            wired = true
+          }
           if (inline != null) {
             record.contract = inline
             if (inlinePath != null && inlineContracts[inlinePath] === undefined) {
@@ -753,6 +780,16 @@ export function enableAgentInterface(
             const record = recordFor(el)
             if (record) wiring.push(record)
           }
+        }
+        // contenteditable regions are affordances in themselves — enumerated
+        // even before any binding or handler attaches (the walk otherwise
+        // only visits WIRED elements)
+        for (const el of Array.from(
+          walkRoot.querySelectorAll('[contenteditable]')
+        )) {
+          if (el.getAttribute('contenteditable') === 'false') continue
+          const record = recordFor(el)
+          if (record) wiring.push(record)
         }
         // the structural tier (unless structure: false): headings and
         // landmarks — the page's information architecture — plus the

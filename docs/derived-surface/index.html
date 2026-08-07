@@ -354,6 +354,16 @@ const controls = div(
   label(input({ type: &#39;checkbox&#39;, bindValue: sink.spam }), &#39; spam me&#39;),
   div(radio(&#39;small&#39;), radio(&#39;medium&#39;), radio(&#39;large&#39;)),
   select({ bindValue: sink.flavor }, option(&#39;mango&#39;), option(&#39;lime&#39;)),
+  // contenteditable surfaces AS an input: the agent cares that the region
+  // EXISTS and which path feeds it (it writes state, not keystrokes)
+  div(
+    {
+      contenteditable: &#39;true&#39;,
+      ariaPlaceholder: &#39;editable region…&#39;,
+      style: { border: &#39;1px dashed gray&#39;, padding: &#39;2px 4px&#39;, minHeight: &#39;1.2em&#39; },
+    },
+    &#39;edit me&#39;
+  ),
   div(
     button(&#39;submit&#39;, { onClick: &#39;sink.submit&#39; }),
     &#39; &#39;,
@@ -455,6 +465,10 @@ test(&#39;kitchen sink: the map never disagrees with the controls&#39;, async ()
   expect(
     d.wiring.some((w) =&gt; w.tag === &#39;button&#39; &amp;&amp; w.disabled === true)
   ).toBe(true)
+  // contenteditable: an affordance in itself, live text as value
+  const ce = d.wiring.find((w) =&gt; w.contentEditable === true)
+  expect(ce != null).toBe(true)
+  expect(ce.value).toBe(&#39;edit me&#39;)
   // required + empty email = invalid, live (ValidityState is map truth)
   const email = d.wiring.find((w) =&gt; w.type === &#39;email&#39;)
   expect(email != null).toBe(true)
@@ -739,6 +753,10 @@ harvest <strong>on demand</strong> from what&#39;s already there:</p>
 <tr>
 <td><code>aria-hidden</code></td>
 <td>hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does</td>
+</tr>
+<tr>
+<td><code>contenteditable</code></td>
+<td><strong>surfaces as an input field</strong>, mapped even before bindings attach: live text as its value, <code>aria-placeholder</code> as its hint, ↔ unbid — what an agent needs is that the region <em>exists</em> and which path feeds it (it writes state, not keystrokes)</td>
 </tr>
 <tr>
 <td><code>input({ type: &#39;email&#39; })</code>, <code>required</code>, <code>min</code>/<code>max</code>/<code>pattern</code></td>

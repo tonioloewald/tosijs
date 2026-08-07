@@ -212,7 +212,8 @@ export const schematicSVG = (
     } else if (
       w.tag === 'input' ||
       w.tag === 'textarea' ||
-      w.tag === 'select'
+      w.tag === 'select' ||
+      w.contentEditable === true
     ) {
       const value = shownValue(w.value)
       if (value) {
@@ -237,9 +238,10 @@ export const schematicSVG = (
     const actable = !structural && w.on != null
     const editable =
       !structural &&
-      Object.values(w).some(
-        (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
-      )
+      (w.contentEditable === true ||
+        Object.values(w).some(
+          (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
+        ))
     const fill = structural
       ? 'none'
       : w.style != null
