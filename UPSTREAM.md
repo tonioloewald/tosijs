@@ -59,6 +59,16 @@ a success-sounding line, so a broken typecheck exited 0 and published stale
 `tsc -p` with `.nothrow()` + exit-code check and fails the build. Adopted as the
 1.7.0 build host; verified a deliberate type error now aborts the build (exit 1).
 
+### 📋 FILED (gated) — accessibility ⇄ agent-surface program for every component
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/59
+The one-user-interface curb cut as an instrument: `static contract` on every
+tosijs-ui component (auto aria-label + agent self-description + typed parts +
+exercisable spec), a real roles/states pass (tablist/tab/tabpanel +
+aria-selected, radiogroup, grid), shadow components surfacing semantic intent
+at the host while hiding implementation, and the near-free audit ("every
+record with handlers must have label|text|role" over describe() output).
+**Gated per Tonio: not to be picked up until 1.5 is beta/rc.**
+
 ## tjs-lang
 
 ### 🚧 (to file) Post-eval reconfiguration seam for `globalThis.__tjs`
