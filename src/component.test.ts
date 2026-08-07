@@ -2,6 +2,7 @@ import { expect, test, describe, beforeAll } from 'bun:test'
 import { Component, tosiSlot, xinSlot } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
+import { _resetDeprecationWarnings } from './metadata'
 
 // Simple test component
 class TestComponent extends Component {
@@ -856,6 +857,10 @@ describe('deprecated elementCreator options', () => {
     }
     const warnings: string[] = []
     const originalWarn = console.warn
+    // warnings fire once per PROCESS — if any earlier test file (order is
+    // not deterministic across machines: this passed locally, failed in CI)
+    // triggered this deprecation, the spy would see nothing
+    _resetDeprecationWarnings()
     console.warn = (msg: string) => warnings.push(String(msg))
     const creator = LegacyTagComponent.elementCreator({
       tag: 'legacy-tag-test',
@@ -874,6 +879,7 @@ describe('deprecated elementCreator options', () => {
     }
     const warnings: string[] = []
     const originalWarn = console.warn
+    _resetDeprecationWarnings() // once-per-process — see the tag test above
     console.warn = (msg: string) => warnings.push(String(msg))
     const creator = LegacyStyleComponent.elementCreator({
       tag: 'legacy-style-test',
