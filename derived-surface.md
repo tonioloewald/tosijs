@@ -255,7 +255,9 @@ covers).
 
 **The grammar** (explicit, so "can I act here?" never needs guessing):
 **bold outline** = wired to act (has handlers) · an `↔` badge at the right
-edge = editable here · toggle state is drawn, live (an `✕`
+edge = editable here · caption ending `*` = required · a **red corner
+flag** (top-left) = invalid *right now* — live ValidityState, the same
+truth `:invalid` styles · toggle state is drawn, live (an `✕`
 fills a checked box; radios are circles with a dot when selected) · a
 **double outline** = keyboard focus, where the user is right now · *italic* =
 placeholder hint, **not** content · **faded** = disabled right now (it beats
@@ -278,6 +280,7 @@ import { elements, tosi, enableAgentInterface, schematicSVG } from 'tosijs'
 const { sink } = tosi({
   sink: {
     text: '',
+    email: '',
     qty: 3,
     volume: 7,
     flavor: 'mango',
@@ -309,6 +312,14 @@ const radio = (value) =>
 const controls = div(
   { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
   input({ placeholder: 'type here…', bindValue: sink.text }),
+  // required + empty = INVALID right now: the map reads live ValidityState
+  // (red corner flag + asterisk) — type a real address and watch it clear
+  input({
+    type: 'email',
+    required: true,
+    placeholder: 'email (required)',
+    bindValue: sink.email,
+  }),
   label(input({ type: 'number', bindValue: sink.qty, style: { width: '4em' } }), ' qty'),
   label(input({ type: 'range', min: 0, max: 10, bindValue: sink.volume }), ' volume'),
   label(input({ type: 'checkbox', bindValue: sink.terms }), ' terms'),
@@ -350,7 +361,9 @@ const draw = () => {
     .map(
       (w, i) =>
         `${i} ${w.tag}${w.type ? ':' + w.type : ''}` +
-        `${w.disabled === true ? ' (disabled)' : ''} ` +
+        `${w.disabled === true ? ' (disabled)' : ''}` +
+        `${w.required === true ? ' (required)' : ''}` +
+        `${w.invalid === true ? ' (invalid)' : ''} ` +
         `${w.label ?? w.placeholder ?? w.text ?? w.value ?? ''}`
     )
     .join('\n')
@@ -416,12 +429,19 @@ test('kitchen sink: the map never disagrees with the controls', async () => {
   expect(
     d.wiring.some((w) => w.tag === 'button' && w.disabled === true)
   ).toBe(true)
+  // required + empty email = invalid, live (ValidityState is map truth)
+  const email = d.wiring.find((w) => w.type === 'email')
+  expect(email != null).toBe(true)
+  expect(email.required).toBe(true)
+  expect(email.invalid).toBe(true)
   // and the drawing carries all of it
   const svg = schematicSVG(d, { index: true })
   expect(svg.includes('<line')).toBe(true) // the checked box's ✕
   expect(svg.includes('<circle')).toBe(true) // radios are circles
   expect(svg.includes('font-style="italic"')).toBe(true) // the hint
   expect(svg.includes('opacity="0.4"')).toBe(true) // the disabled button
+  expect(svg.includes('#d32f2f')).toBe(true) // the invalid corner flag
+  expect(svg.includes(' *')).toBe(true) // the required asterisk
   // the agent types: the value must replace the hint
   agent.write('sink.text', 'actual content')
   await updates()

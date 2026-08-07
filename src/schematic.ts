@@ -291,6 +291,12 @@ export const schematicSVG = (
         )
       }
     }
+    // invalid = the spreadsheet error-corner: a red flag at top-left
+    // (index owns top-right, ↔ owns bottom-right) — geometry, so it's
+    // legible at any raster scale and in any font
+    if (w.invalid === true && !structural) {
+      parts.push(`<path d="M${x} ${y} l7 0 l-7 7 z" fill="#d32f2f"/>`)
+    }
     // focus ring: a second outline just outside the box — where the user IS
     if (w.focused === true && !structural) {
       parts.push(
@@ -310,7 +316,11 @@ export const schematicSVG = (
           `font-family="monospace" fill="${esc(color)}">↔</text>`
       )
     }
-    const shownCaption = caption
+    // required wears the universal asterisk on its caption — ASCII-safe
+    const shownCaption =
+      w.required === true && !structural && caption !== ''
+        ? `${caption} *`
+        : caption
     if (toggle) {
       // the toggle's label sits to the RIGHT of the control, like the real
       // layout — the control itself already says everything else

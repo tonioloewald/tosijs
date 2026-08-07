@@ -149,6 +149,9 @@ export interface AgentWiringRecord {
     disabled?: boolean;
     /** present and true when the field is required */
     required?: boolean;
+    /** present and true when the control's live ValidityState says invalid
+     * (or aria-invalid is set) — the map reads what :invalid styles */
+    invalid?: boolean;
     /** textContent — static ("foo") or bound ("foo ⟵ path") */
     text?: string;
     /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */

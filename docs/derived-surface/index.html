@@ -287,7 +287,9 @@ canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for 
 covers).</p>
 <p><strong>The grammar</strong> (explicit, so &quot;can I act here?&quot; never needs guessing):
 <strong>bold outline</strong> = wired to act (has handlers) · an <code>↔</code> badge at the right
-edge = editable here · toggle state is drawn, live (an <code>✕</code>
+edge = editable here · caption ending <code>*</code> = required · a <strong>red corner
+flag</strong> (top-left) = invalid <em>right now</em> — live ValidityState, the same
+truth <code>:invalid</code> styles · toggle state is drawn, live (an <code>✕</code>
 fills a checked box; radios are circles with a dot when selected) · a
 <strong>double outline</strong> = keyboard focus, where the user is right now · <em>italic</em> =
 placeholder hint, <strong>not</strong> content · <strong>faded</strong> = disabled right now (it beats
@@ -306,6 +308,7 @@ the JSON). Interact with anything on the left; the map must never disagree:</p>
 const { sink } = tosi({
   sink: {
     text: &#39;&#39;,
+    email: &#39;&#39;,
     qty: 3,
     volume: 7,
     flavor: &#39;mango&#39;,
@@ -337,6 +340,14 @@ const radio = (value) =&gt;
 const controls = div(
   { style: { display: &#39;flex&#39;, flexDirection: &#39;column&#39;, gap: &#39;4px&#39; } },
   input({ placeholder: &#39;type here…&#39;, bindValue: sink.text }),
+  // required + empty = INVALID right now: the map reads live ValidityState
+  // (red corner flag + asterisk) — type a real address and watch it clear
+  input({
+    type: &#39;email&#39;,
+    required: true,
+    placeholder: &#39;email (required)&#39;,
+    bindValue: sink.email,
+  }),
   label(input({ type: &#39;number&#39;, bindValue: sink.qty, style: { width: &#39;4em&#39; } }), &#39; qty&#39;),
   label(input({ type: &#39;range&#39;, min: 0, max: 10, bindValue: sink.volume }), &#39; volume&#39;),
   label(input({ type: &#39;checkbox&#39;, bindValue: sink.terms }), &#39; terms&#39;),
@@ -378,7 +389,9 @@ const draw = () =&gt; {
     .map(
       (w, i) =&gt;
         `${i} ${w.tag}${w.type ? &#39;:&#39; + w.type : &#39;&#39;}` +
-        `${w.disabled === true ? &#39; (disabled)&#39; : &#39;&#39;} ` +
+        `${w.disabled === true ? &#39; (disabled)&#39; : &#39;&#39;}` +
+        `${w.required === true ? &#39; (required)&#39; : &#39;&#39;}` +
+        `${w.invalid === true ? &#39; (invalid)&#39; : &#39;&#39;} ` +
         `${w.label ?? w.placeholder ?? w.text ?? w.value ?? &#39;&#39;}`
     )
     .join(&#39;\n&#39;)
@@ -442,12 +455,19 @@ test(&#39;kitchen sink: the map never disagrees with the controls&#39;, async ()
   expect(
     d.wiring.some((w) =&gt; w.tag === &#39;button&#39; &amp;&amp; w.disabled === true)
   ).toBe(true)
+  // required + empty email = invalid, live (ValidityState is map truth)
+  const email = d.wiring.find((w) =&gt; w.type === &#39;email&#39;)
+  expect(email != null).toBe(true)
+  expect(email.required).toBe(true)
+  expect(email.invalid).toBe(true)
   // and the drawing carries all of it
   const svg = schematicSVG(d, { index: true })
   expect(svg.includes(&#39;&lt;line&#39;)).toBe(true) // the checked box&#39;s ✕
   expect(svg.includes(&#39;&lt;circle&#39;)).toBe(true) // radios are circles
   expect(svg.includes(&#39;font-style=&quot;italic&quot;&#39;)).toBe(true) // the hint
   expect(svg.includes(&#39;opacity=&quot;0.4&quot;&#39;)).toBe(true) // the disabled button
+  expect(svg.includes(&#39;#d32f2f&#39;)).toBe(true) // the invalid corner flag
+  expect(svg.includes(&#39; *&#39;)).toBe(true) // the required asterisk
   // the agent types: the value must replace the hint
   agent.write(&#39;sink.text&#39;, &#39;actual content&#39;)
   await updates()

@@ -205,6 +205,9 @@ export interface AgentWiringRecord {
   disabled?: boolean
   /** present and true when the field is required */
   required?: boolean
+  /** present and true when the control's live ValidityState says invalid
+   * (or aria-invalid is set) — the map reads what :invalid styles */
+  invalid?: boolean
   /** textContent — static ("foo") or bound ("foo ⟵ path") */
   text?: string
   /** event handlers by type — a path string when nameable, 'ƒ' when anonymous */
@@ -453,6 +456,16 @@ const describeElement = (el: Element): AgentWiringRecord => {
     el.getAttribute('aria-required') === 'true'
   ) {
     record.required = true
+  }
+  // live validity — the same truth :invalid styling and screen readers get:
+  // the platform's ValidityState (native controls AND form-associated
+  // components via ElementInternals) or an explicit aria-invalid
+  if (
+    el.getAttribute('aria-invalid') === 'true' ||
+    ((el as any).willValidate === true &&
+      (el as any).validity?.valid === false)
+  ) {
+    record.invalid = true
   }
   return record
 }

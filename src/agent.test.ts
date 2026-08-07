@@ -714,3 +714,39 @@ describe('describe() — proxy handlers are nameable', () => {
     }
   })
 })
+
+describe('describe() — validity harvest (the haltija exchange)', () => {
+  test('live ValidityState and aria-invalid become map facts', async () => {
+    tosi({ validApp: { email: '', other: 'ok' } })
+    const missing = elements.input({ id: 'v-missing', required: true })
+    const mismatch = elements.input({
+      id: 'v-mismatch',
+      type: 'email',
+      value: 'not-an-email',
+    })
+    const fine = elements.input({ id: 'v-fine', value: 'ok' })
+    const ariaBad = elements.input({ id: 'v-aria' })
+    ariaBad.setAttribute('aria-invalid', 'true')
+    document.body.append(missing, mismatch, fine, ariaBad)
+    // NB: value-binding the mismatch input would OVERWRITE its bad value
+    // with state — wire it (and aria) via handlers, bind the other two
+    bind(missing, 'validApp.email', bindings.value)
+    bind(fine, 'validApp.other', bindings.value)
+    on(mismatch, 'change', 'validApp.noop' as any)
+    on(ariaBad, 'change', 'validApp.noop' as any)
+    await updates()
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      const rec = (id: string) => d.wiring.find((w) => w.id === id)!
+      expect(rec('v-missing').invalid).toBe(true) // required + empty
+      expect(rec('v-missing').required).toBe(true)
+      expect(rec('v-mismatch').invalid).toBe(true) // typeMismatch
+      expect(rec('v-fine').invalid).toBeUndefined()
+      expect(rec('v-aria').invalid).toBe(true) // author's own claim
+    } finally {
+      agent.disable()
+      for (const el of [missing, mismatch, fine, ariaBad]) el.remove()
+    }
+  })
+})

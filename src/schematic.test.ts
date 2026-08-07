@@ -381,3 +381,37 @@ describe('list containers are ground, not figure', () => {
     expect(svg2).not.toContain('stroke-dasharray')
   })
 })
+
+describe('required and invalid — the form-truth grammar', () => {
+  const formMap: any = {
+    roots: {},
+    actions: [],
+    exposure: 'introspection',
+    wiring: [
+      {
+        tag: 'input',
+        label: 'email',
+        required: true,
+        invalid: true,
+        value: '⟷ a.email',
+        bounds: { x: 10, y: 10, width: 160, height: 24 },
+      },
+      {
+        tag: 'input',
+        label: 'nickname',
+        value: 'ada ⟷ a.nick',
+        bounds: { x: 10, y: 50, width: 160, height: 24 },
+      },
+    ],
+  }
+
+  test('required wears the asterisk; invalid wears the red corner flag', () => {
+    const svg = schematicSVG(formMap)
+    expect(svg).toContain('email *')
+    expect(svg).toContain('fill="#d32f2f"')
+    expect(svg).toContain(`<path d="M10 10 l7 0 l-7 7 z"`)
+    // the valid field wears neither
+    expect(svg).not.toContain('nickname: ada *')
+    expect(svg.match(/#d32f2f/g)!.length).toBe(1)
+  })
+})
