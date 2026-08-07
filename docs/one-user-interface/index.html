@@ -73,6 +73,19 @@ diffing with notifications.</li>
 <li>Therefore: <strong>an agent is just another observer with a different intelligence
 behind it.</strong> We don&#39;t extend the architecture to serve AI — we <em>describe</em> it.</li>
 </ul>
+<p><strong>And the description is under oath.</strong> The agent surface couldn&#39;t be a
+separate package even if we wanted one — it reads the framework&#39;s own
+records (the registry, the binding metadata, the handler wiring), so when
+the map looks wrong, something <em>real</em> is wrong: the renderer lied, or the
+framework did. There is no adapter layer to absorb the discrepancy, which is
+exactly what makes the map an instrument. One truth-test page found defects
+in four different strata in a day — a harvest lying about accessible names,
+a missing piece of the accessible-name algorithm, a <strong>core binding bug</strong>
+that had shipped silently for two minor versions (fixed on npm within
+hours of the map looking slightly off), and a coding pattern that needed
+writing down. An integration absorbs discrepancies; an intrinsic surface
+prosecutes them. The curb cut doesn&#39;t just serve the new users — <em>building
+it audits the sidewalk.</em></p>
 <h2>Proof: two users, one interface (live)</h2>
 <p>The human side is ordinary bound UI. The agent side never touches the DOM —
 paths, actions, and push observation only. Add items from either side: both
