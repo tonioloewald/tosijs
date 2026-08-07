@@ -509,11 +509,10 @@ lands it on the release line.
 
 - bindList cloning doesn't duplicate svgs for some reason
 
-## take() transform lost on list-template relative paths (found 2026-08-07)
+## ~~take() transform lost on list-template relative paths~~ FIXED in v1.7.9
 
-`item.done.tosi.take((v) => !v)` bound to an element prop inside a
-`listBinding` template applies the RAW value — the transform is silently
-dropped (the same take on an absolute scalar path works). Repro was a
-delete-button `disabled` binding in the derived-surface demo; worked around
-with an inline `bind: { value, binding }`. Suspect the relative-path (`^.`)
-rewrite in list-binding clones the TAKE_DESCRIPTOR without its transform.
+Root cause was richer than suspected: the closure froze the template's `^.`
+paths (transform ran on undefined) AND shared one change-detection memo
+across all cloned rows (first row starved its siblings). Fixed on main
+(v1.7.9, `src/take-list-binding.test.ts`); the descriptor is now data on the
+binding entry. The derived-surface demo uses the idiomatic take() again.

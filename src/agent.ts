@@ -999,8 +999,20 @@ export function enableAgentInterface(
   // tools are LATE-BOUND: they always talk to the currently active surface,
   // so on hosts without unregistration (Canary today) a re-enable can't
   // strand the browser's tools on a disabled surface.
+  active = surface
   if (webmcp !== false) {
-    const live = (): AgentInterface => active ?? surface
+    // the delegate deliberately captures NOTHING but the module-level
+    // `active` (registration happens after it's set, above): on hosts
+    // without unregistration the browser's tools live forever, and a
+    // `?? surface` fallback would pin the first (long-disabled) surface —
+    // and its ledger — for the page's lifetime, then talk to the ghost.
+    // Disabled means REFUSED, and dead surfaces get to be garbage.
+    const live = (): AgentInterface => {
+      if (active == null) {
+        throw new Error('agent interface: disabled (no active surface)')
+      }
+      return active
+    }
     const delegate: AgentInterface = {
       describe: (o) => live().describe(o),
       read: (path) => live().read(path),
@@ -1020,6 +1032,5 @@ export function enableAgentInterface(
       surface.webmcp = { tools: webmcpRegistration.tools }
     }
   }
-  active = surface
   return surface
 }

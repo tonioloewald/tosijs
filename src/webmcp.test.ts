@@ -202,5 +202,13 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
       /not exposed/
     )
     expect(readTool.execute({ path: 'mcpDup.x' })).toBe(1)
+
+    // disabled with nothing active = REFUSED — the forever-registered tool
+    // neither resurrects a dead surface nor pins one for the page's life
+    current!.disable()
+    current = undefined
+    expect(() => readTool.execute({ path: 'mcpDup.x' })).toThrow(
+      /no active surface/
+    )
   })
 })

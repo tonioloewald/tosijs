@@ -122,17 +122,12 @@ preview.append(
             span(item.text),
             &#39; &#39;,
             // an icon-only affordance: `title` gives it its NAME (harvested
-            // the way a screen reader reads it), and a two-line custom
-            // binding makes checked-ness a PRECONDITION — watch the delete
-            // button fade in and out of the map as you toggle its todo
+            // the way a screen reader reads it), and an observant transform
+            // makes checked-ness a PRECONDITION — watch the delete button
+            // fade in and out of the map as you toggle its todo
             button(icons.x(), {
               title: &#39;delete&#39;,
-              bind: {
-                value: item.done,
-                binding: (el, done) =&gt; {
-                  el.disabled = !done
-                },
-              },
+              disabled: item.done.tosi.take((done) =&gt; !done),
               onClick(event) {
                 const row = getListItem(event.target.closest(&#39;li&#39;))
                 mapDemo.items.listRemove((i) =&gt; i.id, row.id)
