@@ -67,7 +67,7 @@ exercisable spec), a real roles/states pass (tablist/tab/tabpanel +
 aria-selected, radiogroup, grid), shadow components surfacing semantic intent
 at the host while hiding implementation, and the near-free audit ("every
 record with handlers must have label|text|role" over describe() output).
-**Gated per Tonio: not to be picked up until 1.5 is beta/rc.**
+**Gated per Tonio: not to be picked up until tosijs 1.8.0 (the one-user-interface release) is beta/rc.**
 
 ## tjs-lang
 
