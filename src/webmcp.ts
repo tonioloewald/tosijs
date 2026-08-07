@@ -156,6 +156,14 @@ export const webmcpTools = (
  * Detect the WebMCP host, register the generated tools, return
  * { tools, unregister } — or undefined when no host API is present.
  */
+// hosts that provide NO unregistration path (no handle.unregister, no
+// unregisterTool — Chrome Canary's registerTool today) get REGISTER-ONCE
+// semantics per tool name: re-registering a held name is a console error on
+// the host side and would strand a stale closure on ours. Skip names the
+// host already holds — paired with enableAgentInterface's live-bound
+// delegate, the existing registration already talks to the current surface.
+const registeredOnHost: WeakMap<object, Set<string>> = new WeakMap()
+
 export const webmcpAdapter = (
   agent: AgentInterface,
   options: WebMCPAdapterOptions = {}
@@ -169,12 +177,24 @@ export const webmcpAdapter = (
   const tools = webmcpTools(agent, options)
   const undo: Array<() => void> = []
   if (typeof mc.registerTool === 'function') {
+    let held = registeredOnHost.get(mc)
+    if (held == null) {
+      held = new Set()
+      registeredOnHost.set(mc, held)
+    }
     for (const tool of tools) {
-      const handle = mc.registerTool(tool)
-      if (handle != null && typeof handle.unregister === 'function') {
-        undo.push(() => handle.unregister())
-      } else if (typeof mc.unregisterTool === 'function') {
-        undo.push(() => mc.unregisterTool(tool.name))
+      if (held.has(tool.name)) continue // already live on this host
+      try {
+        const handle = mc.registerTool(tool)
+        if (handle != null && typeof handle.unregister === 'function') {
+          undo.push(() => handle.unregister())
+        } else if (typeof mc.unregisterTool === 'function') {
+          undo.push(() => mc.unregisterTool(tool.name))
+        } else {
+          held.add(tool.name) // no way back: remember it's registered
+        }
+      } catch (_e) {
+        held.add(tool.name) // the host says it already holds this name
       }
     }
   } else if (typeof mc.provideContext === 'function') {

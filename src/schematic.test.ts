@@ -349,3 +349,35 @@ describe('focus — where the user is', () => {
     expect(svg.match(/stroke-width="1\.5"/g)!.length).toBe(1)
   })
 })
+
+describe('list containers are ground, not figure', () => {
+  test('a list-bound container draws dotted like structure — its items act', () => {
+    const listMap: any = {
+      roots: {},
+      actions: [],
+      exposure: 'introspection',
+      wiring: [
+        {
+          tag: 'ul',
+          list: { path: 'app.items', idPath: 'id' },
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+        },
+        {
+          tag: 'input',
+          type: 'checkbox',
+          checked: true,
+          value: 'true ⟷ app.items[id=1].done',
+          bounds: { x: 10, y: 10, width: 13, height: 13 },
+        },
+      ],
+    }
+    const svg = schematicSVG(listMap)
+    // the ul: dotted, unfilled — wired in the JSON, ground in the drawing
+    expect(svg).toContain('stroke-dasharray="1 3"')
+    expect(svg).toContain('fill="none"')
+    // …but a container that also HANDLES events stays a solid affordance
+    listMap.wiring[0].on = { click: 'app.select' }
+    const svg2 = schematicSVG(listMap)
+    expect(svg2).not.toContain('stroke-dasharray')
+  })
+})

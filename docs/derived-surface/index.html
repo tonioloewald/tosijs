@@ -53,26 +53,15 @@
 records is a line in it. Below: a todo list built the ordinary way, and the
 <strong>schematic</strong> — the map, drawn — growing as you add items.</p>
 <h2>The map, drawn: a schematic embodiment (live)</h2>
-<p>One rectangle per wired element, at its <strong>actual position and size</strong>, wearing
-the app&#39;s own colors (<code>describe({ styles: true })</code>) — and since <code>bounds</code> is
-plain data, a <em>remote</em> agent can draw a page nobody is looking at.</p>
-<p>Live, here — a todo list this time, because a list&#39;s map <strong>changes shape as
-you use it</strong>: every item you add is new wired elements and the map grows with
-them, hands off — each tab redraws every 250ms while selected (drawing the
-map is cheap; that&#39;s the point). Type in the input and watch the caption
-change from italic hint to held value; check a box and watch the glyph flip.
-The <strong>schematic</strong> tab is scoped <strong>by hierarchy</strong> — <code>agent.describe({ scope: preview })</code> walks only this demo&#39;s subtree, so the map is the same whether
-the example is inline or maximized. (Spatial scoping — <code>schematicSVG(map, { within: rect })</code> — also exists, but a region includes whatever <em>overlaps</em> it,
-occluded or not; use it for viewport maps, not app parts.) <strong>whole page</strong>
-drops the scope for the full reveal; click any rectangle for its JSON record:</p>
 <pre><code class="language-js">import {
   elements,
   tosi,
   enableAgentInterface,
   schematicSVG,
   rasterizeSVG,
+  getListItem,
 } from &#39;tosijs&#39;
-import { tosiTabs } from &#39;tosijs-ui&#39;
+import { tosiTabs, icons } from &#39;tosijs-ui&#39;
 
 const { mapDemo } = tosi({
   mapDemo: {
@@ -104,20 +93,47 @@ preview.append(
       },
     }),
     &#39; &#39;,
-    button(&#39;add&#39;, { onClick: &#39;mapDemo.addItem&#39; }),
+    // another PRECONDITION: nothing to add = nothing to press (an
+    // observant transform — the button follows the field)
+    button(&#39;add&#39;, {
+      onClick: &#39;mapDemo.addItem&#39;,
+      disabled: mapDemo.newItem.tosi.take((text) =&gt; text.trim() === &#39;&#39;),
+    }),
     ul(
       { style: { maxHeight: &#39;10em&#39;, overflow: &#39;auto&#39;, margin: 0 } },
       ...mapDemo.items.listBinding(
-        ({ li, input: check, span }, item) =&gt;
-          li(check({ type: &#39;checkbox&#39;, bindValue: item.done }), &#39; &#39;, span(item.text)),
+        ({ li, input: check, span, button }, item) =&gt;
+          li(
+            check({ type: &#39;checkbox&#39;, bindValue: item.done }),
+            &#39; &#39;,
+            span(item.text),
+            &#39; &#39;,
+            // an icon-only affordance: `title` gives it its NAME (harvested
+            // the way a screen reader reads it), and a two-line custom
+            // binding makes checked-ness a PRECONDITION — watch the delete
+            // button fade in and out of the map as you toggle its todo
+            button(icons.x(), {
+              title: &#39;delete&#39;,
+              bind: {
+                value: item.done,
+                binding: (el, done) =&gt; {
+                  el.disabled = !done
+                },
+              },
+              onClick(event) {
+                const row = getListItem(event.target.closest(&#39;li&#39;))
+                mapDemo.items.listRemove((i) =&gt; i.id, row.id)
+              },
+            })
+          ),
         { idPath: &#39;id&#39; }
       )
     ),
   )
 )
 
-// four live views in tabs — the selected one redraws every 250ms: the map
-// follows the app, hands off
+// four live views in tabs — the selected one redraws on every state
+// change: the map follows the app, hands off
 const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
 const pane = (name) =&gt; div({ name, style: { overflow: &#39;auto&#39;, height: &#39;100%&#39; } })
 const panes = [
@@ -179,13 +195,26 @@ const render = [
   () =&gt; show(panes[2], agent.describe({ styles: true, view: &#39;viewport&#39; })),
   () =&gt; show(panes[3], agent.describe({ styles: true })),
 ]
-const tick = setInterval(() =&gt; {
+// no polling: the drawing is an OBSERVER — any state change (or focus
+// move, which state can&#39;t see) redraws the selected view, debounced a beat
+const redraw = { timer: 0 }
+const requestRedraw = () =&gt; {
+  clearTimeout(redraw.timer)
+  redraw.timer = setTimeout(() =&gt; {
+    if (tabs.isConnected) render[tabs.value ?? 0]()
+  }, 100)
+}
+const off = agent.observe(/./, requestRedraw)
+document.addEventListener(&#39;focusin&#39;, requestRedraw)
+tabs.addEventListener(&#39;change&#39;, requestRedraw)
+const cleanup = setInterval(() =&gt; {
   if (!tabs.isConnected) {
-    clearInterval(tick) // the demo left the page — stop drawing
-    return
+    off()
+    document.removeEventListener(&#39;focusin&#39;, requestRedraw)
+    clearInterval(cleanup)
   }
-  render[tabs.value ?? 0]()
-}, 250)
+}, 2000)
+requestRedraw()
 preview.append(tabs, detail)
 </code></pre>
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;
@@ -201,7 +230,31 @@ test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers 
   expect(blob.type).toBe(&#39;image/png&#39;)
   expect(blob.size &gt; 0).toBe(true)
 })
+
+test(&#39;the delete affordance: named by its title, gated by checked-ness&#39;, () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const dels = agent.describe().wiring.filter((w) =&gt; w.label === &#39;delete&#39;)
+  expect(dels.length &gt;= 2).toBe(true)
+  // the checked todo&#39;s delete is live; the unchecked one is disabled —
+  // a PRECONDITION, visible in the map (and faded in the schematic)
+  expect(dels.some((w) =&gt; w.disabled === true)).toBe(true)
+  expect(dels.some((w) =&gt; w.disabled == null)).toBe(true)
+})
 </code></pre>
+<p>One rectangle per wired element, at its <strong>actual position and size</strong>, wearing
+the app&#39;s own colors (<code>describe({ styles: true })</code>) — and since <code>bounds</code> is
+plain data, a <em>remote</em> agent can draw a page nobody is looking at.</p>
+<p>Above — a todo list, because a list&#39;s map <strong>changes shape as you use it</strong>:
+every item you add is new wired elements and the map grows with them, hands
+off. Each row&#39;s icon-only delete button is <em>named</em> by its <code>title</code> and
+<em>gated</em> by its checkbox — toggle a todo and watch its delete button fade in
+and out of the map, hands off: the drawing observes the same state it draws
+(plus focus moves, which state can&#39;t see). Type in the input and watch the caption
+change from italic hint to held value; check a box and watch the glyph flip.
+The <strong>schematic</strong> tab is scoped <strong>by hierarchy</strong> — <code>agent.describe({ scope: preview })</code> walks only this demo&#39;s subtree, so the map is the same whether
+the example is inline or maximized. (Spatial scoping — <code>schematicSVG(map, { within: rect })</code> — also exists, but a region includes whatever <em>overlaps</em> it,
+occluded or not; use it for viewport maps, not app parts.) <strong>whole page</strong>
+drops the scope for the full reveal; click any rectangle for its JSON record:</p>
 <p><strong>SVG vs. bitmap, per consumer.</strong> For an LLM, SVG <em>source</em> is the worst
 encoding of the three: same information as the JSON plus 2–4× markup overhead,
 through the same text channel with the same no-perception problem (models
@@ -224,7 +277,9 @@ fills a checked box; radios are circles with a dot when selected) · a
 <strong>double outline</strong> = keyboard focus, where the user is right now · <em>italic</em> =
 placeholder hint, <strong>not</strong> content · <strong>faded</strong> = disabled right now (it beats
 bold: a disabled button is not an affordance) · plain solid = display ·
-faint dotted = structure (subtle on purpose — it&#39;s the ground, not the figure).</p>
+faint dotted = structure, including list <em>containers</em> (subtle on purpose —
+the ground, not the figure: a list&#39;s items are the affordances; the
+container is where they live, and its wiring stays in the JSON record).</p>
 <h2>Kitchen sink: the truth test</h2>
 <p>Every &quot;obvious&quot; rendering claim, verifiable at a glance — one of everything,
 drawn live (250ms) with <code>index: true</code>, so each box wears its wiring index and

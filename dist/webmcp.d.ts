@@ -18,10 +18,6 @@ export interface WebMCPAdapterOptions {
  * everything from describe() and closes over the agent for execution.
  */
 export declare const webmcpTools: (agent: AgentInterface, options?: WebMCPAdapterOptions) => WebMCPTool[];
-/**
- * Detect the WebMCP host, register the generated tools, return
- * { tools, unregister } — or undefined when no host API is present.
- */
 export declare const webmcpAdapter: (agent: AgentInterface, options?: WebMCPAdapterOptions) => {
     tools: string[];
     unregister: () => void;

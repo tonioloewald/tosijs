@@ -166,3 +166,41 @@ describe('enableAgentInterface — one call, whole surface', () => {
     }
   })
 })
+
+describe('handle-less hosts (Canary today) — register once, stay live', () => {
+  test('re-enable neither duplicates nor strands: old tools hit the CURRENT surface', () => {
+    tosi({ mcpDup: { x: 1, go() {} }, mcpDupPriv: { y: 2 } })
+    const registered: any[] = []
+    const host = {
+      registerTool(tool: any) {
+        if (registered.some((t) => t.name === tool.name)) {
+          throw new Error(`duplicate tool name: ${tool.name}`)
+        }
+        registered.push(tool)
+        // returns nothing: no unregister handle, no unregisterTool — Canary
+      },
+    }
+    current = enableAgentInterface({
+      global: false,
+      webmcp: { modelContext: host },
+    })
+    const count = registered.length
+    const readTool = registered.find((t) => t.name === 'tosi_read')
+    expect(readTool.execute({ path: 'mcpDup.x' })).toBe(1)
+
+    // re-enable (mode switch): same host — no duplicate registrations,
+    // no console errors, no throw
+    current = enableAgentInterface({
+      global: false,
+      webmcp: { modelContext: host },
+      expose: { roots: ['mcpDup'] },
+    })
+    expect(registered.length).toBe(count)
+    // the ORIGINAL registration is late-bound: it now speaks to the
+    // manifest-mode surface, refusals included
+    expect(() => readTool.execute({ path: 'mcpDupPriv.y' })).toThrow(
+      /not exposed/
+    )
+    expect(readTool.execute({ path: 'mcpDup.x' })).toBe(1)
+  })
+})

@@ -995,10 +995,25 @@ export function enableAgentInterface(
   }
   // one call, whole surface: where the browser provides a model-context
   // host, the generated WebMCP tool set registers automatically (and a
-  // re-enable or disable() unregisters it)
+  // re-enable or disable() unregisters it — where the host allows). The
+  // tools are LATE-BOUND: they always talk to the currently active surface,
+  // so on hosts without unregistration (Canary today) a re-enable can't
+  // strand the browser's tools on a disabled surface.
   if (webmcp !== false) {
+    const live = (): AgentInterface => active ?? surface
+    const delegate: AgentInterface = {
+      describe: (o) => live().describe(o),
+      read: (path) => live().read(path),
+      write: (path, value) => live().write(path, value),
+      observe: (path, cb) => live().observe(path, cb),
+      call: (path, ...args) => live().call(path, ...args),
+      changes: (since) => live().changes(since),
+      when: (path, predicate) => live().when(path, predicate),
+      log: () => live().log(),
+      disable: () => live().disable(),
+    }
     webmcpRegistration = webmcpAdapter(
-      surface,
+      delegate,
       typeof webmcp === 'object' ? webmcp : {}
     )
     if (webmcpRegistration != null) {

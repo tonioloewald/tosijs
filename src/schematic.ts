@@ -168,9 +168,13 @@ export const schematicSVG = (
     } ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
   ]
   // structure behind affordances: dotted outlines the eye (and the raster)
-  // reads as grouping, not controls
+  // reads as grouping, not controls. A LIST CONTAINER is ground too — it's
+  // wired (the collection binds here, and the JSON record says so), but its
+  // items are the affordances; drawing it solid would read as actionable.
+  const ground = (w: (typeof boxes)[number]): boolean =>
+    w.structural === true || (w.list != null && w.on == null)
   const drawOrder = [...boxes].sort(
-    (a, b) => Number(b.structural === true) - Number(a.structural === true)
+    (a, b) => Number(ground(b)) - Number(ground(a))
   )
   for (const w of drawOrder) {
     const index = description.wiring.indexOf(w)
@@ -225,7 +229,7 @@ export const schematicSVG = (
         w.label ?? shownValue(w.text) ?? shownValue(w.value) ?? `<${w.tag}>`
       )
     }
-    const structural = w.structural === true
+    const structural = ground(w)
     // the affordance grammar, explicit: BOLD outline = wired to act (has
     // handlers); a trailing ⟷ on the caption = editable here (two-way
     // binding), added when the caption is a label that would otherwise
