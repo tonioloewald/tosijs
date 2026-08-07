@@ -63,8 +63,9 @@ preview.append(
       // Enter COMMITS the field — change fires after the binding writes
       // state, so addItem acts on committed state, mutates atomically, and
       // the UI catches up on its own. (Acting on keydown instead means
-      // racing the commit — the classic clear-that-doesn't.)
-      onChange: 'mapDemo.addItem',
+      // racing the commit — the classic clear-that-doesn't.) The PROXY form:
+      // resolves live by path, and the map names it just like the string
+      onChange: mapDemo.addItem,
     }),
     ' ',
     // another PRECONDITION: nothing to add = nothing to press (an
@@ -614,7 +615,7 @@ harvest **on demand** from what's already there:
 | The developer wrote (for their own reasons) | What it tells an agent, free |
 | --- | --- |
 | `onClick: (e) => {…}` | this element is interactive; event type known |
-| `onClick: 'app.doThing'` | the action is *addressable and nameable* — a tool with a path |
+| `onClick: 'app.doThing'` — or `onClick: app.doThing` (the proxy knows its path) | the action is *addressable and nameable* — a tool with a path; only a plain anonymous function maps as `ƒ` |
 | `bindValue: app.filter` (binding has `fromDOM`) | **this path is user-writable** — an input affordance |
 | `textContent: app.total` (prop binding is `toDOM`-only) | this path is *displayed* — read-only output |
 | `bindEnabled: app.cart.valid` | a **precondition**: the guarded action's availability depends on this path |

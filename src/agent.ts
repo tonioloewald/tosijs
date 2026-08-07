@@ -49,6 +49,7 @@ import {
   elementToHandlers,
   elementContract,
   tosiValue,
+  tosiPath,
 } from './metadata'
 import { contractViolation } from './contract-check'
 import { bindings } from './bindings'
@@ -645,9 +646,12 @@ export function enableAgentInterface(
           if (eventBindings != null) {
             const on: Record<string, string | string[]> = {}
             for (const [type, set] of Object.entries(eventBindings)) {
-              const names = Array.from(set as Set<any>, (h) =>
-                typeof h === 'string' ? h : 'ƒ'
-              )
+              const names = Array.from(set as Set<any>, (h) => {
+                if (typeof h === 'string') return h
+                // a PROXY handler knows its own path — as nameable as the
+                // string form; only a plain anonymous function is 'ƒ'
+                return tosiPath(h) ?? 'ƒ'
+              })
               on[type] = names.length === 1 ? names[0] : names
             }
             if (Object.keys(on).length > 0) {

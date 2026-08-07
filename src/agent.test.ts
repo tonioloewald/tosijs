@@ -647,3 +647,39 @@ describe('describe() — label association (the kitchen-sink lesson)', () => {
     }
   })
 })
+
+describe('describe() — proxy handlers are nameable', () => {
+  test('onEvent: proxy names by its path, exactly like the string form', async () => {
+    const { proxyHandler } = tosi({
+      proxyHandler: {
+        n: 0,
+        bump() {
+          ;(proxyHandler as any).n = (proxyHandler as any).n.value + 1
+        },
+      },
+    })
+    await updates()
+    const viaString = elements.button('s', { id: 'via-string' })
+    const viaProxy = elements.button('p', { id: 'via-proxy' })
+    on(viaString, 'click', 'proxyHandler.bump' as any)
+    on(viaProxy, 'click', (proxyHandler as any).bump)
+    document.body.append(viaString, viaProxy)
+
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      const s = d.wiring.find((w) => w.id === 'via-string')!
+      const p = d.wiring.find((w) => w.id === 'via-proxy')!
+      expect(s.on!.click).toBe('proxyHandler.bump')
+      expect(p.on!.click).toBe('proxyHandler.bump') // not 'ƒ'
+      // and the proxy handler DISPATCHES live, like the string
+      viaProxy.click()
+      await updates()
+      expect(agent.read('proxyHandler.n')).toBe(1)
+    } finally {
+      agent.disable()
+      viaString.remove()
+      viaProxy.remove()
+    }
+  })
+})
