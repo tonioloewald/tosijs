@@ -281,6 +281,8 @@ import {
   XIN_PATH,
   XIN_VALUE,
   TAKE_DESCRIPTOR,
+  applyDataBinding,
+  resolveTakePaths,
 } from './metadata'
 import {
   XinObject,
@@ -303,16 +305,17 @@ export const touchElement = (element: Element, changedPath?: string): void => {
     return
   }
   for (const dataBinding of dataBindings) {
-    const { binding, options } = dataBinding
+    const { binding } = dataBinding
     let { path } = dataBinding
     const { toDOM } = binding
     if (toDOM != null) {
       if (path.startsWith('^')) {
         const dataSource = getListItem(element)
         if (dataSource != null && (dataSource as XinProps)[XIN_PATH] != null) {
-          path = dataBinding.path = `${
-            (dataSource as XinProps)[XIN_PATH]
-          }${path.substring(1)}`
+          const itemPath = (dataSource as XinProps)[XIN_PATH] as string
+          path = dataBinding.path = `${itemPath}${path.substring(1)}`
+          // a take()'s input paths resolve against the same row
+          resolveTakePaths(dataBinding, itemPath)
         } else {
           if (element instanceof HTMLElement) {
             console.warn(
@@ -325,7 +328,7 @@ export const touchElement = (element: Element, changedPath?: string): void => {
         }
       }
       if (changedPath == null || extendsPath(changedPath, path)) {
-        toDOM(element, getXinProxy()[path], options)
+        applyDataBinding(element, dataBinding, path)
       }
     }
   }
@@ -528,25 +531,6 @@ function bindTake<T extends Element>(
   const { toDOM } = binding
   if (toDOM == null) return element
 
-  let lastInputs: any[] | null = null
-
-  const wrappedBinding: XinBinding<Element> = {
-    toDOM(el, _value, opts) {
-      const xin = getXinProxy()
-      const currentInputs = paths.map((p) => xin[p])
-      if (
-        lastInputs !== null &&
-        currentInputs.every((v, i) => v === lastInputs![i])
-      ) {
-        return
-      }
-      lastInputs = currentInputs
-      const result = transform(...currentInputs)
-      ;(toDOM as any)(el, result, opts)
-    },
-    fromDOM: binding.fromDOM as XinBinding<Element>['fromDOM'],
-  }
-
   element.classList?.add(BOUND_CLASS)
   let dataBindings = elementToBindings.get(element)
   if (dataBindings == null) {
@@ -554,11 +538,18 @@ function bindTake<T extends Element>(
     elementToBindings.set(element, dataBindings)
   }
 
-  for (const p of paths) {
+  // the descriptor becomes DATA on each entry (see DataBinding.take): the
+  // closure version froze the template's `^.` paths and shared ONE
+  // change-detection cache across every cloned row. Copy the paths — the
+  // caller may reuse a descriptor across elements, and rows rewrite them
+  // in place.
+  const take = { paths: [...paths], transform }
+  for (const p of take.paths) {
     dataBindings.push({
       path: p,
-      binding: wrappedBinding,
+      binding: binding as unknown as XinBinding<Element>,
       options,
+      take,
     })
   }
 

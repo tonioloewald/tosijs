@@ -77,8 +77,32 @@ export interface DataBinding<T extends Element = Element> {
     path: string;
     binding: XinBinding<T>;
     options?: XinObject;
+    /**
+     * A take() transform rides the entry as DATA — not hidden in a closure —
+     * so row instantiation can clone it (cloneWithBindings deep-clones
+     * entries) and rewrite its relative paths per row, exactly like `path`.
+     * The closure version captured the template's `^.` paths forever and
+     * shared one change-detection cache across every cloned row (one row's
+     * update suppressed its siblings'). `lastInputs` is that cache, riding
+     * the same per-element metadata: one bindTake call = one element's take
+     * object, and each cloned row gets its own via the deep clone.
+     */
+    take?: {
+        paths: string[];
+        transform: (...inputs: any[]) => any;
+        lastInputs?: any[];
+    };
 }
 export type DataBindings = DataBinding[];
+/** rewrite a take's relative paths against a list row's path — idempotent */
+export declare const resolveTakePaths: (dataBinding: DataBinding, itemPath: string) => void;
+/**
+ * Apply one data binding to an element: plain bindings get the value at
+ * `path`; take bindings read ALL their input paths, memo them per element,
+ * and hand toDOM the TRANSFORMED value. Both dispatchers (touchElement and
+ * list instantiation) route through here so take semantics can't drift.
+ */
+export declare const applyDataBinding: (element: Element, dataBinding: DataBinding, path: string) => void;
 export interface XinEventBindings {
     [eventType: string]: Set<XinEventHandler>;
 }

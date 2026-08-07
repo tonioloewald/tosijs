@@ -1025,7 +1025,6 @@ in a list instance.
 import { settings } from './settings'
 import { resizeObserver } from './dom'
 import { throttle } from './throttle'
-import { xin } from './xin'
 import {
   cloneWithBindings,
   elementToBindings,
@@ -1036,6 +1035,8 @@ import {
   LIST_BINDING_REF,
   LIST_INSTANCE_REF,
   registerArrayIdPath,
+  applyDataBinding,
+  resolveTakePaths,
 } from './metadata'
 import { XinObject, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
@@ -1075,16 +1076,14 @@ function updateRelativeBindings(element: Element, path: string): void {
       if (binding.path.startsWith('^')) {
         binding.path = `${path}${binding.path.substring(1)}`
       }
-      if (binding.binding.toDOM != null) {
-        // pass the binding's stored options through: a nested list binding
-        // constructed without them silently loses idPath/virtual/filter, and
-        // getListBinding caches the instance so later calls can't repair it
-        binding.binding.toDOM(
-          boundElement as Element,
-          xin[binding.path],
-          binding.options
-        )
-      }
+      // a take()'s input paths resolve against the same row as `path`
+      resolveTakePaths(binding, path)
+      // applyDataBinding passes the binding's stored options through (a
+      // nested list binding constructed without them silently loses
+      // idPath/virtual/filter, and getListBinding caches the instance so
+      // later calls can't repair it) — and computes take() transforms with
+      // the ROW's paths, which the old direct toDOM call never could
+      applyDataBinding(boundElement as Element, binding, binding.path)
     }
   }
 }

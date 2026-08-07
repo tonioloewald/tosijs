@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.7.9] - 2026-08-07
+
+### Fixed
+
+- **`take()` transforms now work inside list templates (relative paths), and
+  cloned rows no longer share a change-detection cache.** The take descriptor
+  used to live in a closure that captured the template's `^.` paths forever —
+  in a `listBinding` template the transform ran against `xin['^.…']`
+  (`undefined`) instead of the row's value — and held ONE `lastInputs` memo
+  shared by every cloned row, so the first row's update suppressed its
+  siblings' (observed as one row transformed-wrong and the next not updated at
+  all). The descriptor is now **data on the binding entry**
+  (`DataBinding.take`): row instantiation rewrites its relative paths exactly
+  like the entry's own path (both dispatchers — `touchElement` and list
+  instantiation — route through a shared `applyDataBinding`), and the memo
+  rides the per-element (per-row-cloned) take object. Also fixes one
+  descriptor reused across two elements starving the second. Regression
+  suite: `src/take-list-binding.test.ts`.
+
 ## [1.7.8] - 2026-07-27
 
 ### Fixed
