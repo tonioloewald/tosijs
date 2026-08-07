@@ -516,3 +516,18 @@ paths (transform ran on undefined) AND shared one change-detection memo
 across all cloned rows (first row starved its siblings). Fixed on main
 (v1.7.9, `src/take-list-binding.test.ts`); the descriptor is now data on the
 binding entry. The derived-surface demo uses the idiomatic take() again.
+
+## Enter-commit change event races programmatic state clears (found 2026-08-07)
+
+Real browsers fire a synchronous `change` on Enter in a text input. If a
+handler runs first and programmatically clears the bound path (the classic
+submit-and-clear form), `handleChange` then reads the still-uncleared DOM
+value, sees it differs from the just-cleared state, and echoes the old text
+back — the async-batched touch dispatch loses the race, so neither field nor
+state ends cleared. happy-dom doesn't emulate Enter-commit, so only the
+browser lane / real use exposes it. Demo works around it by clearing the
+field at the interaction source. Principled core fix to evaluate: during a
+settling round, state should win — `handleChange` skips the fromDOM commit
+when the path has a PENDING touch (path-listener knows), since the
+programmatic write is newer than the DOM value by construction. Needs a
+Playwright test (per-engine), not a unit test.

@@ -61,7 +61,13 @@ preview.append(
       placeholder: 'add a todo…',
       bindValue: mapDemo.newItem,
       onKeydown(event) {
-        if (event.key === 'Enter') mapDemo.addItem()
+        if (event.key === 'Enter') {
+          mapDemo.addItem()
+          // Enter COMMITS the field (a sync change event) while the state
+          // clear dispatches async — clear the field at the source so the
+          // commit sees '' instead of echoing the old text back into state
+          event.target.value = ''
+        }
       },
     }),
     ' ',
