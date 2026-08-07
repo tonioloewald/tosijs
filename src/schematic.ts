@@ -167,7 +167,7 @@ export const schematicSVG = (
       maxX - minX
     } ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
   ]
-  // structure behind affordances: dashed outlines the eye (and the raster)
+  // structure behind affordances: dotted outlines the eye (and the raster)
   // reads as grouping, not controls
   const drawOrder = [...boxes].sort(
     (a, b) => Number(b.structural === true) - Number(a.structural === true)
@@ -229,7 +229,7 @@ export const schematicSVG = (
     // the affordance grammar, explicit: BOLD outline = wired to act (has
     // handlers); a trailing ⟷ on the caption = editable here (two-way
     // binding), added when the caption is a label that would otherwise
-    // hide it. Solid = affordance, dashed = structure.
+    // hide it. Solid = affordance, dotted = structure.
     const actable = !structural && w.on != null
     const editable =
       !structural &&
@@ -247,7 +247,7 @@ export const schematicSVG = (
         : 'currentColor'
     const color = w.style != null ? w.style.color : 'currentColor'
     const emphasis = structural
-      ? ' stroke-dasharray="4 3" opacity="0.6"'
+      ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
       : w.disabled === true
         ? ' opacity="0.4"'
         : actable

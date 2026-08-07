@@ -189,7 +189,7 @@ fills a checked box; radios are circles with a dot when selected) · a
 **double outline** = keyboard focus, where the user is right now · *italic* =
 placeholder hint, **not** content · **faded** = disabled right now (it beats
 bold: a disabled button is not an affordance) · plain solid = display ·
-dashed = structure.
+faint dotted = structure (subtle on purpose — it's the ground, not the figure).
 
 ## Kitchen sink: the truth test
 
