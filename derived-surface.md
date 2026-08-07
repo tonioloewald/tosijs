@@ -615,7 +615,7 @@ harvest **on demand** from what's already there:
 | The developer wrote (for their own reasons) | What it tells an agent, free |
 | --- | --- |
 | `onClick: (e) => {…}` | this element is interactive; event type known |
-| `onClick: 'app.doThing'` — or `onClick: app.doThing` (the proxy knows its path) | the action is *addressable and nameable* — a tool with a path; only a plain anonymous function maps as `ƒ` |
+| `onClick: 'app.doThing'` — or `onClick: app.doThing` (a proxy IS a path: `on()` normalizes it at registration) | the action is *addressable and nameable* — a tool with a path; a named plain function leaves a breadcrumb (`ƒ addThing` — dev-mode value only, minification scrambles it); anonymous maps as `ƒ` |
 | `bindValue: app.filter` (binding has `fromDOM`) | **this path is user-writable** — an input affordance |
 | `textContent: app.total` (prop binding is `toDOM`-only) | this path is *displayed* — read-only output |
 | `bindEnabled: app.cart.valid` | a **precondition**: the guarded action's availability depends on this path |

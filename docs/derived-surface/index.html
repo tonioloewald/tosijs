@@ -689,8 +689,8 @@ harvest <strong>on demand</strong> from what&#39;s already there:</p>
 <td>this element is interactive; event type known</td>
 </tr>
 <tr>
-<td><code>onClick: &#39;app.doThing&#39;</code> — or <code>onClick: app.doThing</code> (the proxy knows its path)</td>
-<td>the action is <em>addressable and nameable</em> — a tool with a path; only a plain anonymous function maps as <code>ƒ</code></td>
+<td><code>onClick: &#39;app.doThing&#39;</code> — or <code>onClick: app.doThing</code> (a proxy IS a path: <code>on()</code> normalizes it at registration)</td>
+<td>the action is <em>addressable and nameable</em> — a tool with a path; a named plain function leaves a breadcrumb (<code>ƒ addThing</code> — dev-mode value only, minification scrambles it); anonymous maps as <code>ƒ</code></td>
 </tr>
 <tr>
 <td><code>bindValue: app.filter</code> (binding has <code>fromDOM</code>)</td>

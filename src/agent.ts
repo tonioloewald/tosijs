@@ -648,9 +648,18 @@ export function enableAgentInterface(
             for (const [type, set] of Object.entries(eventBindings)) {
               const names = Array.from(set as Set<any>, (h) => {
                 if (typeof h === 'string') return h
-                // a PROXY handler knows its own path — as nameable as the
-                // string form; only a plain anonymous function is 'ƒ'
-                return tosiPath(h) ?? 'ƒ'
+                // on() normalizes proxies to paths at registration; this is
+                // defense for handlers registered around it. A raw function
+                // contributes its NAME as a breadcrumb when it has a real
+                // one ('ƒ addThing' — worth little under minification, but
+                // free) — prop-key artifacts (onClick, handleClick method
+                // shorthand) say nothing, so they stay plain 'ƒ'
+                const path = tosiPath(h)
+                if (path != null) return path
+                const name = (h as any)?.name
+                return name && !/^(on|handle)[A-Z]/.test(name)
+                  ? `ƒ ${name}`
+                  : 'ƒ'
               })
               on[type] = names.length === 1 ? names[0] : names
             }

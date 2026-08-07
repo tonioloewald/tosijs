@@ -283,6 +283,7 @@ import {
   TAKE_DESCRIPTOR,
   applyDataBinding,
   resolveTakePaths,
+  tosiPath,
 } from './metadata'
 import {
   XinObject,
@@ -711,6 +712,14 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventType: K,
   eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
+  // normalize at the boundary: a proxy handler IS a path — store it as one,
+  // so dispatch, dedup, and every consumer of the metadata (the agent
+  // surface's map included) treat `onClick: app.doThing` and
+  // `onClick: 'app.doThing'` identically
+  const handlerPath = tosiPath(eventHandler)
+  if (handlerPath != null) {
+    eventHandler = handlerPath as unknown as typeof eventHandler
+  }
   let eventBindings = elementToHandlers.get(element)
   if (eventBindings == null) {
     eventBindings = {}

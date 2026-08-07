@@ -672,6 +672,13 @@ describe('describe() — proxy handlers are nameable', () => {
       const p = d.wiring.find((w) => w.id === 'via-proxy')!
       expect(s.on!.click).toBe('proxyHandler.bump')
       expect(p.on!.click).toBe('proxyHandler.bump') // not 'ƒ'
+      // …because on() NORMALIZED the proxy to its path at registration —
+      // the stored metadata is identical for both forms
+      const { getElementBindings } = await import('./metadata')
+      const stored = [
+        ...(getElementBindings(viaProxy).eventBindings!.click as Set<any>),
+      ]
+      expect(stored).toEqual(['proxyHandler.bump'])
       // and the proxy handler DISPATCHES live, like the string
       viaProxy.click()
       await updates()
@@ -680,6 +687,30 @@ describe('describe() — proxy handlers are nameable', () => {
       agent.disable()
       viaString.remove()
       viaProxy.remove()
+    }
+  })
+
+  test('a NAMED raw function leaves a breadcrumb; prop-key artifacts stay ƒ', async () => {
+    const named = elements.button('n', { id: 'raw-named' })
+    const artifact = elements.button('a', { id: 'raw-artifact' })
+    function retallyEverything() {}
+    on(named, 'click', retallyEverything as any)
+    // method-shorthand names (onClick, handleClick) are prop-key noise
+    on(artifact, 'click', { handleClick() {} }.handleClick as any)
+    document.body.append(named, artifact)
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      expect(
+        d.wiring.find((w) => w.id === 'raw-named')!.on!.click
+      ).toBe('ƒ retallyEverything')
+      expect(
+        d.wiring.find((w) => w.id === 'raw-artifact')!.on!.click
+      ).toBe('ƒ')
+    } finally {
+      agent.disable()
+      named.remove()
+      artifact.remove()
     }
   })
 })
