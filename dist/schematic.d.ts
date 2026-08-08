@@ -54,6 +54,22 @@ export interface SchematicRecord {
         borderColor: string;
         color: string;
     };
+    /** a DURABLE, actionable handle from the producer (haltija's `@42`) —
+     * survives re-renders where a wiring index doesn't; rendered in the
+     * index slot in preference to the index, and emitted as data-ref */
+    ref?: string;
+    /** computed verdicts about this element (WCAG contrast failures, etc.) —
+     * drawn as severity-colored bars on the LEFT edge (the unclaimed slot),
+     * with the first flag's label */
+    flags?: Array<{
+        kind: string;
+        label: string;
+        severity?: 'info' | 'warn' | 'error';
+    }>;
+    /** pixels a pure renderer can't obtain: a data-URL snapshot of inline
+     * media (serialized <svg>, <canvas>.toDataURL()) drawn IN PLACE — on an
+     * illustration-led page the picture IS the content */
+    image?: string;
     [boundProp: string]: unknown;
 }
 /** the map: only `wiring` is read. The named optional fields are the

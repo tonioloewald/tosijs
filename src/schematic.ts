@@ -26,7 +26,7 @@ linking it back to `description.wiring[i]` — the image as index).
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 
-// VENDORED from tosijs-schematic@0.1.1 — the upstream package
+// VENDORED from tosijs-schematic@0.2.0 — the upstream package
 // is the source of truth. DO NOT EDIT below this line: edit
 // tosijs-schematic and rebuild (this section regenerates at build time).
 // tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
@@ -77,6 +77,18 @@ export interface SchematicRecord {
   viewportFixed?: boolean
   structural?: boolean
   style?: { background: string; borderColor: string; color: string }
+  /** a DURABLE, actionable handle from the producer (haltija's `@42`) —
+   * survives re-renders where a wiring index doesn't; rendered in the
+   * index slot in preference to the index, and emitted as data-ref */
+  ref?: string
+  /** computed verdicts about this element (WCAG contrast failures, etc.) —
+   * drawn as severity-colored bars on the LEFT edge (the unclaimed slot),
+   * with the first flag's label */
+  flags?: Array<{ kind: string; label: string; severity?: 'info' | 'warn' | 'error' }>
+  /** pixels a pure renderer can't obtain: a data-URL snapshot of inline
+   * media (serialized <svg>, <canvas>.toDataURL()) drawn IN PLACE — on an
+   * illustration-led page the picture IS the content */
+  image?: string
   [boundProp: string]: unknown
 }
 
@@ -190,6 +202,45 @@ const esc = (s: string): string =>
     .replaceAll('"', '&quot;')
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)'
+
+const FLAG_COLORS: Record<string, string> = {
+  error: '#d32f2f',
+  warn: '#e6a700',
+  info: '#888888',
+}
+
+// greedy word-wrap: captions should USE vertical room, not truncate with
+// space to spare (a <p> that wraps on the real page has the same height
+// here). Returns at most maxLines lines, each at most maxChars long;
+// appends … when the caption is cut.
+const wrapCaption = (
+  caption: string,
+  maxChars: number,
+  maxLines: number
+): string[] => {
+  if (maxLines <= 1 || caption.length <= maxChars) {
+    return [caption.slice(0, maxChars + 2)]
+  }
+  const words = caption.split(' ')
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const candidate = line === '' ? word : `${line} ${word}`
+    if (candidate.length <= maxChars) {
+      line = candidate
+    } else {
+      if (line !== '') lines.push(line)
+      line = word.length > maxChars ? word.slice(0, maxChars) : word
+      if (lines.length === maxLines) break
+    }
+  }
+  if (lines.length < maxLines && line !== '') lines.push(line)
+  if (lines.length > maxLines || (lines.length === maxLines && line !== '' && !lines.includes(line))) {
+    lines.length = maxLines
+    lines[maxLines - 1] = lines[maxLines - 1].slice(0, maxChars - 1) + '…'
+  }
+  return lines
+}
 
 export const schematicSVG = (
   description: SchematicDescription,
@@ -337,6 +388,10 @@ export const schematicSVG = (
         ? w.style.borderColor
         : 'currentColor'
     const color = w.style != null ? w.style.color : 'currentColor'
+    // embedded media first: pixels the producer captured, drawn in place —
+    // everything else (state geometry, captions, badges) reads over it
+    const drawImage =
+      !structural && typeof w.image === 'string' && w.image.startsWith('data:')
     const emphasis = structural
       ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
       : w.disabled === true
@@ -344,7 +399,11 @@ export const schematicSVG = (
         : actable
           ? ' stroke-width="2"'
           : ''
-    parts.push(`<g data-record="${index}">`)
+    parts.push(
+      `<g data-record="${index}"${
+        w.ref != null ? ` data-ref="${esc(String(w.ref))}"` : ''
+      }>`
+    )
     if (w.type === 'radio') {
       // a radio IS a circle — and its state is a filled dot, legible at any
       // raster scale (text glyphs are mush at 13px; geometry is not)
@@ -366,6 +425,13 @@ export const schematicSVG = (
         `<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
           `fill="${esc(fill)}" stroke="${esc(stroke)}"${emphasis}/>`
       )
+      if (drawImage) {
+        parts.push(
+          `<image x="${x + 1}" y="${y + 1}" width="${width - 2}" ` +
+            `height="${height - 2}" href="${esc(w.image as string)}" ` +
+            `preserveAspectRatio="xMidYMid meet"/>`
+        )
+      }
       if (w.type === 'checkbox' && w.checked === true) {
         // checked = an ✕ drawn corner to corner, inset a hair
         const inset = 3
@@ -375,6 +441,29 @@ export const schematicSVG = (
           `<line x1="${x + inset}" y1="${y + height - inset}" ` +
             `x2="${x + width - inset}" y2="${y + inset}" ` +
             `stroke="${esc(color)}" stroke-width="1.5"/>`
+        )
+      }
+    }
+    // computed verdicts (contrast failures etc.): severity-colored bars on
+    // the LEFT edge — the unclaimed slot — plus the first flag's label
+    if (!structural && Array.isArray(w.flags) && w.flags.length > 0) {
+      w.flags.forEach((flag, at) => {
+        const color = FLAG_COLORS[flag.severity ?? 'warn'] ?? FLAG_COLORS.warn
+        parts.push(
+          `<rect x="${x + at * 3}" y="${y}" width="3" height="${height}" ` +
+            `fill="${color}" data-flag="${esc(flag.kind)}"/>`
+        )
+      })
+      const first = w.flags[0]
+      if (first.label && height >= minLabelHeight) {
+        const flagColor = FLAG_COLORS[first.severity ?? 'warn'] ?? FLAG_COLORS.warn
+        parts.push(
+          `<rect x="${x + w.flags.length * 3 + 1}" y="${y + height - 9}" ` +
+            `width="${first.label.length * 4.5 + 2}" height="8" ` +
+            `fill="white" opacity="0.85"/>`,
+          `<text x="${x + w.flags.length * 3 + 2}" y="${y + height - 2}" ` +
+            `font-size="7" font-family="monospace" fill="${flagColor}">` +
+            `${esc(first.label)}</text>`
         )
       }
     }
@@ -421,27 +510,53 @@ export const schematicSVG = (
         )
       }
     } else if (height >= minLabelHeight && shownCaption !== '') {
-      parts.push(
-        `<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
-          `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}"` +
-          `${hint ? ' font-style="italic" opacity="0.6"' : ''}>` +
-          `${esc(shownCaption.slice(0, maxCaption + 2))}</text>`
+      // wrap when the box affords more than one line — a paragraph that
+      // wraps on the real page has the same vertical room here; truncating
+      // at maxCaption with space to spare threw that text away
+      const lineHeight = fontSize + 2
+      const maxLines = Math.max(1, Math.floor((height - 6) / lineHeight))
+      const perLine = Math.min(
+        maxCaption,
+        Math.max(8, Math.floor((width - 8) / (fontSize * 0.6)))
       )
+      const lines = wrapCaption(shownCaption, perLine, maxLines)
+      const styleAttrs =
+        `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}"` +
+        `${hint ? ' font-style="italic" opacity="0.6"' : ''}`
+      if (lines.length === 1) {
+        parts.push(
+          `<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
+            `${styleAttrs}>${esc(lines[0])}</text>`
+        )
+      } else {
+        parts.push(
+          `<text x="${x + 4}" y="${y + fontSize + 2}" ${styleAttrs}>` +
+            lines
+              .map(
+                (line, at) =>
+                  `<tspan x="${x + 4}"${at > 0 ? ` dy="${lineHeight}"` : ''}>` +
+                  `${esc(line)}</tspan>`
+              )
+              .join('') +
+            '</text>'
+        )
+      }
     }
-    if (showIndex) {
-      // the raster's data-record: a number a vision consumer can read off
-      // the image and look up in description.wiring. Toggles are too small
+    if (showIndex || w.ref != null) {
+      // the raster's actionable handle: the producer's DURABLE ref when it
+      // has one (it survives re-renders; an agent can act on it), else the
+      // wiring index (look up description.wiring[n]). Toggles are too small
       // to wear it inside — theirs sits just left of the control. A mostly
-      // opaque white backdrop keeps the digits legible over ANY artwork.
+      // opaque white backdrop keeps it legible over ANY artwork.
+      const shown = w.ref != null ? String(w.ref) : String(index)
       const indexX = toggle ? x - 3 : x + width - 2
-      const digits = String(index).length
       parts.push(
-        `<rect x="${indexX - digits * 5 - 1}" y="${y + 1}" ` +
-          `width="${digits * 5 + 2}" height="8" fill="white" ` +
+        `<rect x="${indexX - shown.length * 5 - 1}" y="${y + 1}" ` +
+          `width="${shown.length * 5 + 2}" height="8" fill="white" ` +
           `opacity="0.85" data-index-backdrop="true"/>`,
         `<text x="${indexX}" y="${y + 8}" font-size="8" ` +
           `text-anchor="end" font-family="monospace" fill="black" ` +
-          `opacity="0.8">${index}</text>`
+          `opacity="0.8">${esc(shown)}</text>`
       )
     }
     if (decorate != null) {
