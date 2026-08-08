@@ -524,3 +524,13 @@ capture-phase handler writes state BEFORE the element handler runs), not on
 `keydown` — keydown races the commit and the echo clobbers programmatic
 clears. Doctrine: act on committed state, mutate state atomically, let the
 UI catch up. Pattern recorded in tosijs-coding-practices.
+
+## 1.8.0 release checklist: relicense BSD-3-Clause → Apache-2.0
+
+Decided 2026-08-08. Sole author (911/911 commits) — no contributor consent
+needed. At release time: replace LICENSE with canonical Apache-2.0 text,
+update package.json `license`, add a CHANGELOG line ("relicensed
+BSD-3-Clause → Apache-2.0; adds an explicit patent grant and retaliation
+clause"), consider a NOTICE file. Rationale: the patent-retaliation clause
+("virally anti-software-patent") + ecosystem consistency with
+tosijs-schematic. Note: Apache-2.0 is GPLv2-only-incompatible (GPLv3+ fine).
