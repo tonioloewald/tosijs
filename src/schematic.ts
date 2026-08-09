@@ -26,7 +26,7 @@ linking it back to `description.wiring[i]` — the image as index).
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 
-// VENDORED from tosijs-schematic@0.2.0 — the upstream package
+// VENDORED from tosijs-schematic@0.3.0 — the upstream package
 // is the source of truth. DO NOT EDIT below this line: edit
 // tosijs-schematic and rebuild (this section regenerates at build time).
 // tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
@@ -136,6 +136,16 @@ export interface SchematicOptions {
    */
   index?: boolean
   /**
+   * Interactive elements (handlers or editable, toggles exempt as
+   * user-agent-sized) smaller than this on either axis are flagged
+   * undersized — amber bar + legend fact. Default 24 (WCAG 2.5.8 AA);
+   * raise to 44/48 for the AAA / platform touch-target bar. 0 disables.
+   */
+  targetSize?: number
+  /** draw the footer strip advertising the legend when it's non-empty
+   * (default true) — the raster must confess what it couldn't carry */
+  legendNote?: boolean
+  /**
    * EXPERIMENTAL plugin seam: called once per drawn record, just before
    * its <g> closes — emit extra SVG into the record's group. The corner
    * slots already spoken for: top-left = invalid flag, top-right = index,
@@ -152,6 +162,29 @@ export interface SchematicOptions {
     structural: boolean
     emit: (svg: string) => void
   }) => void
+}
+
+/** what the drawing could not legibly carry, keyed back by index/ref —
+ * the image's companion JSON. Pair every raster with this. */
+export interface SchematicLegendEntry {
+  index: number
+  ref?: string
+  tag: string
+  /** the caption that would have been drawn (or its untruncated form) */
+  caption?: string
+  editable?: boolean
+  required?: boolean
+  invalid?: boolean
+  disabled?: boolean
+  flags?: Array<{ kind: string; label: string; severity?: 'info' | 'warn' | 'error' }>
+  /** interactive element below the target-size floor, e.g.
+   * "18×13 — below 24×24 (WCAG 2.5.8)" */
+  undersized?: string
+}
+
+export interface SchematicResult {
+  svg: string
+  legend: SchematicLegendEntry[]
 }
 
 // strip provenance from a bound-value string: "shown ⟷ path" → "shown"
@@ -242,10 +275,10 @@ const wrapCaption = (
   return lines
 }
 
-export const schematicSVG = (
+export const schematic = (
   description: SchematicDescription,
   options: SchematicOptions = {}
-): string => {
+): SchematicResult => {
   const {
     pad = 8,
     minLabelHeight = 14,
@@ -253,8 +286,11 @@ export const schematicSVG = (
     fontSize = 11,
     within,
     index: showIndex = false,
+    targetSize = 24,
+    legendNote = true,
     decorate,
   } = options
+  const legend: SchematicLegendEntry[] = []
   const boxes = description.wiring.filter(
     (w) =>
       w.bounds != null &&
@@ -273,7 +309,10 @@ export const schematicSVG = (
   // overlay at the map's origin, which is where it lives on screen
   const flow = boxes.filter((w) => w.viewportFixed !== true)
   if (boxes.length === 0) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>'
+    return {
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>',
+      legend,
+    }
   }
   // scoped: the viewBox IS the region; unscoped: fit the FLOW boxes (pinned
   // furniture must not stretch the map)
@@ -392,6 +431,28 @@ export const schematicSVG = (
     // everything else (state geometry, captions, badges) reads over it
     const drawImage =
       !structural && typeof w.image === 'string' && w.image.startsWith('data:')
+    // CRAMPED: the box can't legibly carry its dress — draw it bare (shape,
+    // state geometry, emphasis, focus) with an auto stamp pointing into the
+    // legend, where the metadata actually lives. Toggles are exempt from
+    // caption suppression (their label draws OUTSIDE the box).
+    const cramped =
+      !structural && (height < minLabelHeight || width < fontSize * 3)
+    // UNDERSIZED: an interactive element below the target-size floor is a
+    // usability defect in its own right (WCAG 2.5.8: 24×24 AA; 44/48 is the
+    // platform touch bar) — toggles exempt as user-agent-sized controls
+    const interactive =
+      !structural &&
+      (w.on != null || w.contentEditable === true ||
+        Object.values(w).some(
+          (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
+        ))
+    const undersized =
+      targetSize > 0 &&
+      interactive &&
+      !(w.type === 'checkbox' || w.type === 'radio') &&
+      (width < targetSize || height < targetSize)
+        ? `${width}×${height} — below ${targetSize}×${targetSize} (WCAG 2.5.8)`
+        : undefined
     const emphasis = structural
       ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
       : w.disabled === true
@@ -446,7 +507,7 @@ export const schematicSVG = (
     }
     // computed verdicts (contrast failures etc.): severity-colored bars on
     // the LEFT edge — the unclaimed slot — plus the first flag's label
-    if (!structural && Array.isArray(w.flags) && w.flags.length > 0) {
+    if (!cramped && !structural && Array.isArray(w.flags) && w.flags.length > 0) {
       w.flags.forEach((flag, at) => {
         const color = FLAG_COLORS[flag.severity ?? 'warn'] ?? FLAG_COLORS.warn
         parts.push(
@@ -467,11 +528,23 @@ export const schematicSVG = (
         )
       }
     }
+    // undersized interactive element: one amber bar on the left edge —
+    // legible at any size; the measurement itself rides the legend
+    if (undersized != null) {
+      parts.push(
+        `<rect x="${x}" y="${y}" width="3" height="${height}" ` +
+          `fill="${FLAG_COLORS.warn}" data-flag="target-size"/>`
+      )
+    }
     // invalid = the spreadsheet error-corner: a red flag at top-left
     // (index owns top-right, ↔ owns bottom-right) — geometry, so it's
     // legible at any raster scale and in any font
     if (w.invalid === true && !structural) {
-      parts.push(`<path d="M${x} ${y} l7 0 l-7 7 z" fill="#d32f2f"/>`)
+      const flagSize = Math.min(7, Math.floor(Math.min(width, height) / 2))
+      parts.push(
+        `<path d="M${x} ${y} l${flagSize} 0 l-${flagSize} ${flagSize} z" ` +
+          `fill="#d32f2f"/>`
+      )
     }
     // focus ring: a second outline just outside the box — where the user IS
     if (w.focused === true && !structural) {
@@ -485,13 +558,14 @@ export const schematicSVG = (
     // caption text: rasterizers resolve fonts per text run, and one exotic
     // glyph (⟷ is rare in monospace fonts) can tofu the whole caption.
     // ↔ (U+2194) is near-universal; isolated, it can only cost itself.
-    if (editable && !toggle) {
+    if (editable && !toggle && !cramped) {
       parts.push(
         `<text x="${x + width - 3}" y="${y + height - 4}" ` +
           `font-size="${fontSize}" text-anchor="end" ` +
           `font-family="monospace" fill="${esc(color)}">↔</text>`
       )
     }
+    let captionDrawnChars = -1 // -1 = caption block never ran
     // required wears the universal asterisk on its caption — ASCII-safe
     const shownCaption =
       w.required === true && !structural && caption !== ''
@@ -509,7 +583,7 @@ export const schematicSVG = (
             `${esc(shownCaption.slice(0, maxCaption + 2))}</text>`
         )
       }
-    } else if (height >= minLabelHeight && shownCaption !== '') {
+    } else if (!cramped && height >= minLabelHeight && shownCaption !== '') {
       // wrap when the box affords more than one line — a paragraph that
       // wraps on the real page has the same vertical room here; truncating
       // at maxCaption with space to spare threw that text away
@@ -520,6 +594,7 @@ export const schematicSVG = (
         Math.max(8, Math.floor((width - 8) / (fontSize * 0.6)))
       )
       const lines = wrapCaption(shownCaption, perLine, maxLines)
+      captionDrawnChars = lines.reduce((total, line) => total + line.length, 0)
       const styleAttrs =
         `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}"` +
         `${hint ? ' font-style="italic" opacity="0.6"' : ''}`
@@ -542,7 +617,36 @@ export const schematicSVG = (
         )
       }
     }
-    if (showIndex || w.ref != null) {
+    // build the legend entry: everything the drawing could not carry
+    const truncated =
+      captionDrawnChars >= 0 && captionDrawnChars < shownCaption.length
+    const elided: SchematicLegendEntry = { index, tag: w.tag }
+    if (w.ref != null) elided.ref = String(w.ref)
+    if (cramped || truncated) {
+      if (shownCaption !== '' && !toggle) elided.caption = caption
+      if (cramped) {
+        if (editable) elided.editable = true
+        if (w.required === true) elided.required = true
+        if (Array.isArray(w.flags) && w.flags.length > 0) {
+          elided.flags = w.flags as SchematicLegendEntry['flags']
+        }
+      }
+    }
+    if (w.invalid === true && cramped) elided.invalid = true
+    if (w.disabled === true && cramped) elided.disabled = true
+    if (undersized != null) elided.undersized = undersized
+    const inLegend =
+      elided.caption != null ||
+      elided.editable != null ||
+      elided.required != null ||
+      elided.flags != null ||
+      elided.invalid != null ||
+      elided.disabled != null ||
+      elided.undersized != null
+    if (inLegend) legend.push(elided)
+    // the stamp is the POINTER into the legend — cramped and legend-bearing
+    // records always wear one, whatever showIndex says
+    if (showIndex || w.ref != null || inLegend) {
       // the raster's actionable handle: the producer's DURABLE ref when it
       // has one (it survives re-renders; an agent can act on it), else the
       // wiring index (look up description.wiring[n]). Toggles are too small
@@ -573,9 +677,38 @@ export const schematicSVG = (
     }
     parts.push('</g>')
   }
+  // the image confesses what it couldn't carry: a machine-readable <desc>
+  // plus a visible footer strip — the raster's pointer to its legend JSON
+  const footerExtra = legendNote && legend.length > 0 ? 14 : 0
+  if (footerExtra > 0) {
+    parts.push(
+      `<text x="${minX + pad}" y="${maxY + 10}" font-size="8" ` +
+        `font-family="monospace" fill="currentColor" opacity="0.75">` +
+        `${legend.length} element${legend.length === 1 ? '' : 's'} with ` +
+        `details in legend — match by stamped number</text>`
+    )
+  }
+  parts[0] =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${
+      maxX - minX
+    } ${maxY - minY + footerExtra}" width="${maxX - minX}" height="${
+      maxY - minY + footerExtra
+    }">` +
+    (legend.length > 0
+      ? `<desc>${description.wiring.length} records; ${legend.length} ` +
+        'legend entries carry metadata the drawing could not — pair this ' +
+        'image with its legend JSON (schematic().legend), matched by the ' +
+        'stamped number / data-record index.</desc>'
+      : '')
   parts.push('</svg>')
-  return parts.join('')
+  return { svg: parts.join(''), legend }
 }
+
+/** the string-only form — schematic().svg, kept for drop-in compatibility */
+export const schematicSVG = (
+  description: SchematicDescription,
+  options: SchematicOptions = {}
+): string => schematic(description, options).svg
 
 /**
  * Rasterize an SVG string to a PNG Blob — the vision-encoder form of the map

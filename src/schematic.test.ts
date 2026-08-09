@@ -52,9 +52,12 @@ describe('schematicSVG — pure, DOM-free rendering of the map', () => {
 
   test('root svg carries explicit width/height (intrinsic size; Firefox canvas-draw requires it)', () => {
     const svg = schematicSVG(description)
-    // bbox: x 10-260 (+8 pad both sides), y 20-68 (+8 both sides)
+    // bbox: x 10-260 (+8 pad both sides), y 20-68 (+8 both sides) — PLUS
+    // the 14px legend footer (0.3.0): the 8px button is cramped, its
+    // caption lives in the legend, and the image confesses that
     expect(svg).toContain('width="266"')
-    expect(svg).toContain('height="64"')
+    expect(svg).toContain('height="78"')
+    expect(svg).toContain('details in legend')
   })
 
   test('zero-size records (hidden elements) are not drawn', () => {

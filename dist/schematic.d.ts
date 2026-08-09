@@ -113,6 +113,16 @@ export interface SchematicOptions {
      */
     index?: boolean;
     /**
+     * Interactive elements (handlers or editable, toggles exempt as
+     * user-agent-sized) smaller than this on either axis are flagged
+     * undersized — amber bar + legend fact. Default 24 (WCAG 2.5.8 AA);
+     * raise to 44/48 for the AAA / platform touch-target bar. 0 disables.
+     */
+    targetSize?: number;
+    /** draw the footer strip advertising the legend when it's non-empty
+     * (default true) — the raster must confess what it couldn't carry */
+    legendNote?: boolean;
+    /**
      * EXPERIMENTAL plugin seam: called once per drawn record, just before
      * its <g> closes — emit extra SVG into the record's group. The corner
      * slots already spoken for: top-left = invalid flag, top-right = index,
@@ -130,11 +140,38 @@ export interface SchematicOptions {
         emit: (svg: string) => void;
     }) => void;
 }
+/** what the drawing could not legibly carry, keyed back by index/ref —
+ * the image's companion JSON. Pair every raster with this. */
+export interface SchematicLegendEntry {
+    index: number;
+    ref?: string;
+    tag: string;
+    /** the caption that would have been drawn (or its untruncated form) */
+    caption?: string;
+    editable?: boolean;
+    required?: boolean;
+    invalid?: boolean;
+    disabled?: boolean;
+    flags?: Array<{
+        kind: string;
+        label: string;
+        severity?: 'info' | 'warn' | 'error';
+    }>;
+    /** interactive element below the target-size floor, e.g.
+     * "18×13 — below 24×24 (WCAG 2.5.8)" */
+    undersized?: string;
+}
+export interface SchematicResult {
+    svg: string;
+    legend: SchematicLegendEntry[];
+}
 /**
  * An element's page-coordinate bounds (the same space describe() records) —
  * the natural `within` argument for a region-scoped schematic.
  */
 export declare const boundsOf: (element: Element) => SchematicBounds;
+export declare const schematic: (description: SchematicDescription, options?: SchematicOptions) => SchematicResult;
+/** the string-only form — schematic().svg, kept for drop-in compatibility */
 export declare const schematicSVG: (description: SchematicDescription, options?: SchematicOptions) => string;
 /**
  * Rasterize an SVG string to a PNG Blob — the vision-encoder form of the map
