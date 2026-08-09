@@ -728,3 +728,64 @@ describe('inline contracts + plugged full validator', () => {
     el.remove()
   })
 })
+
+// ---------------------------------------------------------------------------
+// blueprints are not left behind: a spec-level contract makes a hydrated
+// blueprint component a first-class citizen of the agent surface
+describe('blueprint contract — hydrated components self-describe', () => {
+  test('spec.contract is stamped, harvested, enforced, and exercisable', async () => {
+    const { makeComponent } = await import('./make-component')
+    const { exerciseComponent: exercise } = await import('./contract')
+    const { enableAgentInterface } = await import('./agent')
+    const { updates } = await import('./path-listener')
+
+    const bpContract = {
+      description: 'a blueprint-delivered counter',
+      value: { type: 'number', examples: [0, 5] },
+      parts: { readout: 'span' },
+      tests: [
+        {
+          name: 'value renders',
+          steps: [{ set: { value: 7 }, expect: { text: { readout: '7' } } }],
+        },
+      ],
+    } as const
+
+    const { creator, type } = await makeComponent('bp-counter', (tag, { Component: C }) => {
+      class BpCounter extends (C as any) {
+        value = 0
+        content = ({ span }: any) => span({ part: 'readout' })
+        render() {
+          ;(this as any).parts.readout.textContent = String((this as any).value)
+        }
+      }
+      return { type: BpCounter as any, contract: bpContract as any }
+    })
+    // stamped as an OWN static at hydration
+    expect(Object.prototype.hasOwnProperty.call(type, 'contract')).toBe(true)
+
+    const el = creator() as any
+    document.body.append(el)
+    await updates()
+    // harvested: the wired instance carries its self-declaration in the map
+    const agent = enableAgentInterface({ global: false })
+    try {
+      // no bindings, no handlers — the DECLARATION is what puts it on the map
+      const rec = agent
+        .describe()
+        .wiring.find((w) => w.tag === 'bp-counter')
+      expect(rec?.component?.description).toBe('a blueprint-delivered counter')
+      // enforced: the value contract gates the setter
+      expect(() => {
+        el.value = 'not a number'
+      }).toThrow(/contract violation/)
+      // exercisable: the declaration is its own harness
+      const report = await exercise(el)
+      expect(report.failed).toBe(0)
+      expect(report.passed).toBeGreaterThanOrEqual(3) // part + examples + test
+    } finally {
+      agent.disable()
+      el.remove()
+    }
+  })
+})

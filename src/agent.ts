@@ -760,6 +760,12 @@ export function enableAgentInterface(
             } else if (components?.[record.tag] != null) {
               record.component = components[record.tag]
             }
+            // a self-DECLARED component is an affordance by declaration:
+            // carrying a contract announces it to the surface, shadow
+            // internals or not
+            if (record.component != null) {
+              wired = true
+            }
           }
           // geometry: the layout is part of the semantics
           const measured = measureBounds(el, viewportView)
@@ -780,7 +786,13 @@ export function enableAgentInterface(
               color: cs.color,
             }
           }
-          return wired ? record : undefined
+          if (!wired) {
+            // not an affordance — release the claim so the STRUCTURAL tier
+            // can still pick this element up (containers of wired elements)
+            seen.delete(el)
+            return undefined
+          }
+          return record
         }
         for (const el of Array.from(
           walkRoot.getElementsByClassName(BOUND_CLASS)
@@ -789,7 +801,10 @@ export function enableAgentInterface(
           if (record) wiring.push(record)
         }
         for (const el of [walkRoot, ...Array.from(walkRoot.querySelectorAll('*'))]) {
-          if (elementToHandlers.has(el)) {
+          // handlers wire an element; a custom element may instead be
+          // self-declared (own static contract / post-hoc components map) —
+          // recordFor decides, we just make sure it gets ASKED
+          if (elementToHandlers.has(el) || el.tagName.includes('-')) {
             const record = recordFor(el)
             if (record) wiring.push(record)
           }

@@ -95,5 +95,8 @@
   },
   "overrides": {
     "brace-expansion": ">=5.0.9"
+  },
+  "bin": {
+    "tosijs": "dist/cli.mjs"
   }
 }

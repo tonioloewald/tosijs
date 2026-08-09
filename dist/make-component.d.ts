@@ -30,6 +30,15 @@ export interface TosiComponentSpec<T = PartsMap> {
     lightStyleSpec?: XinStyleSheet;
     /** @deprecated Use lightStyleSpec instead */
     styleSpec?: XinStyleSheet;
+    /**
+     * The component's self-declaration (contract + description + parts map +
+     * test fixture — see ComponentMap). Stamped as an OWN static on `type` at
+     * hydration, so a blueprint-delivered component is a first-class citizen
+     * of the agent surface: harvested by describe(), enforced by the value
+     * setter, exercisable by exerciseComponent — blueprints are not left
+     * behind by the contract work. A class's own `static contract` wins.
+     */
+    contract?: import('./agent').ComponentMap;
 }
 export interface TosiPackagedComponent<T = PartsMap> {
     type: Component<T>;

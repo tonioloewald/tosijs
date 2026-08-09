@@ -4,15 +4,39 @@
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 
-[![tosijs is on NPM](https://badge.fury.io/js/tosijs.svg)](https://www.npmjs.com/package/tosijs)
-[![tosijs is about 15kB gzipped](https://deno.bundlejs.com/?q=tosijs&badge=)](https://bundlejs.com/?q=tosijs&badge=)
-[![tosijs on jsdelivr](https://data.jsdelivr.com/v1/package/npm/tosijs/badge)](https://www.jsdelivr.com/package/npm/tosijs)
+<!-- lazy: third-party badge servers must not block the page load event
+     (badge.fury.io latency was intermittently timing out the browser-lane
+     tests — and any visitor's load — via the rendered home page) -->
+<a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
+<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs is about 15kB gzipped" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
+<a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a>
 
 <div style="text-align: center; margin: 20px">
   <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
     <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
   </tosi-lottie>
 </div>
+
+## Scaffolding
+
+```
+bunx tosijs create app my-app              # a runnable app (bun index.html)
+bunx tosijs create component my-widget     # a component — blueprint form (default)
+bunx tosijs create component my-widget --bare  # …plain class form
+bunx tosijs create blueprint my-widget     # a publishable blueprint package
+```
+
+Everything scaffolded is **agent-ready**: components are born with a
+`contract` (description, value schema, parts map, and a declared test), so
+they self-describe on the agent surface and pass `exerciseComponent()` from
+their first minute. The blueprint form is the default because blueprints
+are consumable **directly from markup** — no build step on the consumer's
+side:
+
+```
+<tosi-blueprint tag="my-widget" src="https://cdn.jsdelivr.net/npm/my-widget/dist/index.js"></tosi-blueprint>
+<my-widget></my-widget>
+```
 
 ## Better apps with less code
 

@@ -74,10 +74,31 @@ async function vendorSchematic() {
   }
 }
 
+async function buildCli() {
+  // the scaffolder: `bunx tosijs create …` / `npx tosijs create …` —
+  // node-target build (npx runs node), shebang + exec bit stamped here
+  await Bun.build({
+    entrypoints: ['./bin/cli.ts'],
+    format: 'esm',
+    target: 'node',
+    outdir: DIST,
+    naming: 'cli.mjs',
+  })
+  const cliPath = `${DIST}/cli.mjs`
+  const built = await Bun.file(cliPath).text()
+  if (!built.startsWith('#!')) {
+    await Bun.write(cliPath, '#!/usr/bin/env node\n' + built)
+  }
+  const { chmodSync } = await import('node:fs')
+  chmodSync(cliPath, 0o755)
+}
+
 async function buildLibrary() {
   console.time('library')
 
   await $`bun test src/`
+
+  await buildCli()
 
   const targets = [
     { naming: 'index.js', format: 'iife' as const },
@@ -138,6 +159,9 @@ async function buildLibrary() {
     'main.js',
     'module.debug.js',
     'module.safe.js',
+    // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs
+    // it as ESM without a package-level "type": "module", which would
+    // break main.js's CJS consumers)
   ])
   const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {

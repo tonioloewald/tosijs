@@ -49,15 +49,33 @@
 <!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 <p><a href="https://tosijs.net">tosijs.net</a> | <a href="https://ui.tosijs.net">tosijs-ui</a> | <a href="https://github.com/tonioloewald/tosijs">github</a> | <a href="https://www.npmjs.com/package/tosijs">npm</a> | <a href="https://www.jsdelivr.com/package/npm/tosijs">cdn</a> | <a href="https://react.tosijs.net">react-tosijs</a> | <a href="https://discord.gg/ramJ9rgky5">discord</a></p>
-<p><a href="https://www.npmjs.com/package/tosijs"><img src="https://badge.fury.io/js/tosijs.svg" alt="tosijs is on NPM"></a>
-<a href="https://bundlejs.com/?q=tosijs&badge="><img src="https://deno.bundlejs.com/?q=tosijs&badge=" alt="tosijs is about 15kB gzipped"></a>
-<a href="https://www.jsdelivr.com/package/npm/tosijs"><img src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge" alt="tosijs on jsdelivr"></a></p>
+<!-- lazy: third-party badge servers must not block the page load event
+     (badge.fury.io latency was intermittently timing out the browser-lane
+     tests — and any visitor's load — via the rendered home page) -->
+<p><a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
+<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs is about 15kB gzipped" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
+<a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a></p>
 <div style="text-align: center; margin: 20px">
   <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
     <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
   </tosi-lottie>
 </div>
 
+<h2>Scaffolding</h2>
+<pre><code>bunx tosijs create app my-app              # a runnable app (bun index.html)
+bunx tosijs create component my-widget     # a component — blueprint form (default)
+bunx tosijs create component my-widget --bare  # …plain class form
+bunx tosijs create blueprint my-widget     # a publishable blueprint package
+</code></pre>
+<p>Everything scaffolded is <strong>agent-ready</strong>: components are born with a
+<code>contract</code> (description, value schema, parts map, and a declared test), so
+they self-describe on the agent surface and pass <code>exerciseComponent()</code> from
+their first minute. The blueprint form is the default because blueprints
+are consumable <strong>directly from markup</strong> — no build step on the consumer&#39;s
+side:</p>
+<pre><code>&lt;tosi-blueprint tag=&quot;my-widget&quot; src=&quot;https://cdn.jsdelivr.net/npm/my-widget/dist/index.js&quot;&gt;&lt;/tosi-blueprint&gt;
+&lt;my-widget&gt;&lt;/my-widget&gt;
+</code></pre>
 <h2>Better apps with less code</h2>
 <p>Less code to <strong>write, read, run, debug, and maintain</strong> — which, as a bonus in the
 age of AI assistants, also means <strong>fewer tokens</strong> to generate and reason about.
