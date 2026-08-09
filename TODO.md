@@ -534,3 +534,9 @@ BSD-3-Clause → Apache-2.0; adds an explicit patent grant and retaliation
 clause"), consider a NOTICE file. Rationale: the patent-retaliation clause
 ("virally anti-software-patent") + ecosystem consistency with
 tosijs-schematic. Note: Apache-2.0 is GPLv2-only-incompatible (GPLv3+ fine).
+
+## At 1.8.0 publish: deprecate create-xinjs-blueprint (repo + npm)
+
+The scaffolder now lives in tosijs itself (`bunx tosijs create
+app|component|blueprint`, dist/cli.mjs). Once 1.8.0 is on npm: deprecate
+the create-xinjs-blueprint package with a pointer, archive-note the repo.
