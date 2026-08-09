@@ -69,6 +69,22 @@ at the host while hiding implementation, and the near-free audit ("every
 record with handlers must have label|text|role" over describe() output).
 **Gated per Tonio: not to be picked up until tosijs 1.8.0 (the one-user-interface release) is beta/rc.**
 
+## tosijs-schematic
+
+**Separately maintained as of 2026-08-09** (its own agent; context in its
+CLAUDE.md). tosijs is a CONSUMER: devDependency pin + build-time vendoring
+(`vendorSchematic()` in bin/site.ts regenerates src/schematic.ts from the
+package source). From here: **file, don't fix** — renderer changes, grammar
+proposals, and record-format questions go to
+github.com/tonioloewald/tosijs-schematic issues, mirrored here. Adopting a
+new version = bump the devDep, `bun update`, rebuild (the vendor step does
+the rest), sync any output-truth tests deliberately.
+
+### 🕐 PENDING — 0.3.0 publish held for incoming haltija feedback
+tosijs pins `^0.3.0` (unpublished; node_modules hand-synced). When the
+feedback batch lands upstream and 0.3.0 publishes: `bun update
+tosijs-schematic`, rebuild, verify the vendor step reports no drift.
+
 ## tjs-lang
 
 ### 🚧 (to file) Post-eval reconfiguration seam for `globalThis.__tjs`
