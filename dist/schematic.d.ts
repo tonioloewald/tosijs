@@ -1,5 +1,8 @@
 /**
- * tosijs-schematic — render an agent-surface map as a schematic SVG.
+ * tosijs-floorplan — render an agent-surface map as a floorplan SVG.
+ *
+ * (Formerly tosijs-schematic — renamed to stop near-colliding with
+ * tosijs-schema. Exported API names are unchanged.)
  *
  * A PURE FUNCTION over plain data: one record per wired element, drawn at
  * its true geometry, wearing the affordance grammar. No DOM, no framework,
@@ -70,6 +73,16 @@ export interface SchematicRecord {
      * media (serialized <svg>, <canvas>.toDataURL()) drawn IN PLACE — on an
      * illustration-led page the picture IS the content */
     image?: string;
+    /** a link's destination — the most actionable fact about a link, and
+     * deliberately distinct from `text` ("the link says X" is not "the link
+     * goes to Y"). Captions fall back to it only when nothing else names the
+     * element; it ALWAYS rides the legend — URLs are the facts most often
+     * too long to draw */
+    href?: string;
+    /** a filled control's value, distinct from label/placeholder — static
+     * ("3") or bound ("3 ⟷ app.qty"). tosijs emits it as a bound prop; the
+     * declared field gives plain-DOM producers the same home */
+    value?: string;
     [boundProp: string]: unknown;
 }
 /** the map: only `wiring` is read. The named optional fields are the
@@ -157,6 +170,11 @@ export interface SchematicLegendEntry {
         label: string;
         severity?: 'info' | 'warn' | 'error';
     }>;
+    /** the link's destination — carried whenever the record has one */
+    href?: string;
+    /** the control's held value (provenance stripped), when the drawing
+     * elided or truncated it */
+    value?: string;
     /** interactive element below the target-size floor, e.g.
      * "18×13 — below 24×24 (WCAG 2.5.8)" */
     undersized?: string;

@@ -152,6 +152,11 @@ export interface AgentWiringRecord {
     /** present and true when the control's live ValidityState says invalid
      * (or aria-invalid is set) — the map reads what :invalid styles */
     invalid?: boolean;
+    /** a link's destination — "says X" is not "goes to Y". Links are
+     * intrinsic affordances: enumerated even when nothing else wires them;
+     * the renderer captions nameless links by their href and always carries
+     * href in the legend (URLs are the facts most often too long to draw) */
+    href?: string;
     /** contenteditable: surfaces AS an input field. What matters to an agent
      * is that the region EXISTS and which path feeds it — it will read and
      * write the bound state directly, not synthesize keystrokes — so the

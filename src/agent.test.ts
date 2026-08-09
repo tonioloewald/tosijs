@@ -780,3 +780,27 @@ describe('describe() — contenteditable surfaces as an input field', () => {
     }
   })
 })
+
+describe('describe() — links are affordances (the href field)', () => {
+  test('a bare <a href> is on the map; destination is distinct from text', async () => {
+    const named = elements.a({ href: '/pricing' }, 'Pricing')
+    const nameless = elements.a({ href: 'https://example.com/deep/path' })
+    document.body.append(named, nameless)
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const d = agent.describe()
+      const link = d.wiring.find((w) => w.href === '/pricing')!
+      expect(link).toBeDefined() // no bindings, no handlers — mapped anyway
+      expect(link.tag).toBe('a')
+      expect(link.text).toBe('Pricing') // "says X" …
+      expect(link.href).toBe('/pricing') // … "goes to Y" — both facts
+      expect(
+        d.wiring.some((w) => w.href === 'https://example.com/deep/path')
+      ).toBe(true)
+    } finally {
+      agent.disable()
+      named.remove()
+      nameless.remove()
+    }
+  })
+})

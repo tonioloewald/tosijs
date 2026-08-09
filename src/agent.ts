@@ -208,6 +208,11 @@ export interface AgentWiringRecord {
   /** present and true when the control's live ValidityState says invalid
    * (or aria-invalid is set) — the map reads what :invalid styles */
   invalid?: boolean
+  /** a link's destination — "says X" is not "goes to Y". Links are
+   * intrinsic affordances: enumerated even when nothing else wires them;
+   * the renderer captions nameless links by their href and always carries
+   * href in the legend (URLs are the facts most often too long to draw) */
+  href?: string
   /** contenteditable: surfaces AS an input field. What matters to an agent
    * is that the region EXISTS and which path feeds it — it will read and
    * write the bound state directly, not synthesize keystrokes — so the
@@ -438,6 +443,9 @@ const describeElement = (el: Element): AgentWiringRecord => {
   const placeholder =
     el.getAttribute('placeholder') || el.getAttribute('aria-placeholder')
   if (placeholder) record.placeholder = placeholder
+  // a link IS an affordance — its destination is a fact of the map
+  const href = el.getAttribute?.('href')
+  if (href) record.href = href
   // contenteditable IS an input field — an affordance in itself, whatever
   // custom bindings ride it (and they usually do)
   const editableAttr = el.getAttribute?.('contenteditable')
@@ -716,6 +724,11 @@ export function enableAgentInterface(
             const liveValue = String((el as any).value ?? '').slice(0, 40)
             if (liveValue) record.value = liveValue
           }
+          // links are affordances in themselves — a bare <a href> is on
+          // the map whether or not anything else wires it
+          if (record.href != null && record.tag === 'a') {
+            wired = true
+          }
           // contenteditable: live text is its value; the region is an
           // affordance in itself, mapped even before bindings attach
           if (record.contentEditable === true) {
@@ -788,6 +801,11 @@ export function enableAgentInterface(
           walkRoot.querySelectorAll('[contenteditable]')
         )) {
           if (el.getAttribute('contenteditable') === 'false') continue
+          const record = recordFor(el)
+          if (record) wiring.push(record)
+        }
+        // links likewise: navigation is app surface, bindings or not
+        for (const el of Array.from(walkRoot.querySelectorAll('a[href]'))) {
           const record = recordFor(el)
           if (record) wiring.push(record)
         }

@@ -21,8 +21,8 @@
         "prettier": "^2.8.8",
         "tjs-lang": "0.10.1",
         "tosijs": "file:.",
+        "tosijs-floorplan": "^0.3.0",
         "tosijs-schema": "1.5.0",
-        "tosijs-schematic": "^0.2.0",
         "tosijs-ui": "1.9.4",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.65.0",
@@ -313,9 +313,9 @@
 
     "tosijs": ["tosijs@root:", {}],
 
-    "tosijs-schema": ["tosijs-schema@1.5.0", "", {}, "sha512-BYElbSs4s0qKBrCgg+7A/dIhx0lYsJs7lKoxZdBX0m3DjCYH2z5NJy9wm+4Ms6VhKlf9G1u6vkhhamu/bKqXnQ=="],
+    "tosijs-floorplan": ["tosijs-floorplan@0.3.0", "", {}, "sha512-pqfVBEugcZ9yhdCf81mzhPE1G0Q8cRXDNoJl41cioeYhHU9Wc9aQZDI36iuxtWs/9jiVLbqRwcFlVk/2TvsoQw=="],
 
-    "tosijs-schematic": ["tosijs-schematic@0.2.0", "", {}, "sha512-kJfVhNoa394vEa1c6gOUOvIENFOJN4Tu89xQHU34x6NFoeyEG3sZTlX+e3ZpKD44I4HZxKwJ1E2tg2zkMXjuew=="],
+    "tosijs-schema": ["tosijs-schema@1.5.0", "", {}, "sha512-BYElbSs4s0qKBrCgg+7A/dIhx0lYsJs7lKoxZdBX0m3DjCYH2z5NJy9wm+4Ms6VhKlf9G1u6vkhhamu/bKqXnQ=="],
 
     "tosijs-ui": ["tosijs-ui@1.9.4", "", { "dependencies": { "@codemirror/autocomplete": "^6.20.3", "@codemirror/commands": "^6.10.4", "@codemirror/lang-css": "^6.3.1", "@codemirror/lang-html": "^6.4.11", "@codemirror/lang-javascript": "^6.2.5", "@codemirror/lang-markdown": "^6.5.1", "@codemirror/language": "^6.12.4", "@codemirror/lint": "^6.9.7", "@codemirror/search": "^6.7.1", "@codemirror/state": "^6.7.1", "@codemirror/theme-one-dark": "^6.1.3", "@codemirror/view": "^6.43.7" }, "peerDependencies": { "@resvg/resvg-js": "^2.6.2", "chokidar": "^4.0.3", "happy-dom": "^20.7.0", "marked": "^16.4.2", "tjs-lang": "^0.12.0", "tosijs": "^1.7.8" }, "optionalPeers": ["@resvg/resvg-js", "chokidar", "happy-dom", "tjs-lang"], "bin": { "tosijs-deploy": "bin/deploy-preview.ts", "tosijs-tunnel": "bin/tunnel.ts", "tosijs-dev-certs": "tls/create-dev-certs.sh", "tosijs-make-icons": "bin/make-icon-data.js", "tosijs-release-notes": "bin/release-notes.ts" } }, "sha512-n+KGEVpL2gYBa59NwBhAqNCvTkqkI6a2t5BhenhAVElf07bap5wEK+FHOvhfl/YzOCWKY4qstYNMggRKoNUevg=="],
 

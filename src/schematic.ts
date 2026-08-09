@@ -26,13 +26,16 @@ linking it back to `description.wiring[i]` — the image as index).
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 
-// VENDORED from tosijs-schematic@0.3.0 — the upstream package
+// VENDORED from tosijs-floorplan@0.3.0 — the upstream package
 // is the source of truth. DO NOT EDIT below this line: edit
-// tosijs-schematic and rebuild (this section regenerates at build time).
+// tosijs-floorplan and rebuild (this section regenerates at build time).
 // tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
 
 /**
- * tosijs-schematic — render an agent-surface map as a schematic SVG.
+ * tosijs-floorplan — render an agent-surface map as a floorplan SVG.
+ *
+ * (Formerly tosijs-schematic — renamed to stop near-colliding with
+ * tosijs-schema. Exported API names are unchanged.)
  *
  * A PURE FUNCTION over plain data: one record per wired element, drawn at
  * its true geometry, wearing the affordance grammar. No DOM, no framework,
@@ -89,6 +92,16 @@ export interface SchematicRecord {
    * media (serialized <svg>, <canvas>.toDataURL()) drawn IN PLACE — on an
    * illustration-led page the picture IS the content */
   image?: string
+  /** a link's destination — the most actionable fact about a link, and
+   * deliberately distinct from `text` ("the link says X" is not "the link
+   * goes to Y"). Captions fall back to it only when nothing else names the
+   * element; it ALWAYS rides the legend — URLs are the facts most often
+   * too long to draw */
+  href?: string
+  /** a filled control's value, distinct from label/placeholder — static
+   * ("3") or bound ("3 ⟷ app.qty"). tosijs emits it as a bound prop; the
+   * declared field gives plain-DOM producers the same home */
+  value?: string
   [boundProp: string]: unknown
 }
 
@@ -177,6 +190,11 @@ export interface SchematicLegendEntry {
   invalid?: boolean
   disabled?: boolean
   flags?: Array<{ kind: string; label: string; severity?: 'info' | 'warn' | 'error' }>
+  /** the link's destination — carried whenever the record has one */
+  href?: string
+  /** the control's held value (provenance stripped), when the drawing
+   * elided or truncated it */
+  value?: string
   /** interactive element below the target-size floor, e.g.
    * "18×13 — below 24×24 (WCAG 2.5.8)" */
   undersized?: string
@@ -401,8 +419,16 @@ export const schematic = (
         caption = String(w.label ?? w.text ?? `<${w.tag}>`)
       }
     } else {
+      // href is last resort before the bare tag: a link with no name at all
+      // (haltija's icon-less sidebar case) is still distinguished by where
+      // it goes — but a name, when present, wins; the destination's real
+      // home is the legend
       caption = String(
-        w.label ?? shownValue(w.text) ?? shownValue(w.value) ?? `<${w.tag}>`
+        w.label ??
+          shownValue(w.text) ??
+          shownValue(w.value) ??
+          w.href ??
+          `<${w.tag}>`
       )
     }
     const structural = ground(w)
@@ -446,9 +472,24 @@ export const schematic = (
         Object.values(w).some(
           (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
         ))
+    // WCAG 2.5.8 exempts inline targets sized by their text — flagging
+    // prose links fires on every paragraph, and a check that cries wolf
+    // gets ignored, taking the real findings with it. A pure renderer
+    // can't see computed display, so: a link WITH text is presumed
+    // text-sized and exempt (icon links — an <a> wrapping an <svg>, no
+    // text — stay flagged). Producers with DOM access compute this
+    // properly and ship it via `flags`, which also SUPERSEDES the built-in
+    // audit here: no double amber bars for the same finding.
+    const producerTargetFlag =
+      Array.isArray(w.flags) &&
+      w.flags.some((f) => f.kind.toLowerCase().includes('target'))
+    const textSizedLink =
+      w.tag === 'a' && typeof w.text === 'string' && w.text !== ''
     const undersized =
       targetSize > 0 &&
       interactive &&
+      !producerTargetFlag &&
+      !textSizedLink &&
       !(w.type === 'checkbox' || w.type === 'radio') &&
       (width < targetSize || height < targetSize)
         ? `${width}×${height} — below ${targetSize}×${targetSize} (WCAG 2.5.8)`
@@ -565,7 +606,7 @@ export const schematic = (
           `font-family="monospace" fill="${esc(color)}">↔</text>`
       )
     }
-    let captionDrawnChars = -1 // -1 = caption block never ran
+    let drawnCaption: string | null = null // null = caption block never ran
     // required wears the universal asterisk on its caption — ASCII-safe
     const shownCaption =
       w.required === true && !structural && caption !== ''
@@ -594,7 +635,10 @@ export const schematic = (
         Math.max(8, Math.floor((width - 8) / (fontSize * 0.6)))
       )
       const lines = wrapCaption(shownCaption, perLine, maxLines)
-      captionDrawnChars = lines.reduce((total, line) => total + line.length, 0)
+      // rejoining with single spaces reconstructs a fully-wrapped caption
+      // exactly (wrapping only consumes break spaces) — a caption-count
+      // comparison would mark EVERY wrapped caption truncated
+      drawnCaption = lines.join(' ')
       const styleAttrs =
         `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}"` +
         `${hint ? ' font-style="italic" opacity="0.6"' : ''}`
@@ -619,11 +663,21 @@ export const schematic = (
     }
     // build the legend entry: everything the drawing could not carry
     const truncated =
-      captionDrawnChars >= 0 && captionDrawnChars < shownCaption.length
+      drawnCaption != null &&
+      drawnCaption.length <
+        shownCaption.split(' ').filter(Boolean).join(' ').length
     const elided: SchematicLegendEntry = { index, tag: w.tag }
     if (w.ref != null) elided.ref = String(w.ref)
+    // a destination is always legend-worthy: it never fits a caption
+    // legibly, and it's the fact an agent acts on ("goes to Y", not
+    // "says X")
+    if (typeof w.href === 'string' && w.href !== '' && !structural) {
+      elided.href = w.href
+    }
     if (cramped || truncated) {
       if (shownCaption !== '' && !toggle) elided.caption = caption
+      const heldValue = shownValue(w.value)
+      if (heldValue) elided.value = heldValue
       if (cramped) {
         if (editable) elided.editable = true
         if (w.required === true) elided.required = true
@@ -637,6 +691,8 @@ export const schematic = (
     if (undersized != null) elided.undersized = undersized
     const inLegend =
       elided.caption != null ||
+      elided.href != null ||
+      elided.value != null ||
       elided.editable != null ||
       elided.required != null ||
       elided.flags != null ||

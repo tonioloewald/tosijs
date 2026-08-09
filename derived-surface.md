@@ -657,6 +657,7 @@ harvest **on demand** from what's already there:
 | `aria-label(ledby)`, `title`, `placeholder`, `alt` | **the accessible name, resolved** — what a screen reader would say, harvested at the source |
 | `aria-describedby`, `aria-disabled`/`disabled`, `aria-required` | the author's own explanation + live affordance state (`description`, `disabled`, `required` on the record) |
 | `aria-hidden` | hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does |
+| `<a href>` | **links are affordances** — mapped bindings-or-not; `href` is a distinct fact from the text ("says X" is not "goes to Y"), captions nameless links, and always rides the legend |
 | `contenteditable` | **surfaces as an input field**, mapped even before bindings attach: live text as its value, `aria-placeholder` as its hint, ↔ unbid — what an agent needs is that the region *exists* and which path feeds it (it writes state, not keystrokes) |
 | `input({ type: 'email' })`, `required`, `min`/`max`/`pattern` | value types and validation constraints, straight from the markup sugar |
 | `part: 'searchBox'` | the developer's *own name* for the affordance |
