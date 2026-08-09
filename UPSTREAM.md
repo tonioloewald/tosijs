@@ -61,6 +61,11 @@ a success-sounding line, so a broken typecheck exited 0 and published stale
 
 ### 📋 FILED (gated) — accessibility ⇄ agent-surface program for every component
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/59
+**Extended 2026-08-09:** component-level contracts promoted to a deliverable
+(the fix-vehicle for audit findings), plus `<tosi-agent-viewer>` — the map/
+legend/contract/audit cockpit, built purely on tosijs's public re-exports
+(derived-surface's demo fences are the prototype; it carries its own
+contract). The 1.8.0-rc is the sweep's instrument, not just its gate.
 The one-user-interface curb cut as an instrument: `static contract` on every
 tosijs-ui component (auto aria-label + agent self-description + typed parts +
 exercisable spec), a real roles/states pass (tablist/tab/tabpanel +
