@@ -61,6 +61,35 @@
   </tosi-lottie>
 </div>
 
+<h2>Entry points</h2>
+<table>
+<thead>
+<tr>
+<th>import</th>
+<th>what you get</th>
+<th>when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tosijs</code></td>
+<td>everything (~34 KB gz)</td>
+<td>the default</td>
+</tr>
+<tr>
+<td><code>tosijs/core</code></td>
+<td>everything except the blueprint loader, <code>share</code>/<code>sync</code>, <code>hotReload</code> (~32 KB gz)</td>
+<td>you don&#39;t use blueprints and want the smaller surface</td>
+</tr>
+<tr>
+<td><code>tosijs/state</code></td>
+<td>the <strong>DOM-free</strong> state layer: <code>tosi</code>, <code>xin</code>, <code>observe</code>, paths (~16 KB gz)</td>
+<td>plain Node, SSR, workers, migration scripts — imports with no DOM shim</td>
+</tr>
+</tbody></table>
+<p><code>tosijs/core</code> is opt-in rather than automatic because blueprints hydrate
+from <em>markup</em>, so no import statement protects them — shaking the
+registration would fail silently. Slim core is present, so it can speak: in
+dev it warns if the page contains blueprint elements it cannot hydrate.</p>
 <h2>Scaffolding</h2>
 <pre><code>bunx tosijs create app my-app              # a runnable app (bun index.html)
 bunx tosijs create component my-widget     # a component — blueprint form (default)
@@ -510,6 +539,8 @@ work). Developed with <a href="https://bun.sh/">bun</a>; logo animation by
       <li><a class="doc-link" href="share/">share</a></li>
       <li><a class="doc-link" href="sync/">sync</a></li>
       <li><a class="doc-link" href="throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="index-state/">tosijs/state (DOM-free)</a></li>
       <li><a class="doc-link" href="webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>

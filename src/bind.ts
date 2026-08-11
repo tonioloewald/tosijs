@@ -362,6 +362,10 @@ observe(
     // querySelectorAll (whole-tree walk, O(total DOM)): measured 1.6–2.6× faster
     // in Blink and the gap widens with DOM size. Array.from makes it static so
     // toDOM mutations during dispatch can't perturb a live collection.
+    // no document = state-only environment (tosijs/state, SSR, a Node
+    // script using tosijs purely as a data model): observers still fire,
+    // there is simply nothing bound to update
+    if (globalThis.document == null) return
     const boundElements = Array.from(
       document.getElementsByClassName(BOUND_CLASS)
     )

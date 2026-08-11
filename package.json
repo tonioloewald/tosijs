@@ -21,6 +21,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/module.safe.js",
       "default": "./dist/module.safe.js"
+    },
+    "./core": {
+      "types": "./dist/index-core.d.ts",
+      "import": "./dist/core.js",
+      "default": "./dist/core.js"
+    },
+    "./state": {
+      "types": "./dist/index-state.d.ts",
+      "import": "./dist/state.js",
+      "default": "./dist/state.js"
     }
   },
   "homepage": "https://tosijs.net",

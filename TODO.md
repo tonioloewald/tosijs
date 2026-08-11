@@ -1,6 +1,26 @@
 # todo
 
-## Bundle diet (1.8.0-era; scoped 2026-08-03)
+## ✅ Bundle diet — shipped in 1.8.0 (2026-08-12)
+
+Delivered as **entry points, not tree-shaking**: `tosijs/core` (slim —
+33.9 → 32.2 KB gz, omits the blueprint machinery, share/sync, hotReload,
+and warns in dev if blueprint markup is on the page) and `tosijs/state`
+(15.9 KB gz, DOM-free, closes #18 — verified importing in plain node with
+no shim, pinned by a subprocess test).
+
+**⚠️ A `sideEffects` ARRAY is not safe with bun's bundler.** Adding an
+accurate one (listing component/blueprint-loader/bind/css as
+side-effectful) produced a BROKEN `dist/module.js`: `Blueprint` and friends
+were exported while their definitions were shaken away — `ReferenceError:
+"H6" is not declared in this file` on import. Caught only by executing the
+built bundle, not by tests, tsc, or lint. Do not re-add `sideEffects` in
+any form without an execute-the-bundle gate. (Filed as a build-lane
+follow-up: the release checklist should smoke-import every published
+bundle.)
+
+Remaining (unchanged, 1.9-era):
+
+## Bundle diet — the rest (deferred past 1.8.0)
 
 **Tree-shaking / subpaths.** `share.ts` + `sync.ts` (~2.3 KB gz) and `hot-reload.ts`
 (~0.3 KB) are clean, pure leaves — shake them via a `sideEffects` **array** and/or

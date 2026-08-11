@@ -123,6 +123,28 @@ async function buildLibrary() {
   }
 
   const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
+  // the alternate entries: tosijs/core (slim — no blueprint machinery, no
+  // share/sync/hotReload) and tosijs/state (DOM-free state layer, tosijs#18)
+  for (const { entry, naming } of [
+    { entry: './src/index-core.ts', naming: 'core.js' },
+    { entry: './src/index-state.ts', naming: 'state.js' },
+  ]) {
+    const result = await Bun.build({
+      entrypoints: [entry],
+      format: 'esm',
+      outdir: DIST,
+      target: 'browser',
+      sourcemap: 'linked',
+      minify: MINIFY,
+      naming,
+    })
+    if (!result.success) {
+      console.error(`${naming} build failed`)
+      for (const m of result.logs) console.error(m)
+      throw new Error('alternate entry build failed')
+    }
+  }
+
   await $`rm -rf ${TJS_OUT}`
   await $`mkdir -p ${TJS_OUT}`
   await $`bun tjs convert src/ -o ${TJS_OUT}/`
@@ -159,6 +181,8 @@ async function buildLibrary() {
     'main.js',
     'module.debug.js',
     'module.safe.js',
+    'core.js',
+    'state.js',
     // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs
     // it as ESM without a package-level "type": "module", which would
     // break main.js's CJS consumers)
@@ -172,6 +196,39 @@ async function buildLibrary() {
       if (!keepJs.has(base)) await fs.unlink(path.join(DIST, name))
     }
   }
+
+  // SMOKE-IMPORT EVERY PUBLISHED BUNDLE. A sideEffects array once produced
+  // bundles that exported names whose definitions had been shaken away
+  // ("H6 is not declared") — green tests, green tsc, green lint, broken
+  // package. Only executing the artifact catches that class of defect.
+  for (const bundle of ['module.js', 'core.js', 'state.js']) {
+    const probe = Bun.spawnSync(
+      [
+        'bun',
+        '-e',
+        `const { Window } = await import('happy-dom')
+         const w = new Window()
+         globalThis.window = w
+         for (const k of Object.getOwnPropertyNames(w)) {
+           if (globalThis[k] === undefined) {
+             try { globalThis[k] = w[k] } catch {}
+           }
+         }
+         const m = await import('${DIST}/${bundle}')
+         if (Object.keys(m).length === 0) throw new Error('no exports')
+         for (const [name, value] of Object.entries(m)) {
+           if (value === undefined) throw new Error(name + ' is undefined')
+         }`,
+      ],
+      { stderr: 'pipe', stdout: 'pipe' }
+    )
+    if (probe.exitCode !== 0) {
+      console.error(`smoke import FAILED for dist/${bundle}:`)
+      console.error(probe.stderr.toString().slice(0, 800))
+      throw new Error(`dist/${bundle} does not import cleanly`)
+    }
+  }
+  console.log('smoke import: module.js, core.js, state.js all load')
 
   console.timeEnd('library')
 }

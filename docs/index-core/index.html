@@ -29,91 +29,64 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
-  <title>tosijs history</title>
-  <meta name="description" content="The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." />
-  <link rel="canonical" href="https://tosijs.net/history/" />
+  <title>tosijs/core (slim entry)</title>
+  <meta name="description" content="tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism." />
+  <link rel="canonical" href="https://tosijs.net/index-core/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
-  <meta property="og:title" content="tosijs history" />
-  <meta property="og:description" content="The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." />
-  <meta property="og:url" content="https://tosijs.net/history/" />
+  <meta property="og:title" content="tosijs/core (slim entry)" />
+  <meta property="og:description" content="tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism." />
+  <meta property="og:url" content="https://tosijs.net/index-core/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs history","description":"The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.","url":"https://tosijs.net/history/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs/core (slim entry)","description":"tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism.","url":"https://tosijs.net/index-core/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
-<h1>tosijs history</h1>
-<!--{ "pin": "bottom", "order": 900, "description": "The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate." }-->
-
-<div style="text-align: center; margin: 20px">
-  <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
-    <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
-  </tosi-lottie>
-</div>
-
-<p><code>tosijs</code> has a lineage: <strong><a href="https://github.com/tonioloewald/b8r">b8rjs</a> → xinjs → tosijs.</strong></p>
-<p>Each step kept the core idea — bind application state to the DOM through a central,
-path-addressable registry and let observers do the updating — while shedding
-whatever the platform had since made unnecessary.</p>
-<p>But even before this idea was used for web development, its core ideas had been
-proven out in multiple contexts:</p>
-<ul>
-<li>separate presentation from logic (e.g. Mac Resource Manager, DITLs, 1984)</li>
-<li>declare simple bindings as metadata (originally HyperCard projects could give UI elements &quot;names&quot; and the names could be used to declare or attach bindings)</li>
-<li>store data in dictionaries (e.g. before JavaScript objects, NewtonScript had &quot;soups&quot;)</li>
-<li>propagate events using a simple, consistent approach (HyperCard)</li>
-</ul>
-<h2>bindomatic.js (2013)</h2>
-<p>Originally developed for the <a href="https://www.uspto.gov/">USPTO</a> but, despite assurances,
-never open-sourced. This was based on jQuery before browsers adopted the best
-bits of the jQuery API natively.</p>
-<h2>b8rjs (2015)</h2>
-<p>The first open-source incarnation. <code>b8rjs</code> established the &quot;bind to the registry&quot;
-model: application state lives in one place, the DOM is wired to it by path, and
-changes propagate without hand-written glue.</p>
-<p>b8rjs also implemented literate programming concepts in its development/demo site
-and provided a powerful serializable type system (similar to JSON-Schema).</p>
-<h2>xinjs (2021)</h2>
-<p>A ground-up successor to <code>b8rjs</code>, rebuilt around modern ES <code>Proxy</code> objects — this
-is where the boxed-proxy / path-observer design <code>tosijs</code> uses today took shape.
-Its chief changes:</p>
-<ul>
-<li><strong>Virtual-list bindings became first-class.</strong> <code>b8rjs</code> needed specific components
-to virtualize a list; in <code>xinjs</code> any list binding could be virtual.</li>
-<li><strong>TypeScript-native</strong>, to meet Google&#39;s code standards.</li>
-<li><strong>Binding declarations left the DOM.</strong> <code>b8rjs</code> wrote bindings into DOM
-attributes; <code>xinjs</code> kept them off the DOM entirely (in the observer registry),
-to meet Google&#39;s information-security standards.</li>
-<li><strong>Web-components became a first-class citizen</strong>, not an afterthought — they
-weren&#39;t usable at all when <code>b8rjs</code> was written.</li>
-<li><strong>No hand-written HTML or CSS.</strong> The <code>elements</code> and <code>css</code> proxies express markup
-and styles as fully-typed TypeScript, so the code-quality tooling that checks
-your logic checks your UI too — and it comes out <em>more</em> compact and expressive
-than HTML/JSX or CSS/Tailwind. Compare <code>vars.padding50</code> with
-<code>calc(var(--padding) * 0.5)</code>, or <code>customElement()</code> with
-<code>&lt;custom-element&gt;&lt;/custom-element&gt;</code>.</li>
-</ul>
-<h2>tosijs (2023)</h2>
-<p>The current name — <code>xinjs</code> renamed, with the API stable across the rename. Taken
-as a whole, the line since <code>b8rjs</code> is a highly incompatible evolution: removing
-cruft, supporting more use-cases, and eliminating functionality made redundant by
-improvements to the JavaScript language and DOM APIs. It is also the heart of a
-broader ecosystem — see the <a href="/">home page</a> for the full family (tosijs-ui,
-tjs-lang, the React and Angular bridges, and more).</p>
+<h1>tosijs/core (slim entry)</h1>
+<p>The full library minus the parts a bundle can&#39;t safely shake for you:</p>
+<pre><code>import { tosi, elements, Component } from &#39;tosijs/core&#39;
+</code></pre>
+<p><strong>Not included</strong> (import them from <code>tosijs</code>, or from their own subpaths):</p>
+<table>
+<thead>
+<tr>
+<th>left out</th>
+<th>why</th>
+<th>get it back</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;tosi-blueprint&gt;</code> / <code>&lt;tosi-loader&gt;</code>, <code>makeComponent</code></td>
+<td>registers custom elements at import — a <em>markup</em> contract no import statement protects</td>
+<td><code>tosijs</code></td>
+</tr>
+<tr>
+<td><code>share</code>, <code>sync</code></td>
+<td>BroadcastChannel/IndexedDB and network transports</td>
+<td><code>tosijs</code></td>
+</tr>
+<tr>
+<td><code>hotReload</code></td>
+<td>dev-time localStorage state persistence</td>
+<td><code>tosijs</code></td>
+</tr>
+</tbody></table>
+<p>Everything else — state, bindings, elements, components, CSS, Color, the
+agent surface, the schematic renderer — is here, identical to <code>tosijs</code>.</p>
 <blockquote>
-<h3>Migrating from xinjs</h3>
-<p><code>tosijs</code> was formerly published as <code>xinjs</code>. The rename is complete, though some
-older links and articles still say &quot;xinjs&quot;. The API is stable across the rename —
-old names continue to work with one-time deprecation warnings. If you&#39;re coming
-from <code>xinjs</code>, see the <a href="/Migration/">migration guide</a>.</p>
+<p><strong>Why this is opt-in rather than automatic.</strong> Blueprints hydrate from
+<em>markup</em> (<code>&lt;tosi-blueprint tag src&gt;</code>), so a consumer has no import
+statement for a bundler to protect: shake the registration and the page
+fails <strong>silently</strong> — an unknown element, no error, nothing hydrated, and
+the code that would have warned is the code that got shaken. Inverting
+that (opt in, don&#39;t opt out) moves the risk from &quot;anyone who upgrades&quot; to
+&quot;someone who made a choice&quot; — and because slim core is <em>present</em>, it can
+speak: in dev it scans for undefined blueprint elements after load and
+tells you exactly what happened.</p>
 </blockquote>
-<h2>Credits</h2>
-<p><code>tosijs</code> is developed with <a href="https://bun.sh/">bun</a> — crazy fast (WebKit&#39;s
-JavaScriptCore engine, not V8), does a lot natively, and runs TypeScript directly.</p>
-<p>Logo animation by <a href="https://pro.fiverr.com/freelancers/anicoremotion">@anicoremotion</a>.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
@@ -147,7 +120,7 @@ JavaScriptCore engine, not V8), does a lot natively, and runs TypeScript directl
       <li><a class="doc-link" href="../form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
@@ -157,7 +130,7 @@ JavaScriptCore engine, not V8), does a lot natively, and runs TypeScript directl
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
-      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link current" href="../index-core/" aria-current="page">tosijs/core (slim entry)</a></li>
       <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
       <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
@@ -174,7 +147,7 @@ JavaScriptCore engine, not V8), does a lot natively, and runs TypeScript directl
     </ul>
     </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
-    <li><a class="doc-link current" href="../history/" aria-current="page">tosijs history</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
   </ul>
   </nav>
   <ul class="doc-navbar">

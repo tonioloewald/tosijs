@@ -17,6 +17,19 @@
   </tosi-lottie>
 </div>
 
+## Entry points
+
+| import | what you get | when |
+| --- | --- | --- |
+| `tosijs` | everything (~34 KB gz) | the default |
+| `tosijs/core` | everything except the blueprint loader, `share`/`sync`, `hotReload` (~32 KB gz) | you don't use blueprints and want the smaller surface |
+| `tosijs/state` | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths (~16 KB gz) | plain Node, SSR, workers, migration scripts — imports with no DOM shim |
+
+`tosijs/core` is opt-in rather than automatic because blueprints hydrate
+from *markup*, so no import statement protects them — shaking the
+registration would fail silently. Slim core is present, so it can speak: in
+dev it warns if the page contains blueprint elements it cannot hydrate.
+
 ## Scaffolding
 
 ```

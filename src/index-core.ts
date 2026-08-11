@@ -1,0 +1,55 @@
+/*{ "parent": "utilities", "description": "tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism." }*/
+/*#
+# tosijs/core (slim entry)
+
+The full library minus the parts a bundle can't safely shake for you:
+
+    import { tosi, elements, Component } from 'tosijs/core'
+
+**Not included** (import them from `tosijs`, or from their own subpaths):
+
+| left out | why | get it back |
+| --- | --- | --- |
+| `<tosi-blueprint>` / `<tosi-loader>`, `makeComponent` | registers custom elements at import — a *markup* contract no import statement protects | `tosijs` |
+| `share`, `sync` | BroadcastChannel/IndexedDB and network transports | `tosijs` |
+| `hotReload` | dev-time localStorage state persistence | `tosijs` |
+
+Everything else — state, bindings, elements, components, CSS, Color, the
+agent surface, the schematic renderer — is here, identical to `tosijs`.
+
+> **Why this is opt-in rather than automatic.** Blueprints hydrate from
+> *markup* (`<tosi-blueprint tag src>`), so a consumer has no import
+> statement for a bundler to protect: shake the registration and the page
+> fails **silently** — an unknown element, no error, nothing hydrated, and
+> the code that would have warned is the code that got shaken. Inverting
+> that (opt in, don't opt out) moves the risk from "anyone who upgrades" to
+> "someone who made a choice" — and because slim core is *present*, it can
+> speak: in dev it scans for undefined blueprint elements after load and
+> tells you exactly what happened.
+*/
+export * from './index-core-exports'
+import { settings } from './settings'
+
+// The dev-mode check the slim entry can afford to make (a shaken build
+// cannot): if the page contains blueprint markup this entry cannot hydrate,
+// say so, loudly, once — with the fix.
+if (typeof document !== 'undefined' && settings.debug !== false) {
+  const check = (): void => {
+    const orphans = document.querySelectorAll(
+      'tosi-blueprint:not(:defined), tosi-loader:not(:defined)'
+    )
+    if (orphans.length > 0) {
+      console.warn(
+        `tosijs/core: ${orphans.length} blueprint element(s) on this page will ` +
+          'NOT hydrate — the slim entry omits the blueprint loader. Import ' +
+          "from 'tosijs' instead (or add `import \"tosijs/blueprints\"`).",
+        orphans[0]
+      )
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', check, { once: true })
+  } else {
+    setTimeout(check)
+  }
+}
