@@ -185,7 +185,7 @@ you want to give a `<tosi-slot>` attributes (such as `class` or `style`), create
 explicitly (e.g. using `elements.tosiSlot()`) rather than using `<slot>` elements
 and letting them be switched out (because they'll lose any attributes you give them).
 
-> The legacy name `<xin-slot>` still works but emits a deprecation warning.
+> The legacy name `<xin-slot>` was removed in 1.8.0.
 
 Here's a very simple example:
 
@@ -1175,19 +1175,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             if (element == null) {
               const root = self.shadowRoot != null ? self.shadowRoot : self
               element = root.querySelector(`[part="${ref}"]`)
-              if (element == null) {
-                // DEPRECATED data-ref="foo" (a React-era "refs" fossil; removed
-                // from the docs, slated for removal in 1.8.0)
-                const legacy = root.querySelector(`[data-ref="${ref}"]`)
-                if (legacy != null) {
-                  warnDeprecated(
-                    'data-ref',
-                    'data-ref is deprecated and will be removed in tosijs 1.8.0 — use part="…" instead.'
-                  )
-                  legacy.removeAttribute('data-ref')
-                  element = legacy
-                }
-              }
+              // (data-ref="foo" — a React-era "refs" fossil — was deprecated
+              // through 1.7 and REMOVED in 1.8.0 as promised. Use part="…".)
               if (element == null) {
                 element = root.querySelector(ref) // bare CSS-selector ref
               }
@@ -1895,22 +1884,5 @@ class TosiSlot extends Component<SlotParts> {
 
 export const tosiSlot = TosiSlot.elementCreator()
 
-// --- Deprecated xin-slot ---
-
-class XinSlot extends Component<SlotParts> {
-  static preferredTagName = 'xin-slot'
-  static initAttributes = { name: '' }
-  content = null
-
-  constructor() {
-    super()
-    warnDeprecated(
-      'xin-slot',
-      '<xin-slot> is deprecated. Use <tosi-slot> instead.'
-    )
-  }
-
-  static replaceSlot = TosiSlot.replaceSlot
-}
-
-export const xinSlot = XinSlot.elementCreator()
+// (<xin-slot> was deprecated through 1.7 and REMOVED in 1.8.0 — one fewer
+// custom element registered at import, which the bundle diet counts on.)

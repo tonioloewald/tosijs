@@ -45,7 +45,7 @@
     "deploy": "tosijs-deploy"
   },
   "author": "Tonio Loewald",
-  "license": "BSD-3-CLAUSE",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@happy-dom/global-registrator": "^20.11.1",
@@ -74,6 +74,7 @@
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
     "/LICENSE",
+    "/NOTICE",
     "/README.md",
     "/CHANGELOG.md",
     "/llms.txt"

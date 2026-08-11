@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll } from 'bun:test'
-import { Component, tosiSlot, xinSlot } from './component'
+import { Component, tosiSlot } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
 import { _resetDeprecationWarnings } from './metadata'
@@ -457,17 +457,13 @@ describe('tosiSlot', () => {
   })
 })
 
-describe('xinSlot (deprecated)', () => {
-  test('creates xin-slot element', () => {
-    const slot = xinSlot()
-    expect(slot.tagName.toLowerCase()).toBe('xin-slot')
-  })
-
-  test('accepts name attribute', () => {
-    const slot = xinSlot({ name: 'test-slot' })
-    document.body.appendChild(slot)
-    expect(slot.getAttribute('name')).toBe('test-slot')
-    slot.remove()
+describe('xinSlot (REMOVED in 1.8.0)', () => {
+  test('the alias is gone from the public surface', async () => {
+    const api = (await import('./index')) as Record<string, unknown>
+    expect('tosiSlot' in api).toBe(true)
+    expect('xinSlot' in api).toBe(false)
+    // and no <xin-slot> is registered at import any more
+    expect(customElements.get('xin-slot')).toBeUndefined()
   })
 })
 
@@ -1506,7 +1502,7 @@ describe('component change event bubbles (bound like a native input)', () => {
   })
 })
 
-test('parts finds elements by data-ref, as documented (medium backlog)', () => {
+test('data-ref is REMOVED in 1.8.0 — part="…" is the only ref attribute', () => {
   class DataRefComp extends Component {
     static preferredTagName = 'data-ref-comp'
     content = ({ div, span }: typeof elements) => [
@@ -1517,7 +1513,10 @@ test('parts finds elements by data-ref, as documented (medium backlog)', () => {
   const el = DataRefComp.elementCreator()() as any
   document.body.append(el)
   expect(el.parts.byPart.textContent).toBe('part target')
-  expect(el.parts.byRef.textContent).toBe('ref target') // docs promised this
+  // the deprecation promised removal in 1.8.0 and 1.8.0 keeps it: a
+  // data-ref-only element no longer resolves as a part (it throws, the
+  // same as any ref that never resolved)
+  expect(() => el.parts.byRef).toThrow()
   el.remove()
 })
 
@@ -1613,13 +1612,14 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     el.remove()
   })
 
-  test('deprecated data-ref still resolves (with a warning) during its deprecation cycle', () => {
+  test('a bare CSS-selector ref still resolves (data-ref is gone; selectors stay)', () => {
     class RefC extends Component {
       static preferredTagName = 'cap-ref'
       static initAttributes = { role: 'group' }
       content = () => {
         const d = document.createElement('div')
-        d.setAttribute('data-ref', 'legacy')
+        d.setAttribute('data-ref', 'legacy') // now inert metadata
+        d.className = 'legacy-target'
         d.textContent = 'REF'
         return [d]
       }
@@ -1627,14 +1627,10 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     RefC.elementCreator()
     const el = new RefC()
     document.body.append(el)
-    const warnings: string[] = []
-    const orig = console.warn
-    console.warn = (...a: any[]) => warnings.push(a.map(String).join(' '))
-    try {
-      expect((el.parts as any).legacy.textContent).toBe('REF') // data-ref fallback works
-    } finally {
-      console.warn = orig
-    }
+    // data-ref no longer resolves…
+    expect(() => (el.parts as any).legacy).toThrow()
+    // …but the bare-selector fallback is untouched
+    expect((el.parts as any)['.legacy-target'].textContent).toBe('REF')
     el.remove()
   })
 })

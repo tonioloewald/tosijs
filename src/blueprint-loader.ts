@@ -50,9 +50,8 @@ of component **blueprints**. It will load its `<tosi-blueprint>`s in parallel.
 </swiss-clock>
 ```
 
-> The legacy names `<xin-blueprint>` and `<xin-loader>` still work but emit a
-> one-time deprecation warning. New code should use `<tosi-blueprint>` and
-> `<tosi-loader>`.
+> The legacy names `<xin-blueprint>` and `<xin-loader>` were removed in 1.8.0 —
+> use `<tosi-blueprint>` and `<tosi-loader>`.
 
 ### `<tosi-blueprint>` Attributes
 
@@ -241,7 +240,6 @@ import {
   TosiBlueprint,
   TosiPackagedComponent,
 } from './make-component'
-import { warnDeprecated } from './metadata'
 
 const HIDDEN_STYLE = { ':host': { display: 'none' } }
 
@@ -328,7 +326,7 @@ export class BlueprintLoader extends Component {
   allLoaded = () => {}
 
   private async load() {
-    await settleBlueprints(this, 'tosi-blueprint, xin-blueprint', 'tosi-loader')
+    await settleBlueprints(this, 'tosi-blueprint', 'tosi-loader')
     this.allLoaded()
   }
 
@@ -340,45 +338,6 @@ export class BlueprintLoader extends Component {
 
 export const tosiLoader = BlueprintLoader.elementCreator()
 
-// --- Deprecated classes (xin-*) ---
-
-class DeprecatedBlueprint extends Blueprint {
-  static preferredTagName = 'xin-blueprint'
-  static lightStyleSpec = HIDDEN_STYLE
-
-  constructor() {
-    super()
-    warnDeprecated(
-      'xin-blueprint',
-      '<xin-blueprint> is deprecated. Use <tosi-blueprint> instead.'
-    )
-  }
-}
-
-export const blueprint = DeprecatedBlueprint.elementCreator()
-
-class DeprecatedLoader extends Component {
-  static preferredTagName = 'xin-loader'
-  static lightStyleSpec = HIDDEN_STYLE
-  allLoaded = () => {}
-
-  constructor() {
-    super()
-    warnDeprecated(
-      'xin-loader',
-      '<xin-loader> is deprecated. Use <tosi-loader> instead.'
-    )
-  }
-
-  private async load() {
-    await settleBlueprints(this, 'xin-blueprint', 'xin-loader')
-    this.allLoaded()
-  }
-
-  connectedCallback() {
-    super.connectedCallback()
-    this.load()
-  }
-}
-
-export const blueprintLoader = DeprecatedLoader.elementCreator()
+// (<xin-blueprint> and <xin-loader> were deprecated through 1.7 and REMOVED
+// in 1.8.0 — halving this module's import-time custom-element registrations,
+// which is what the bundle diet's side-effect accounting counts on.)

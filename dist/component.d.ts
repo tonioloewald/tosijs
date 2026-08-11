@@ -162,13 +162,3 @@ declare class TosiSlot extends Component<SlotParts> {
     static replaceSlot(slot: HTMLSlotElement): void;
 }
 export declare const tosiSlot: ElementCreator<TosiSlot>;
-declare class XinSlot extends Component<SlotParts> {
-    static preferredTagName: string;
-    static initAttributes: {
-        name: string;
-    };
-    content: null;
-    constructor();
-    static replaceSlot: typeof TosiSlot.replaceSlot;
-}
-export declare const xinSlot: ElementCreator<XinSlot>;

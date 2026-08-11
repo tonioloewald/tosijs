@@ -384,35 +384,35 @@ external styling, and the usual DOM query APIs.</p>
 <li><strong>Lighter weight.</strong> No shadow root overhead per instance.</li>
 <li><strong>Slot composition.</strong> tosijs rewrites <code>&lt;slot&gt;</code> elements in light DOM components.</li>
 </ul>
-<h4>How <code>&lt;xin-slot&gt;</code> works</h4>
+<h4>How <code>&lt;tosi-slot&gt;</code> works</h4>
 <p>Native <code>&lt;slot&gt;</code> elements only work inside a shadow root. tosijs solves this
 by automatically replacing any <code>&lt;slot&gt;</code> in a light DOM component with an
-<code>&lt;xin-slot&gt;</code> custom element that provides the same composition behavior:
+<code>&lt;tosi-slot&gt;</code> custom element that provides the same composition behavior:
 children with a matching <code>slot=&quot;name&quot;</code> attribute get moved into the
-corresponding <code>&lt;xin-slot name=&quot;name&quot;&gt;</code>, and unslotted children go into the
-default (unnamed) <code>&lt;xin-slot&gt;</code>.</p>
+corresponding <code>&lt;tosi-slot name=&quot;name&quot;&gt;</code>, and unslotted children go into the
+default (unnamed) <code>&lt;tosi-slot&gt;</code>.</p>
 <p>This happens during hydration — you write <code>&lt;slot&gt;</code> in your <code>content()</code> and
-tosijs handles the rewrite transparently. You can also use <code>xinSlot()</code>
+tosijs handles the rewrite transparently. You can also use <code>tosiSlot()</code>
 directly from the <code>elements</code> proxy if you need to set attributes like
 <code>class</code> or <code>style</code> on the slot container (plain <code>&lt;slot&gt;</code> elements lose
 non-<code>name</code> attributes during the rewrite).</p>
 <pre><code>class CardLayout extends Component {
-  content = ({ h3, xinSlot }) =&gt; [
+  content = ({ h3, tosiSlot }) =&gt; [
     h3(&#39;Header&#39;),
-    xinSlot({ name: &#39;top&#39;, style: { background: &#39;#eee&#39; } }),
+    tosiSlot({ name: &#39;top&#39;, style: { background: &#39;#eee&#39; } }),
     h3(&#39;Body&#39;),
-    xinSlot(), // default slot
+    tosiSlot(), // default slot
     h3(&#39;Footer&#39;),
-    xinSlot({ name: &#39;bottom&#39; }),
+    tosiSlot({ name: &#39;bottom&#39; }),
   ]
 }
 </code></pre>
 <p>Two things to keep in mind:</p>
 <ul>
 <li><strong><code>:slotted</code> doesn&#39;t apply</strong> — there&#39;s no shadow DOM, so style slotted
-children with normal CSS selectors. You can use <code>xin-slot</code> as a selector.</li>
+children with normal CSS selectors. You can use <code>tosi-slot</code> as a selector.</li>
 <li><strong>The rewrite is one-way.</strong> Once hydration runs, the DOM contains
-<code>&lt;xin-slot&gt;</code> elements. If you inspect the DOM, you&#39;ll see <code>&lt;xin-slot&gt;</code>,
+<code>&lt;tosi-slot&gt;</code> elements. If you inspect the DOM, you&#39;ll see <code>&lt;tosi-slot&gt;</code>,
 not <code>&lt;slot&gt;</code>.</li>
 </ul>
 <p>Components declare their styles via static properties:</p>

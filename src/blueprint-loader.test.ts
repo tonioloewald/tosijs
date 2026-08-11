@@ -4,8 +4,6 @@ import {
   BlueprintLoader,
   tosiBlueprint,
   tosiLoader,
-  blueprint,
-  blueprintLoader,
   setModuleLoader,
 } from './blueprint-loader'
 import {
@@ -98,47 +96,18 @@ describe('tosi-blueprint (canonical)', () => {
   })
 })
 
-describe('xin-blueprint (deprecated)', () => {
-  test('creates xin-blueprint element', () => {
-    const el = blueprint()
-    expect(el.tagName.toLowerCase()).toBe('xin-blueprint')
-  })
-
-  test('has display: none style via global stylesheet', () => {
-    const el = blueprint()
-    document.body.appendChild(el)
-    const globalStyle = document.head.querySelector('#xin-blueprint-component')
-    expect(globalStyle).not.toBeNull()
-    expect(globalStyle?.textContent).toContain('display')
-    expect(globalStyle?.textContent).toContain('none')
-    el.remove()
-  })
-
-  test('initializes with default attribute values', () => {
-    const el = blueprint() as any
-    expect(el.tag).toBe('anon-elt')
-    expect(el.src).toBe('')
-    expect(el.property).toBe('default')
-  })
-
-  test('emits deprecation warning once', () => {
-    const warns: string[] = []
-    const origWarn = console.warn
-    console.warn = (msg: string) => warns.push(msg)
-    try {
-      _resetDeprecationWarnings()
-      const el1 = blueprint()
-      document.body.appendChild(el1)
-      const el2 = blueprint()
-      document.body.appendChild(el2)
-      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
-      expect(deprecationWarns.length).toBe(1)
-      expect(deprecationWarns[0]).toContain('tosi-blueprint')
-      el1.remove()
-      el2.remove()
-    } finally {
-      console.warn = origWarn
-    }
+describe('xin-* blueprint aliases (REMOVED in 1.8.0)', () => {
+  test('the aliases are gone from the public surface and the registry', async () => {
+    const api = (await import('./index')) as Record<string, unknown>
+    expect('tosiBlueprint' in api).toBe(true)
+    expect('tosiLoader' in api).toBe(true)
+    expect('blueprint' in api).toBe(false)
+    expect('blueprintLoader' in api).toBe(false)
+    // two fewer custom elements registered at import — the bundle diet's
+    // side-effect accounting depends on this
+    expect(customElements.get('xin-blueprint')).toBeUndefined()
+    expect(customElements.get('xin-loader')).toBeUndefined()
+    expect(customElements.get('tosi-blueprint')).toBeDefined()
   })
 })
 
@@ -204,7 +173,7 @@ describe('tosi-loader (canonical)', () => {
     el.remove()
   })
 
-  test('finds both tosi-blueprint and xin-blueprint children', async () => {
+  test('settles all tosi-blueprint children', async () => {
     let loadedCalled = false
     const el = tosiLoader(
       {
@@ -213,7 +182,7 @@ describe('tosi-loader (canonical)', () => {
         },
       },
       tosiBlueprint({ tag: 'no-src-a' }),
-      blueprint({ tag: 'no-src-b' })
+      tosiBlueprint({ tag: 'no-src-b' })
     ) as InstanceType<typeof BlueprintLoader>
     document.body.appendChild(el)
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -294,56 +263,6 @@ describe('tosi-loader (canonical)', () => {
     } finally {
       console.error = origError
       setModuleLoader((src: string) => import(src))
-    }
-  })
-})
-
-describe('xin-loader (deprecated)', () => {
-  test('creates xin-loader element', () => {
-    const el = blueprintLoader()
-    expect(el.tagName.toLowerCase()).toBe('xin-loader')
-  })
-
-  test('has display: none style via global stylesheet', () => {
-    const el = blueprintLoader()
-    document.body.appendChild(el)
-    const globalStyle = document.head.querySelector('#xin-loader-component')
-    expect(globalStyle).not.toBeNull()
-    expect(globalStyle?.textContent).toContain('display')
-    expect(globalStyle?.textContent).toContain('none')
-    el.remove()
-  })
-
-  test('calls allLoaded when no blueprints present', async () => {
-    let loadedCalled = false
-    const el = blueprintLoader({
-      allLoaded() {
-        loadedCalled = true
-      },
-    }) as InstanceType<typeof BlueprintLoader>
-    document.body.appendChild(el)
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(loadedCalled).toBe(true)
-    el.remove()
-  })
-
-  test('emits deprecation warning once', () => {
-    const warns: string[] = []
-    const origWarn = console.warn
-    console.warn = (msg: string) => warns.push(msg)
-    try {
-      _resetDeprecationWarnings()
-      const el1 = blueprintLoader()
-      document.body.appendChild(el1)
-      const el2 = blueprintLoader()
-      document.body.appendChild(el2)
-      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
-      expect(deprecationWarns.length).toBe(1)
-      expect(deprecationWarns[0]).toContain('tosi-loader')
-      el1.remove()
-      el2.remove()
-    } finally {
-      console.warn = origWarn
     }
   })
 })

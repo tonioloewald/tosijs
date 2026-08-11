@@ -440,6 +440,11 @@ You'll need to install [bun](https://bun.sh/) and then run `bun install`.
     bun run format             # lint and format (ESLint + Prettier)
     bun pack                   # create local package tarball
 
+## License
+
+[Apache-2.0](./LICENSE) as of 1.8.0 (BSD-3-Clause through 1.7.x) — the
+change adds an explicit patent grant and a patent-retaliation clause.
+
 ## History & credits
 
 `tosijs` descends from **b8rjs → xinjs → tosijs** — see [tosijs history](/history/)

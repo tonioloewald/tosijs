@@ -157,7 +157,7 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 - **`parts`** is a proxy — `this.parts.foo` finds the element with `part="foo"`.
 - **`static formAssociated = true`** enables form integration via `ElementInternals`.
 - Components default to shadow DOM. Set `role` in `initAttributes` to use light DOM instead.
-- In light DOM, `<slot>` elements are automatically converted to `<xin-slot>` for composition.
+- In light DOM, `<slot>` elements are automatically converted to `<tosi-slot>` for composition.
 - **`elementCreator()`** takes no arguments — all configuration is via static properties. Passing `{ tag, styleSpec }` options still works but emits deprecation warnings.
 
 ## Key Design Patterns

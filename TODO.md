@@ -5,9 +5,9 @@
 **Tree-shaking / subpaths.** `share.ts` + `sync.ts` (~2.3 KB gz) and `hot-reload.ts`
 (~0.3 KB) are clean, pure leaves — shake them via a `sideEffects` **array** and/or
 subpaths. ⚠️ Never a blanket `sideEffects: false`: `component.ts` registers
-`tosi-slot`/`xin-slot` at import (necessary), and `blueprint-loader.ts` registers FOUR
-custom elements at import (`tosi-blueprint`, `tosi-loader`, + two deprecated aliases —
-the 1.8.0 alias removal halves that).
+`tosi-slot` at import (necessary), and `blueprint-loader.ts` registers TWO custom
+elements at import (`tosi-blueprint`, `tosi-loader` — the 1.8.0 alias removal
+halved this, and dropped `xin-slot` entirely). ✅ removals done.
 
 **DECIDED (2026-08-03): blueprints are NOT shaken from the default entry.** Blueprint
 consumers' contract is *markup* — they have no import statement to protect them, and a
@@ -525,15 +525,18 @@ capture-phase handler writes state BEFORE the element handler runs), not on
 clears. Doctrine: act on committed state, mutate state atomically, let the
 UI catch up. Pattern recorded in tosijs-coding-practices.
 
-## 1.8.0 release checklist: relicense BSD-3-Clause → Apache-2.0
+## ✅ 1.8.0 bucket 1 — promises kept (done 2026-08-12)
 
-Decided 2026-08-08. Sole author (911/911 commits) — no contributor consent
-needed. At release time: replace LICENSE with canonical Apache-2.0 text,
-update package.json `license`, add a CHANGELOG line ("relicensed
-BSD-3-Clause → Apache-2.0; adds an explicit patent grant and retaliation
-clause"), consider a NOTICE file. Rationale: the patent-retaliation clause
-("virally anti-software-patent") + ecosystem consistency with
-tosijs-schematic. Note: Apache-2.0 is GPLv2-only-incompatible (GPLv3+ fine).
+- **Relicensed BSD-3-Clause → Apache-2.0** (LICENSE, package.json, NOTICE,
+  README). Sole author (921/921 commits) — no contributor consent needed.
+  Adds an explicit patent grant + retaliation clause; GPLv2-only
+  incompatible (GPLv3+ fine); consistent with tosijs-floorplan.
+- **`data-ref` removed** — the deprecation warning named 1.8.0; `part="…"`
+  (and bare CSS-selector refs) remain. Tests inverted to pin the removal.
+- **`xin-slot`, `xin-blueprint`, `xin-loader` removed** with their
+  `xinSlot`/`blueprint`/`blueprintLoader` creators — three fewer custom
+  elements registered at import (the bundle diet's side-effect accounting).
+  Docs (Building-Apps, CLAUDE.md) updated to `tosi-slot`.
 
 ## At 1.8.0 publish: deprecate create-xinjs-blueprint (repo + npm)
 

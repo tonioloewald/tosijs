@@ -35,7 +35,7 @@ export {
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css'
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 export { Color } from './color'
-export { Component, tosiSlot, xinSlot, setContractValidator } from './component'
+export { Component, tosiSlot, setContractValidator } from './component'
 export type { PartsOf } from './component'
 export {
   validateAgainstConstraints,
@@ -89,9 +89,7 @@ export { xin, boxed, observe, unobserve, touch, updates } from './xin'
 export {
   tosiBlueprint,
   tosiLoader,
-  blueprint,
   Blueprint,
-  blueprintLoader,
   BlueprintLoader,
 } from './blueprint-loader'
 export * from './xin-types'
