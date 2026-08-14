@@ -6,6 +6,127 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.0] - 2026-08 (rc.1)
+
+**One source of truth for state, UI, and AI.** An app's affordances — what
+exists, what it's bound to, what it does — have always been recorded by
+tosijs in order to *run* the app. 1.8.0 lets you ask for them.
+
+### Added — the agent surface
+
+- **`enableAgentInterface()`** — one call exposes `describe` / `read` /
+  `write` / `observe` / `call` / `changes(cursor)` / `when(path, predicate)`
+  / `log`, installs `globalThis.tosiAgent`, and (where the browser provides
+  `document.modelContext`) **auto-registers a generated WebMCP tool set** —
+  verified registering *and executing* in Chrome Canary 153. Nothing new is
+  recorded: `describe()` assembles the picture from the registry, the
+  binding metadata, and the handler wiring the framework already had.
+  ~3.7 KB gzipped, and tree-shakeable if you never call it.
+- **The map is flat and legible**: one record per wired element, bound props
+  as `"value ⟷ path"` (`⟷` two-way, `⟵` display-only), handlers as
+  `{click: 'app.doThing'}`, plus geometry (`bounds`), live control state
+  (`type`, `checked`, `focused`, `invalid`, `required`, `disabled`),
+  resolved ARIA, `href`, `contentEditable`, and a structural tier
+  (headings/landmarks/containers).
+- **ARIA runs both ways.** `aria-label(ledby)`, `<label>` association,
+  `aria-describedby`, `disabled`/`required` and `aria-hidden` flow *into*
+  the map (the agent reads the page the way assistive tech does); a
+  component's `contract.description` becomes its `aria-label` unless the
+  author wrote one. Describe a component for agents and screen-reader users
+  inherit it.
+- **`agent.version`** — `{ surface, tosijs, capabilities[] }` (tosijs#23):
+  ask what a surface *is* instead of duck-typing it. Rides `describe()`
+  output, and exposed as the `tosi_surface` WebMCP tool.
+- **`auditAccessibility(map)`** — anonymous affordances, unnameable actions,
+  missing roles, WCAG contrast, target size, placeholder-as-label. Pure over
+  the description; `auditFlags()` turns findings into schematic flags so
+  they can be drawn. Skips *loudly* when computed styles weren't requested.
+
+### Added — contracts, at three granularities
+
+- **App level**: `expose.contract = { check, describe }` — a zero-dependency
+  seam (the core knows a *check*, not a schema language). Sub-path writes
+  are **routed, not bypassed**: a write under a contracted root is judged as
+  the whole root it would produce. Refusals throw the *reason* and land in
+  the audit log. The blessed adapter now ships upstream as
+  tosijs-schema's `agentContract()`.
+- **Component level**: `static contract` (a `ComponentMap`) unifies contract
+  + description + parts map + test fixture. `Component<typeof contract>`
+  types `this.parts` from the declared tags — **the declaration is the
+  type** — and subsumes `initAttributes`. Blueprints carry it too
+  (`TosiComponentSpec.contract`, stamped at hydration).
+- **Element level**: a `contract` prop on any element — declared where you
+  build, aggregated into `describe().contract` by bound path, enforced on
+  agent writes. **Declaration is distributed; curation is central** (a
+  top-level contract supersedes everything beneath it).
+- **Contracts are tests.** `exerciseContract()` writes every `examples:`
+  entry through the real surface (and requires a faithful round-trip),
+  refuses every `$counterexamples:` entry; `exerciseComponent()` verifies
+  declared parts, methods, value examples, and serializable step tests.
+
+### Added — the map, drawn
+
+- **`schematicSVG(map)` / `rasterizeSVG(svg)`** — the affordance map as an
+  SVG at true geometry, with an explicit grammar (bold = wired to act,
+  `↔` = editable, `*` = required, red corner = invalid, `✕`/dot = toggle
+  state, faded = disabled, faint dotted = structure, white-backed number =
+  the record's index). Cramped elements draw bare and point at a legend
+  instead of lying. Implementation lives in **tosijs-floorplan**, vendored
+  at build time — tosijs keeps zero runtime dependencies.
+
+### Added — scaffolding
+
+- **`bunx tosijs create app|component|blueprint`** (`npx` too). Components
+  scaffold in **blueprint form by default** — consumable straight from
+  markup, zero-dependency bundles — with `--bare` for a plain class. Every
+  template is born with a contract and a declared test, and passes
+  `exerciseComponent()` out of the box. Replaces `create-xinjs-blueprint`.
+
+### Added — entry points
+
+- **`tosijs/core`** — the library minus the blueprint loader, `share`/`sync`
+  and `hotReload` (~32 KB gz vs ~34 KB). Opt-in, because blueprints hydrate
+  from *markup*: shaking their registration would fail silently. Slim core
+  warns in dev if the page holds blueprint elements it can't hydrate.
+- **`tosijs/state`** — the **DOM-free** state layer (~16 KB gz), importable
+  in plain Node with no shim. Closes tosijs#18.
+
+### Changed
+
+- **Relicensed BSD-3-Clause → Apache-2.0**, adding an explicit patent grant
+  and a patent-retaliation clause. (Apache-2.0 is incompatible with
+  GPLv2-*only* projects; GPLv3+ is fine.)
+- An `on<Event>`-named component **member** is no longer hijacked by the
+  elements factory's event sugar — passing a function assigns the member
+  (tosijs#22). Plain-element event sugar is unchanged.
+- A proxy event handler (`onClick: app.doThing`) is normalized to its path
+  at registration, so it behaves identically to the string form everywhere.
+
+### Fixed
+
+- **A type-contradicting attribute write is no longer silently discarded**
+  (tosijs#24): `false` written to an attribute declared `'on' | 'off'` used
+  to remove the attribute so the *default* read back — a feature explicitly
+  turned off stayed on. The write now lands as given and reports once.
+- Observers no longer require a DOM: the global binding dispatch returns
+  early when there is no `document` (the state layer's precondition).
+
+### Removed
+
+- **`data-ref`** — deprecated through 1.7 with 1.8.0 named in its warning.
+  Use `part="…"` (bare CSS-selector refs still work).
+- **`<xin-slot>`, `<xin-blueprint>`, `<xin-loader>`** and the `xinSlot`,
+  `blueprint`, `blueprintLoader` creators — likewise. Three fewer custom
+  elements registered at import.
+
+### Build
+
+- Every published bundle is **smoke-imported** during the build (loaded,
+  with every export asserted defined). A `sideEffects` array — even an
+  accurate one — had produced a bundle exporting names whose definitions
+  were shaken away, with tests, `tsc` and lint all green; only executing the
+  artifact caught it.
+
 ## [1.7.9] - 2026-08-07
 
 ### Fixed
