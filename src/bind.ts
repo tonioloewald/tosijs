@@ -345,7 +345,20 @@ if (MutationObserver != null) {
           // (whole-tree walk): same descendant set, measured faster; snapshot to
           // an array because touchElement → toDOM may mutate the DOM mid-scan.
           Array.from(node.getElementsByClassName(BOUND_CLASS)).forEach(
-            (element) => touchElement(element as Element)
+            (element) => {
+              // same isolation as the dispatch loop above: a newly-inserted
+              // subtree must hydrate every bound element even if one throws
+              try {
+                touchElement(element as Element)
+              } catch (error) {
+                console.error(
+                  'tosijs: a binding threw while hydrating this element; the ' +
+                    'rest of the subtree continued.',
+                  element,
+                  error
+                )
+              }
+            }
           )
         }
       })
@@ -371,7 +384,22 @@ observe(
     )
 
     for (const element of boundElements) {
-      touchElement(element as HTMLElement, changedPath)
+      // ISOLATION: one element's failure must never strand the others. This
+      // loop is the library's hottest scan and every bound element on the
+      // page shares it — an exception thrown by any toDOM (a contract
+      // violation, a bad transform, a component's own render bug) used to
+      // abort the remainder of the pass, leaving later-bound elements stale
+      // while state said otherwise, with only a single listener-level log.
+      try {
+        touchElement(element as HTMLElement, changedPath)
+      } catch (error) {
+        console.error(
+          'tosijs: a binding threw while updating this element; the rest of ' +
+            'the update continued. Fix the handler/contract below.',
+          element,
+          error
+        )
+      }
     }
   }
 )

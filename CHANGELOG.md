@@ -97,8 +97,14 @@ tosijs in order to *run* the app. 1.8.0 lets you ask for them.
   and a patent-retaliation clause. (Apache-2.0 is incompatible with
   GPLv2-*only* projects; GPLv3+ is fine.)
 - An `on<Event>`-named component **member** is no longer hijacked by the
-  elements factory's event sugar — passing a function assigns the member
-  (tosijs#22). Plain-element event sugar is unchanged.
+  elements factory's event sugar (tosijs#22): on a custom element, when the
+  member already **holds a function** and the passed value is a function,
+  the creator **assigns the member** instead of attaching a listener — and
+  that name then carries no event sugar. A member declared but left
+  undefined/null still gets event sugar (give it a function default if you
+  want the assignment). Plain-element event sugar is unchanged: the
+  platform's own handlers are lowercase (`onclick`), so they never collide
+  with the camelCase sugar.
 - A proxy event handler (`onClick: app.doThing`) is normalized to its path
   at registration, so it behaves identically to the string form everywhere.
 

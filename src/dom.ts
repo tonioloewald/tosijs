@@ -82,7 +82,26 @@ const timeStringToMs = (value: string): number => {
   )
 }
 
+// True while a BINDING is writing state into the DOM (bindings.value.toDOM
+// === setValue). A contract violation on this path must be REPORTED, never
+// thrown: the throw lands inside the global dispatch loop and strands every
+// element bound after it — and under the documented bind-before-data
+// pattern it fires with no user error present at all (setValue writes '' or
+// undefined while state hasn't arrived). Direct programmatic writes still
+// throw: that IS the developer's own mistake, caught immediately.
+let bindingWriteDepth = 0
+export const isBindingWrite = (): boolean => bindingWriteDepth > 0
+
 export const setValue = (element: Element, newValue: any): void => {
+  bindingWriteDepth++
+  try {
+    setValueInner(element, newValue)
+  } finally {
+    bindingWriteDepth--
+  }
+}
+
+const setValueInner = (element: Element, newValue: any): void => {
   const type = valueType(element)
   switch (type) {
     case 'radio':

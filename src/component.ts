@@ -604,7 +604,12 @@ user-interfaces.
 import { css } from './css'
 import { XinStyleSheet } from './css-types'
 import { deepClone } from './deep-clone'
-import { appendContentToElement, dispatch, resizeObserver } from './dom'
+import {
+  appendContentToElement,
+  dispatch,
+  resizeObserver,
+  isBindingWrite,
+} from './dom'
 import { ElementsProxy } from './elements-types'
 import { elements, elementSet } from './elements'
 import { tosiPath } from './metadata'
@@ -625,17 +630,41 @@ let anonymousElementCount = 0
 // surface — one gate, every declaration site.
 export { setContractValidator }
 
+// warned once per tag+reason about a contract violation arriving via a binding
+const bindingViolationWarned = new Set<string>()
+
 const checkValueContract = (el: any, newValue: any): void => {
   const cls = el.constructor
   if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
   const schema = (cls as any).contract?.value
   if (schema == null) return
   const err = contractViolation(newValue, schema)
-  if (err != null) {
-    throw new TypeError(
-      `<${el.tagName?.toLowerCase()}> value contract violation: ${err}`
+  if (err == null) return
+  const tag = el.tagName?.toLowerCase()
+  if (isBindingWrite()) {
+    // STATE IS AUTHORITATIVE on this path. Throwing here would abort the
+    // whole binding-dispatch loop and strand every element bound after this
+    // one (and would fire spuriously before data arrives). Report, assign,
+    // and let the app keep running — the DOM must still reflect state.
+    if (newValue == null || newValue === '') return // pre-data, not a defect
+    const key = `${tag}: ${err}`
+    if (!bindingViolationWarned.has(key)) {
+      bindingViolationWarned.add(key)
+      console.error(
+        `<${tag}> value contract violation from a BINDING: ${err}. The value ` +
+          `was applied anyway (state is authoritative on this path) — fix the ` +
+          `state, the contract, or the binding. Direct writes still throw.`
+      )
+    }
+    el.dispatchEvent?.(
+      new CustomEvent('contractviolation', {
+        bubbles: true,
+        detail: { reason: err, value: newValue, schema },
+      })
     )
+    return
   }
+  throw new TypeError(`<${tag}> value contract violation: ${err}`)
 }
 
 // contract.attributes subsumes initAttributes: cache the derived map per
@@ -1315,12 +1344,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       console.warn(
         `<${tag}> defines ${list} — on<Event>-shaped member name(s), which ` +
           `collide with the elements factory's event-handler sugar. Since ` +
-          `1.8.0 your member WINS: creator({ ${example}: fn }) assigns it ` +
-          `rather than attaching a '${example.slice(2).toLowerCase()}' ` +
-          `listener (tosijs#22). The cost is that the name can no longer do ` +
-          `both — rename to handle<Event> for a component callback, or ` +
-          `add<Event>Listener for something that registers a listener, if ` +
-          `you need the event channel too.`
+          `1.8.0, IF the member holds a function when the creator runs, it ` +
+          `wins: creator({ ${example}: fn }) assigns it rather than ` +
+          `attaching a '${example.slice(2).toLowerCase()}' listener ` +
+          `(tosijs#22) — and then that name can no longer carry event sugar. ` +
+          `A member declared but left undefined/null still gets event sugar, ` +
+          `so the meaning depends on initialisation: give it a function ` +
+          `default, or rename to handle<Event> for a component callback / ` +
+          `add<Event>Listener for something that registers a listener.`
       )
     })
   }

@@ -1,6 +1,6 @@
 # tosijs
 
-<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 
@@ -8,7 +8,7 @@
      (badge.fury.io latency was intermittently timing out the browser-lane
      tests — and any visitor's load — via the rendered home page) -->
 <a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
-<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs is about 15kB gzipped" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
+<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs bundle size" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
 <a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a>
 
 <div style="text-align: center; margin: 20px">
@@ -21,8 +21,8 @@
 
 | import | what you get | when |
 | --- | --- | --- |
-| `tosijs` | everything (~34 KB gz) | the default |
-| `tosijs/core` | everything except the blueprint loader, `share`/`sync`, `hotReload` (~32 KB gz) | you don't use blueprints and want the smaller surface |
+| `tosijs` | everything (~35 KB gz) | the default |
+| `tosijs/core` | everything except the blueprint loader, `share`/`sync`, `hotReload` (~34 KB gz) | you don't use blueprints and want the smaller surface |
 | `tosijs/state` | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths (~16 KB gz) | plain Node, SSR, workers, migration scripts — imports with no DOM shim |
 
 `tosijs/core` is opt-in rather than automatic because blueprints hydrate
@@ -70,7 +70,7 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   nodes out — works in plain JavaScript or TypeScript.
 - **No lock-in.** State is a plain observable object graph, not a framework you
   marry; bind it to vanilla DOM, web-components, React, or Angular.
-- **~15kB gzipped, zero runtime dependencies.**
+- **~35kB gzipped, zero runtime dependencies** — or ~16kB for `tosijs/state`, the DOM-free state layer. (1.7.x was ~24kB; 1.8.0 adds the agent surface, contracts, and the schematic renderer. Almost all of it deletes more code from a consuming app than it adds here — and it tree-shakes if unused.)
 
 On top of that you get the conveniences you'd actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and

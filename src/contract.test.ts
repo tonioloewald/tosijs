@@ -789,3 +789,143 @@ describe('blueprint contract — hydrated components self-describe', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// B1 (pre-release review, 1.8.0-rc.1): a contract violation must never strand
+// the rest of the binding-dispatch pass, and must not fire at all under the
+// documented bind-before-data pattern.
+describe('contract violations cannot strand the dispatch loop', () => {
+  test('a violating write reports, applies, and leaves SIBLINGS updated', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { updates } = await import('./path-listener')
+    const { xin } = await import('./xin')
+
+    const strict = {
+      description: 'a strictly numeric counter',
+      value: { type: 'number' },
+    } as const satisfies ComponentMap
+    class StrandCounter extends Component<typeof strict> {
+      static preferredTagName = 'strand-counter'
+      static contract = strict
+      value: any = 0
+      content = null
+    }
+    const creator = StrandCounter.elementCreator()
+
+    tosi({ strandApp: { n: 1 } })
+    await updates()
+    const contracted = creator() as any
+    const sibling = elements.input()
+    document.body.append(contracted, sibling)
+    // one-way (toDOM only) for the contracted component: a two-way value
+    // binding would echo the component's own value back into state and mask
+    // what this test is about — a violating value FLOWING to the DOM
+    const { setValue } = await import('./dom')
+    bind(contracted, 'strandApp.n', { toDOM: setValue })
+    bind(sibling, 'strandApp.n', bindings.value)
+    await updates()
+    expect(sibling.value).toBe('1')
+
+    const errors: string[] = []
+    const originalError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      // state goes wrong-typed: the contracted component's toDOM violates
+      ;(xin as any).strandApp.n = 'not a number'
+      await updates()
+    } finally {
+      console.error = originalError
+    }
+
+    // the violation was REPORTED, not thrown…
+    expect(errors.some((e) => e.includes('contract violation'))).toBe(true)
+    // …the DOM still reflects state (state is authoritative on this path)…
+    expect(contracted.value).toBe('not a number')
+    // …and — the actual blocker — the SIBLING still updated
+    expect(sibling.value).toBe('not a number')
+
+    contracted.remove()
+    sibling.remove()
+  })
+
+  test('bind-before-data does NOT report: pre-data values are not violations', async () => {
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { updates } = await import('./path-listener')
+
+    const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+    class PreDataCounter extends Component<typeof numeric> {
+      static preferredTagName = 'pre-data-counter'
+      static contract = numeric
+      value: any = 0
+      content = null
+    }
+    const el = PreDataCounter.elementCreator()() as any
+    document.body.append(el)
+
+    const errors: string[] = []
+    const originalError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      // the documented deeply-async pattern: bind to a path with no data yet
+      bind(el, 'notYetThere.someNumber', bindings.value)
+      await updates()
+    } finally {
+      console.error = originalError
+    }
+    expect(errors).toEqual([])
+    el.remove()
+  })
+
+  test('a DIRECT write still throws — the developer error is caught immediately', async () => {
+    const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+    class DirectCounter extends Component<typeof numeric> {
+      static preferredTagName = 'direct-counter'
+      static contract = numeric
+      value: any = 0
+      content = null
+    }
+    const el = DirectCounter.elementCreator()() as any
+    document.body.append(el)
+    expect(() => {
+      el.value = 'seven'
+    }).toThrow(/contract violation/)
+    el.remove()
+  })
+
+  test('ANY throwing binding is isolated — not just contract violations', async () => {
+    const { elements } = await import('./elements')
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { updates } = await import('./path-listener')
+    const { xin } = await import('./xin')
+
+    tosi({ isolateApp: { n: 1 } })
+    await updates()
+    const exploding = elements.div()
+    const sibling = elements.input()
+    document.body.append(exploding, sibling)
+    bind(exploding, 'isolateApp.n', {
+      toDOM() {
+        throw new Error('boom')
+      },
+    })
+    bind(sibling, 'isolateApp.n', bindings.value)
+
+    const errors: string[] = []
+    const originalError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      ;(xin as any).isolateApp.n = 7
+      await updates()
+    } finally {
+      console.error = originalError
+    }
+    expect(errors.some((e) => e.includes('boom'))).toBe(true)
+    expect(sibling.value).toBe('7') // survived its neighbour's explosion
+    exploding.remove()
+    sibling.remove()
+  })
+})

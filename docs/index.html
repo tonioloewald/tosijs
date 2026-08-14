@@ -30,15 +30,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="doc-system.css" data-tosi-doc-system />
   <title>tosijs</title>
-  <meta name="description" content="tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." />
+  <meta name="description" content="tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic." />
   <link rel="canonical" href="https://tosijs.net/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="tosijs" />
-  <meta property="og:description" content="tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." />
+  <meta property="og:description" content="tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic." />
   <meta property="og:url" content="https://tosijs.net/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs","description":"tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic.","url":"https://tosijs.net/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"tosijs","description":"tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic.","url":"https://tosijs.net/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -46,14 +46,14 @@
   <tosi-doc-system docs="docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>tosijs</h1>
-<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 <p><a href="https://tosijs.net">tosijs.net</a> | <a href="https://ui.tosijs.net">tosijs-ui</a> | <a href="https://github.com/tonioloewald/tosijs">github</a> | <a href="https://www.npmjs.com/package/tosijs">npm</a> | <a href="https://www.jsdelivr.com/package/npm/tosijs">cdn</a> | <a href="https://react.tosijs.net">react-tosijs</a> | <a href="https://discord.gg/ramJ9rgky5">discord</a></p>
 <!-- lazy: third-party badge servers must not block the page load event
      (badge.fury.io latency was intermittently timing out the browser-lane
      tests — and any visitor's load — via the rendered home page) -->
 <p><a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
-<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs is about 15kB gzipped" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
+<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs bundle size" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
 <a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a></p>
 <div style="text-align: center; margin: 20px">
   <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
@@ -72,12 +72,12 @@
 </thead>
 <tbody><tr>
 <td><code>tosijs</code></td>
-<td>everything (~34 KB gz)</td>
+<td>everything (~35 KB gz)</td>
 <td>the default</td>
 </tr>
 <tr>
 <td><code>tosijs/core</code></td>
-<td>everything except the blueprint loader, <code>share</code>/<code>sync</code>, <code>hotReload</code> (~32 KB gz)</td>
+<td>everything except the blueprint loader, <code>share</code>/<code>sync</code>, <code>hotReload</code> (~34 KB gz)</td>
 <td>you don&#39;t use blueprints and want the smaller surface</td>
 </tr>
 <tr>
@@ -123,7 +123,7 @@ updates) the handful of rows actually on screen.</li>
 nodes out — works in plain JavaScript or TypeScript.</li>
 <li><strong>No lock-in.</strong> State is a plain observable object graph, not a framework you
 marry; bind it to vanilla DOM, web-components, React, or Angular.</li>
-<li><strong>~15kB gzipped, zero runtime dependencies.</strong></li>
+<li><strong>~35kB gzipped, zero runtime dependencies</strong> — or ~16kB for <code>tosijs/state</code>, the DOM-free state layer. (1.7.x was ~24kB; 1.8.0 adds the agent surface, contracts, and the schematic renderer. Almost all of it deletes more code from a consuming app than it adds here — and it tree-shakes if unused.)</li>
 </ul>
 <p>On top of that you get the conveniences you&#39;d actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and

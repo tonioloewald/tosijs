@@ -33,7 +33,10 @@ import { settings } from './settings'
 // The dev-mode check the slim entry can afford to make (a shaken build
 // cannot): if the page contains blueprint markup this entry cannot hydrate,
 // say so, loudly, once — with the fix.
-if (typeof document !== 'undefined' && settings.debug !== false) {
+// NB: gated on the ABSENCE of an explicit opt-out, not on settings.debug —
+// which defaults to false, so gating on it made this safety net inert (found
+// by the 1.8.0-rc.1 review). The check is one querySelectorAll, once.
+if (typeof document !== 'undefined' && settings.quiet !== true) {
   const check = (): void => {
     const orphans = document.querySelectorAll(
       'tosi-blueprint:not(:defined), tosi-loader:not(:defined)'
