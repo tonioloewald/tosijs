@@ -12,6 +12,8 @@ export { css, invertLuminance, initVars, vars, varDefault, StyleSheet, onStylesh
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types';
 export { Color } from './color';
+export { auditAccessibility, auditFlags, contrastRatio } from './audit';
+export type { AuditReport, AuditFinding, AuditOptions, AuditSeverity, } from './audit';
 export { Component, tosiSlot, setContractValidator } from './component';
 export type { PartsOf } from './component';
 export { validateAgainstConstraints, type FormValidation, } from './form-validation';

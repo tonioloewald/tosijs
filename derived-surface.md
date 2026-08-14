@@ -266,6 +266,62 @@ faint dotted = structure, including list *containers* (subtle on purpose —
 the ground, not the figure: a list's items are the affordances; the
 container is where they live, and its wiring stays in the JSON record).
 
+## The audit: findings, not vibes
+
+Every rule below is one the map makes obvious — *every element with handlers
+should have a name, a role, and enough contrast and size to use* — and
+because the map is the framework's own record of its wiring, a finding is a
+real defect rather than a scraper's guess. `auditFlags()` turns the report
+into schematic `flags`, so the drawing shows you where they are.
+
+```js
+import { enableAgentInterface, auditAccessibility, auditFlags, schematicSVG, elements } from 'tosijs'
+
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, button, pre } = elements
+
+// a deliberately bad little UI — an anonymous div-button with faint text
+const bad = div(
+  { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+  div({
+    onClick() {},
+    style: { color: '#bbb', background: 'white', padding: '2px 6px', cursor: 'pointer' },
+    textContent: 'delete',
+  }),
+  div({ onClick() {} }) // no name at all
+)
+
+const out = pre({ style: { maxHeight: '10em', overflow: 'auto', margin: 0 } })
+preview.append(
+  bad,
+  button('audit this demo', {
+    onClick() {
+      const map = agent.describe({ styles: true, scope: preview })
+      const report = auditAccessibility(map)
+      out.textContent =
+        `${report.failed} error(s), ${report.findings.length} finding(s)\n\n` +
+        report.findings.map((f) => `[${f.severity}] ${f.rule}\n  ${f.message}`).join('\n\n') +
+        (report.skipped.length ? `\n\nskipped: ${report.skipped.join('; ')}` : '')
+    },
+  }),
+  out
+)
+```
+
+```test
+import { enableAgentInterface, auditAccessibility } from 'tosijs'
+
+test('the audit finds real defects in a real page', () => {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const report = auditAccessibility(agent.describe({ styles: true }))
+  // shape, not score: this page is a live document, its findings will vary
+  expect(Array.isArray(report.findings)).toBe(true)
+  expect(typeof report.failed).toBe('number')
+  // styles were supplied, so the contrast rule must NOT be skipped
+  expect(report.skipped.some((s) => s.startsWith('contrast:'))).toBe(false)
+})
+```
+
 ## Kitchen sink: the truth test
 
 Every "obvious" rendering claim, verifiable at a glance — one of everything,

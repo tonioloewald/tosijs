@@ -297,6 +297,56 @@ bold: a disabled button is not an affordance) · plain solid = display ·
 faint dotted = structure, including list <em>containers</em> (subtle on purpose —
 the ground, not the figure: a list&#39;s items are the affordances; the
 container is where they live, and its wiring stays in the JSON record).</p>
+<h2>The audit: findings, not vibes</h2>
+<p>Every rule below is one the map makes obvious — <em>every element with handlers
+should have a name, a role, and enough contrast and size to use</em> — and
+because the map is the framework&#39;s own record of its wiring, a finding is a
+real defect rather than a scraper&#39;s guess. <code>auditFlags()</code> turns the report
+into schematic <code>flags</code>, so the drawing shows you where they are.</p>
+<pre><code class="language-js">import { enableAgentInterface, auditAccessibility, auditFlags, schematicSVG, elements } from &#39;tosijs&#39;
+
+const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const { div, button, pre } = elements
+
+// a deliberately bad little UI — an anonymous div-button with faint text
+const bad = div(
+  { style: { display: &#39;flex&#39;, gap: &#39;8px&#39;, alignItems: &#39;center&#39; } },
+  div({
+    onClick() {},
+    style: { color: &#39;#bbb&#39;, background: &#39;white&#39;, padding: &#39;2px 6px&#39;, cursor: &#39;pointer&#39; },
+    textContent: &#39;delete&#39;,
+  }),
+  div({ onClick() {} }) // no name at all
+)
+
+const out = pre({ style: { maxHeight: &#39;10em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+preview.append(
+  bad,
+  button(&#39;audit this demo&#39;, {
+    onClick() {
+      const map = agent.describe({ styles: true, scope: preview })
+      const report = auditAccessibility(map)
+      out.textContent =
+        `${report.failed} error(s), ${report.findings.length} finding(s)\n\n` +
+        report.findings.map((f) =&gt; `[${f.severity}] ${f.rule}\n  ${f.message}`).join(&#39;\n\n&#39;) +
+        (report.skipped.length ? `\n\nskipped: ${report.skipped.join(&#39;; &#39;)}` : &#39;&#39;)
+    },
+  }),
+  out
+)
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface, auditAccessibility } from &#39;tosijs&#39;
+
+test(&#39;the audit finds real defects in a real page&#39;, () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const report = auditAccessibility(agent.describe({ styles: true }))
+  // shape, not score: this page is a live document, its findings will vary
+  expect(Array.isArray(report.findings)).toBe(true)
+  expect(typeof report.failed).toBe(&#39;number&#39;)
+  // styles were supplied, so the contrast rule must NOT be skipped
+  expect(report.skipped.some((s) =&gt; s.startsWith(&#39;contrast:&#39;))).toBe(false)
+})
+</code></pre>
 <h2>Kitchen sink: the truth test</h2>
 <p>Every &quot;obvious&quot; rendering claim, verifiable at a glance — one of everything,
 drawn live (250ms) with <code>index: true</code>, so each box wears its wiring index and
@@ -841,6 +891,7 @@ ergonomics; it turns out to have been designing an agent interface all along.</p
     <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>

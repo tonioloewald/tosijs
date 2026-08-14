@@ -40,6 +40,7 @@ generated tool set automatically — `agent.webmcp` is the receipt, and
 > auto-registration is a convenience over that adapter, not a dependency.
 */
 import { registry } from './registry'
+import { version } from './version'
 import { observe, unobserve, Listener } from './path-listener'
 import { setByPath } from './by-path'
 import { xin } from './xin'
@@ -252,7 +253,54 @@ export interface AgentWiringRecord {
   [boundProp: string]: unknown
 }
 
+/** the interrogable identity of an agent surface (tosijs#23) */
+export interface AgentSurfaceVersion {
+  /** shape-contract version — bump when describe()'s shape changes */
+  surface: string
+  /** the tosijs version that produced this surface */
+  tosijs: string
+  /** enumerable feature names — test membership, don't infer from semver */
+  capabilities: string[]
+}
+
+/**
+ * The SHAPE contract version. Bump on any change a consumer reading
+ * describe() could notice: renamed/removed record fields, changed
+ * provenance tokens, changed nesting. Additive optional fields do NOT
+ * require a bump (they can't break a reader) — but DO add a capability.
+ */
+export const AGENT_SURFACE_VERSION = '1.0.0'
+
+/**
+ * Capabilities of this build's surface. A consumer asks
+ * `agent.version.capabilities.includes('bounds')` rather than inferring
+ * from a version number — the whole point of tosijs#23.
+ */
+export const AGENT_CAPABILITIES = [
+  'describe', // the affordance map
+  'read',
+  'write',
+  'observe',
+  'call',
+  'changes', // turn-based drain with a cursor
+  'when', // await a state condition
+  'log', // the audit ledger
+  'bounds', // per-record geometry
+  'styles', // describe({ styles: true }) computed colors
+  'scope', // describe({ scope: element }) hierarchy scoping
+  'viewport', // describe({ view: 'viewport' }) camera mode
+  'structure', // the structural tier (headings/landmarks/containers)
+  'aria', // resolved accessible names, describedby, disabled/required
+  'validity', // live ValidityState + required as record facts
+  'contract', // declared contracts in describe().contract
+  'components', // per-component self-declaration (ComponentMap)
+  'webmcp', // generated WebMCP tool set (auto-registered where hosted)
+] as const
+
 export interface AgentDescription {
+  /** the surface's identity — travels WITH the map, so a serialized
+   * description is self-describing wherever it lands (tosijs#23) */
+  version: AgentSurfaceVersion
   roots: Record<string, string>
   wiring: AgentWiringRecord[]
   actions: string[]
@@ -307,6 +355,19 @@ export interface AgentInterface {
   when: (path: string, predicate: (value: any) => boolean) => Promise<any>
   log: () => AgentLogEntry[]
   disable: () => void
+  /**
+   * What this surface IS, so consumers can ask instead of assume
+   * (tosijs#23, raised by haltija after a shape mismatch rendered a
+   * confident blank).
+   *
+   * - `surface` — the SHAPE contract version, bumped when the record/map
+   *   shape changes in a way a consumer could notice. Independent of the
+   *   library version: shape stability is the thing being promised.
+   * - `tosijs` — the library version, for provenance.
+   * - `capabilities` — enumerable feature names. Test membership rather
+   *   than inferring from a version number.
+   */
+  version: AgentSurfaceVersion
   /** names of the WebMCP tools auto-registered at enable time — set only
    * when a model-context host was present (feature-detect by presence) */
   webmcp?: { tools: string[] }
@@ -566,6 +627,12 @@ export function enableAgentInterface(
   const contractRoots =
     contract?.describe != null ? Object.keys(contract.describe()) : []
   const manifestMode = expose != null
+
+  const surfaceVersion: AgentSurfaceVersion = {
+    surface: AGENT_SURFACE_VERSION,
+    tosijs: version,
+    capabilities: [...AGENT_CAPABILITIES],
+  }
 
   const inScope = (path: string): boolean =>
     !manifestMode ||
@@ -886,6 +953,7 @@ export function enableAgentInterface(
       }
 
       const description: AgentDescription = {
+        version: surfaceVersion,
         roots: rootSummary,
         wiring,
         actions,
@@ -1066,6 +1134,8 @@ export function enableAgentInterface(
       return ledger.slice()
     },
 
+    version: surfaceVersion,
+
     disable(): void {
       webmcpRegistration?.unregister()
       webmcpRegistration = undefined
@@ -1119,6 +1189,11 @@ export function enableAgentInterface(
       when: (path, predicate) => live().when(path, predicate),
       log: () => live().log(),
       disable: () => live().disable(),
+      // the delegate must be interrogable too — a WebMCP consumer asking
+      // tosi_surface gets the CURRENT surface's identity, not a snapshot
+      get version() {
+        return live().version
+      },
     }
     webmcpRegistration = webmcpAdapter(
       delegate,

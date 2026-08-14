@@ -212,3 +212,16 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
     )
   })
 })
+
+describe('tosi_surface — the identity tool (tosijs#23)', () => {
+  test('a WebMCP consumer can interrogate the surface before trusting it', async () => {
+    tosi({ mcpSurface: { x: 1 } })
+    const agent = (current = enableAgentInterface({ global: false }))
+    const tools = Object.fromEntries(webmcpTools(agent).map((t) => [t.name, t]))
+    expect(tools.tosi_surface).toBeDefined()
+    const identity = tools.tosi_surface.execute({})
+    expect(typeof identity.surface).toBe('string')
+    expect(Array.isArray(identity.capabilities)).toBe(true)
+    expect(identity.capabilities.includes('describe')).toBe(true)
+  })
+})

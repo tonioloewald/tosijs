@@ -29,83 +29,82 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
-  <title>webmcp (EXPERIMENTAL) — tosijs</title>
-  <meta name="description" content="EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records." />
-  <link rel="canonical" href="https://tosijs.net/webmcp/" />
+  <title>audit (EXPERIMENTAL) — tosijs</title>
+  <meta name="description" content="EXPERIMENTAL accessibility audit over the agent surface&#39;s own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size." />
+  <link rel="canonical" href="https://tosijs.net/audit/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
-  <meta property="og:title" content="webmcp (EXPERIMENTAL) — tosijs" />
-  <meta property="og:description" content="EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records." />
-  <meta property="og:url" content="https://tosijs.net/webmcp/" />
+  <meta property="og:title" content="audit (EXPERIMENTAL) — tosijs" />
+  <meta property="og:description" content="EXPERIMENTAL accessibility audit over the agent surface&#39;s own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size." />
+  <meta property="og:url" content="https://tosijs.net/audit/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"webmcp (EXPERIMENTAL)","description":"EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records.","url":"https://tosijs.net/webmcp/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"audit (EXPERIMENTAL)","description":"EXPERIMENTAL accessibility audit over the agent surface's own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size.","url":"https://tosijs.net/audit/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
-<h1>webmcp (EXPERIMENTAL)</h1>
-<p>The WebMCP standard (<code>navigator.modelContext</code>, migrating to <code>document</code>) lets a
-page expose typed, callable <strong>tools</strong> to browser agents — but every existing
-integration hand-writes those tools. tosijs doesn&#39;t have to: the agent surface
-already knows the app&#39;s state roots, wiring, and actions, so <strong>the tool set is
-generated, not authored</strong>.</p>
-<pre><code>import { enableAgentInterface, webmcpAdapter } from &#39;tosijs&#39;
+<h1>audit (EXPERIMENTAL)</h1>
+<p><code>auditAccessibility(agent.describe({ styles: true }))</code> turns the affordance
+map into findings. It is the lint the map made obvious: <strong>every element with
+handlers should have a name, a role, and enough contrast and size to use</strong> —
+and because the map is the framework&#39;s own record of its wiring, a finding
+here is a real defect, not a scraper&#39;s guess.</p>
+<pre><code>import { enableAgentInterface, auditAccessibility } from &#39;tosijs&#39;
 
 const agent = enableAgentInterface()
-const mcp = webmcpAdapter(agent) // detect, generate, register
-// …
-mcp?.unregister()
+const report = auditAccessibility(agent.describe({ styles: true }))
+report.failed   // 0 when clean
+report.findings // [{ rule, severity, message, record, index }]
 </code></pre>
-<p>Two layers, split like <code>schematicSVG</code>:</p>
-<ul>
-<li><strong><code>webmcpTools(agent)</code></strong> — pure: returns the tool definitions
-(<code>{ name, description, inputSchema, execute }</code>) derived from <code>describe()</code>.
-Test it, print it, hand it to any MCP-shaped host — no browser API needed.</li>
-<li><strong><code>webmcpAdapter(agent, options)</code></strong> — feature-detects the runtime
-(<code>document.modelContext</code> first, then <code>navigator.modelContext</code>, or an
-injected <code>options.modelContext</code>), registers the tools through whichever
-registration shape the host offers (<code>registerTool</code> per tool, or
-<code>provideContext({ tools })</code> as a batch), and returns <code>{ tools, unregister }</code>
-— or <code>undefined</code> when no host API exists (callers feature-detect by result).</li>
-</ul>
-<p>The generated set:</p>
+<p>Pure over the description — no DOM, so it runs on a map that arrived over a
+wire, in a test, or in CI. Pass <code>styles: true</code> to <code>describe()</code> or the
+contrast rule has nothing to measure and skips itself (it says so).</p>
+<h2>The rules</h2>
 <table>
 <thead>
 <tr>
-<th>tool</th>
-<th>does</th>
+<th>rule</th>
+<th>what it catches</th>
+<th>why</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>tosi_describe</code></td>
-<td>the live affordance map — start here</td>
+<td><code>anonymous-affordance</code></td>
+<td>a wired element with no accessible name, text, or value</td>
+<td>a screen reader announces &quot;button&quot;; an agent sees <code>&lt;div&gt;</code></td>
 </tr>
 <tr>
-<td><code>tosi_read</code></td>
-<td>serializable value at a path</td>
+<td><code>unnameable-action</code></td>
+<td>a handler that is an anonymous function (<code>ƒ</code>)</td>
+<td>nothing can invoke or describe it but a click</td>
 </tr>
 <tr>
-<td><code>tosi_changes</code></td>
-<td>turn drain: final-value-per-path since your cursor</td>
+<td><code>missing-role</code></td>
+<td>a non-semantic tag (div/span) wired to act</td>
+<td>assistive tech has no idea it is a control</td>
 </tr>
 <tr>
-<td><code>tosi_act_&lt;path&gt;</code></td>
-<td>one <strong>named</strong> tool per discovered/declared action</td>
+<td><code>contrast</code></td>
+<td>text/background below the WCAG AA ratio</td>
+<td>measured with tosijs&#39;s own <code>Color</code>; needs <code>styles: true</code></td>
 </tr>
 <tr>
-<td><code>tosi_write</code></td>
-<td>direct state writes — <strong>dev-gated</strong> (see below)</td>
+<td><code>target-size</code></td>
+<td>interactive element below 24×24 (WCAG 2.5.8)</td>
+<td>too small to hit reliably; toggles exempt</td>
+</tr>
+<tr>
+<td><code>label-hidden-by-placeholder</code></td>
+<td>a control whose only name is its placeholder</td>
+<td>the name vanishes the moment the user types</td>
 </tr>
 </tbody></table>
-<p><code>tosi_write</code> registers only in introspection mode (or with an explicit
-<code>allowWrites: true</code>): production surfaces are read/observe/call-only until
-state-level contracts land — an unvalidated write tool is an RPC endpoint
-with good documentation.</p>
+<p>Findings carry the record and its index, so a caller can jump straight to
+the element — or hand the pair to <code>schematicSVG</code>&#39;s <code>flags</code> to <em>draw</em> them.</p>
 <blockquote>
-<p><strong>EXPERIMENTAL.</strong> The WebMCP spec is churning; the adapter is deliberately
-tolerant of both registration shapes and takes an injected host for tests.</p>
+<p><strong>EXPERIMENTAL.</strong> Ships with the agent surface; rules and shapes may change.</p>
 </blockquote>
 
   </article>
@@ -143,7 +142,7 @@ tolerant of both registration shapes and takes an injected host for tests.</p>
     <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
-      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link current" href="../audit/" aria-current="page">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
@@ -153,7 +152,7 @@ tolerant of both registration shapes and takes an injected host for tests.</p>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
       <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
       <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
-      <li><a class="doc-link current" href="../webmcp/" aria-current="page">webmcp (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>

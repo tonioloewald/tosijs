@@ -177,6 +177,14 @@ contexts) is small and protocol-neutral:</p>
 <td><code>agent.webmcp</code></td>
 <td>receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host)</td>
 </tr>
+<tr>
+<td><code>agent.version</code></td>
+<td><strong>what this surface IS</strong> — <code>{ surface, tosijs, capabilities[] }</code>. Ask before assuming: test <code>capabilities.includes(&#39;bounds&#39;)</code> rather than inferring from a version. It rides <code>describe()</code> output too, so a serialized map is self-describing wherever it lands (<a href="https://github.com/tonioloewald/tosijs/issues/23">tosijs#23</a>)</td>
+</tr>
+<tr>
+<td><code>auditAccessibility(map)</code></td>
+<td>the lint the map made obvious: anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size, placeholder-as-label. Pure over the description; <code>auditFlags(report)</code> turns findings into schematic <code>flags</code> so they can be <em>drawn</em></td>
+</tr>
 </tbody></table>
 <p><code>describe()</code> is the novel part, and it&#39;s assembled from the wiring tosijs
 already records — enumerate <code>BOUND_CLASS</code>, map each element through
@@ -724,6 +732,7 @@ a component <em>says so in a checkable form</em>.</p>
     <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>

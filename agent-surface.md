@@ -112,6 +112,8 @@ contexts) is small and protocol-neutral:
 | `agent.when(path, predicate)` | await a state *condition* (see push and drain) |
 | `agent.log()` | the audit trail: every touch — and refusal — since enable |
 | `agent.webmcp` | receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host) |
+| `agent.version` | **what this surface IS** — `{ surface, tosijs, capabilities[] }`. Ask before assuming: test `capabilities.includes('bounds')` rather than inferring from a version. It rides `describe()` output too, so a serialized map is self-describing wherever it lands ([tosijs#23](https://github.com/tonioloewald/tosijs/issues/23)) |
+| `auditAccessibility(map)` | the lint the map made obvious: anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size, placeholder-as-label. Pure over the description; `auditFlags(report)` turns findings into schematic `flags` so they can be *drawn* |
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
 already records — enumerate `BOUND_CLASS`, map each element through

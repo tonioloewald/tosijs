@@ -804,3 +804,38 @@ describe('describe() — links are affordances (the href field)', () => {
     }
   })
 })
+
+describe('surface identity — ask, do not assume (tosijs#23)', () => {
+  test('agent.version and describe().version carry shape, library, capabilities', async () => {
+    const { AGENT_SURFACE_VERSION, AGENT_CAPABILITIES } = await import('./agent')
+    const { version: libVersion } = await import('./version')
+    tosi({ verApp: { x: 1 } })
+    const agent = (current = enableAgentInterface({ global: false }))
+
+    expect(agent.version.surface).toBe(AGENT_SURFACE_VERSION)
+    expect(agent.version.tosijs).toBe(libVersion)
+    expect(agent.version.capabilities).toEqual([...AGENT_CAPABILITIES])
+    // the identity travels WITH the map — a serialized description is
+    // self-describing wherever it lands
+    const d = agent.describe()
+    expect(d.version).toEqual(agent.version)
+    expect(JSON.parse(JSON.stringify(d)).version.surface).toBe(
+      AGENT_SURFACE_VERSION
+    )
+    // capabilities are membership-tested, not semver-inferred
+    for (const capability of ['describe', 'bounds', 'aria', 'validity']) {
+      expect(agent.version.capabilities.includes(capability)).toBe(true)
+    }
+  })
+
+  test('the shape contract and the capability list are honest about THIS build', async () => {
+    tosi({ verHonest: { x: 1 } })
+    const agent = (current = enableAgentInterface({ global: false }))
+    const d = agent.describe({ styles: true, view: 'viewport' })
+    // every claimed describe-shaping capability is one this build supports
+    expect(agent.version.capabilities.includes('viewport')).toBe(true)
+    expect(agent.version.capabilities.includes('styles')).toBe(true)
+    expect(Array.isArray(d.wiring)).toBe(true) // the shape haltija reads
+    expect(typeof d.exposure).toBe('string')
+  })
+})

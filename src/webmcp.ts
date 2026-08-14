@@ -93,6 +93,16 @@ export const webmcpTools = (
       execute: (input) => agent.describe({ styles: input?.styles === true }),
     },
     {
+      name: toolName(prefix, 'surface'),
+      description:
+        'What this agent surface IS: shape-contract version, tosijs ' +
+        'version, and enumerable capabilities. Ask before assuming — a ' +
+        'consumer that checks capabilities degrades honestly instead of ' +
+        'rendering a confident blank.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: () => agent.version,
+    },
+    {
       name: toolName(prefix, 'read'),
       description:
         'Read the serializable value at a state path (paths come from ' +

@@ -685,6 +685,8 @@ const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
 
 // Classes already checked for on<Event>-named member collisions (warn once each).
 const handlerCollisionChecked = new WeakSet<new () => Component>()
+// warn once per tag+attribute about a type-contradicting attribute write
+const attrTypeMismatchWarned = new Set<string>()
 
 // Lazy shared MutationObserver for deprecated initAttributes
 let legacyAttributeObserver: MutationObserver | null = null
@@ -1305,15 +1307,20 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       }
       if (names.size === 0) return
       const list = Array.from(names, (n) => `'${n}'`).join(', ')
+      const example = Array.from(names)[0]
+      // tosijs#22: as of 1.8.0 an on<Event>-named component MEMBER is no
+      // longer hijacked — passing a function through the creator assigns the
+      // member. The name still can't carry event sugar, though, so the
+      // warning says exactly what happens and what to rename to.
       console.warn(
-        `<${tag}> defines ${list}. The elements factory treats on<Event> property ` +
-          `names as event-handler sugar — e.g. creator({ onClick }) attaches a ` +
-          `'click' listener rather than assigning the property — so these members ` +
-          `are shadowed and cannot be set or read via the element creator. Rename ` +
-          `by intent: use 'handle<Event>' for a handler function the component ` +
-          `invokes (e.g. 'handleClick'), or 'add<Event>Listener' for a method that ` +
-          `registers listeners for a synthetic event the component dispatches ` +
-          `(e.g. 'addClickListener').`
+        `<${tag}> defines ${list} — on<Event>-shaped member name(s), which ` +
+          `collide with the elements factory's event-handler sugar. Since ` +
+          `1.8.0 your member WINS: creator({ ${example}: fn }) assigns it ` +
+          `rather than attaching a '${example.slice(2).toLowerCase()}' ` +
+          `listener (tosijs#22). The cost is that the name can no longer do ` +
+          `both — rename to handle<Event> for a component callback, or ` +
+          `add<Event>Listener for something that registers a listener, if ` +
+          `you need the event channel too.`
       )
     })
   }
@@ -1491,6 +1498,31 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       },
       set: (value: any) => {
+        // tosijs#24: a write whose TYPE contradicts the declared default is
+        // almost always a stale call site (the classic: `false` written to
+        // an attribute declared `'on' | 'off'` after the tosijs#15
+        // boolean-default migration). It used to be silently discarded —
+        // the attribute was removed and the DEFAULT read back, so a feature
+        // the author explicitly turned off stayed on. Apply the write as
+        // given (coercion would be magic), but say so, loudly, once.
+        if (
+          value != null &&
+          typeof value !== typeof defaultValue &&
+          typeof defaultValue !== 'object'
+        ) {
+          const key = `${this.tagName.toLowerCase()}.${attrName}`
+          if (!attrTypeMismatchWarned.has(key)) {
+            attrTypeMismatchWarned.add(key)
+            console.error(
+              `<${this.tagName.toLowerCase()}>: ${attrName} is declared ` +
+                `${typeof defaultValue} (default ${JSON.stringify(defaultValue)}), ` +
+                `but was written ${typeof value} ${JSON.stringify(value)}. ` +
+                `The value is applied as given — nothing is coerced — but this ` +
+                `is usually a call site left behind by a type change. ` +
+                `(tosijs#24)`
+            )
+          }
+        }
         if (typeof defaultValue === 'boolean') {
           if (value !== this[attrName]) {
             if (value) {

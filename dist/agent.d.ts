@@ -211,7 +211,32 @@ export interface AgentWiringRecord {
     /** named bound props (value, checked, disabled, …): "value ⟷ path" strings */
     [boundProp: string]: unknown;
 }
+/** the interrogable identity of an agent surface (tosijs#23) */
+export interface AgentSurfaceVersion {
+    /** shape-contract version — bump when describe()'s shape changes */
+    surface: string;
+    /** the tosijs version that produced this surface */
+    tosijs: string;
+    /** enumerable feature names — test membership, don't infer from semver */
+    capabilities: string[];
+}
+/**
+ * The SHAPE contract version. Bump on any change a consumer reading
+ * describe() could notice: renamed/removed record fields, changed
+ * provenance tokens, changed nesting. Additive optional fields do NOT
+ * require a bump (they can't break a reader) — but DO add a capability.
+ */
+export declare const AGENT_SURFACE_VERSION = "1.0.0";
+/**
+ * Capabilities of this build's surface. A consumer asks
+ * `agent.version.capabilities.includes('bounds')` rather than inferring
+ * from a version number — the whole point of tosijs#23.
+ */
+export declare const AGENT_CAPABILITIES: readonly ["describe", "read", "write", "observe", "call", "changes", "when", "log", "bounds", "styles", "scope", "viewport", "structure", "aria", "validity", "contract", "components", "webmcp"];
 export interface AgentDescription {
+    /** the surface's identity — travels WITH the map, so a serialized
+     * description is self-describing wherever it lands (tosijs#23) */
+    version: AgentSurfaceVersion;
     roots: Record<string, string>;
     wiring: AgentWiringRecord[];
     actions: string[];
@@ -266,6 +291,19 @@ export interface AgentInterface {
     when: (path: string, predicate: (value: any) => boolean) => Promise<any>;
     log: () => AgentLogEntry[];
     disable: () => void;
+    /**
+     * What this surface IS, so consumers can ask instead of assume
+     * (tosijs#23, raised by haltija after a shape mismatch rendered a
+     * confident blank).
+     *
+     * - `surface` — the SHAPE contract version, bumped when the record/map
+     *   shape changes in a way a consumer could notice. Independent of the
+     *   library version: shape stability is the thing being promised.
+     * - `tosijs` — the library version, for provenance.
+     * - `capabilities` — enumerable feature names. Test membership rather
+     *   than inferring from a version number.
+     */
+    version: AgentSurfaceVersion;
     /** names of the WebMCP tools auto-registered at enable time — set only
      * when a model-context host was present (feature-detect by presence) */
     webmcp?: {

@@ -1789,3 +1789,87 @@ describe('parts proxy — detached part with no replacement (tosijs#21)', () => 
     el.remove()
   })
 })
+
+describe('papercuts fixed in 1.8.0 (tosijs#22, #24)', () => {
+  test('#24: a type-contradicting attribute write is applied AND reported, never silently dropped', () => {
+    class OnOffComp extends Component {
+      static preferredTagName = 'on-off-comp'
+      static initAttributes = { pointerEvents: 'on' }
+      content = null
+    }
+    const creator = OnOffComp.elementCreator()
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    let el: any
+    try {
+      // the tosijs-3d call site: a legacy boolean written to a string attr.
+      // Before 1.8.0 this REMOVED the attribute and the default read back —
+      // the feature the author turned off stayed on, silently.
+      el = creator({ pointerEvents: false })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.pointerEvents).not.toBe('on') // the write was NOT discarded
+    expect(errors.some((e) => e.includes('pointerEvents'))).toBe(true)
+    expect(errors.some((e) => e.includes('tosijs#24'))).toBe(true)
+    el.remove()
+  })
+
+  test('#24: a correctly-typed write is silent and works', () => {
+    class OnOffOk extends Component {
+      static preferredTagName = 'on-off-ok'
+      static initAttributes = { pointerEvents: 'on' }
+      content = null
+    }
+    const creator = OnOffOk.elementCreator()
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    let el: any
+    try {
+      el = creator({ pointerEvents: 'off' })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.pointerEvents).toBe('off')
+    expect(errors).toEqual([])
+    el.remove()
+  })
+
+  test('#22: a component METHOD named on<Event> is assigned, not hijacked as event sugar', () => {
+    let methodCalls = 0
+    let assigned: any = null
+    class SceneComp extends Component {
+      static preferredTagName = 'scene-comp'
+      content = null
+      onSceneAddition(): void {
+        methodCalls++
+      }
+    }
+    const creator = SceneComp.elementCreator()
+    const replacement = () => {
+      assigned = 'mine'
+    }
+    const el = creator({ onSceneAddition: replacement }) as any
+    document.body.append(el)
+    // the method was REPLACED (what an OO author means), not turned into a
+    // 'sceneaddition' event listener
+    expect(el.onSceneAddition).toBe(replacement)
+    el.onSceneAddition()
+    expect(assigned).toBe('mine')
+    expect(methodCalls).toBe(0)
+    el.remove()
+  })
+
+  test('#22: ordinary event sugar on plain elements is untouched', () => {
+    let clicks = 0
+    const button = elements.button('go', { onClick: () => clicks++ })
+    document.body.append(button)
+    button.click()
+    expect(clicks).toBe(1)
+    button.remove()
+  })
+})
