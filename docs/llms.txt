@@ -85,6 +85,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic.
 - https://tosijs.net/history/ — tosijs history
   The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.
+- https://tosijs.net/index-agent/ — tosijs/agent
+  tosijs/agent — the agent surface, the schematic renderer, the contract harnesses and the accessibility audit, in one opt-in subpath.
 - https://tosijs.net/index-core/ — tosijs/core (slim entry)
   tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism.
 - https://tosijs.net/index-state/ — tosijs/state (DOM-free)

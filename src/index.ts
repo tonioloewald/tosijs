@@ -19,3 +19,11 @@ export { share } from './share'
 export { sync } from './sync'
 export type { SyncTransport, SyncMessage, SyncOptions } from './sync'
 export { hotReload } from './hot-reload'
+
+// The agent surface ships from the main entry so there is exactly ONE
+// runtime copy of the registry: a separately-bundled `tosijs/agent` gave
+// the agent its own registry and it described an empty app (caught by
+// executing the artifact, not by any test). `tosijs/agent` is the same
+// file with a narrower TYPE surface; ESM consumers who never import it
+// tree-shake it away, and the IIFE — which cannot shake — omits it.
+export * from './index-agent'

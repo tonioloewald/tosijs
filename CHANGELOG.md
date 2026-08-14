@@ -21,7 +21,9 @@ tosijs in order to *run* the app. 1.8.0 lets you ask for them.
   verified registering *and executing* in Chrome Canary 153. Nothing new is
   recorded: `describe()` assembles the picture from the registry, the
   binding metadata, and the handler wiring the framework already had.
-  ~3.7 KB gzipped, and tree-shakeable if you never call it.
+  ~11 KB gzipped for the whole surface (agent + WebMCP + schematic +
+  audit + contract harnesses), tree-shakeable if you never import it, and
+  absent entirely from the `<script>`/CDN build.
 - **The map is flat and legible**: one record per wired element, bound props
   as `"value ⟷ path"` (`⟷` two-way, `⟵` display-only), handlers as
   `{click: 'app.doThing'}`, plus geometry (`bounds`), live control state
@@ -84,12 +86,24 @@ tosijs in order to *run* the app. 1.8.0 lets you ask for them.
 
 ### Added — entry points
 
-- **`tosijs/core`** — the library minus the blueprint loader, `share`/`sync`
-  and `hotReload` (~32 KB gz vs ~34 KB). Opt-in, because blueprints hydrate
-  from *markup*: shaking their registration would fail silently. Slim core
-  warns in dev if the page holds blueprint elements it can't hydrate.
+- **`tosijs/agent`** — the agent surface, schematic renderer, audit and
+  contract harnesses under one import, with a narrower type surface. It
+  resolves to the *same file* as `tosijs`: a separately-bundled agent
+  surface carried its own copy of the state registry and described an empty
+  app, so there is exactly one runtime copy, always. ESM consumers who never
+  import it tree-shake it away.
+- **The `<script>`/CDN build omits the agent surface** (~26 KB gz) — an IIFE
+  cannot tree-shake, so it must not carry an opt-in feature. Load the ES
+  module build if you want the agent surface from a script tag.
+- **`tosijs/core`** — the library minus the blueprint loader, `share`/`sync`,
+  `hotReload` and the agent surface (~24 KB gz — *smaller than 1.7.9's
+  entire library*). Opt-in, because blueprints hydrate from *markup*:
+  shaking their registration would fail silently. Slim core warns in dev if
+  the page holds blueprint elements it can't hydrate.
 - **`tosijs/state`** — the **DOM-free** state layer (~16 KB gz), importable
   in plain Node with no shim. Closes tosijs#18.
+- Per-entry **gzip budgets** are asserted by the test suite, so the next
+  unplanned kilobyte fails a build instead of shipping.
 
 ### Changed
 

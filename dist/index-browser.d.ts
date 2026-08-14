@@ -5,4 +5,3 @@ export { share } from './share';
 export { sync } from './sync';
 export type { SyncTransport, SyncMessage, SyncOptions } from './sync';
 export { hotReload } from './hot-reload';
-export * from './index-agent';

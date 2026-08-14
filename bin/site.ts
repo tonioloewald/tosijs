@@ -101,13 +101,15 @@ async function buildLibrary() {
   await buildCli()
 
   const targets = [
-    { naming: 'index.js', format: 'iife' as const },
-    { naming: 'module.js', format: 'esm' as const },
-    { naming: 'main.js', format: 'cjs' as const },
+    // the IIFE cannot tree-shake, so it gets the slim entry (no agent
+    // surface); ESM/CJS carry everything and consumers shake what they skip
+    { naming: 'index.js', format: 'iife' as const, entry: './src/index-browser.ts' },
+    { naming: 'module.js', format: 'esm' as const, entry: './src/index.ts' },
+    { naming: 'main.js', format: 'cjs' as const, entry: './src/index.ts' },
   ]
-  for (const { naming, format } of targets) {
+  for (const { naming, format, entry } of targets) {
     const result = await Bun.build({
-      entrypoints: ['./src/index.ts'],
+      entrypoints: [entry],
       format,
       outdir: DIST,
       target: 'browser',
@@ -201,7 +203,7 @@ async function buildLibrary() {
   // bundles that exported names whose definitions had been shaken away
   // ("H6 is not declared") — green tests, green tsc, green lint, broken
   // package. Only executing the artifact catches that class of defect.
-  for (const bundle of ['module.js', 'core.js', 'state.js']) {
+  for (const bundle of ['module.js', 'core.js', 'state.js', 'index.js']) {
     const probe = Bun.spawnSync(
       [
         'bun',
@@ -215,9 +217,15 @@ async function buildLibrary() {
            }
          }
          const m = await import('${DIST}/${bundle}')
-         if (Object.keys(m).length === 0) throw new Error('no exports')
-         for (const [name, value] of Object.entries(m)) {
-           if (value === undefined) throw new Error(name + ' is undefined')
+         // an IIFE has no ESM exports by design — for it, LOADING without
+         // throwing is the whole assertion (that is the failure mode a
+         // shaken-away definition produces). Module builds must also have
+         // every export defined.
+         if ('${bundle}' !== 'index.js') {
+           if (Object.keys(m).length === 0) throw new Error('no exports')
+           for (const [name, value] of Object.entries(m)) {
+             if (value === undefined) throw new Error(name + ' is undefined')
+           }
          }`,
       ],
       { stderr: 'pipe', stdout: 'pipe' }
@@ -228,7 +236,7 @@ async function buildLibrary() {
       throw new Error(`dist/${bundle} does not import cleanly`)
     }
   }
-  console.log('smoke import: module.js, core.js, state.js all load')
+  console.log('smoke import: module.js, core.js, state.js, index.js all load')
 
   console.timeEnd('library')
 }

@@ -4,27 +4,6 @@
 // `tosijs/core` does not. Keeping the list here (rather than duplicating it)
 // means an export can never land in one entry and be forgotten in the other.
 export { bind, on, touchElement } from './bind'
-export { enableAgentInterface, BOUND_TO_DOM, BOUND_TWO_WAY } from './agent'
-export { schematicSVG, rasterizeSVG, boundsOf } from './schematic'
-export { exerciseContract, exerciseComponent } from './contract'
-export type {
-  ContractReport,
-  ContractTrial,
-  ComponentReport,
-  ComponentTrial,
-} from './contract'
-export { webmcpTools, webmcpAdapter } from './webmcp'
-export type { WebMCPTool, WebMCPAdapterOptions } from './webmcp'
-export type { SchematicOptions, SchematicBounds } from './schematic'
-export type {
-  AgentInterface,
-  AgentInterfaceOptions,
-  AgentContract,
-  AgentDescription,
-  AgentWiringRecord,
-  AgentLogEntry,
-  ComponentMap,
-} from './agent'
 export { bindings } from './bindings'
 export {
   css,
@@ -39,14 +18,10 @@ export {
 } from './css'
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css'
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
+// the component-contract SHAPE stays on the main entry: declaring
+// `static contract` is a component-authoring act, and it is type-only
+export type { ComponentMap, ComponentTestStep } from './agent'
 export { Color } from './color'
-export { auditAccessibility, auditFlags, contrastRatio } from './audit'
-export type {
-  AuditReport,
-  AuditFinding,
-  AuditOptions,
-  AuditSeverity,
-} from './audit'
 export { Component, tosiSlot, setContractValidator } from './component'
 export type { PartsOf } from './component'
 export {

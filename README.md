@@ -19,11 +19,17 @@
 
 ## Entry points
 
-| import | what you get | when |
+| import | what you get | gz |
 | --- | --- | --- |
-| `tosijs` | everything (~35 KB gz) | the default |
-| `tosijs/core` | everything except the blueprint loader, `share`/`sync`, `hotReload` (~34 KB gz) | you don't use blueprints and want the smaller surface |
-| `tosijs/state` | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths (~16 KB gz) | plain Node, SSR, workers, migration scripts — imports with no DOM shim |
+| `tosijs` | everything, agent surface included — bundlers shake what you don't import | 36 KB |
+| `tosijs/agent` | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) | — |
+| `tosijs/core` | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface | 24 KB |
+| `tosijs/state` | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths | 16 KB |
+| `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | 26 KB |
+
+`tosijs/agent` resolves to the same file as `tosijs` **on purpose**: a
+separately-bundled agent surface would carry its own copy of the state
+registry and describe an empty app. One runtime copy, always.
 
 `tosijs/core` is opt-in rather than automatic because blueprints hydrate
 from *markup*, so no import statement protects them — shaking the
@@ -70,7 +76,7 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   nodes out — works in plain JavaScript or TypeScript.
 - **No lock-in.** State is a plain observable object graph, not a framework you
   marry; bind it to vanilla DOM, web-components, React, or Angular.
-- **~35kB gzipped, zero runtime dependencies** — or ~16kB for `tosijs/state`, the DOM-free state layer. (1.7.x was ~24kB; 1.8.0 adds the agent surface, contracts, and the schematic renderer. Almost all of it deletes more code from a consuming app than it adds here — and it tree-shakes if unused.)
+- **Zero runtime dependencies.** ~26kB gzipped from a script tag, ~24kB for `tosijs/core`, ~16kB for the DOM-free `tosijs/state`; the full ESM entry is ~36kB with the agent surface included and tree-shakes to about 1.7.x's size when you don't use it.
 
 On top of that you get the conveniences you'd actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and

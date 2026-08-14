@@ -67,25 +67,38 @@
 <tr>
 <th>import</th>
 <th>what you get</th>
-<th>when</th>
+<th>gz</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>tosijs</code></td>
-<td>everything (~35 KB gz)</td>
-<td>the default</td>
+<td>everything, agent surface included — bundlers shake what you don&#39;t import</td>
+<td>36 KB</td>
+</tr>
+<tr>
+<td><code>tosijs/agent</code></td>
+<td>the agent surface, schematic renderer, audit and contract harnesses (<strong>same file</strong>, narrower types)</td>
+<td>—</td>
 </tr>
 <tr>
 <td><code>tosijs/core</code></td>
-<td>everything except the blueprint loader, <code>share</code>/<code>sync</code>, <code>hotReload</code> (~34 KB gz)</td>
-<td>you don&#39;t use blueprints and want the smaller surface</td>
+<td>no blueprint loader, no <code>share</code>/<code>sync</code>/<code>hotReload</code>, no agent surface</td>
+<td>24 KB</td>
 </tr>
 <tr>
 <td><code>tosijs/state</code></td>
-<td>the <strong>DOM-free</strong> state layer: <code>tosi</code>, <code>xin</code>, <code>observe</code>, paths (~16 KB gz)</td>
-<td>plain Node, SSR, workers, migration scripts — imports with no DOM shim</td>
+<td>the <strong>DOM-free</strong> state layer: <code>tosi</code>, <code>xin</code>, <code>observe</code>, paths</td>
+<td>16 KB</td>
+</tr>
+<tr>
+<td><code>&lt;script src=…&gt;</code> (IIFE)</td>
+<td>the library <strong>without</strong> the agent surface — a script tag cannot tree-shake, so it doesn&#39;t pay for what it didn&#39;t ask for</td>
+<td>26 KB</td>
 </tr>
 </tbody></table>
+<p><code>tosijs/agent</code> resolves to the same file as <code>tosijs</code> <strong>on purpose</strong>: a
+separately-bundled agent surface would carry its own copy of the state
+registry and describe an empty app. One runtime copy, always.</p>
 <p><code>tosijs/core</code> is opt-in rather than automatic because blueprints hydrate
 from <em>markup</em>, so no import statement protects them — shaking the
 registration would fail silently. Slim core is present, so it can speak: in
@@ -123,7 +136,7 @@ updates) the handful of rows actually on screen.</li>
 nodes out — works in plain JavaScript or TypeScript.</li>
 <li><strong>No lock-in.</strong> State is a plain observable object graph, not a framework you
 marry; bind it to vanilla DOM, web-components, React, or Angular.</li>
-<li><strong>~35kB gzipped, zero runtime dependencies</strong> — or ~16kB for <code>tosijs/state</code>, the DOM-free state layer. (1.7.x was ~24kB; 1.8.0 adds the agent surface, contracts, and the schematic renderer. Almost all of it deletes more code from a consuming app than it adds here — and it tree-shakes if unused.)</li>
+<li><strong>Zero runtime dependencies.</strong> ~26kB gzipped from a script tag, ~24kB for <code>tosijs/core</code>, ~16kB for the DOM-free <code>tosijs/state</code>; the full ESM entry is ~36kB with the agent surface included and tree-shakes to about 1.7.x&#39;s size when you don&#39;t use it.</li>
 </ul>
 <p>On top of that you get the conveniences you&#39;d actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and
@@ -540,6 +553,7 @@ work). Developed with <a href="https://bun.sh/">bun</a>; logo animation by
       <li><a class="doc-link" href="share/">share</a></li>
       <li><a class="doc-link" href="sync/">sync</a></li>
       <li><a class="doc-link" href="throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="index-agent/">tosijs/agent</a></li>
       <li><a class="doc-link" href="index-core/">tosijs/core (slim entry)</a></li>
       <li><a class="doc-link" href="index-state/">tosijs/state (DOM-free)</a></li>
       <li><a class="doc-link" href="webmcp/">webmcp (EXPERIMENTAL)</a></li>

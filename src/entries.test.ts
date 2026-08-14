@@ -89,10 +89,73 @@ describe('entry points', () => {
       'bind',
       'css',
       'Color',
-      'enableAgentInterface',
-      'schematicSVG',
     ]) {
       expect(typeof (core as any)[name]).not.toBe('undefined')
+    }
+    // the agent surface lives behind tosijs/agent (its ~11 KB must not ride
+    // on consumers who never describe their app — and the IIFE can't shake)
+    for (const name of [
+      'enableAgentInterface',
+      'schematicSVG',
+      'auditAccessibility',
+      'webmcpTools',
+      'exerciseContract',
+    ]) {
+      expect(name in core).toBe(false)
+    }
+  })
+
+  test('tosijs/agent carries the whole agent surface, and ComponentMap stays on BOTH', async () => {
+    const agent = await import('./index-agent')
+    for (const name of [
+      'enableAgentInterface',
+      'webmcpTools',
+      'webmcpAdapter',
+      'schematicSVG',
+      'rasterizeSVG',
+      'boundsOf',
+      'auditAccessibility',
+      'auditFlags',
+      'contrastRatio',
+      'exerciseContract',
+      'exerciseComponent',
+      'AGENT_SURFACE_VERSION',
+    ]) {
+      expect(typeof (agent as any)[name]).not.toBe('undefined')
+    }
+    // the main entry carries it too — ONE runtime copy of the registry.
+    // A separately-bundled subpath gave the agent its own registry and it
+    // described an empty app; `tosijs/agent` is the same file, narrower
+    // types. The IIFE (which cannot shake) is where the weight is dropped.
+    const full = await import('./index')
+    expect(typeof (full as any).enableAgentInterface).toBe('function')
+  })
+
+  test('THE HAZARD: agent and core must share ONE registry', async () => {
+    const core = await import('./index')
+    const agentEntry = await import('./index-agent')
+    const { updates } = core as any
+    ;(core as any).tosi({ oneRegistry: { n: 41 } })
+    await updates()
+    const a = agentEntry.enableAgentInterface({ global: false })
+    try {
+      // if these ever become separate bundles again, this reads undefined
+      expect(a.read('oneRegistry.n')).toBe(41)
+      a.write('oneRegistry.n', 42)
+      await updates()
+      expect((core as any).xin['oneRegistry.n']).toBe(42)
+    } finally {
+      a.disable()
+    }
+  })
+
+  test('the IIFE/browser entry omits the agent surface (a script tag cannot shake)', async () => {
+    const browser = await import('./index-browser')
+    for (const name of ['enableAgentInterface', 'schematicSVG', 'auditAccessibility']) {
+      expect(name in browser).toBe(false)
+    }
+    for (const name of ['tosi', 'elements', 'Component', 'tosiBlueprint']) {
+      expect(typeof (browser as any)[name]).not.toBe('undefined')
     }
   })
 
@@ -103,18 +166,48 @@ describe('entry points', () => {
     expect(missing).toEqual([])
     // …and the extras are exactly the documented ones
     const extras = Object.keys(full).filter((name) => !(name in core)).sort()
-    expect(extras).toEqual(
-      [
-        'Blueprint',
-        'BlueprintLoader',
-        'hotReload',
-        'makeComponent',
-        'share',
-        'sync',
-        'tosiBlueprint',
-        'tosiLoader',
-      ].sort()
-    )
+    const agentEntry = await import('./index-agent')
+    const expected = [
+      'Blueprint',
+      'BlueprintLoader',
+      'hotReload',
+      'makeComponent',
+      'share',
+      'sync',
+      'tosiBlueprint',
+      'tosiLoader',
+      ...Object.keys(agentEntry), // the agent surface rides the full entry
+    ]
+      .filter((name) => !(name in core))
+      .sort()
+    expect(extras).toEqual([...new Set(expected)].sort())
+  })
+
+  // the size-regression gate the practices KB asks for: budgets per entry,
+  // so the next 11 KB cannot arrive unnoticed (gzip, bytes)
+  test('per-entry gzip budgets', async () => {
+    const { existsSync, readFileSync } = await import('node:fs')
+    const { gzipSync } = await import('node:zlib')
+    const budgets: Record<string, number> = {
+      // the IIFE is what a <script> tag downloads UNSHAKEN — the number
+      // that actually reaches a CDN consumer, and the one to defend
+      // measured with node's zlib at default level (what this test uses —
+      // `gzip -c` on the command line reports ~350 B lower; compare like
+      // with like). Headroom is deliberately ~1 KB: enough for ordinary
+      // work, tight enough that another feature has to be a decision.
+      'dist/index.js': 27_500, // the <script>/CDN artifact — slim, no agent
+      'dist/module.js': 37_500, // everything; ESM consumers shake it
+      'dist/core.js': 25_500,
+      'dist/state.js': 17_500,
+    }
+    const report: string[] = []
+    for (const [file, budget] of Object.entries(budgets)) {
+      if (!existsSync(file)) continue // pre-build run; the build gate covers it
+      const size = gzipSync(readFileSync(file)).length
+      report.push(`${file} ${size} / ${budget}`)
+      expect({ file, over: size > budget }).toEqual({ file, over: false })
+    }
+    if (report.length > 0) console.log('gzip:', report.join(', '))
   })
 
   test('slim core warns about blueprint markup it cannot hydrate', async () => {

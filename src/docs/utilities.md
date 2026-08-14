@@ -13,6 +13,7 @@ These are lightweight but powerful general useful things. They're used internall
 - [share](/share/)
 - [sync](/sync/)
 - [throttle & debounce](/throttle/)
+- [tosijs/agent](/index-agent/)
 - [tosijs/core (slim entry)](/index-core/)
 - [tosijs/state (DOM-free)](/index-state/)
 - [webmcp (EXPERIMENTAL)](/webmcp/)
