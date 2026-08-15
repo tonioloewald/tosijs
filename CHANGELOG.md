@@ -44,6 +44,23 @@ tosijs in order to *run* the app. 1.8.0 lets you ask for them.
   the description; `auditFlags()` turns findings into schematic flags so
   they can be drawn. Skips *loudly* when computed styles weren't requested.
 
+
+### Security posture — safe by default
+
+Three modes, and the safest is the one you get for free:
+
+| call | what it grants |
+| --- | --- |
+| `enableAgentInterface()` | **read-only introspection** — `describe`/`read`/`observe`/`changes`/`when`/`log` over everything; `write()` and `call()` refuse and say how to enable them |
+| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist, nothing outside it readable, writable or callable |
+| `enableAgentInterface({ expose: 'all' })` | everything read/write/call, deliberately, with a one-time warning |
+
+`tosi_write` now requires **explicit `allowWrites: true`** — being in
+introspection mode is no longer treated as consent to publish an
+unvalidated write endpoint to the browser's tool registry. And
+`bunx tosijs create app` scaffolds the allowlist form with a commented line
+showing how to widen it while developing.
+
 ### Added — contracts, at three granularities
 
 - **App level**: `expose.contract = { check, describe }` — a zero-dependency

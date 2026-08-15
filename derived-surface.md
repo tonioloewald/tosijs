@@ -50,7 +50,7 @@ const { mapDemo } = tosi({
     },
   },
 })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
 const { div, input, button, ul, pre, img } = elements
 
 // an ordinary todo list — each row's checkbox and label are WIRED, so every
@@ -196,7 +196,7 @@ preview.append(tabs, detail)
 import { enableAgentInterface, schematicSVG, rasterizeSVG } from 'tosijs'
 
 test('the full pipeline: map -> SVG string -> PNG blob (real browsers only)', async () => {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
   const svg = schematicSVG(agent.describe({ styles: true }))
   expect(svg.includes('<svg xmlns=')).toBe(true)
   expect(svg.includes('data-record=')).toBe(true)
@@ -208,7 +208,7 @@ test('the full pipeline: map -> SVG string -> PNG blob (real browsers only)', as
 })
 
 test('the delete affordance: named by its title, gated by checked-ness', () => {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
   const dels = agent.describe().wiring.filter((w) => w.label === 'delete')
   expect(dels.length >= 2).toBe(true)
   // the checked todo's delete is live; the unchecked one is disabled —
@@ -277,7 +277,7 @@ into schematic `flags`, so the drawing shows you where they are.
 ```js
 import { enableAgentInterface, auditAccessibility, auditFlags, schematicSVG, elements } from 'tosijs'
 
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
 const { div, button, pre } = elements
 
 // a deliberately bad little UI — an anonymous div-button with faint text
@@ -312,7 +312,7 @@ preview.append(
 import { enableAgentInterface, auditAccessibility } from 'tosijs'
 
 test('the audit finds real defects in a real page', () => {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
   const report = auditAccessibility(agent.describe({ styles: true }))
   // shape, not score: this page is a live document, its findings will vary
   expect(Array.isArray(report.findings)).toBe(true)
@@ -349,7 +349,7 @@ const { sink } = tosi({
     submit() {},
   },
 })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
 const { div, label, input, select, option, button, span, pre } = elements
 
 const radio = (value) =>
@@ -478,7 +478,7 @@ preview.append(
 import { enableAgentInterface, schematicSVG, updates } from 'tosijs'
 
 test('kitchen sink: the map never disagrees with the controls', async () => {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
   const d = agent.describe({ styles: true })
   // toggle state is harvested live, both ways
   const checks = d.wiring.filter((w) => w.type === 'checkbox')
@@ -580,7 +580,7 @@ const { harvest } = tosi({
 })
 
 // reuse the page's surface if one is already installed
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
 const { div, input, span, button, pre } = elements
 
 // output as a DIRECT preview child: height 100% is a no-op inline and
@@ -623,7 +623,7 @@ import {
 } from 'tosijs'
 
 test('describe() harvests the affordance join from ordinary declarations', async () => {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
   tosi({ harvestTest: { q: '' } })
   const input = elements.input({ placeholder: 'harvest-test…' })
   preview.append(input)

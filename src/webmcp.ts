@@ -141,7 +141,10 @@ export const webmcpTools = (
         agent.call(actionPath, ...((input?.args as any[]) ?? [])),
     })
   }
-  if (allowWrites || description.exposure === 'introspection') {
+  // EXPLICIT CONSENT ONLY. This used to register whenever the surface was
+  // in introspection mode, i.e. by default — publishing an unvalidated
+  // write endpoint to the browser's tool registry without anyone asking.
+  if (allowWrites) {
     tools.push({
       name: toolName(prefix, 'write'),
       description:

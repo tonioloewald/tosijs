@@ -91,7 +91,7 @@ const { mapDemo } = tosi({
     },
   },
 })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, input, button, ul, pre, img } = elements
 
 // an ordinary todo list — each row&#39;s checkbox and label are WIRED, so every
@@ -235,7 +235,7 @@ preview.append(tabs, detail)
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;
 
 test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers only)&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   const svg = schematicSVG(agent.describe({ styles: true }))
   expect(svg.includes(&#39;&lt;svg xmlns=&#39;)).toBe(true)
   expect(svg.includes(&#39;data-record=&#39;)).toBe(true)
@@ -247,7 +247,7 @@ test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers 
 })
 
 test(&#39;the delete affordance: named by its title, gated by checked-ness&#39;, () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   const dels = agent.describe().wiring.filter((w) =&gt; w.label === &#39;delete&#39;)
   expect(dels.length &gt;= 2).toBe(true)
   // the checked todo&#39;s delete is live; the unchecked one is disabled —
@@ -305,7 +305,7 @@ real defect rather than a scraper&#39;s guess. <code>auditFlags()</code> turns t
 into schematic <code>flags</code>, so the drawing shows you where they are.</p>
 <pre><code class="language-js">import { enableAgentInterface, auditAccessibility, auditFlags, schematicSVG, elements } from &#39;tosijs&#39;
 
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, button, pre } = elements
 
 // a deliberately bad little UI — an anonymous div-button with faint text
@@ -338,7 +338,7 @@ preview.append(
 <pre><code class="language-test">import { enableAgentInterface, auditAccessibility } from &#39;tosijs&#39;
 
 test(&#39;the audit finds real defects in a real page&#39;, () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   const report = auditAccessibility(agent.describe({ styles: true }))
   // shape, not score: this page is a live document, its findings will vary
   expect(Array.isArray(report.findings)).toBe(true)
@@ -371,7 +371,7 @@ const { sink } = tosi({
     submit() {},
   },
 })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, label, input, select, option, button, span, pre } = elements
 
 const radio = (value) =&gt;
@@ -498,7 +498,7 @@ preview.append(
 <pre><code class="language-test">import { enableAgentInterface, schematicSVG, updates } from &#39;tosijs&#39;
 
 test(&#39;kitchen sink: the map never disagrees with the controls&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   const d = agent.describe({ styles: true })
   // toggle state is harvested live, both ways
   const checks = d.wiring.filter((w) =&gt; w.type === &#39;checkbox&#39;)
@@ -618,7 +618,7 @@ const { harvest } = tosi({
 })
 
 // reuse the page&#39;s surface if one is already installed
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, input, span, button, pre } = elements
 
 // output as a DIRECT preview child: height 100% is a no-op inline and
@@ -659,7 +659,7 @@ preview.append(
 } from &#39;tosijs&#39;
 
 test(&#39;describe() harvests the affordance join from ordinary declarations&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   tosi({ harvestTest: { q: &#39;&#39; } })
   const input = elements.input({ placeholder: &#39;harvest-test…&#39; })
   preview.append(input)

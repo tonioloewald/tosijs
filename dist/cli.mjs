@@ -255,10 +255,22 @@ document.querySelector('#app')!.append(
   ${camel(tag)}()
 )
 
-// dev mode: the whole app is on the map (tosiAgent in the console; auto-
-// registers WebMCP tools where the browser provides a host). For production,
-// declare what you expose: enableAgentInterface({ expose: { roots, actions } })
-enableAgentInterface()
+// The agent surface: your app describes itself to agents, test harnesses
+// and the console (\`tosiAgent\` in devtools), and registers WebMCP tools
+// where the browser provides a host.
+//
+// This is the PRODUCTION shape — an allowlist. Nothing outside it can be
+// read, written or called:
+enableAgentInterface({
+  expose: {
+    roots: ['app'],
+    actions: [],
+  },
+})
+// While developing, widen it deliberately (everything readable, writable
+// and callable through globalThis.tosiAgent — including by any third-party
+// script on the page):
+//   enableAgentInterface({ expose: 'all' })
 `);
   write(join(name, "README.md"), `# ${name}
 
@@ -270,6 +282,15 @@ Scaffolded by \`bunx tosijs create app\`.
 Open the console: \`tosiAgent.describe()\` is your app's live map — state,
 wiring, actions. The scaffolded component carries a contract, so it
 self-describes there and self-verifies via \`exerciseComponent()\`.
+
+## the agent surface is an allowlist
+
+\`src/app.ts\` enables it in the production shape: only what you name under
+\`expose.roots\` / \`expose.actions\` can be read, written or called. Widen it
+while developing with \`enableAgentInterface({ expose: 'all' })\` — that makes
+every state root readable, writable and callable through a global any script
+on the page can reach, so it is a development affordance, not a default.
+Omitting \`expose\` entirely gives read-only introspection.
 `);
   console.log(`
 cd ${name} && bun install && bun start`);

@@ -58,7 +58,7 @@ tool per action the registry already holds. With a WebMCP host present
 (Chrome Canary), <code>enableAgentInterface()</code> registers them <strong>automatically at
 enable time</strong> (<code>agent.webmcp</code> carries the receipt; <code>webmcp: false</code> opts out);
 without a host, you see exactly what would register.
-(<code>tosi_write</code> appears only because this page runs in dev/introspection mode —
+(<code>tosi_write</code> appears only because this page opts in with <code>allowWrites</code> —
 see <a href="/trust-and-transports/">Trust</a>.)</p>
 <pre><code class="language-js">import { elements, tosi, enableAgentInterface, webmcpTools } from &#39;tosijs&#39;
 
@@ -70,7 +70,7 @@ const { mcpDemo } = tosi({
     },
   },
 })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, h4, ul, button, pre } = elements
 
 // the app: a list and a button — no agent- or MCP-specific code anywhere
@@ -104,7 +104,7 @@ preview.append(out)
 <pre><code class="language-test">import { tosi, enableAgentInterface, webmcpTools, webmcpAdapter } from &#39;tosijs&#39;
 
 test(&#39;the WebMCP tool set derives from the page, and registration round-trips&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   tosi({ mcpFence: { poke() {} } })
   const names = webmcpTools(agent).map((t) =&gt; t.name)
   expect(names.includes(&#39;tosi_describe&#39;)).toBe(true)
@@ -128,7 +128,7 @@ framework where the WebMCP tools write themselves.</p>
 // (a tree-shaken `tosijs/agent` subpath is the likely published shape)
 
 const agent = enableAgentInterface({
-  // DEV: expose everything tosijs already knows (introspection mode)
+  // DEV: expose everything tosijs already knows (the deliberate override)
   // PROD: expose exactly what you declare (manifest mode) — see below
 })
 </code></pre>
@@ -380,7 +380,7 @@ binding metadata, never on the DOM):</p>
 <pre><code class="language-js">import { elements, tosi, enableAgentInterface, exerciseContract } from &#39;tosijs&#39;
 
 const { inlineDemo } = tosi({ inlineDemo: { qty: 5 } })
-const agent = globalThis.tosiAgent ?? enableAgentInterface()
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, label, input, button, pre } = elements
 
 const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
@@ -425,7 +425,7 @@ preview.append(
 )
 </code></pre>
 <pre><code class="language-test">test(&#39;inline contract: harvested, aggregated, enforced&#39;, async () =&gt; {
-  const agent = globalThis.tosiAgent ?? enableAgentInterface()
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
   const d = agent.describe()
   expect(d.contract?.[&#39;inlineDemo.qty&#39;]?.type).toBe(&#39;integer&#39;)
   let refused = false
@@ -478,9 +478,9 @@ preview.append(
       // and hand the page back its introspection surface — atomically
       onClick() {
         const lines = []
-        let agent = enableAgentInterface()
+        let agent = enableAgentInterface({ expose: &#39;all&#39; })
         lines.push(
-          `dev (introspection): ${Object.keys(agent.describe().roots).length} roots visible`
+          `dev (expose: &#39;all&#39;): ${Object.keys(agent.describe().roots).length} roots visible`
         )
         lines.push(attempt(agent, &#39;shipDay.qty&#39;, &#39;lots&#39;))
         lines.push(
@@ -516,7 +516,7 @@ preview.append(
             &#39; ← the curated rule, not the inline one&#39;
         )
         lines.push(attempt(agent, &#39;shipDay.qty&#39;, 7))
-        enableAgentInterface() // the page gets its introspection surface back
+        enableAgentInterface({ expose: &#39;all&#39; }) // hand the page its dev surface back
         out.textContent = lines.join(&#39;\n&#39;)
       },
     })
@@ -529,7 +529,7 @@ preview.append(
 test(&#39;ship day: curation supersedes inline, the manifest narrows the world&#39;, () =&gt; {
   // fully synchronous on purpose: surface swaps are atomic, so concurrent
   // fence tests never observe the intermediate manifest mode
-  const dev = enableAgentInterface()
+  const dev = enableAgentInterface({ expose: &#39;all&#39; })
   const devRoots = Object.keys(dev.describe().roots).length
   const curated = enableAgentInterface({
     expose: {
@@ -555,7 +555,7 @@ test(&#39;ship day: curation supersedes inline, the manifest narrows the world&#
   }
   expect(refused).toBe(true)
   curated.write(&#39;shipDay.qty&#39;, 7) // within the curated rule
-  enableAgentInterface() // restore for the rest of the page
+  enableAgentInterface({ expose: &#39;all&#39; }) // restore for the rest of the page
   expect(globalThis.tosiAgent.describe().exposure).toBe(&#39;introspection&#39;)
 })
 </code></pre>

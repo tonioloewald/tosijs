@@ -145,7 +145,14 @@ export interface AgentExpose {
 }
 
 export interface AgentInterfaceOptions {
-  expose?: AgentExpose
+  /**
+   * What this surface may touch. Omit for **read-only introspection**
+   * (describe/read/observe/changes/when/log over everything; write and call
+   * refuse). Pass a manifest — `{ roots, actions, contract }` — for the
+   * production shape. Pass the literal `'all'` to get full read/write/call
+   * over the whole registry, deliberately and with a warning.
+   */
+  expose?: AgentExpose | 'all'
   /**
    * POST-HOC component contracts, by tag name — for lofting components whose
    * classes you don't control (a legacy app, a library's widgets, the doc
@@ -304,7 +311,9 @@ export interface AgentDescription {
   roots: Record<string, string>
   wiring: AgentWiringRecord[]
   actions: string[]
-  exposure: 'introspection' | 'manifest'
+  /** 'read-only' (the default: look, don't touch), 'introspection'
+   * (expose: 'all' — everything, deliberately), or 'manifest' */
+  exposure: 'read-only' | 'introspection' | 'manifest'
   /** what's LEGAL, per root — present when the manifest declares a contract */
   contract?: Record<string, any>
 }
@@ -606,6 +615,8 @@ const bindingName = (binding: any): string | undefined => {
   return propKey === 'textContent' ? 'text' : propKey
 }
 
+let readOnlyNoticeGiven = false
+let exposeAllWarningGiven = false
 let active: AgentInterface | undefined
 let activeGlobalName: string | undefined
 
@@ -619,14 +630,51 @@ export function enableAgentInterface(
   let webmcpRegistration:
     | { tools: string[]; unregister: () => void }
     | undefined
-  const roots = expose?.roots
-  const exposedActions = expose?.actions
-  const contract = expose?.contract
+  // THE POSTURE (1.8.0). Three modes, safest by default:
+  //
+  //   enableAgentInterface()                    read-only introspection
+  //   enableAgentInterface({ expose: {roots} }) manifest — the production shape
+  //   enableAgentInterface({ expose: 'all' })   everything, deliberately
+  //
+  // The docs have always said production posture is manifest-only,
+  // allowlist-never-denylist, and that open write() is a dev-mode
+  // affordance. The code used to ship the opposite as its DEFAULT: no
+  // `expose` meant read, write AND call over the entire registry, on a
+  // global any third-party script shares, with an unvalidated `tosi_write`
+  // auto-published to the browser's tool registry. Now the default keeps
+  // the part that only LOOKS (the map is the point) and requires consent
+  // for the verbs that change the world.
+  const exposeAll = expose === 'all'
+  const manifest = typeof expose === 'object' && expose !== null ? expose : undefined
+  const roots = manifest?.roots
+  const exposedActions = manifest?.actions
+  const contract = manifest?.contract
   // contracted roots (the describe() keys) are read ONCE at enable time so
   // sub-path writes can be routed to a whole-root proposal
   const contractRoots =
     contract?.describe != null ? Object.keys(contract.describe()) : []
-  const manifestMode = expose != null
+  const manifestMode = manifest != null
+  /** read-only introspection: no manifest, and no explicit `expose: 'all'` */
+  const readOnly = !manifestMode && !exposeAll
+
+  if (readOnly && !readOnlyNoticeGiven) {
+    readOnlyNoticeGiven = true
+    console.info(
+      'tosijs agent: read-only introspection. describe/read/observe/changes/' +
+        "when/log work over everything; write() and call() refuse. Declare " +
+        "expose: { roots, actions } for production, or expose: 'all' while " +
+        'developing.'
+    )
+  }
+  if (exposeAll && !exposeAllWarningGiven) {
+    exposeAllWarningGiven = true
+    console.warn(
+      "tosijs agent: expose: 'all' — every state root is readable, WRITABLE " +
+        'and callable through globalThis.tosiAgent, which any script on this ' +
+        'page can reach. Intended for development. Production posture is ' +
+        'expose: { roots, actions } with a contract.'
+    )
+  }
 
   const surfaceVersion: AgentSurfaceVersion = {
     surface: AGENT_SURFACE_VERSION,
@@ -649,6 +697,18 @@ export function enableAgentInterface(
     if (!inScope(path)) {
       throw new Error(
         `agent interface: "${path}" is not exposed (manifest mode)`
+      )
+    }
+  }
+
+  /** the verbs that CHANGE things need consent; looking does not */
+  const assertMutable = (verb: string, path: string): void => {
+    if (readOnly) {
+      throw new Error(
+        `agent interface: ${verb}("${path}") refused — this surface is ` +
+          `read-only introspection. Declare expose: { roots${
+            verb === 'call' ? ', actions' : ''
+          } } to allow it, or expose: 'all' while developing.`
       )
     }
   }
@@ -957,7 +1017,11 @@ export function enableAgentInterface(
         roots: rootSummary,
         wiring,
         actions,
-        exposure: manifestMode ? 'manifest' : 'introspection',
+        exposure: manifestMode
+          ? 'manifest'
+          : exposeAll
+            ? 'introspection'
+            : 'read-only',
       }
       // inline declarations fill the contract; top-level curation OVERRIDES
       // on collision — declare where you build, curate at the top
@@ -973,6 +1037,7 @@ export function enableAgentInterface(
     read,
 
     write(path: string, value: any): void {
+      assertMutable('write', path)
       assertScope(path)
       if (!writable(path)) {
         throw new Error(
@@ -1053,6 +1118,7 @@ export function enableAgentInterface(
     },
 
     call(actionPath: string, ...args: any[]): any {
+      assertMutable('call', actionPath)
       if (manifestMode && !(exposedActions ?? []).includes(actionPath)) {
         throw new Error(
           `agent interface: action "${actionPath}" is not exposed (manifest mode)`

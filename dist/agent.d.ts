@@ -90,7 +90,14 @@ export interface AgentExpose {
     contract?: AgentContract;
 }
 export interface AgentInterfaceOptions {
-    expose?: AgentExpose;
+    /**
+     * What this surface may touch. Omit for **read-only introspection**
+     * (describe/read/observe/changes/when/log over everything; write and call
+     * refuse). Pass a manifest — `{ roots, actions, contract }` — for the
+     * production shape. Pass the literal `'all'` to get full read/write/call
+     * over the whole registry, deliberately and with a warning.
+     */
+    expose?: AgentExpose | 'all';
     /**
      * POST-HOC component contracts, by tag name — for lofting components whose
      * classes you don't control (a legacy app, a library's widgets, the doc
@@ -240,7 +247,9 @@ export interface AgentDescription {
     roots: Record<string, string>;
     wiring: AgentWiringRecord[];
     actions: string[];
-    exposure: 'introspection' | 'manifest';
+    /** 'read-only' (the default: look, don't touch), 'introspection'
+     * (expose: 'all' — everything, deliberately), or 'manifest' */
+    exposure: 'read-only' | 'introspection' | 'manifest';
     /** what's LEGAL, per root — present when the manifest declares a contract */
     contract?: Record<string, any>;
 }

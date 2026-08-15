@@ -49,8 +49,14 @@ describe('the scaffolder — bunx tosijs create …', () => {
       expect(existsSync(join(dir, file))).toBe(true)
     }
     const app = readFileSync(join(dir, 'my-app/src/app.ts'), 'utf-8')
-    expect(app).toContain('enableAgentInterface()')
     expect(app).toContain('makeComponent')
+    // the scaffold must ship the PRODUCTION posture — an allowlist, not a
+    // wide-open surface written into every generated app
+    expect(app).toContain('enableAgentInterface({')
+    expect(app).toContain('roots:')
+    expect(app).not.toMatch(/enableAgentInterface\(\)\s*$/m)
+    // …and it must SAY how to widen it, so the dev affordance is a choice
+    expect(app).toContain("expose: 'all'")
     const pkg = JSON.parse(readFileSync(join(dir, 'my-app/package.json'), 'utf-8'))
     expect(pkg.dependencies.tosijs).toMatch(/^\^1\./)
   })

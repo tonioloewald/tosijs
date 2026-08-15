@@ -137,7 +137,7 @@ describe('entry points', () => {
     const { updates } = core as any
     ;(core as any).tosi({ oneRegistry: { n: 41 } })
     await updates()
-    const a = agentEntry.enableAgentInterface({ global: false })
+    const a = agentEntry.enableAgentInterface({ global: false, expose: 'all' })
     try {
       // if these ever become separate bundles again, this reads undefined
       expect(a.read('oneRegistry.n')).toBe(41)

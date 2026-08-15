@@ -19,7 +19,7 @@ describe('webmcpTools — the tools write themselves', () => {
       },
     })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     const tools = webmcpTools(agent)
     const names = tools.map((t) => t.name)
     expect(names).toContain('tosi_describe')
@@ -28,11 +28,16 @@ describe('webmcpTools — the tools write themselves', () => {
     expect(names).toContain('tosi_act_mcpApp_addItem') // derived, not declared
   })
 
-  test('write tool: present in introspection mode, absent in manifest mode, opt-in override', async () => {
+  test('write tool: EXPLICIT consent only — never inferred from a mode', async () => {
     tosi({ mcpGate: { x: 1, go() {} } })
     await updates()
-    const dev = (current = enableAgentInterface({ global: false }))
-    expect(webmcpTools(dev).some((t) => t.name === 'tosi_write')).toBe(true)
+    // 1.8.0: introspection mode is no longer consent to publish an
+    // unvalidated write endpoint to the browser's tool registry
+    const dev = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    expect(webmcpTools(dev).some((t) => t.name === 'tosi_write')).toBe(false)
+    expect(
+      webmcpTools(dev, { allowWrites: true }).some((t) => t.name === 'tosi_write')
+    ).toBe(true)
     dev.disable()
 
     const prod = (current = enableAgentInterface({
@@ -62,14 +67,18 @@ describe('webmcpTools — the tools write themselves', () => {
     }
     const { mcpExec } = tosi(store)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     const tools = Object.fromEntries(
       webmcpTools(agent).map((t) => [t.name, t])
     )
 
     const { cursor } = tools.tosi_changes.execute({})
     tools.tosi_act_mcpExec_add.execute({ args: ['from a tool'] })
-    tools.tosi_write.execute({ path: 'mcpExec.items[0]', value: 'rewritten' })
+    // the write tool exists only with explicit consent
+    const writeTool = Object.fromEntries(
+      webmcpTools(agent, { allowWrites: true }).map((t) => [t.name, t])
+    ).tosi_write
+    writeTool.execute({ path: 'mcpExec.items[0]', value: 'rewritten' })
     await updates()
 
     expect(tools.tosi_read.execute({ path: 'mcpExec.items' })).toEqual([
@@ -85,13 +94,13 @@ describe('webmcpTools — the tools write themselves', () => {
 describe('webmcpAdapter — registration against a host', () => {
   test('no host: returns undefined (callers feature-detect by result)', () => {
     tosi({ mcpNoHost: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     expect(webmcpAdapter(agent)).toBeUndefined()
   })
 
   test('registerTool host: registers each tool, unregister reverses', () => {
     tosi({ mcpHostA: { go() {} } })
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     const registered: string[] = []
     const removed: string[] = []
     const host = {
@@ -109,7 +118,7 @@ describe('webmcpAdapter — registration against a host', () => {
 
   test('provideContext host: batch registration, unregister clears', () => {
     tosi({ mcpHostB: { x: 0 } })
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     const calls: any[] = []
     const host = { provideContext: (ctx: any) => calls.push(ctx) }
     const mcp = webmcpAdapter(agent, { modelContext: host })!
@@ -158,7 +167,7 @@ describe('enableAgentInterface — one call, whole surface', () => {
       expect(current.webmcp).toBeUndefined()
       current.disable()
       // default true: the host is discovered without being injected
-      current = enableAgentInterface({ global: false })
+      current = enableAgentInterface({ global: false, expose: 'all' })
       expect(registered).toContain('tosi_describe')
       expect(current.webmcp?.tools).toEqual(registered)
     } finally {
@@ -216,7 +225,7 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
 describe('tosi_surface — the identity tool (tosijs#23)', () => {
   test('a WebMCP consumer can interrogate the surface before trusting it', async () => {
     tosi({ mcpSurface: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false }))
+    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
     const tools = Object.fromEntries(webmcpTools(agent).map((t) => [t.name, t]))
     expect(tools.tosi_surface).toBeDefined()
     const identity = tools.tosi_surface.execute({})
