@@ -103,10 +103,9 @@ describe('xin-* blueprint aliases (REMOVED in 1.8.0)', () => {
     expect('tosiLoader' in api).toBe(true)
     expect('blueprint' in api).toBe(false)
     expect('blueprintLoader' in api).toBe(false)
-    // two fewer custom elements registered at import — the bundle diet's
-    // side-effect accounting depends on this
-    expect(customElements.get('xin-blueprint')).toBeUndefined()
-    expect(customElements.get('xin-loader')).toBeUndefined()
+    // the TAGS remain registered — as tombstones, so the markup path can
+    // say what happened instead of failing silently (see the tombstone
+    // tests below). What's gone is the working implementation behind them.
     expect(customElements.get('tosi-blueprint')).toBeDefined()
   })
 })
@@ -400,5 +399,44 @@ describe('makeComponent', () => {
 
     const el = pkg.creator()
     expect(el.tagName.toLowerCase()).toBe('async-blueprint-comp')
+  })
+})
+
+describe('xin-* tombstones (1.8.0): removed, but never silent', () => {
+  test('the legacy tags register as tombstones that say what to rename', async () => {
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    // registered — so the message can exist at all
+    expect(customElements.get('xin-blueprint')).toBeDefined()
+    expect(customElements.get('xin-loader')).toBeDefined()
+
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let el: HTMLElement
+    try {
+      el = document.createElement('xin-blueprint')
+      el.setAttribute('tag', 'legacy-thing')
+      el.setAttribute('src', './legacy.js')
+      document.body.append(el)
+    } finally {
+      console.warn = original
+    }
+    // the silent failure the review found is now loud, and actionable
+    const warning = warnings.find((w) => w.includes('xin-blueprint'))
+    expect(warning).toBeDefined()
+    expect(warning).toContain('does NOTHING')
+    expect(warning).toContain('<tosi-blueprint>')
+    // and it does nothing, which is honest: no hydration is attempted
+    expect(customElements.get('legacy-thing')).toBeUndefined()
+    el!.remove()
+  })
+
+  test('the CREATORS stay removed — those break loudly at import', async () => {
+    const api = (await import('./index')) as Record<string, unknown>
+    expect('blueprint' in api).toBe(false)
+    expect('blueprintLoader' in api).toBe(false)
+    expect('xinSlot' in api).toBe(false)
+    expect(typeof api.tosiBlueprint).toBe('function')
   })
 })

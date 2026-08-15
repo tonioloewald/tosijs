@@ -54,7 +54,7 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/metadata/ — metadata
   Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely.
 - https://tosijs.net/Migration/ — Migrating from xinjs to tosijs
-  Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings.
+  Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.
 - https://tosijs.net/more-math/ — more-math
   Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants.
 - https://tosijs.net/one-user-interface/ — One User Interface

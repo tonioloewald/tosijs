@@ -158,9 +158,15 @@ showing how to widen it while developing.
 
 - **`data-ref`** — deprecated through 1.7 with 1.8.0 named in its warning.
   Use `part="…"` (bare CSS-selector refs still work).
-- **`<xin-slot>`, `<xin-blueprint>`, `<xin-loader>`** and the `xinSlot`,
-  `blueprint`, `blueprintLoader` creators — likewise. Three fewer custom
-  elements registered at import.
+- **`xinSlot`, `blueprint`, `blueprintLoader`** creators and **`<xin-slot>`**
+  — likewise. These break loudly at import, which is the point.
+- **`<xin-blueprint>` and `<xin-loader>` no longer function**, but the tags
+  remain registered for one more cycle as **tombstones**: they render
+  nothing and log exactly what to rename. An unregistered custom element is
+  inert — no hydration, no error, no output — and a page using blueprint
+  *markup* has no import statement that could fail, so removing the
+  registration outright would have been this release's only silent
+  breakage. They go for real in 2.0.
 
 ### Build
 

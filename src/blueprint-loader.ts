@@ -235,6 +235,7 @@ The blueprint function can be `async`, so you can use async import inside it to 
 */
 
 import { Component } from './component'
+import { warnDeprecated } from './metadata'
 import {
   makeComponent,
   TosiBlueprint,
@@ -338,6 +339,40 @@ export class BlueprintLoader extends Component {
 
 export const tosiLoader = BlueprintLoader.elementCreator()
 
-// (<xin-blueprint> and <xin-loader> were deprecated through 1.7 and REMOVED
-// in 1.8.0 — halving this module's import-time custom-element registrations,
-// which is what the bundle diet's side-effect accounting counts on.)
+// The xin-* markup names were deprecated through 1.7 and their CREATORS
+// (`blueprint`, `blueprintLoader`) are gone from the public API in 1.8.0 —
+// those break loudly at import, which is the point.
+//
+// The MARKUP path cannot break loudly by itself: an unregistered custom
+// element is simply inert — no hydration, no console output, no exception —
+// and a page using `<xin-blueprint src=…>` has no import statement to fail.
+// The 1.8.0 pre-release review found exactly that silent path. So the tags
+// stay registered for one more cycle as TOMBSTONES: they render nothing and
+// say precisely what to rename, once per tag. They go for real in 2.0.
+class TombstoneElement extends Component {
+  static lightStyleSpec = HIDDEN_STYLE
+  content = null
+
+  connectedCallback(): void {
+    super.connectedCallback()
+    const tag = this.tagName.toLowerCase()
+    const replacement = tag.replace('xin-', 'tosi-')
+    warnDeprecated(
+      tag,
+      `<${tag}> was removed in tosijs 1.8.0 and does NOTHING — this element ` +
+        `will not hydrate. Rename it to <${replacement}> (same attributes, ` +
+        `same behaviour). Deprecated since 1.7; the tag is registered only ` +
+        `so this message can exist, and goes away in 2.0.`
+    )
+  }
+}
+
+class RemovedBlueprint extends TombstoneElement {
+  static preferredTagName = 'xin-blueprint'
+}
+RemovedBlueprint.elementCreator()
+
+class RemovedLoader extends TombstoneElement {
+  static preferredTagName = 'xin-loader'
+}
+RemovedLoader.elementCreator()
