@@ -541,26 +541,65 @@ describe('ARIA is a two-way street', () => {
     for (const el of [caption, hint, field, invisible]) el.remove()
   })
 
-  test('curation materializes: contract.description becomes aria-label unless the author wrote one', async () => {
+  test('curation materializes into the MATCHING slot: description, role — never the name', async () => {
     const { Component } = await import('./component')
-    class DescribedThing extends Component {
+    const described = {
+      description: 'counts things, between 1 and 99',
+      role: 'spinbutton',
+    } as const
+    class DescribedThing extends (Component as any) {
       static preferredTagName = 'described-thing'
-      static contract = { description: 'a self-describing widget' }
+      static contract = described
+      content = ({ span }: any) => span('42')
     }
-    const creator = DescribedThing.elementCreator()
-    const el = creator() as DescribedThing
+    const el = DescribedThing.elementCreator()() as any
     document.body.append(el)
     await updates()
-    expect(el.getAttribute('aria-label')).toBe('a self-describing widget')
 
-    // explicit content always wins
-    const el2 = creator() as DescribedThing
-    el2.setAttribute('aria-label', 'the author knows best')
-    document.body.append(el2)
-    await updates()
-    expect(el2.getAttribute('aria-label')).toBe('the author knows best')
+    // a description projects to the DESCRIPTION slot…
+    expect(el.getAttribute('aria-description')).toBe(
+      'counts things, between 1 and 99'
+    )
+    // …never to the name slot: the visible content still names it, and our
+    // own audit's anonymous-affordance rule stays honest
+    expect(el.hasAttribute('aria-label')).toBe(false)
+    // a declared role materializes — the audit's missing-role fix, declared
+    expect(el.getAttribute('role')).toBe('spinbutton')
+
+    // and the harvest reads it back
+    const agent = enableAgentInterface({ global: false })
+    try {
+      const record = agent
+        .describe()
+        .wiring.find((w) => w.tag === 'described-thing')
+      expect(record?.description).toBe('counts things, between 1 and 99')
+      expect(record?.role).toBe('spinbutton')
+    } finally {
+      agent.disable()
+    }
     el.remove()
-    el2.remove()
+  })
+
+  test('an author-set description or role always wins', async () => {
+    const { Component } = await import('./component')
+    const declared = {
+      description: 'the library says this',
+      role: 'button',
+    } as const
+    class AuthorWins extends (Component as any) {
+      static preferredTagName = 'author-wins'
+      static contract = declared
+      content = null
+    }
+    const creator = AuthorWins.elementCreator()
+    const el = creator() as any
+    el.setAttribute('aria-description', 'the author says this')
+    el.setAttribute('role', 'link')
+    document.body.append(el)
+    await updates()
+    expect(el.getAttribute('aria-description')).toBe('the author says this')
+    expect(el.getAttribute('role')).toBe('link')
+    el.remove()
   })
 })
 

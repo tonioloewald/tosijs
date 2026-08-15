@@ -31,11 +31,17 @@ tosijs in order to *run* the app. 1.8.0 lets you ask for them.
   resolved ARIA, `href`, `contentEditable`, and a structural tier
   (headings/landmarks/containers).
 - **ARIA runs both ways.** `aria-label(ledby)`, `<label>` association,
-  `aria-describedby`, `disabled`/`required` and `aria-hidden` flow *into*
-  the map (the agent reads the page the way assistive tech does); a
-  component's `contract.description` becomes its `aria-label` unless the
-  author wrote one. Describe a component for agents and screen-reader users
-  inherit it.
+  `aria-describedby`/`aria-description`, `disabled`/`required` and
+  `aria-hidden` flow *into* the map (the agent reads the page the way
+  assistive tech does). Going the other way, a component's contract
+  materializes into the **matching** slots: `description` →
+  `aria-description`, `role` → `role`. It deliberately does **not** touch
+  `aria-label` — a description is not a name, and the name belongs to
+  content and the author (an earlier rc did stamp it, which made components
+  announce developer prose instead of their own text). Describe a component
+  for agents and screen-reader users inherit the description; declare its
+  `role` and the accessibility audit's `missing-role` finding is fixed from
+  the same declaration.
 - **`agent.version`** — `{ surface, tosijs, capabilities[] }` (tosijs#23):
   ask what a surface *is* instead of duck-typing it. Rides `describe()`
   output, and exposed as the `tosi_surface` WebMCP tool.

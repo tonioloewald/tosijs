@@ -1643,23 +1643,47 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     insertGlobalStyles((this.constructor as unknown as Component).tagName)
     this.hydrate()
     if (this.role != null) this.setAttribute('role', this.role)
-    // curation materializes as accessibility: a component's own contract
-    // description becomes its accessible name — UNLESS the author already
-    // provided one (explicit content always wins). The same declaration
-    // that informs agents now informs screen readers.
+    // Curation materializes as accessibility — but into the MATCHING slot.
+    // A contract `description` is a description; it is NOT a name. Stamping
+    // it as aria-label (1.8.0-rc.1) made a role="button" component announce
+    // developer prose instead of its visible text, put a name on shadow
+    // components where ARIA prohibits one, and — worst — silenced our own
+    // audit's `anonymous-affordance` rule, since the harvest reads
+    // aria-label first. The library was grading its own homework.
+    //
+    // ARIA is the DOM's compatibility namespace for facts our contract
+    // already states in its own vocabulary. So: `description` projects to
+    // the description slot, `role` to the role attribute, and the NAME is
+    // left to content and the author — where it belongs, because a name
+    // varies per instance while a class-level description does not.
     {
       const cls = this.constructor as any
-      const description = Object.prototype.hasOwnProperty.call(cls, 'contract')
-        ? cls.contract?.description
+      const contract = Object.prototype.hasOwnProperty.call(cls, 'contract')
+        ? cls.contract
         : undefined
+      const description = contract?.description
       if (
         typeof description === 'string' &&
         description !== '' &&
-        !this.hasAttribute('aria-label') &&
-        !this.hasAttribute('aria-labelledby') &&
-        !this.hasAttribute('title')
+        !this.hasAttribute('aria-description') &&
+        !this.hasAttribute('aria-describedby')
       ) {
-        this.setAttribute('aria-label', description)
+        // aria-description is ARIA 1.3 — support is still uneven, but it is
+        // additive and correct, and the harvest reads it back either way
+        this.setAttribute('aria-description', description)
+      }
+      const declaredRole = contract?.role
+      if (
+        typeof declaredRole === 'string' &&
+        declaredRole !== '' &&
+        // getAttribute, not hasAttribute: the light-DOM convention above
+        // stamps role="" when a component declares no role, and an empty
+        // role is the same as none
+        !this.getAttribute('role')
+      ) {
+        // a declared role fixes the audit's `missing-role` finding in the
+        // same declaration that feeds the map, the types and the tests
+        this.setAttribute('role', declaredRole)
       }
     }
     // Form-associated components must be focusable for validation to work

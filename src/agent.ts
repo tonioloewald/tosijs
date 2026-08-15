@@ -116,8 +116,15 @@ export interface ComponentTestStep {
 }
 
 export interface ComponentMap {
-  /** one line for humans and agents alike */
+  /** one line for humans and agents alike. Materializes as
+   * `aria-description` — a description is NOT a name, and stamping it as
+   * one made components announce developer prose instead of their content. */
   description?: string
+  /** the ARIA role this component plays (`'button'`, `'tablist'`, …).
+   * Materializes as the `role` attribute unless the author set one — which
+   * fixes the audit's `missing-role` finding from the same declaration that
+   * feeds the map, the types and the tests. */
+  role?: string
   /** the value contract (JSON-Schema-shaped; examples/$counterexamples make
    * it executable — see exerciseComponent) */
   value?: Record<string, any>
@@ -539,7 +546,9 @@ const describeElement = (el: Element): AgentWiringRecord => {
       record.checked = (el as any).checked === true
     }
   }
-  const description = referencedText(el, 'aria-describedby')
+  const description =
+    referencedText(el, 'aria-describedby') ||
+    el.getAttribute('aria-description')
   if (description) record.description = description
   if (
     (el as any).disabled === true ||
