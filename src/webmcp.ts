@@ -189,6 +189,8 @@ export const webmcpAdapter = (
 
   const tools = webmcpTools(agent, options)
   const undo: Array<() => void> = []
+  /** names the host ACCEPTED — the receipt must not claim more */
+  const registered: string[] = []
   if (typeof mc.registerTool === 'function') {
     let held = registeredOnHost.get(mc)
     if (held == null) {
@@ -197,17 +199,32 @@ export const webmcpAdapter = (
     }
     for (const tool of tools) {
       if (held.has(tool.name)) continue // already live on this host
+      const canUnregister = typeof mc.unregisterTool === 'function'
       try {
         const handle = mc.registerTool(tool)
         if (handle != null && typeof handle.unregister === 'function') {
           undo.push(() => handle.unregister())
-        } else if (typeof mc.unregisterTool === 'function') {
+        } else if (canUnregister) {
           undo.push(() => mc.unregisterTool(tool.name))
         } else {
           held.add(tool.name) // no way back: remember it's registered
         }
-      } catch (_e) {
-        held.add(tool.name) // the host says it already holds this name
+        registered.push(tool.name)
+      } catch (error) {
+        // A FAILURE IS NOT A REGISTRATION. This used to mark every failure
+        // as "the host already holds this name", so a rejected schema or a
+        // transient error produced a RECEIPT CLAIMING A TOOL THE HOST NEVER
+        // RECEIVED — and on a host that supports unregistration, one
+        // transient failure blacklisted the name for its lifetime.
+        const duplicate = /already|exist|duplicate|registered/i.test(
+          String((error as Error)?.message ?? '')
+        )
+        if (duplicate && !canUnregister) held.add(tool.name)
+        console.warn(
+          `tosijs webmcp: the host refused "${tool.name}" — it is NOT in ` +
+            'this surface\'s tool list.',
+          error
+        )
       }
     }
   } else if (typeof mc.provideContext === 'function') {
@@ -220,7 +237,9 @@ export const webmcpAdapter = (
     return undefined
   }
   return {
-    tools: tools.map((tool) => tool.name),
+    // what the host actually took (registerTool path); the batch
+    // provideContext path has no per-tool result, so it reports the set
+    tools: registered.length > 0 ? registered : tools.map((tool) => tool.name),
     unregister: () => {
       for (const fn of undo) fn()
     },

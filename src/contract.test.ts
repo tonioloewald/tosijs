@@ -929,3 +929,51 @@ describe('contract violations cannot strand the dispatch loop', () => {
     sibling.remove()
   })
 })
+
+describe('contract.attributes inheritance (review M3)', () => {
+  test('a subclass with contract.attributes KEEPS the base class initAttributes', async () => {
+    class AttrBase extends Component {
+      static preferredTagName = 'attr-base'
+      static initAttributes = { size: 10, tone: 'quiet' }
+      content = null
+    }
+    AttrBase.elementCreator()
+
+    const childContract = {
+      attributes: { flavour: { type: 'string', default: 'mango' } },
+    } as const satisfies ComponentMap
+    class AttrChild extends AttrBase {
+      static preferredTagName = 'attr-child'
+      static contract = childContract
+    }
+    const creator = AttrChild.elementCreator()
+
+    // both the inherited names and the contracted one are observed…
+    const observed = (AttrChild as any).observedAttributes as string[]
+    for (const name of ['size', 'tone', 'flavour']) {
+      expect(observed).toContain(name)
+    }
+    // …and reflection works in BOTH directions for the inherited ones
+    const el = creator({ size: 42 }) as any
+    document.body.append(el)
+    expect(el.size).toBe(42)
+    expect(el.getAttribute('size')).toBe('42')
+    expect(el.tone).toBe('quiet') // inherited default survives
+    expect(el.flavour).toBe('mango') // contracted default
+    el.remove()
+  })
+
+  test('declaring BOTH on the SAME class still throws — one source of truth', () => {
+    class Conflicted extends Component {
+      static preferredTagName = 'attr-conflicted'
+      static initAttributes = { a: 1 }
+      static contract = {
+        attributes: { b: { type: 'number', default: 2 } },
+      } as any
+      content = null
+    }
+    expect(() => (Conflicted as any)._resolveInitAttributes()).toThrow(
+      /BOTH static initAttributes AND/
+    )
+  })
+})

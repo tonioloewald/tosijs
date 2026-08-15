@@ -41,7 +41,7 @@ generated tool set automatically — `agent.webmcp` is the receipt, and
 */
 import { registry } from './registry'
 import { version } from './version'
-import { observe, unobserve, Listener } from './path-listener'
+import { observe, unobserve, extendsPath, Listener } from './path-listener'
 import { setByPath } from './by-path'
 import { xin } from './xin'
 import {
@@ -179,6 +179,11 @@ export interface AgentInterfaceOptions {
    * enable time — enable AFTER the UI is wired (re-enabling reconfigures).
    */
   webmcp?: boolean | WebMCPAdapterOptions
+  /** audit-ledger cap (default 10,000 entries). The ledger records every
+   * settled touch and surfaces are meant to be enabled once and left, so
+   * it is a ring buffer; `changes()` reports `truncated: true` if a drain
+   * spans dropped entries. */
+  maxLog?: number
 }
 
 /**
@@ -360,7 +365,13 @@ export interface AgentInterface {
   write: (path: string, value: any) => void
   observe: (path: string, callback: (path: string) => void) => () => void
   call: (actionPath: string, ...args: any[]) => any
-  changes: (since?: number) => { cursor: number; changes: AgentChange[] }
+  changes: (since?: number) => {
+    cursor: number
+    changes: AgentChange[]
+    /** present and true when the drain reached past entries the ring
+     * buffer had already dropped — you did not see everything */
+    truncated?: boolean
+  }
   /**
    * Await a state CONDITION, not a change: resolves (with the satisfying
    * value) as soon as the value at `path` satisfies `predicate` — immediately
@@ -390,10 +401,10 @@ export interface AgentInterface {
 }
 
 // a path is "under" a root if it IS the root or extends it by a segment
-const underRoot = (path: string, root: string): boolean =>
-  path === root ||
-  (path.startsWith(root) &&
-    (path[root.length] === '.' || path[root.length] === '['))
+// (the segment-boundary rule lives in path-listener as extendsPath — one
+// helper, every site. A second implementation here would be a second thing
+// to keep true, and this one guards what a production manifest may read
+// and write.)
 
 // values leave the surface as plain serializable data — proxies unwrapped,
 // functions elided (they are actions, addressed by path, not data)
@@ -693,14 +704,14 @@ export function enableAgentInterface(
 
   const inScope = (path: string): boolean =>
     !manifestMode ||
-    (roots ?? []).some((root) => underRoot(path, root)) ||
-    (exposedActions ?? []).some((action) => underRoot(path, action))
+    (roots ?? []).some((root) => extendsPath(root, path)) ||
+    (exposedActions ?? []).some((action) => extendsPath(action, path))
 
   // writes are gated on declared ROOTS only: a declared action is callable,
   // not writable — otherwise `actions: ['app.checkout']` would let an agent
   // REPLACE app.checkout (a function) with agent-supplied data
   const writable = (path: string): boolean =>
-    !manifestMode || (roots ?? []).some((root) => underRoot(path, root))
+    !manifestMode || (roots ?? []).some((root) => extendsPath(root, path))
 
   const assertScope = (path: string): void => {
     if (!inScope(path)) {
@@ -727,12 +738,26 @@ export function enableAgentInterface(
   // `note` are synthetic audit events (when() arming etc.), visible in
   // log() but skipped by the changes() drain.
   let seq = 0
+  // RING BUFFER. `observe(() => true, …)` records every settled touch, and
+  // the documented pattern is enable-once-and-leave — 20k touches measured
+  // 3.2 MB. `seq` stays monotonic so cursors keep working across a trim,
+  // and a drain that spans dropped entries says so rather than pretending
+  // it saw everything.
+  const maxLog = options.maxLog ?? 10_000
+  let dropped = 0
   const ledger: AgentLogEntry[] = []
+  const record = (entry: AgentLogEntry): void => {
+    ledger.push(entry)
+    if (ledger.length > maxLog) {
+      dropped += ledger.length - maxLog
+      ledger.splice(0, ledger.length - maxLog)
+    }
+  }
   const pendingWhens = new Set<{ reject: (reason: Error) => void }>()
   const ledgerListener: Listener = observe(
     () => true,
     (path: string) => {
-      if (inScope(path)) ledger.push({ seq: ++seq, path })
+      if (inScope(path)) record({ seq: ++seq, path })
     }
   )
   const subscriptions = new Set<Listener>()
@@ -903,6 +928,16 @@ export function enableAgentInterface(
               wired = true
             }
           }
+          // BAIL FIRST. measureBounds is a getBoundingClientRect plus a
+          // fixed/sticky ancestor walk that calls getComputedStyle up to 12
+          // times — and every custom element on the page is fed in here.
+          // Measuring before the wired check meant ~70% of that work was
+          // thrown away on a redraw the docs recommend running on every
+          // state change.
+          if (!wired) {
+            seen.delete(el) // release the claim; the structural tier may want it
+            return undefined
+          }
           // geometry: the layout is part of the semantics
           const measured = measureBounds(el, viewportView)
           if (measured != null) {
@@ -921,12 +956,6 @@ export function enableAgentInterface(
               borderColor: cs.borderTopColor,
               color: cs.color,
             }
-          }
-          if (!wired) {
-            // not an affordance — release the claim so the STRUCTURAL tier
-            // can still pick this element up (containers of wired elements)
-            seen.delete(el)
-            return undefined
           }
           return record
         }
@@ -1060,7 +1089,7 @@ export function enableAgentInterface(
         // constraints and $predicates see the edit in context
         let proposal: { root: string; proposed: any } | undefined
         const root = contractRoots
-          .filter((contractRoot) => underRoot(path, contractRoot))
+          .filter((contractRoot) => extendsPath(contractRoot, path))
           .sort((a, b) => b.length - a.length)[0]
         if (root != null) {
           if (path === root) {
@@ -1082,7 +1111,7 @@ export function enableAgentInterface(
         if (verdict !== true) {
           // refusals are audit events: what an agent TRIED matters as much
           // as what it did
-          ledger.push({
+          record({
             seq: ++seq,
             path,
             note: `write rejected: ${verdict.message}`,
@@ -1096,13 +1125,13 @@ export function enableAgentInterface(
       // inline declarations beneath it.
       const curated =
         contract != null &&
-        contractRoots.some((contractRoot) => underRoot(path, contractRoot))
+        contractRoots.some((contractRoot) => extendsPath(contractRoot, path))
       if (!curated) {
         const schema = inlineSchemaFor(path)
         if (schema != null) {
           const err = contractViolation(value, schema)
           if (err != null) {
-            ledger.push({
+            record({
               seq: ++seq,
               path,
               note: `write rejected: ${err}`,
@@ -1153,10 +1182,10 @@ export function enableAgentInterface(
         return Promise.reject(e)
       }
       if (alreadySatisfied) {
-        ledger.push({ seq: ++seq, path, note: 'when: already satisfied' })
+        record({ seq: ++seq, path, note: 'when: already satisfied' })
         return Promise.resolve(current)
       }
-      ledger.push({
+      record({
         seq: ++seq,
         path,
         note: `when: armed ${String(predicate).slice(0, 80)}`,
@@ -1180,7 +1209,7 @@ export function enableAgentInterface(
             return
           }
           if (satisfied) {
-            ledger.push({ seq: ++seq, path, note: 'when: resolved' })
+            record({ seq: ++seq, path, note: 'when: resolved' })
             settle(() => resolve(value))
           }
         })
@@ -1191,7 +1220,11 @@ export function enableAgentInterface(
     // turn-based drain: everything since the cursor, coalesced to one entry
     // per path (final value read at drain time — updates()' settling
     // semantics, extended across agent turns)
-    changes(since = 0): { cursor: number; changes: AgentChange[] } {
+    changes(since = 0): {
+      cursor: number
+      changes: AgentChange[]
+      truncated?: boolean
+    } {
       const seenPaths = new Set<string>()
       const coalesced: AgentChange[] = []
       for (let i = ledger.length - 1; i >= 0; i--) {
@@ -1202,7 +1235,13 @@ export function enableAgentInterface(
         seenPaths.add(entry.path)
         coalesced.unshift({ path: entry.path, value: read(entry.path) })
       }
-      return { cursor: seq, changes: coalesced }
+      // a drain that reaches past trimmed entries cannot claim completeness:
+      // compare against the OLDEST entry still held, not a computed offset
+      const oldestHeld = ledger.length > 0 ? ledger[0].seq : seq + 1
+      const truncated = dropped > 0 && oldestHeld > since + 1
+      return truncated
+        ? { cursor: seq, changes: coalesced, truncated: true }
+        : { cursor: seq, changes: coalesced }
     },
 
     log(): AgentLogEntry[] {

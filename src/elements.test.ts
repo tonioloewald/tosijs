@@ -417,3 +417,88 @@ test('bind spec with string binding name renders (not a silent no-op)', async ()
   expect(el.textContent).toBe('hello') // 'text' binding must resolve and render
   el.remove()
 })
+
+describe('observed attributes on THIRD-PARTY elements (tosijs#24 regression guard)', () => {
+  test('a null-initialised observed property still reflects to the attribute', () => {
+    class NullInit extends HTMLElement {
+      static observedAttributes = ['count', 'label']
+      count: any = null // typeof null === 'object' — must not look "declared"
+      label: any = null
+      changes: string[] = []
+      attributeChangedCallback(name: string, _old: string, value: string) {
+        this.changes.push(`${name}=${value}`)
+      }
+    }
+    if (!customElements.get('null-init-widget')) {
+      customElements.define('null-init-widget', NullInit)
+    }
+    const el = (elements as any).nullInitWidget({ count: 5, label: 'x' }) as any
+    document.body.append(el)
+    // the attribute is what a third-party widget renders from
+    expect(el.getAttribute('count')).toBe('5')
+    expect(el.changes).toContain('count=5')
+    expect(el.getAttribute('label')).toBe('x')
+    el.remove()
+  })
+
+  test('reactive updates keep reflecting (the elementPropBinding path)', async () => {
+    class Reflecting extends HTMLElement {
+      static observedAttributes = ['level']
+      level: any = null
+    }
+    if (!customElements.get('reflecting-widget')) {
+      customElements.define('reflecting-widget', Reflecting)
+    }
+    const { m1App } = tosi({ m1App: { level: 1 } })
+    const el = (elements as any).reflectingWidget({ level: m1App.level }) as any
+    document.body.append(el)
+    await updates()
+    expect(el.getAttribute('level')).toBe('1')
+    // every later reactive update must keep going to the attribute
+    ;(m1App as any).level = 9
+    await updates()
+    expect(el.getAttribute('level')).toBe('9')
+    el.remove()
+  })
+
+  test('boolean attributes still toggle on third-party elements', () => {
+    class Toggling extends HTMLElement {
+      static observedAttributes = ['open']
+      open: any = null
+    }
+    if (!customElements.get('toggling-widget')) {
+      customElements.define('toggling-widget', Toggling)
+    }
+    const el = (elements as any).togglingWidget({ open: true }) as any
+    document.body.append(el)
+    expect(el.hasAttribute('open')).toBe(true)
+    const off = (elements as any).togglingWidget({ open: false }) as any
+    document.body.append(off)
+    expect(off.hasAttribute('open')).toBe(false) // removal must still work
+    el.remove()
+    off.remove()
+  })
+
+  test('a tosijs Component still gets the declared-type routing (tosijs#24)', async () => {
+    const { Component } = await import('./component')
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    let el: any
+    try {
+      class Declared extends Component {
+        static preferredTagName = 'declared-onoff'
+        static initAttributes = { pointerEvents: 'on' }
+        content = null
+      }
+      el = Declared.elementCreator()({ pointerEvents: false }) as any
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    // declared string attr + boolean write = reported, not silently dropped
+    expect(el.pointerEvents).not.toBe('on')
+    expect(errors.some((e) => e.includes('tosijs#24'))).toBe(true)
+    el.remove()
+  })
+})

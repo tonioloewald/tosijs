@@ -936,3 +936,29 @@ describe('the posture: safe by default, full access behind one line', () => {
     expect(() => agent.write('postureManifest.secret', 'x')).toThrow(/not exposed/)
   })
 })
+
+describe('the audit ledger is bounded (review M8)', () => {
+  test('a long-lived surface does not grow without bound, and says when it dropped', async () => {
+    tosi({ ledgerApp: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      maxLog: 50,
+    }))
+    const { cursor } = agent.changes()
+    for (let i = 1; i <= 200; i++) {
+      agent.write('ledgerApp.n', i)
+      await updates()
+    }
+    // bounded…
+    expect(agent.log().length).toBeLessThanOrEqual(50)
+    // …and honest: a drain from before the trim admits it saw a window
+    const drained = agent.changes(cursor)
+    expect(drained.truncated).toBe(true)
+    // seq stays monotonic, so cursors keep working
+    expect(drained.cursor).toBeGreaterThanOrEqual(200)
+    // a drain from a live cursor is complete and says nothing
+    expect(agent.changes(drained.cursor).truncated).toBeUndefined()
+  })
+})

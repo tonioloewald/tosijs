@@ -124,6 +124,11 @@ export interface AgentInterfaceOptions {
      * enable time — enable AFTER the UI is wired (re-enabling reconfigures).
      */
     webmcp?: boolean | WebMCPAdapterOptions;
+    /** audit-ledger cap (default 10,000 entries). The ledger records every
+     * settled touch and surfaces are meant to be enabled once and left, so
+     * it is a ring buffer; `changes()` reports `truncated: true` if a drain
+     * spans dropped entries. */
+    maxLog?: number;
 }
 /**
  * Provenance tokens for bound properties in describe() output. A bound prop
@@ -296,6 +301,9 @@ export interface AgentInterface {
     changes: (since?: number) => {
         cursor: number;
         changes: AgentChange[];
+        /** present and true when the drain reached past entries the ring
+         * buffer had already dropped — you did not see everything */
+        truncated?: boolean;
     };
     /**
      * Await a state CONDITION, not a change: resolves (with the satisfying

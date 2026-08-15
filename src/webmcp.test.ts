@@ -234,3 +234,45 @@ describe('tosi_surface — the identity tool (tosijs#23)', () => {
     expect(identity.capabilities.includes('describe')).toBe(true)
   })
 })
+
+describe('a refused tool is not a registered tool (review M23)', () => {
+  test('the receipt lists what the host ACCEPTED, and a failure is not held', () => {
+    tosi({ mcpRefuse: { x: 1, go() {} } })
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    const accepted: string[] = []
+    const host = {
+      registerTool(tool: any) {
+        // a host that rejects one tool (bad schema, quota, transient…)
+        if (tool.name === 'tosi_changes') throw new Error('schema rejected')
+        accepted.push(tool.name)
+        return { unregister() {} }
+      },
+    }
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let mcp: any
+    try {
+      mcp = webmcpAdapter(agent, { modelContext: host })!
+    } finally {
+      console.warn = original
+    }
+    // the receipt does not claim a tool the host never received
+    expect(mcp.tools).toEqual(accepted)
+    expect(mcp.tools).not.toContain('tosi_changes')
+    expect(warnings.some((w) => w.includes('tosi_changes'))).toBe(true)
+
+    // …and the failure did not blacklist the name: a later attempt retries
+    const retryHost = {
+      registerTool(tool: any) {
+        accepted.push(`retry:${tool.name}`)
+        return { unregister() {} }
+      },
+    }
+    const second = webmcpAdapter(agent, { modelContext: retryHost })!
+    expect(second.tools).toContain('tosi_changes')
+  })
+})

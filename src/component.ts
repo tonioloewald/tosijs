@@ -905,8 +905,23 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             `declared attribute needs one.`
         )
       }
-      derivedInitAttributes.set(this, derived)
-      return derived
+      // INHERITANCE: a subclass declaring contract.attributes must not
+      // silently drop the base class's initAttributes. `hasOwnProperty`
+      // skips the same-class BOTH-declared throw for inherited ones, so
+      // without this merge `Child.observedAttributes` lost every inherited
+      // name and reflection was severed in both directions — no throw, no
+      // warning. That is exactly the intended migration shape (add a
+      // contract to a subclass of an initAttributes base), so merge with
+      // the subclass winning per key.
+      const inherited = Object.getPrototypeOf(this) as typeof Component
+      const inheritedAttrs =
+        typeof inherited?._resolveInitAttributes === 'function'
+          ? inherited._resolveInitAttributes()
+          : undefined
+      const merged =
+        inheritedAttrs != null ? { ...inheritedAttrs, ...derived } : derived
+      derivedInitAttributes.set(this, merged)
+      return merged
     }
     if (
       ownInit != null &&

@@ -464,18 +464,31 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
       observedAttrs?.includes(key) || observedAttrs?.includes(attr)
 
     if (isObservedAttr) {
-      const declared = (elt as { [key: string]: any })[key]
       // tosijs#24: only treat a boolean VALUE as an HTML boolean attribute
-      // when the attribute is actually boolean-typed. Writing `false` to an
+      // when the attribute is actually boolean-TYPED. Writing `false` to an
       // attribute declared `'on' | 'off'` used to land here and REMOVE the
       // attribute, so the element silently read back its default — a
-      // feature explicitly turned off stayed on. Route type-mismatched
-      // writes through the property instead: the component's own setter
-      // knows the declared type and says so.
+      // feature explicitly turned off stayed on.
+      //
+      // The type must come from a DECLARATION, never from the property's
+      // current value: a third-party element whose `count` initialises to
+      // `null` would otherwise look "object-typed" (typeof null === 'object'),
+      // and every numeric write would be routed away from the attribute —
+      // its attributeChangedCallback would never fire and it would render
+      // nothing. Only tosijs Components declare attribute types, so only
+      // they get the mismatch routing.
+      const declaredAttrs = (
+        elt.constructor as unknown as {
+          _resolveInitAttributes?: () => Record<string, any> | undefined
+        }
+      )._resolveInitAttributes?.()
+      const declaredDefault = declaredAttrs?.[key] ?? declaredAttrs?.[attr]
       const typeMismatch =
-        declared !== undefined &&
+        declaredDefault !== undefined &&
+        declaredDefault !== null &&
         value !== null &&
-        typeof value !== typeof declared
+        value !== undefined &&
+        typeof value !== typeof declaredDefault
       if (typeMismatch) {
         ;(elt as { [key: string]: any })[key] = value
       } else if (typeof value === 'boolean') {
