@@ -962,3 +962,94 @@ describe('the audit ledger is bounded (review M8)', () => {
     expect(agent.changes(drained.cursor).truncated).toBeUndefined()
   })
 })
+
+describe('list bindings on the agent surface (review M17)', () => {
+  test('every rendered row is a record with its OWN resolved paths', async () => {
+    const { listRows } = tosi({
+      listRows: {
+        items: [
+          { id: 1, label: 'alpha', done: false },
+          { id: 2, label: 'beta', done: true },
+        ],
+      },
+    })
+    await updates()
+    const { ul } = elements
+    const list = ul(
+      ...(listRows.items as any).listBinding(
+        ({ li, input: check, span }: any, item: any) =>
+          li(
+            check({ type: 'checkbox', bindValue: item.done }),
+            span({ textContent: item.label })
+          ),
+        { idPath: 'id' }
+      )
+    )
+    document.body.append(list)
+    await updates()
+
+    const agent = enableAgentInterface({ global: false, expose: 'all' })
+    try {
+      const wiring = agent.describe().wiring
+      // one checkbox record per row, each bound to ITS OWN id-path
+      const checks = wiring.filter((w) => w.type === 'checkbox')
+      expect(checks.length).toBe(2)
+      const paths = checks.map((w) => String(w.value))
+      expect(paths.some((p) => p.includes('listRows.items[id=1].done'))).toBe(true)
+      expect(paths.some((p) => p.includes('listRows.items[id=2].done'))).toBe(true)
+      // live state per row, not the template's
+      expect(checks.find((w) => String(w.value).includes('id=2'))?.checked).toBe(true)
+      // and an agent write reaches the right row
+      agent.write('listRows.items[id=1].done', true)
+      await updates()
+      const after = agent
+        .describe()
+        .wiring.filter((w) => w.type === 'checkbox')
+        .find((w) => String(w.value).includes('id=1'))
+      expect(after?.checked).toBe(true)
+    } finally {
+      agent.disable()
+      list.remove()
+    }
+  })
+
+  test('a per-row inline contract survives cloning and is ENFORCED per row', async () => {
+    const { rowContracts } = tosi({
+      rowContracts: { items: [{ id: 1, qty: 1 }, { id: 2, qty: 2 }] },
+    })
+    await updates()
+    const { ul } = elements
+    const list = ul(
+      ...(rowContracts.items as any).listBinding(
+        ({ li, input }: any, item: any) =>
+          li(
+            input({
+              type: 'number',
+              bindValue: item.qty,
+              contract: { type: 'integer' },
+            })
+          ),
+        { idPath: 'id' }
+      )
+    )
+    document.body.append(list)
+    await updates()
+
+    const agent = enableAgentInterface({ global: false, expose: 'all' })
+    try {
+      // the template's contract reached EVERY cloned row (cloneWithBindings)
+      const contract = agent.describe().contract ?? {}
+      const keys = Object.keys(contract).filter((k) => k.includes('rowContracts'))
+      expect(keys.length).toBe(2)
+      // …and it is enforced per row, not just declared
+      expect(() =>
+        agent.write('rowContracts.items[id=1].qty', 'not a number')
+      ).toThrow(/contract/)
+      agent.write('rowContracts.items[id=1].qty', 7)
+      expect(agent.read('rowContracts.items[id=1].qty')).toBe(7)
+    } finally {
+      agent.disable()
+      list.remove()
+    }
+  })
+})

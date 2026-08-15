@@ -232,7 +232,7 @@ preview.classList.add(&#39;split-view&#39;)
 detail.style.gridColumn = &#39;1 / -1&#39;
 preview.append(tabs, detail)
 </code></pre>
-<pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG } from &#39;tosijs&#39;
+<pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG, elements, tosi, updates } from &#39;tosijs&#39;
 
 test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers only)&#39;, async () =&gt; {
   const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
@@ -246,14 +246,44 @@ test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers 
   expect(blob.size &gt; 0).toBe(true)
 })
 
-test(&#39;the delete affordance: named by its title, gated by checked-ness&#39;, () =&gt; {
+test(&#39;the delete affordance: named by its title, gated by checked-ness&#39;, async () =&gt; {
   const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
-  const dels = agent.describe().wiring.filter((w) =&gt; w.label === &#39;delete&#39;)
-  expect(dels.length &gt;= 2).toBe(true)
-  // the checked todo&#39;s delete is live; the unchecked one is disabled —
+  // build our OWN rows: a doc test must not depend on another fence&#39;s DOM
+  // (the runner executes fences in isolated frames, in no fixed order)
+  const { ul, li, button } = elements
+  const { delFence } = tosi({
+    delFence: { rows: [{ id: 1, done: true }, { id: 2, done: false }] },
+  })
+  const list = ul(
+    ...delFence.rows.listBinding(
+      ({ li: row, button: btn }, item) =&gt;
+        row(
+          btn(&#39;x&#39;, {
+            title: &#39;delete-fence&#39;,
+            bind: {
+              value: item.done,
+              binding: (el, done) =&gt; {
+                el.disabled = !done
+              },
+            },
+            onClick() {},
+          })
+        ),
+      { idPath: &#39;id&#39; }
+    )
+  )
+  preview.append(list)
+  await updates()
+
+  const dels = agent
+    .describe()
+    .wiring.filter((w) =&gt; w.label === &#39;delete-fence&#39;)
+  expect(dels.length).toBe(2)
+  // the checked row&#39;s delete is live; the unchecked one is disabled —
   // a PRECONDITION, visible in the map (and faded in the schematic)
   expect(dels.some((w) =&gt; w.disabled === true)).toBe(true)
   expect(dels.some((w) =&gt; w.disabled == null)).toBe(true)
+  list.remove()
 })
 </code></pre>
 <p>One rectangle per wired element, at its <strong>actual position and size</strong>, wearing

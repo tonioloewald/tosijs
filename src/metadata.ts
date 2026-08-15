@@ -348,8 +348,25 @@ export const cloneWithBindings = (element: Node): Node => {
     const dataBindings = elementToBindings.get(element as Element)
     const eventHandlers = elementToHandlers.get(element as Element)
     if (dataBindings != null) {
-      // @ts-expect-error deepClone returns compatible type
-      elementToBindings.set(cloned, deepClone(dataBindings))
+      // Copy the ENTRIES, share the BINDING objects. A binding is a
+      // stateless spec (`{toDOM, fromDOM}`) and its identity is meaningful:
+      // the agent surface names a bound prop by looking the binding up in
+      // the shared `bindings` collection, so a deep-cloned binding turned
+      // every list row's `value: "x ⟷ path"` into an anonymous `detail[]`
+      // entry — rows were legible to the framework but not to the map.
+      // What must be per-row is the path, the options, and a take()'s input
+      // paths (rewritten per row at instantiation).
+      elementToBindings.set(
+        cloned,
+        dataBindings.map((entry) => ({
+          ...entry,
+          options: entry.options != null ? { ...entry.options } : undefined,
+          take:
+            entry.take != null
+              ? { ...entry.take, paths: [...entry.take.paths] }
+              : undefined,
+        }))
+      )
     }
     if (eventHandlers != null) {
       // @ts-expect-error deepClone returns compatible type

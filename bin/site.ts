@@ -238,6 +238,34 @@ async function buildLibrary() {
   }
   console.log('smoke import: module.js, core.js, state.js, index.js all load')
 
+  // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom
+  // globals before importing, so a top-level `document.` anywhere reachable
+  // from index-state.ts would sail through it — and through `bun test`,
+  // which runs under happy-dom too. Only a BARE node process can prove the
+  // claim, and it has to run after state.js exists.
+  const domFree = Bun.spawnSync(
+    [
+      'node',
+      '--input-type=module',
+      '-e',
+      `import { tosi, observe, updates, xin } from '${DIST}/state.js'
+       const { buildGate } = tosi({ buildGate: { n: 0 } })
+       await updates()
+       const seen = []
+       observe('buildGate.n', (p) => seen.push(p))
+       buildGate.n = 42
+       await updates()
+       if (seen[0] !== 'buildGate.n' || xin['buildGate.n'] !== 42) process.exit(2)`,
+    ],
+    { stderr: 'pipe', stdout: 'pipe' }
+  )
+  if (domFree.exitCode !== 0) {
+    console.error('tosijs/state is NOT DOM-free (tosijs#18):')
+    console.error(domFree.stderr.toString().slice(0, 800))
+    throw new Error('dist/state.js requires a DOM')
+  }
+  console.log('dom-free gate: tosijs/state imports and runs under bare node')
+
   console.timeEnd('library')
 }
 

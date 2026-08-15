@@ -193,7 +193,7 @@ preview.append(tabs, detail)
 ```
 
 ```test
-import { enableAgentInterface, schematicSVG, rasterizeSVG } from 'tosijs'
+import { enableAgentInterface, schematicSVG, rasterizeSVG, elements, tosi, updates } from 'tosijs'
 
 test('the full pipeline: map -> SVG string -> PNG blob (real browsers only)', async () => {
   const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
@@ -207,14 +207,44 @@ test('the full pipeline: map -> SVG string -> PNG blob (real browsers only)', as
   expect(blob.size > 0).toBe(true)
 })
 
-test('the delete affordance: named by its title, gated by checked-ness', () => {
+test('the delete affordance: named by its title, gated by checked-ness', async () => {
   const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
-  const dels = agent.describe().wiring.filter((w) => w.label === 'delete')
-  expect(dels.length >= 2).toBe(true)
-  // the checked todo's delete is live; the unchecked one is disabled —
+  // build our OWN rows: a doc test must not depend on another fence's DOM
+  // (the runner executes fences in isolated frames, in no fixed order)
+  const { ul, li, button } = elements
+  const { delFence } = tosi({
+    delFence: { rows: [{ id: 1, done: true }, { id: 2, done: false }] },
+  })
+  const list = ul(
+    ...delFence.rows.listBinding(
+      ({ li: row, button: btn }, item) =>
+        row(
+          btn('x', {
+            title: 'delete-fence',
+            bind: {
+              value: item.done,
+              binding: (el, done) => {
+                el.disabled = !done
+              },
+            },
+            onClick() {},
+          })
+        ),
+      { idPath: 'id' }
+    )
+  )
+  preview.append(list)
+  await updates()
+
+  const dels = agent
+    .describe()
+    .wiring.filter((w) => w.label === 'delete-fence')
+  expect(dels.length).toBe(2)
+  // the checked row's delete is live; the unchecked one is disabled —
   // a PRECONDITION, visible in the map (and faded in the schematic)
   expect(dels.some((w) => w.disabled === true)).toBe(true)
   expect(dels.some((w) => w.disabled == null)).toBe(true)
+  list.remove()
 })
 ```
 

@@ -45,7 +45,14 @@ describe('entry points', () => {
     // mask exactly the failure we're pinning
     const { existsSync } = await import('node:fs')
     const bundle = 'dist/state.js'
-    if (!existsSync(bundle)) return // pre-build run; the build gate covers it
+    // NB: `bun run build` wipes dist BEFORE running the suite, so this is
+    // normally absent here — the REAL gate runs inside buildLibrary() after
+    // the bundle exists (bare node, no happy-dom). This copy is for
+    // developers running `bun test` against an existing build.
+    if (!existsSync(bundle)) {
+      console.log('(state.js absent — the build\'s dom-free gate covers this)')
+      return
+    }
     const script = `
       import { tosi, observe, updates, xin } from './${bundle}'
       const { nodeProbe } = tosi({ nodeProbe: { n: 0 } })
