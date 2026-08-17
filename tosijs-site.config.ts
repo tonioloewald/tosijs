@@ -5,7 +5,7 @@ const PROJECT = 'tosijs'
 export default defineSiteConfig({
   name: PROJECT,
   description:
-    'Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.',
+    'Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer.',
   baseUrl: 'https://tosijs.net',
 
   projectLinks: {
@@ -41,7 +41,6 @@ export default defineSiteConfig({
     'Migration.md',
     'React.md',
     'Angular.md',
-    // branch-only for now: the ONE USER INTERFACE plan-ifesto (private branch)
     'one-user-interface.md',
     'derived-surface.md',
     'agent-surface.md',

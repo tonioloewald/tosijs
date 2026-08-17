@@ -11,7 +11,7 @@ RESOLVED when the fix lands and we've adopted it.
 
 ## haltija
 
-### ✅ RESOLVED — `--private` isolated automation instances
+### 🚧 Per-tab routing by declared origins (issue REOPENED and retitled upstream)
 **Issue:** https://github.com/tonioloewald/haltija/issues/1
 Spawned automation runs (the doc-test lane) adopted a foreign shared haltija on
 port 8700 and navigated another project's live browser to our pages, then timed
@@ -19,13 +19,13 @@ out. `haltija --private` (shipped 1.4.1, in direct response to #1) binds an
 ephemeral port, isn't registered, and never reaches out. (My original framing —
 "private instances don't exist" — was wrong; corrected in the issue thread.)
 
-### 🚧 `hj tabs focus <id>` times out for a live, listed tab
+### ✅ RESOLVED (closed upstream) `hj tabs focus <id>` times out for a live, listed tab
 **Issue:** https://github.com/tonioloewald/haltija/issues/4
 Tested 1.4.0. A hidden tab may be unreachable by construction if `tabs focus` is
 tab-dispatched. Workaround: `hj eval '…' --window <id>` (after the subcommand)
 targets a specific tab regardless of focus.
 
-### 🚧 Engine modes aren't discoverable (`--headless` = Playwright; `--private`/`--ci` = Electron, no Playwright)
+### ✅ RESOLVED (closed upstream) Engine modes aren't discoverable (`--headless` = Playwright; `--private`/`--ci` = Electron, no Playwright)
 **Issue:** https://github.com/tonioloewald/haltija/issues/6
 `--headless` drives Chromium **via Playwright** (needs it as a dep); `--private`/`--ci`
 use **Electron directly, no Playwright**. Both `--help` lines say "for CI", so an agent
@@ -35,12 +35,20 @@ corrected. Ask: state the engine in `--help`/banner; the only real reason for
 `--headless`/Playwright is multi-engine (Firefox/WebKit) coverage. **This is why the
 tosijs CI browser lane uses `xvfb + bunx haltija -f` (Electron), not Playwright.**
 
-### 🚧 A tab with no injected client is silently uncontrollable
+### ✅ RESOLVED (closed upstream) A tab with no injected client is silently uncontrollable
 **Issue:** https://github.com/tonioloewald/haltija/issues/5
 `hj tabs` lists such a tab as healthy and commands silently retarget the focused
 tab, so it reads as a routing bug. Ask: surface `"client": "none"` / explain
 `"fallback": true`, or error instead of silently retargeting. (Consumer half —
 surfacing the `haltijaDev` opt-in — is tosijs-ui#18.)
+
+### 🕐 BLOCKED ON US — haltija#16, "Bridge design (HOLD until tosijs ships the agent surface)"
+**Issue:** https://github.com/tonioloewald/haltija/issues/16 (OPEN)
+haltija is holding a native-bridge design pending the agent surface, so
+tosijs 1.8.0 is the event that unblocks it — and `agent.version`
+(tosijs#23, fixed here) is precisely what lets haltija detect the surface's
+SHAPE instead of duck-typing `describe`. Answer the convergence questions
+there when the rc publishes.
 
 ## tosijs-ui
 
@@ -87,6 +95,20 @@ issues (repo redirects post-rename), mirrored here. Adopting a new
 version = bump the devDep, `bun update`, rebuild, sync any output-truth
 tests deliberately.
 
+### 🚧 FILED — Target-size + "is interactive" implemented twice, and they disagree
+**Issue:** https://github.com/tonioloewald/tosijs-floorplan/issues/4
+tosijs's `auditAccessibility` and the vendored renderer each decide WCAG
+2.5.8 independently, and they already give contradictory verdicts on the
+same element: `audit.isInteractive` counts `href`, the renderer's does not;
+audit's inline-link exemption reads `label ?? text`, the renderer's reads
+only text. So an icon-only `<a href onClick aria-label="Buy">` at 20×20
+audits CLEAN while the drawing flags it, and a nameless 16×16 `<a href>`
+does the reverse — inside the very workflow `audit.ts` recommends. Because
+`src/schematic.ts` is machine-vendored (DO NOT EDIT), the reconciliation
+must happen in tosijs-floorplan: export the predicate and the target-size
+rule so one implementation serves both, or accept producer `flags` as
+authoritative and drop the built-in audit. **Filed upstream.**
+
 ### ✅ RESOLVED (tosijs-floorplan 0.3.0, adopted 2026-08-09)
 0.3.0 published under the new name with the second haltija batch folded in
 (href/value fields, the inline target-size exception, wrapped-caption fix).
@@ -95,9 +117,32 @@ from the package name), `href` harvested by describe() with bare-link
 enumeration (links are intrinsic affordances — the contenteditable
 precedent), suite synced.
 
+## tosijs-schema
+
+### ✅ RESOLVED (tosijs-schema 1.5.0 / 1.5.1) — `agentContract()` + executable-contract conventions
+**Issue:** https://github.com/tonioloewald/tosijs-schema/issues/2 (CLOSED)
+The blessed adapter behind 1.8.0's contract seam ships upstream: it fails
+CLOSED on a contracted write with no proposal, and refuses at construction
+any schema keyword `validate` does not actually enforce. tosijs's suite runs
+against the published adapter and pins the proposal guarantee from this side
+(tosijs#25, closed). 1.5.1 carries haltija's `s.any` serialization fix —
+which would otherwise have ridden into `describe().contract`.
+
+## WebMCP (the standard, not a repo)
+
+### 🚧 (to file) No unregistration seam in the host API
+Chrome Canary's `document.modelContext.registerTool` returns no handle and
+there is no `unregisterTool`, so a page cannot withdraw a tool it
+registered. tosijs compensates with register-once semantics per host
+(`registeredOnHost`, `src/webmcp.ts`) — deliberate and tested, but it means
+a surface that re-enables cannot refresh its tool set, and a host that
+rejects a tool must not be treated as holding it (fixed here after the
+1.8.0 review). File against the spec discussion once the shape settles.
+
 ## tjs-lang
 
-### 🚧 (to file) Post-eval reconfiguration seam for `globalThis.__tjs`
+### ✅ RESOLVED — Post-eval reconfiguration seam for `globalThis.__tjs`
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/23 (CLOSED)
 Converted modules capture `globalThis.__tjs?.createRuntime?.()` at eval time, so
 config set after the library's `export *` has evaluated configures nothing — the
 `configure-tjs-*` import-order workaround compensates for this. Needs either a

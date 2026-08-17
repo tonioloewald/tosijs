@@ -1,6 +1,6 @@
 # tosijs
 
-<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~35kB gzipped (~16kB for the DOM-free state layer). Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 

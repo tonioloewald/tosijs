@@ -48,13 +48,19 @@
 <h1>Plan &amp; Prior Art</h1>
 <!--{ "parent": "One User Interface", "order": 5, "description": "Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." }-->
 
-<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — how we get there, what remains open, and why the window is real.</em></p>
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — what shipped, what
+remains open, and why the window is real.</em></p>
 <blockquote>
-<p><strong>Status (2026-08-03):</strong> Phases 0–2 are <strong>done</strong>. Phase 3 is done except
-one open convergence question with haltija. Phase 4 is <strong>not started</strong>.
-Phase 5 is <strong>design only</strong> — nothing is built (its page says so too).
-Every &quot;done&quot; below happened in a shipping browser or a real test lane,
-not on paper.</p>
+<p><strong>Where this stands at 1.8.0.</strong> Phases 0–3 <strong>shipped</strong>: the surface, the
+contracts, the drawn map, and the browser bridge (registration <em>and</em>
+invocation verified in Chrome Canary; haltija ships a native tier that
+consumes <code>describe()</code> directly). Phases 4 and 5 are <strong>not built</strong> — they
+are recorded here as direction, and the pages say so. Every &quot;shipped&quot;
+below happened in a shipping browser or a real test lane, not on paper.</p>
+<p>The prior-art survey further down is the part worth reading even if you
+never use the agent surface: it is the only written comparison of the
+WebMCP landscape we know of, and it explains <em>why</em> a framework-native
+map is a different thing from an automation adapter.</p>
 </blockquote>
 <h2>The plan</h2>
 <table>
@@ -70,23 +76,23 @@ not on paper.</p>
 </tr>
 <tr>
 <td>1 — the surface</td>
-<td>✅ built, 730-test suite</td>
+<td>✅ shipped in 1.8.0 (<code>tosijs/agent</code>)</td>
 </tr>
 <tr>
 <td>2 — manifests + contracts</td>
-<td>✅ built, incl. component contracts</td>
+<td>✅ shipped — app, component <strong>and</strong> inline element contracts</td>
 </tr>
 <tr>
 <td>3 — the bridge</td>
-<td>✅ registration <strong>and invocation</strong> ran in Chrome Canary; haltija shipped its native tier — remaining: <a href="https://github.com/tonioloewald/haltija/issues/16">haltija#16</a> convergence answers</td>
+<td>✅ shipped — WebMCP auto-registration; registration <strong>and invocation</strong> verified in Chrome Canary 153; haltija ships a native tier. Open: <a href="https://github.com/tonioloewald/haltija/issues/16">haltija#16</a> bridge design, which 1.8.0 unblocks</td>
 </tr>
 <tr>
 <td>4 — distance</td>
-<td>⬜ not started</td>
+<td>⬜ not built — design recorded below</td>
 </tr>
 <tr>
 <td>5 — headless embodiment</td>
-<td>⬜ design only</td>
+<td>⬜ not built — see <a href="/headless-embodiment/">Headless Embodiment</a> for what <em>is</em> real</td>
 </tr>
 </tbody></table>
 <ul>
@@ -102,8 +108,10 @@ with <code>describe</code>/<code>read</code>/<code>write</code>/<code>observe</c
 the <code>tosiAgent</code> global, manifest scoping (declared actions are <em>callable,
 not writable</em>), flat geometric records with arrow provenance, plus the
 downstream pure functions (<code>schematicSVG</code>/<code>rasterizeSVG</code>, <code>webmcpTools</code>).
-Publishing shape TBD: likely a tree-shaken <code>tosijs/agent</code> subpath, shipped
-EXPERIMENTAL like <code>tosijs/debug</code>. Still open from the original scope:
+<strong>Published</strong> as the <code>tosijs/agent</code> subpath (the same file as <code>tosijs</code>
+with narrower types — a separately-bundled surface would carry its own
+copy of the state registry), marked EXPERIMENTAL like <code>tosijs/debug</code>, and
+omitted from the <code>&lt;script&gt;</code>/CDN build, which cannot tree-shake. Still open from the original scope:
 preconditions from enabled-bindings and item schemas from list templates
 (both land naturally with Phase 2&#39;s contracts).</li>
 <li><strong>Phase 2 — manifest + contracts.</strong> <strong>Core shipped</strong> (2026-08-03): the

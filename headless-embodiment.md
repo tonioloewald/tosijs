@@ -3,11 +3,18 @@
 
 *Part of [One User Interface](/one-user-interface/) — the app as its abstract self, embodiment on demand.*
 
-> **Status: mostly aspiration.** The level-0 demo below is real and tested,
-> and happy-dom already runs tosijs in two production paths (level 1's
-> feasibility proof) — but the inversion itself (a headless app vending UI
-> on demand, humans and agents as co-equal session peers) is **design, not
-> code**. Nothing on this page beyond the demo exists yet.
+> **Status: one part ships, the rest is design.**
+>
+> **Shipping (1.8.0):** the level-0 demo below, and the property that makes
+> the whole idea plausible — `schematicSVG()` is a pure function over plain
+> records, so a map that arrived over a wire can be drawn by a process that
+> never rendered the app. `tosijs/state` (DOM-free) means the state layer
+> itself already runs headless, in plain node, with no shim.
+>
+> **Design, not code:** the inversion itself — a headless app vending UI on
+> demand, with humans and agents as co-equal session peers. Nothing on this
+> page beyond the demo implements that, and no API for it exists. Read it
+> as a direction, not a feature list.
 
 The app is the model; the browser is just one embodiment. Below, level 0,
 live: a UI **vended as a string**, injected, and wired to live state with one

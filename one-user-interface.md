@@ -1,14 +1,19 @@
 # One User Interface
 <!--{ "pin": "bottom", "order": 320, "description": "One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." }-->
 
-*A plan and a manifesto: one source of truth for state, UI — and AI.*
+*One source of truth for state, UI — and AI.*
 
-> **Status: working prototype on this branch.** The surface
+> **Status: shipping in tosijs 1.8.0.** The surface
 > (`enableAgentInterface` → `tosiAgent`), the schematic pipeline
-> (`schematicSVG` / `rasterizeSVG`), and the WebMCP adapter (`webmcpTools` /
-> `webmcpAdapter`) are real, tested code here — every proof on these pages
-> runs on them. Nothing is *published* yet; everything is EXPERIMENTAL and
-> shapes may still move (see [Plan & Prior Art](/plan-and-prior-art/)).
+> (`schematicSVG` / `rasterizeSVG`, from
+> [tosijs-floorplan](https://github.com/tonioloewald/tosijs-floorplan)), the
+> contract harnesses and the accessibility audit are real, tested code —
+> every proof on these pages runs on the code you can install. They live
+> behind `tosijs/agent` (the same file, narrower types), and they are still
+> marked **EXPERIMENTAL**: the shapes have survived two producers and a
+> nine-lens review, but this is a first release and names may still move.
+> `enableAgentInterface()` is **read-only by default** — see
+> [Trust & Transports](/trust-and-transports/) for the exposure ladder.
 
 ## The thesis, in five claims
 
