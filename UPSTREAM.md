@@ -153,6 +153,19 @@ rejects a tool must not be treated as holding it (fixed here after the
 
 ## tjs-lang
 
+### 📋 FILED — schema islands enforced from inside the proxy (the 2.0 dissolve)
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/27
+The use case behind tosijs 1.8.0's contracts, recorded with its scars: a
+schema attachable to PART of the state tree (islands — `app.cart` typed,
+`app.scratch` free), enforced in the proxy's set trap rather than at two
+call sites. Would let 2.0 delete `contract-check.ts`, the whole-root
+proposal routing, the fail-open warning, one of the two plug seams, and the
+share/sync trust-boundary caveat. The strongest argument is **monadic
+errors**: 1.8.0's release blocker was a contract violation THROWN from a
+value setter inside the global binding-dispatch loop, stranding every
+element bound after it — with refusal as a value, that class of defect stops
+existing.
+
 ### ✅ RESOLVED — Post-eval reconfiguration seam for `globalThis.__tjs`
 
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/23 (CLOSED)

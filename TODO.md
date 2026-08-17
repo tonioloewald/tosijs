@@ -723,6 +723,40 @@ lands it on the release line.
   `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
   or by compiling boolean coercion checks to use `.valueOf()` instead
 
+## 2.0 / tjs — schema islands enforced from inside the proxy
+
+**The idea (Tonio, 2026-08-17):** applying a schema to *part* of state —
+islands, not the whole registry — is the same shape as 1.8.0's contracts,
+and **tjs is ideally placed to enforce it from inside the tosi proxy**.
+
+1.8.0 built contracts at three granularities (app `expose.contract`,
+component `static contract`, inline element `contract`) and every awkward
+edge came from enforcement living *outside* the thing being written:
+
+| 1.8.0 pain | why it exists | what proxy-level enforcement does |
+| --- | --- | --- |
+| checks run only at `agent.write()` and the component `value` setter | enforcement is bolted to two call sites | every write is checked, whatever the caller — `share()`, `sync()`, `hotReload()`, plain assignment |
+| sub-path writes must be routed to a synthesized whole-root **proposal** (clone + hypothetical apply) | the schema is root-shaped but the write is leaf-shaped | the path *carries* its own type; a leaf write is checked as a leaf |
+| validation **fails open** unless a host registers an engine (`type`/`enum`/`const` only) | tosijs is zero-dependency, so the checker is a plug | types are the language's job — no plug, no divergence between hosts |
+| two plug-in seams for one concern (`AgentContract.check`, `setContractValidator`) | two boundaries grew their own | one definition, attached to the path |
+| **B1**: a violation thrown from the value setter landed inside the global binding-dispatch loop and stranded every element bound after it | refusal is an exception, in a hot loop | **monadic errors** — a refused write is a *value*, not a control-flow event. This is the strongest argument of the five. |
+
+**Islands, explicitly.** A schema must be attachable to a subtree without
+claiming the rest: `app.cart` typed, `app.scratch` free. That is exactly
+what contract roots and manifest scoping already express, one layer down —
+and it is what makes the idea adoptable incrementally rather than as a
+rewrite. Relates to the `schematic` state-factory sketch (non-singleton,
+schema-first, boxed-from-birth) and to the 2.0 branch's
+`settings.strictness` (assignment-time type-drift), which is the same
+instinct at a coarser grain.
+
+**What it would delete here:** `contract-check.ts`, the proposal-routing in
+`agent.write()`, the fail-open warning added in this release, one of the two
+plug seams, and the "contracts don't cover share/sync" boundary note — a
+worked example of the practice that a framework feature should subtract more
+than it adds. **Filed upstream:** tjs-lang#(see UPSTREAM.md) so the language
+side has the use case with receipts.
+
 ## 2.0 refactoring candidates
 
 - **Remove deprecated exports** (~2-3KB gzipped): `xinPath`, `xinValue`, `boxedProxy`,
