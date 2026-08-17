@@ -284,6 +284,8 @@ test('alpha hex is rounded, not floored (medium backlog)', () => {
 
 test('named CSS colors parse without a DOM (css-colors table wired in)', () => {
   expect(Color.fromCss('red').toString().toLowerCase()).toBe('#ff0000')
-  expect(Color.fromCss('rebeccapurple').toString().toLowerCase()).toBe('#663399')
+  expect(Color.fromCss('rebeccapurple').toString().toLowerCase()).toBe(
+    '#663399'
+  )
   expect(Color.fromCss('  White  ').toString().toLowerCase()).toBe('#ffffff')
 })

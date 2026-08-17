@@ -87,7 +87,11 @@ export interface SchematicRecord {
   /** computed verdicts about this element (WCAG contrast failures, etc.) —
    * drawn as severity-colored bars on the LEFT edge (the unclaimed slot),
    * with the first flag's label */
-  flags?: Array<{ kind: string; label: string; severity?: 'info' | 'warn' | 'error' }>
+  flags?: Array<{
+    kind: string
+    label: string
+    severity?: 'info' | 'warn' | 'error'
+  }>
   /** pixels a pure renderer can't obtain: a data-URL snapshot of inline
    * media (serialized <svg>, <canvas>.toDataURL()) drawn IN PLACE — on an
    * illustration-led page the picture IS the content */
@@ -117,7 +121,6 @@ export interface SchematicDescription {
   exposure?: unknown
   contract?: unknown
 }
-
 
 export interface SchematicBounds {
   x: number
@@ -189,7 +192,11 @@ export interface SchematicLegendEntry {
   required?: boolean
   invalid?: boolean
   disabled?: boolean
-  flags?: Array<{ kind: string; label: string; severity?: 'info' | 'warn' | 'error' }>
+  flags?: Array<{
+    kind: string
+    label: string
+    severity?: 'info' | 'warn' | 'error'
+  }>
   /** the link's destination — carried whenever the record has one */
   href?: string
   /** the control's held value (provenance stripped), when the drawing
@@ -286,7 +293,10 @@ const wrapCaption = (
     }
   }
   if (lines.length < maxLines && line !== '') lines.push(line)
-  if (lines.length > maxLines || (lines.length === maxLines && line !== '' && !lines.includes(line))) {
+  if (
+    lines.length > maxLines ||
+    (lines.length === maxLines && line !== '' && !lines.includes(line))
+  ) {
     lines.length = maxLines
     lines[maxLines - 1] = lines[maxLines - 1].slice(0, maxChars - 1) + '…'
   }
@@ -317,7 +327,8 @@ export const schematic = (
       // fully negative coordinates = hidden by off-page positioning (the
       // spatial analog of zero-size): invisible to humans, invisible here
       (w.viewportFixed === true ||
-        (w.bounds.x + w.bounds.width > 0 && w.bounds.y + w.bounds.height > 0)) &&
+        (w.bounds.x + w.bounds.width > 0 &&
+          w.bounds.y + w.bounds.height > 0)) &&
       (within == null ||
         w.viewportFixed === true ||
         intersects(w.bounds, within))
@@ -446,8 +457,8 @@ export const schematic = (
     const fill = structural
       ? 'none'
       : w.style != null
-        ? w.style.background
-        : 'transparent'
+      ? w.style.background
+      : 'transparent'
     const stroke =
       !structural && w.style != null && w.style.borderColor !== TRANSPARENT
         ? w.style.borderColor
@@ -468,7 +479,8 @@ export const schematic = (
     // platform touch bar) — toggles exempt as user-agent-sized controls
     const interactive =
       !structural &&
-      (w.on != null || w.contentEditable === true ||
+      (w.on != null ||
+        w.contentEditable === true ||
         Object.values(w).some(
           (v) => typeof v === 'string' && v.includes(BOUND_TWO_WAY)
         ))
@@ -497,10 +509,10 @@ export const schematic = (
     const emphasis = structural
       ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
       : w.disabled === true
-        ? ' opacity="0.4"'
-        : actable
-          ? ' stroke-width="2"'
-          : ''
+      ? ' opacity="0.4"'
+      : actable
+      ? ' stroke-width="2"'
+      : ''
     parts.push(
       `<g data-record="${index}"${
         w.ref != null ? ` data-ref="${esc(String(w.ref))}"` : ''
@@ -538,8 +550,12 @@ export const schematic = (
         // checked = an ✕ drawn corner to corner, inset a hair
         const inset = 3
         parts.push(
-          `<line x1="${x + inset}" y1="${y + inset}" x2="${x + width - inset}" ` +
-            `y2="${y + height - inset}" stroke="${esc(color)}" stroke-width="1.5"/>`,
+          `<line x1="${x + inset}" y1="${y + inset}" x2="${
+            x + width - inset
+          }" ` +
+            `y2="${y + height - inset}" stroke="${esc(
+              color
+            )}" stroke-width="1.5"/>`,
           `<line x1="${x + inset}" y1="${y + height - inset}" ` +
             `x2="${x + width - inset}" y2="${y + inset}" ` +
             `stroke="${esc(color)}" stroke-width="1.5"/>`
@@ -548,7 +564,12 @@ export const schematic = (
     }
     // computed verdicts (contrast failures etc.): severity-colored bars on
     // the LEFT edge — the unclaimed slot — plus the first flag's label
-    if (!cramped && !structural && Array.isArray(w.flags) && w.flags.length > 0) {
+    if (
+      !cramped &&
+      !structural &&
+      Array.isArray(w.flags) &&
+      w.flags.length > 0
+    ) {
       w.flags.forEach((flag, at) => {
         const color = FLAG_COLORS[flag.severity ?? 'warn'] ?? FLAG_COLORS.warn
         parts.push(
@@ -558,7 +579,8 @@ export const schematic = (
       })
       const first = w.flags[0]
       if (first.label && height >= minLabelHeight) {
-        const flagColor = FLAG_COLORS[first.severity ?? 'warn'] ?? FLAG_COLORS.warn
+        const flagColor =
+          FLAG_COLORS[first.severity ?? 'warn'] ?? FLAG_COLORS.warn
         parts.push(
           `<rect x="${x + w.flags.length * 3 + 1}" y="${y + height - 9}" ` +
             `width="${first.label.length * 4.5 + 2}" height="8" ` +

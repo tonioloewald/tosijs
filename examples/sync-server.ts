@@ -49,7 +49,12 @@ const server = Bun.serve({
   port: PORT,
 
   fetch(req, server) {
-    if (server.upgrade(req, { data: { messageCount: 0, windowStart: Date.now() } })) return
+    if (
+      server.upgrade(req, {
+        data: { messageCount: 0, windowStart: Date.now() },
+      })
+    )
+      return
     return new Response('tosijs sync server', { status: 200 })
   },
 
@@ -104,7 +109,11 @@ const server = Bun.serve({
 
     close(ws, code, reason) {
       ws.unsubscribe('sync')
-      console.log(`client disconnected (code=${code}${reason ? `, reason=${reason}` : ''})`)
+      console.log(
+        `client disconnected (code=${code}${
+          reason ? `, reason=${reason}` : ''
+        })`
+      )
     },
   },
 })

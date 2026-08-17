@@ -9,7 +9,7 @@ const map = (wiring: any[]): AgentDescription =>
     actions: [],
     exposure: 'introspection',
     wiring,
-  }) as AgentDescription
+  } as AgentDescription)
 
 const box = (extra: any = {}) => ({
   bounds: { x: 0, y: 0, width: 100, height: 40 },
@@ -24,7 +24,9 @@ describe('auditAccessibility — the lint the map made obvious', () => {
         box({ tag: 'button', text: 'Save', on: { click: 'app.save' } }), // fine
       ])
     )
-    const anon = report.findings.filter((f) => f.rule === 'anonymous-affordance')
+    const anon = report.findings.filter(
+      (f) => f.rule === 'anonymous-affordance'
+    )
     expect(anon.length).toBe(1)
     expect(anon[0].index).toBe(0)
     expect(anon[0].severity).toBe('error')
@@ -47,7 +49,12 @@ describe('auditAccessibility — the lint the map made obvious', () => {
     const report = auditAccessibility(
       map([
         box({ tag: 'div', text: 'Delete', on: { click: 'app.del' } }),
-        box({ tag: 'div', text: 'Delete', role: 'button', on: { click: 'app.del' } }),
+        box({
+          tag: 'div',
+          text: 'Delete',
+          role: 'button',
+          on: { click: 'app.del' },
+        }),
         box({ tag: 'button', text: 'Delete', on: { click: 'app.del' } }),
       ])
     )
@@ -66,7 +73,11 @@ describe('auditAccessibility — the lint the map made obvious', () => {
           tag: 'button',
           text: 'faint',
           on: { click: 'a.x' },
-          style: { color: 'rgb(170,170,170)', background: 'rgb(255,255,255)', borderColor: 'transparent' },
+          style: {
+            color: 'rgb(170,170,170)',
+            background: 'rgb(255,255,255)',
+            borderColor: 'transparent',
+          },
         }),
       ])
     )
@@ -76,16 +87,33 @@ describe('auditAccessibility — the lint the map made obvious', () => {
 
     // no styles in the map = the rule cannot run, and SAYS SO (a silent
     // pass would read as "no contrast problems")
-    const unstyled = auditAccessibility(map([box({ tag: 'button', text: 'x' })]))
+    const unstyled = auditAccessibility(
+      map([box({ tag: 'button', text: 'x' })])
+    )
     expect(unstyled.skipped.some((s) => s.startsWith('contrast:'))).toBe(true)
   })
 
   test('target size honours the WCAG 2.5.8 inline exception; toggles exempt', () => {
     const report = auditAccessibility(
       map([
-        { tag: 'button', on: { click: 'a.x' }, label: 'delete', bounds: { x: 0, y: 0, width: 18, height: 18 } },
-        { tag: 'a', href: '/x', text: 'a text link', bounds: { x: 0, y: 0, width: 60, height: 16 } },
-        { tag: 'input', type: 'checkbox', value: 'true ⟷ a.on', bounds: { x: 0, y: 0, width: 13, height: 13 } },
+        {
+          tag: 'button',
+          on: { click: 'a.x' },
+          label: 'delete',
+          bounds: { x: 0, y: 0, width: 18, height: 18 },
+        },
+        {
+          tag: 'a',
+          href: '/x',
+          text: 'a text link',
+          bounds: { x: 0, y: 0, width: 60, height: 16 },
+        },
+        {
+          tag: 'input',
+          type: 'checkbox',
+          value: 'true ⟷ a.on',
+          bounds: { x: 0, y: 0, width: 13, height: 13 },
+        },
       ])
     )
     const found = report.findings.filter((f) => f.rule === 'target-size')
@@ -109,7 +137,11 @@ describe('auditAccessibility — the lint the map made obvious', () => {
           tag: 'button',
           text: 'Save',
           on: { click: 'app.save' },
-          style: { color: 'rgb(0,0,0)', background: 'rgb(255,255,255)', borderColor: 'transparent' },
+          style: {
+            color: 'rgb(0,0,0)',
+            background: 'rgb(255,255,255)',
+            borderColor: 'transparent',
+          },
         }),
       ])
     )
@@ -132,7 +164,11 @@ describe('auditAccessibility — the lint the map made obvious', () => {
           tag: 'button',
           text: 'faint',
           on: { click: 'a.x' },
-          style: { color: 'rgb(200,200,200)', background: 'rgb(255,255,255)', borderColor: 'transparent' },
+          style: {
+            color: 'rgb(200,200,200)',
+            background: 'rgb(255,255,255)',
+            borderColor: 'transparent',
+          },
         }),
       ])
     )

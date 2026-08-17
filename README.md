@@ -7,6 +7,7 @@
 <!-- lazy: third-party badge servers must not block the page load event
      (badge.fury.io latency was intermittently timing out the browser-lane
      tests — and any visitor's load — via the rendered home page) -->
+
 <a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
 <a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs bundle size" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
 <a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a>
@@ -19,12 +20,12 @@
 
 ## Entry points
 
-| import | what you get | gz |
-| --- | --- | --- |
-| `tosijs` | everything, agent surface included — bundlers shake what you don't import | 36 KB |
-| `tosijs/agent` | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) | — |
-| `tosijs/core` | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface | 24 KB |
-| `tosijs/state` | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths | 16 KB |
+| import                  | what you get                                                                                                             | gz    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----- |
+| `tosijs`                | everything, agent surface included — bundlers shake what you don't import                                                | 36 KB |
+| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types)                      | —     |
+| `tosijs/core`           | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface                                                     | 24 KB |
+| `tosijs/state`          | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths                                                            | 16 KB |
 | `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | 26 KB |
 
 `tosijs/agent` resolves to the same file as `tosijs` **on purpose**: a
@@ -32,7 +33,7 @@ separately-bundled agent surface would carry its own copy of the state
 registry and describe an empty app. One runtime copy, always.
 
 `tosijs/core` is opt-in rather than automatic because blueprints hydrate
-from *markup*, so no import statement protects them — shaking the
+from _markup_, so no import statement protects them — shaking the
 registration would fail silently. Slim core is present, so it can speak: in
 dev it warns if the page contains blueprint elements it cannot hydrate.
 
@@ -211,16 +212,16 @@ and are natively supported by all modern browsers.
 on its own; together they let you build almost anything without leaving web
 standards behind.
 
-| Project | What it is |
-| --- | --- |
-| **tosijs** | This library — the path-based _observant_ state core everything else is built on. |
-| **[tosijs-ui](https://ui.tosijs.net)** | _Just enough_ extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments. |
-| **[tjs-lang](https://tjs-platform.web.app)** | TypeScript that _really_ transpiles in the browser (no server, no "just strip the types" fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely **safe `eval`** (ship the logic, not a container to run it in). |
-| **[react-tosijs](https://react.tosijs.net)** | Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React. |
-| **[ngx-tosijs](https://angular.tosijs.net)** | The same for Angular (signals, zoneless-first). |
+| Project                                                            | What it is                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **tosijs**                                                         | This library — the path-based _observant_ state core everything else is built on.                                                                                                                                                                                                                                                      |
+| **[tosijs-ui](https://ui.tosijs.net)**                             | _Just enough_ extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments.               |
+| **[tjs-lang](https://tjs-platform.web.app)**                       | TypeScript that _really_ transpiles in the browser (no server, no "just strip the types" fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely **safe `eval`** (ship the logic, not a container to run it in).                              |
+| **[react-tosijs](https://react.tosijs.net)**                       | Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React.                                                                                                                                                                                |
+| **[ngx-tosijs](https://angular.tosijs.net)**                       | The same for Angular (signals, zoneless-first).                                                                                                                                                                                                                                                                                        |
 | **[tosijs-schema](https://github.com/tonioloewald/tosijs-schema)** | Foundational, slightly bleeding-edge plumbing: a _type-by-example_ JSON-Schema engine with arguably the strongest performance / flexibility / architecture story of any JSON-Schema implementation — and increasingly so as it grows computed predicates. Most people won't need to think about it; the rest of the stack leans on it. |
-| **[tosijs-product](https://product.tosijs.net)** | Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML. |
-| **[tosijs-3d](https://3d.tosijs.net)** | Declarative 3D / VR / XR as web components, built on Babylon.js (WIP). |
+| **[tosijs-product](https://product.tosijs.net)**                   | Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML.                                                                                                                                                                                                                                               |
+| **[tosijs-3d](https://3d.tosijs.net)**                             | Declarative 3D / VR / XR as web components, built on Babylon.js (WIP).                                                                                                                                                                                                                                                                 |
 
 ## What `tosijs` does
 

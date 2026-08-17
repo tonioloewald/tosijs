@@ -203,12 +203,12 @@ export const exerciseComponent = async (
             error: 'declared part not found in the instance',
           }
         : found.tagName.toLowerCase() !== tag
-          ? {
-              claim: `part "${name}" is <${tag}>`,
-              passed: false,
-              error: `found <${found.tagName.toLowerCase()}>`,
-            }
-          : { claim: `part "${name}" resolves as <${tag}>`, passed: true }
+        ? {
+            claim: `part "${name}" is <${tag}>`,
+            passed: false,
+            error: `found <${found.tagName.toLowerCase()}>`,
+          }
+        : { claim: `part "${name}" resolves as <${tag}>`, passed: true }
     )
   }
 
@@ -233,7 +233,9 @@ export const exerciseComponent = async (
           : {
               claim: `value example round-trips`,
               passed: false,
-              error: `wrote ${JSON.stringify(example)}, read ${JSON.stringify(back)}`,
+              error: `wrote ${JSON.stringify(example)}, read ${JSON.stringify(
+                back
+              )}`,
             }
       )
     }
@@ -266,9 +268,14 @@ export const exerciseComponent = async (
         }
         await settle()
         if (step.expect != null) {
-          if ('value' in step.expect && !same((element as any).value, step.expect.value)) {
+          if (
+            'value' in step.expect &&
+            !same((element as any).value, step.expect.value)
+          ) {
             throw new Error(
-              `expected value ${JSON.stringify(step.expect.value)}, got ${JSON.stringify((element as any).value)}`
+              `expected value ${JSON.stringify(
+                step.expect.value
+              )}, got ${JSON.stringify((element as any).value)}`
             )
           }
           for (const [part, text] of Object.entries(step.expect.text ?? {})) {

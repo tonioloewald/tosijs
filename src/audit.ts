@@ -145,7 +145,8 @@ export const auditAccessibility = (
       severity: AuditSeverity,
       message: string
     ): void => {
-      if (enabled(rule)) findings.push({ rule, severity, message, index, record: w })
+      if (enabled(rule))
+        findings.push({ rule, severity, message, index, record: w })
     }
     const interactive = isInteractive(w)
     const name = accessibleName(w)
@@ -249,7 +250,10 @@ export const auditAccessibility = (
  */
 export const auditFlags = (
   report: AuditReport
-): Record<number, Array<{ kind: string; label: string; severity: AuditSeverity }>> => {
+): Record<
+  number,
+  Array<{ kind: string; label: string; severity: AuditSeverity }>
+> => {
   const byIndex: Record<
     number,
     Array<{ kind: string; label: string; severity: AuditSeverity }>
@@ -260,7 +264,7 @@ export const auditFlags = (
       kind: finding.rule,
       label:
         finding.rule === 'contrast'
-          ? (finding.message.match(/is ([\d.]+:1)/)?.[1] ?? 'contrast')
+          ? finding.message.match(/is ([\d.]+:1)/)?.[1] ?? 'contrast'
           : finding.rule,
       severity: finding.severity,
     })

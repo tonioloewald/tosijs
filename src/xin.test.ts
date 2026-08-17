@@ -1578,7 +1578,9 @@ test('take with bindText updates DOM on state change', async () => {
     takeBindTest: { count: 3 },
   })
 
-  const span = elements.span({ bindText: takeBindTest.count.tosi.take((n: number) => `Count: ${n}`) })
+  const span = elements.span({
+    bindText: takeBindTest.count.tosi.take((n: number) => `Count: ${n}`),
+  })
   document.body.append(span)
   await updates()
 
@@ -1597,7 +1599,9 @@ test('take with bindEnabled inverts boolean', async () => {
   })
 
   const btn = elements.button('Delete', {
-    bindEnabled: takeEnabledTest.items.tosi.take((list: string[]) => list.length > 0),
+    bindEnabled: takeEnabledTest.items.tosi.take(
+      (list: string[]) => list.length > 0
+    ),
   })
   document.body.append(btn)
   await updates()
@@ -1700,7 +1704,9 @@ test('bare proxy binds to disabled', async () => {
     bareDisabledTest: { isDisabled: true },
   })
 
-  const btn = elements.button('Click', { disabled: bareDisabledTest.isDisabled })
+  const btn = elements.button('Click', {
+    disabled: bareDisabledTest.isDisabled,
+  })
   document.body.append(btn)
   await updates()
 
@@ -1719,7 +1725,9 @@ test('take descriptor works as bare property binding', async () => {
   })
 
   const btn = elements.button('Delete', {
-    disabled: bareTakeTest.items.tosi.take((list: string[]) => list.length === 0),
+    disabled: bareTakeTest.items.tosi.take(
+      (list: string[]) => list.length === 0
+    ),
   })
   document.body.append(btn)
   await updates()

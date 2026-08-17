@@ -27,16 +27,16 @@ export const contractViolation = (value: any, schema: any): string | null => {
       t === 'array'
         ? Array.isArray(value)
         : t === 'null'
-          ? value === null
-          : t === 'integer'
-            ? typeof value === 'number' && Number.isInteger(value)
-            : t === 'object'
-              ? typeof value === 'object' &&
-                value !== null &&
-                !Array.isArray(value)
-              : typeof value === t
+        ? value === null
+        : t === 'integer'
+        ? typeof value === 'number' && Number.isInteger(value)
+        : t === 'object'
+        ? typeof value === 'object' && value !== null && !Array.isArray(value)
+        : typeof value === t
     if (!ok) {
-      return `expected type ${t}, got ${Array.isArray(value) ? 'array' : typeof value}`
+      return `expected type ${t}, got ${
+        Array.isArray(value) ? 'array' : typeof value
+      }`
     }
   }
   if (contractValidator != null) {

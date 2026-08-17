@@ -132,7 +132,7 @@ export async function makeComponent<T = PartsMap>(
   }
   const lightStyle = spec.lightStyleSpec ?? spec.styleSpec
   if (lightStyle) {
-    (type as any).lightStyleSpec = lightStyle
+    ;(type as any).lightStyleSpec = lightStyle
   }
   const packagedComponent = {
     type,

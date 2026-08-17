@@ -501,8 +501,7 @@ const handleChange = (event: Event): void => {
               existing[XIN_PATH] != null
                 ? (existing as XinProps)[XIN_VALUE]
                 : existing
-            let valueActual =
-              value[XIN_PATH] != null ? value[XIN_VALUE] : value
+            let valueActual = value[XIN_PATH] != null ? value[XIN_VALUE] : value
             // State-driven coercion (H-6 layer 2): the type state currently
             // holds is authoritative — DOM controls speak string, state
             // speaks typed values, and the binding layer owns conversion.

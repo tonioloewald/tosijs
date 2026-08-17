@@ -16,13 +16,15 @@ describe('the scaffolder — bunx tosijs create …', () => {
     expect(source).toContain('satisfies ComponentMap') // born with a contract
     expect(source).toContain('tests: [') // …and a declared test
     expect(source).toContain('export default blueprint')
-    expect(source).toContain("import type {") // type-only: bundles dependency-free
+    expect(source).toContain('import type {') // type-only: bundles dependency-free
     expect(source).not.toContain('preferredTagName') // the TAG comes at hydration
   })
 
   test('component --bare: plain class form', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tosijs-cli-'))
-    expect(run(['create', 'component', 'demo-widget', '--bare'], dir).exitCode).toBe(0)
+    expect(
+      run(['create', 'component', 'demo-widget', '--bare'], dir).exitCode
+    ).toBe(0)
     const source = readFileSync(join(dir, 'demo-widget.ts'), 'utf-8')
     expect(source).toContain("static preferredTagName = 'demo-widget'")
     expect(source).toContain('static contract = contract')
@@ -57,7 +59,9 @@ describe('the scaffolder — bunx tosijs create …', () => {
     expect(app).not.toMatch(/enableAgentInterface\(\)\s*$/m)
     // …and it must SAY how to widen it, so the dev affordance is a choice
     expect(app).toContain("expose: 'all'")
-    const pkg = JSON.parse(readFileSync(join(dir, 'my-app/package.json'), 'utf-8'))
+    const pkg = JSON.parse(
+      readFileSync(join(dir, 'my-app/package.json'), 'utf-8')
+    )
     expect(pkg.dependencies.tosijs).toMatch(/^\^1\./)
   })
 

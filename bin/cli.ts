@@ -27,7 +27,7 @@ const [command, kind, rawName, ...flags] = process.argv.slice(2)
 
 function fail(message: string): never {
   console.error(`tosijs: ${message}`)
-  console.error("try: bunx tosijs help")
+  console.error('try: bunx tosijs help')
   process.exit(1)
 }
 
@@ -43,7 +43,8 @@ Component/blueprint tags need a dash (custom-element rule): my-thing, not thing.
 Everything scaffolded carries a contract — agent-ready, self-verifying.`)
 }
 
-const kebab = (name: string): boolean => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(name)
+const kebab = (name: string): boolean =>
+  /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(name)
 const className = (tag: string): string =>
   tag.replace(/(^|-)([a-z0-9])/g, (_, __, c: string) => c.toUpperCase())
 const camel = (tag: string): string => {
@@ -173,7 +174,10 @@ function createComponent(tag: string, bare: boolean): void {
   console.log(
     bare
       ? `\nimport { ${camel(tag)} } from './${tag}' and append ${camel(tag)}()`
-      : `\nconsume from markup:\n  <tosi-blueprint tag="${tag}" src="./${file.replace(/\.ts$/, '.js')}"></tosi-blueprint>\n  <${tag}></${tag}>\nor in code: makeComponent('${tag}', blueprint)`
+      : `\nconsume from markup:\n  <tosi-blueprint tag="${tag}" src="./${file.replace(
+          /\.ts$/,
+          '.js'
+        )}"></tosi-blueprint>\n  <${tag}></${tag}>\nor in code: makeComponent('${tag}', blueprint)`
   )
 }
 
@@ -293,7 +297,9 @@ const { app } = tosi({
   },
 })
 
-const { creator: ${camel(tag)} } = await makeComponent('${tag}', counterBlueprint)
+const { creator: ${camel(
+      tag
+    )} } = await makeComponent('${tag}', counterBlueprint)
 
 const { h1, p } = elements
 document.querySelector('#app')!.append(
@@ -346,13 +352,23 @@ Omitting \`expose\` entirely gives read-only introspection.
   console.log(`\ncd ${name} && bun install && bun start`)
 }
 
-if (command === 'help' || command === '--help' || command === '-h' || command == null) {
+if (
+  command === 'help' ||
+  command === '--help' ||
+  command === '-h' ||
+  command == null
+) {
   help()
-} else if (command === 'version' || command === '--version' || command === '-v') {
+} else if (
+  command === 'version' ||
+  command === '--version' ||
+  command === '-v'
+) {
   console.log(version)
 } else if (command === 'create') {
   const bare = flags.includes('--bare') || rawName === '--bare'
-  const name = rawName === '--bare' ? flags.find((f) => f !== '--bare') ?? '' : rawName
+  const name =
+    rawName === '--bare' ? flags.find((f) => f !== '--bare') ?? '' : rawName
   if (kind === 'app') createApp(name)
   else if (kind === 'component') createComponent(name, bare)
   else if (kind === 'blueprint') createBlueprint(name)

@@ -36,10 +36,7 @@ const tosijsAlias = {
 
 async function writeVersion() {
   const pkg = JSON.parse(await Bun.file('package.json').text())
-  await Bun.write(
-    'src/version.ts',
-    `export const version = '${pkg.version}'\n`
-  )
+  await Bun.write('src/version.ts', `export const version = '${pkg.version}'\n`)
   console.log('tosijs package version', pkg.version)
 }
 
@@ -103,7 +100,11 @@ async function buildLibrary() {
   const targets = [
     // the IIFE cannot tree-shake, so it gets the slim entry (no agent
     // surface); ESM/CJS carry everything and consumers shake what they skip
-    { naming: 'index.js', format: 'iife' as const, entry: './src/index-browser.ts' },
+    {
+      naming: 'index.js',
+      format: 'iife' as const,
+      entry: './src/index-browser.ts',
+    },
     { naming: 'module.js', format: 'esm' as const, entry: './src/index.ts' },
     { naming: 'main.js', format: 'cjs' as const, entry: './src/index.ts' },
   ]

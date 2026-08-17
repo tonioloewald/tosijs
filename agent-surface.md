@@ -1,7 +1,8 @@
 # The Agent Surface
+
 <!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
 
-*Part of [One User Interface](/one-user-interface/) — the design of the surface itself.*
+_Part of [One User Interface](/one-user-interface/) — the design of the surface itself._
 
 One line enables the surface; everything else derives. Watch a WebMCP tool
 set write itself from an ordinary little app:
@@ -9,7 +10,7 @@ set write itself from an ordinary little app:
 ## Proof: the tools write themselves (live)
 
 Every existing WebMCP integration authors its tools by hand.
-`webmcpTools(agent)` **generates** them: the core quartet plus one *named*
+`webmcpTools(agent)` **generates** them: the core quartet plus one _named_
 tool per action the registry already holds. With a WebMCP host present
 (Chrome Canary), `enableAgentInterface()` registers them **automatically at
 enable time** (`agent.webmcp` carries the receipt; `webmcp: false` opts out);
@@ -80,7 +81,7 @@ test('the WebMCP tool set derives from the page, and registration round-trips', 
 
 The punchline is the table from [Plan & Prior Art](/plan-and-prior-art/) made
 runnable: Angular's Signal-Forms-to-tools is the closest anyone else gets, and
-it covers forms. Here *every action and every affordance* is a tool candidate,
+it covers forms. Here _every action and every affordance_ is a tool candidate,
 because the framework already holds the wiring — tosijs can be the first
 framework where the WebMCP tools write themselves.
 
@@ -101,19 +102,19 @@ const agent = enableAgentInterface({
 The returned surface (also reachable as a global for injected/extension
 contexts) is small and protocol-neutral:
 
-| call | does |
-| --- | --- |
-| `agent.describe()` | the app's self-description: state roots, wiring graph (element ↔ path ↔ handlers), actions, contract |
-| `agent.read(path)` | serializable value |
-| `agent.write(path, value)` | through the same validation as any other write |
-| `agent.observe(path, cb)` | push notifications; returns unsubscribe |
-| `agent.call(actionPath, …)` | invoke a declared action (a function in state) |
-| `agent.changes(since)` | turn-based drain: final-value-per-path since your cursor |
-| `agent.when(path, predicate)` | await a state *condition* (see push and drain) |
-| `agent.log()` | the audit trail: every touch — and refusal — since enable |
-| `agent.webmcp` | receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host) |
-| `agent.version` | **what this surface IS** — `{ surface, tosijs, capabilities[] }`. Ask before assuming: test `capabilities.includes('bounds')` rather than inferring from a version. It rides `describe()` output too, so a serialized map is self-describing wherever it lands ([tosijs#23](https://github.com/tonioloewald/tosijs/issues/23)) |
-| `auditAccessibility(map)` | the lint the map made obvious: anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size, placeholder-as-label. Pure over the description; `auditFlags(report)` turns findings into schematic `flags` so they can be *drawn* |
+| call                          | does                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `agent.describe()`            | the app's self-description: state roots, wiring graph (element ↔ path ↔ handlers), actions, contract                                                                                                                                                                                                                           |
+| `agent.read(path)`            | serializable value                                                                                                                                                                                                                                                                                                             |
+| `agent.write(path, value)`    | through the same validation as any other write                                                                                                                                                                                                                                                                                 |
+| `agent.observe(path, cb)`     | push notifications; returns unsubscribe                                                                                                                                                                                                                                                                                        |
+| `agent.call(actionPath, …)`   | invoke a declared action (a function in state)                                                                                                                                                                                                                                                                                 |
+| `agent.changes(since)`        | turn-based drain: final-value-per-path since your cursor                                                                                                                                                                                                                                                                       |
+| `agent.when(path, predicate)` | await a state _condition_ (see push and drain)                                                                                                                                                                                                                                                                                 |
+| `agent.log()`                 | the audit trail: every touch — and refusal — since enable                                                                                                                                                                                                                                                                      |
+| `agent.webmcp`                | receipt of the auto-registered WebMCP tools (present only when the browser has a model-context host)                                                                                                                                                                                                                           |
+| `agent.version`               | **what this surface IS** — `{ surface, tosijs, capabilities[] }`. Ask before assuming: test `capabilities.includes('bounds')` rather than inferring from a version. It rides `describe()` output too, so a serialized map is self-describing wherever it lands ([tosijs#23](https://github.com/tonioloewald/tosijs/issues/23)) |
+| `auditAccessibility(map)`     | the lint the map made obvious: anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size, placeholder-as-label. Pure over the description; `auditFlags(report)` turns findings into schematic `flags` so they can be _drawn_                                                                        |
 
 `describe()` is the novel part, and it's assembled from the wiring tosijs
 already records — enumerate `BOUND_CLASS`, map each element through
@@ -124,7 +125,11 @@ functions. A sketch of what an agent sees:
 {
   "roots": { "app": "object" },
   "wiring": [
-    { "tag": "input", "label": "search products…", "value": "milk ⟷ app.filter" },
+    {
+      "tag": "input",
+      "label": "search products…",
+      "value": "milk ⟷ app.filter"
+    },
     { "tag": "ul", "list": { "path": "app.items", "idPath": "id" } },
     { "tag": "button", "text": "Add", "on": { "click": "app.addItem" } }
   ],
@@ -134,8 +139,8 @@ functions. A sketch of what an agent sees:
 
 Records are deliberately **flat and small**: the semantically visible facts —
 tag, label, text, bound props, handlers — sit at the top level; anything
-obscure drops one level into `detail`. Bound props carry *value and provenance
-in one string*: `"milk ⟷ app.filter"` is the current value, the fact that it's
+obscure drops one level into `detail`. Bound props carry _value and provenance
+in one string_: `"milk ⟷ app.filter"` is the current value, the fact that it's
 live, and its address — and the arrow encodes **direction**, `⟷` two-way (a
 user-writable affordance) vs `⟵` display-only. A value with no arrow is
 static. The tokens are chosen to be unlikely in real data and are exported
@@ -152,9 +157,9 @@ The subscription channel is the delta nobody else can even feed (see
 [Plan & Prior Art](/plan-and-prior-art/):
 WebMCP is tools-only, blind between calls; MCP has `resources/subscribe` but no
 framework can supply it without hand-wired change events per feature). tosijs's
-core competency *is* change notification, so agents get it for free — and the
+core competency _is_ change notification, so agents get it for free — and the
 payload is the **path**: tiny, semantic, diffable text. The agent decides
-whether it cares *before* spending inference. Compare "something changed,
+whether it cares _before_ spending inference. Compare "something changed,
 here's another screenshot."
 
 Agents inherit the exact semantics the UI runs on:
@@ -162,7 +167,7 @@ Agents inherit the exact semantics the UI runs on:
 - **Granularity** — exact path, prefix (parent hears children), RegExp, or
   predicate; surgical (`app.cart.total`) or coarse (`app.cart`).
 - **Subscribe before the data exists.** Deeply-async-by-default applies to
-  agents too: `observe('app.order.confirmation')` *before* initiating checkout —
+  agents too: `observe('app.order.confirmation')` _before_ initiating checkout —
   the subscription is the choreography, no wait-then-poll.
 - **Settled frames.** Touches are async-batched; observers fire per settling
   round. The agent reasons about coherent states, never mid-transaction — the
@@ -182,7 +187,7 @@ stream two ways:
    semantics extended across turns. Wake, receive a compact semantic diff of
    the world, reason once, act.
 3. **Predicate await** — `agent.when(path, predicate)` — a promise that
-   resolves when the state *satisfies a condition*, not when it merely
+   resolves when the state _satisfies a condition_, not when it merely
    changes. This is the episodic agent's missing middle: an agent that
    triggers an async mutation shouldn't drain-and-hope (the update may not
    have landed) or subscribe raw (every touch is a potential — expensive —
@@ -190,13 +195,13 @@ stream two ways:
    names the condition the agent is waiting for; inference spends nothing
    until the world actually reaches it. tosijs observers already accept
    predicates, so this is surface sugar over an existing primitive — and the
-   named condition lands in the audit log, so *what the agent was waiting
-   for* is as inspectable as what it did.
+   named condition lands in the audit log, so _what the agent was waiting
+   for_ is as inspectable as what it did.
 
 These are the audit log and the observation channel revealed as one stream
 consumed two ways — push for the vigilant, drain for the episodic — which also
-means observation is inherently auditable. (And `changes(since)` exposed *as a
-WebMCP tool* works today within the standard's tools-only constraints — while
+means observation is inherently auditable. (And `changes(since)` exposed _as a
+WebMCP tool_ works today within the standard's tools-only constraints — while
 doubling as the existence proof that the standard needs a real notification
 channel.)
 
@@ -205,7 +210,7 @@ channel.)
 1. **Off** (default) — nothing. Zero cost, zero surface.
 2. **Introspection mode** — everything tosijs knows, **dev-only and explicitly
    unstable**. For exploration, debugging, agent-assisted development, and
-   *discovering what belongs in the schema*. Also a better haltija/Playwright
+   _discovering what belongs in the schema_. Also a better haltija/Playwright
    substrate than selector-scraping — but nothing durable (tests, agent
    workflows) should script against it, because its shape is whatever the
    app's internals happen to be today.
@@ -221,20 +226,20 @@ channel.)
    ```
 4. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
    shapes, constraints, computed predicates. Now `write()` validates against
-   the contract, `describe()` tells the agent *what's legal* rather than what
+   the contract, `describe()` tells the agent _what's legal_ rather than what
    exists — and since tosijs-schema already embeds serialized predicates,
    **preconditions ride along free**. **The seam is shipped:**
    `expose.contract = { check(path, value, proposal?) → true | Error,
-   describe() }` — tosijs stays zero-dependency (the core knows a *check*,
+describe() }` — tosijs stays zero-dependency (the core knows a _check_,
    not a schema language); the blessed adapter **ships from tosijs-schema**
    as `agentContract(schemas)` (1.5.0 — its `onError` messages become the
-   refusal text, and it fails *closed*: a contracted write without a
+   refusal text, and it fails _closed_: a contracted write without a
    proposal, or a schema keyword `validate` doesn't enforce, is refused,
-   not waved through). Refused writes throw the *reason* and land in the audit log as
+   not waved through). Refused writes throw the _reason_ and land in the audit log as
    `write rejected: …` notes — a refusal is part of the surface, because
    agents self-correct from reasons, not booleans. **Sub-path writes are
    routed, not bypassed:** core judges a write at or under a contracted
-   root as the *whole root it would produce* (clone + hypothetical apply —
+   root as the _whole root it would produce_ (clone + hypothetical apply —
    "route the write, not the schema"), handing the adapter a `proposal`
    `{ root, proposed }`. A word processor contracting `app.docs` therefore
    validates an edit to `app.docs[2].editor.value` as the docs array it
@@ -242,8 +247,8 @@ channel.)
    incomplete document is caught by `required` at root context, and
    root-level cross-field constraints and `$predicate`s see every edit.
    Adapters never touch path mechanics; core never touches schemas. Free, and crucially **legible**: a bare
-   `bindEnabled: app.cart.valid` tells the agent *that* an action is gated
-   but not *why* — when the flag is `false` a human infers the reason from
+   `bindEnabled: app.cart.valid` tells the agent _that_ an action is gated
+   but not _why_ — when the flag is `false` a human infers the reason from
    visual context; an agent hits a causal dead end. A serialized predicate
    is the why: `describe()` can hand over the failing condition itself
    ("cart requires ≥ 3 items"), turning "button disabled" into a
@@ -258,12 +263,12 @@ what to put in the schema — it should never be what anyone scripts against.
 Two reasons, and only one of them is security:
 
 - **Security (asterisked).** Writes add no attack surface in a zero-trust app
-  — but **the UI exposes what's *rendered*; the map exposes what's
-  *resident*** (caches, prefetch, feature flags). And an undeclared `call()`
+  — but **the UI exposes what's _rendered_; the map exposes what's
+  _resident_** (caches, prefetch, feature flags). And an undeclared `call()`
   surface is an RPC endpoint with good documentation.
 - **Hyrum's law (always applies).** Scripts don't tolerate change the way
   users do: once fifty tests depend on the auto-map's accidental shape, every
-  rename is breaking. Version the *schema*; refactor freely behind it.
+  rename is breaking. Version the _schema_; refactor freely behind it.
 
 The resolution costs one boolean: expose both, mark the auto-map explicitly
 unstable, and keep everything durable on the schema'd view. A bonus falls out:
@@ -279,14 +284,14 @@ Two operational advantages fall out of exposing the schema (the promise) and
 the auto-map (the actuality) side by side:
 
 - **The adaptation burden shifts from developer to agent.** The auto-map's
-  instability is only a liability for *dumb* consumers. A hard-coded test
+  instability is only a liability for _dumb_ consumers. A hard-coded test
   script breaks when an internal path renames; an LLM agent just re-reads the
   map on its next turn and proceeds. Declared-but-undurable is precisely the
   contract LLMs are good at consuming — the ephemerality of the map is a
-  *feature* for adaptive consumers and a trap only for static ones, which is
+  _feature_ for adaptive consumers and a trap only for static ones, which is
   exactly why the durable ones belong on the schema.
 - **The diagnostic delta.** An agent that can see both the blueprint and the
-  build can *diff them*. An action declared in the schema but reachable from
+  build can _diff them_. An action declared in the schema but reachable from
   no wired element; an input affordance the schema says is writable but whose
   binding is `toDOM`-only; a declared root with no bindings at all — each is
   a structural bug, detected without running anything, by comparing promise
@@ -300,12 +305,12 @@ If a contract carries **example values**, the contract is executable — the
 equivalent of tjs-lang's signature tests, one layer up. `exerciseContract(agent)`
 reads the declared contract and exercises it **through the real surface**:
 
-- every `examples:` entry (standard JSON Schema keyword) must be *accepted*
+- every `examples:` entry (standard JSON Schema keyword) must be _accepted_
   by `write()` **and round-trip** — `read()` must return exactly what was
   written, with faithful (not JSON-normalizing) comparison, so a contract
   whose own spec can't survive the surface (a `Date` in an example, an app
   that mangles writes) is caught, not just values the contract refuses;
-- every `$counterexamples:` entry (our convention) must be *refused* — a
+- every `$counterexamples:` entry (our convention) must be _refused_ — a
   gate that never says no isn't a gate, and the harness proves the no.
 
 State snapshots and restores around each root, and the report is per-trial,
@@ -390,7 +395,7 @@ The declaration rides the harvest: it appears on the element's wiring record,
 aggregates into `describe().contract` under the element's **bound path**, is
 enforced by `write()` (the zero-dep type/enum/const subset natively; plug a
 full engine with `setContractValidator`), and its `examples` /
-`$counterexamples` feed `exerciseContract` — the input *is* a test case now.
+`$counterexamples` feed `exerciseContract` — the input _is_ a test case now.
 
 And curation, live — the same input, then **ship day**: one curated contract
 at the top supersedes the inline declaration beneath it, and the manifest
@@ -432,7 +437,9 @@ preview.append(
         const lines = []
         let agent = enableAgentInterface({ expose: 'all' })
         lines.push(
-          `dev (expose: 'all'): ${Object.keys(agent.describe().roots).length} roots visible`
+          `dev (expose: 'all'): ${
+            Object.keys(agent.describe().roots).length
+          } roots visible`
         )
         lines.push(attempt(agent, 'shipDay.qty', 'lots'))
         lines.push(
@@ -461,7 +468,9 @@ preview.append(
           },
         })
         lines.push(
-          `ship (manifest + curated): ${Object.keys(agent.describe().roots).length} root visible`
+          `ship (manifest + curated): ${
+            Object.keys(agent.describe().roots).length
+          } root visible`
         )
         lines.push(
           attempt(agent, 'shipDay.qty', 150) +
@@ -517,19 +526,19 @@ test('ship day: curation supersedes inline, the manifest narrows the world', () 
 Declaration is distributed; curation is central. The precedence ladder, most
 deliberate wins:
 
-| level | declared | wins when |
-| --- | --- | --- |
+| level             | declared                    | wins when                                                                               |
+| ----------------- | --------------------------- | --------------------------------------------------------------------------------------- |
 | `expose.contract` | at `enableAgentInterface()` | always — a curated root supersedes ("curates away") every inline declaration beneath it |
-| `static contract` | on the component class | for the component's own value/attributes/parts |
-| `contract:` prop | at the element, inline | when nothing above covers its bound path |
-| harvest | nowhere — derived | fills every remaining gap |
+| `static contract` | on the component class      | for the component's own value/attributes/parts                                          |
+| `contract:` prop  | at the element, inline      | when nothing above covers its bound path                                                |
+| harvest           | nowhere — derived           | fills every remaining gap                                                               |
 
 And manifest mode's `roots` filter which inline declarations are visible at
 all — you can declare generously and expose narrowly.
 
 ### Why declaration wins: intent captured at authoring time
 
-The deep reason schema-first works is *when* the declaration happens: at
+The deep reason schema-first works is _when_ the declaration happens: at
 authoring time, while the purpose is still known. Everything expensive in
 software archaeology — comprehension, test-writing, drift detection — is
 expensive because intent decayed between writing and reading, and everyone
@@ -578,7 +587,7 @@ the component declares `static contract`:
     }
 
 - **The declaration is the type.** `Component<T>` accepts a classic PartsMap
-  *or* `typeof <contract>` in the same slot: with the latter,
+  _or_ `typeof <contract>` in the same slot: with the latter,
   `this.parts.readout` is an `HTMLSpanElement` because the contract said
   `'span'` — parts typing, agent description, and the harness now share one
   source. (Declare the contract `as const` so tags stay literal.)
@@ -586,8 +595,8 @@ the component declares `static contract`:
   `component: <the contract>` — **own statics only**; statics inherit through
   the prototype chain and a subclass must not silently wear its parent's
   claims.
-- `exerciseComponent(el)` executes it: declared parts resolve *inside the
-  instance* (via the saga-hardened parts proxy — ownership-correct, where a
+- `exerciseComponent(el)` executes it: declared parts resolve _inside the
+  instance_ (via the saga-hardened parts proxy — ownership-correct, where a
   bare querySelector could false-positive on a nested component's same-named
   part) and match their tags; methods exist; value examples round-trip; and
   **declared `tests` run** — serializable step scripts (`set` / `click` /
@@ -607,20 +616,20 @@ the component declares `static contract`:
 **Both remaining pieces shipped (2026-08-03), by two rules the user set:**
 
 - **`contract.attributes` subsumes `initAttributes`.** Entries carry
-  JSON-Schema shapes *with `default`s*; the derived defaults feed the
+  JSON-Schema shapes _with `default`s_; the derived defaults feed the
   existing attribute machinery unchanged. Declaring BOTH on one class
   **throws** (one source of truth); `initAttributes` beside a contract that
   lacks attributes **warns once**, pointing at the ideal; entries without a
   `default` **throw, named** (the machinery infers runtime types from
   defaults). No contract involved → classic behavior, untouched.
-- **The value setter enforces the declared `value` contract** — *a contract
-  is an opt-in to being held to it; no contract, no check, no cost.* Core
+- **The value setter enforces the declared `value` contract** — _a contract
+  is an opt-in to being held to it; no contract, no check, no cost._ Core
   natively enforces the structural subset (`type` / `enum` / `const` — zero
   dependencies, covers the common case); `setContractValidator()` plugs in
   full-schema validation (the `setPredicateEvaluator` idiom — tosijs-schema's
   `validate` in ~6 lines). Violations throw the reason and leave the value
-  untouched. The *general* runtime-type-drift axis still belongs to tjs 2.0
-  (`settings.strictness`) — this enforces what was *declared*, which is
+  untouched. The _general_ runtime-type-drift axis still belongs to tjs 2.0
+  (`settings.strictness`) — this enforces what was _declared_, which is
   narrower and already promised.
 
 **Post-hoc lofting (shipped):** `enableAgentInterface({ components:
@@ -628,7 +637,7 @@ the component declares `static contract`:
 classes you don't control — a library's widgets, a react-tosijs or
 ngx-tosijs legacy app, the doc system itself. A class's own `static
 contract` always wins; post-hoc maps fill the gaps. Since the whole surface
-attaches from *outside* the app (a console, a userscript, an extension),
+attaches from _outside_ the app (a console, a userscript, an extension),
 the entire ladder — introspection, manifest, contracts, component maps —
 can be lofted onto a running app that never heard of any of this.
 
@@ -639,5 +648,4 @@ screen readers. ARIA in, ARIA out: the curb cut runs both directions.
 
 Shadow components stay agent-shaped
 (the value is the interface; the internals are private) — the contract is how
-a component *says so in a checkable form*.
-
+a component _says so in a checkable form_.

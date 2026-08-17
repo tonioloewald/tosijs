@@ -30,7 +30,7 @@ elements at import (`tosi-blueprint`, `tosi-loader` — the 1.8.0 alias removal
 halved this, and dropped `xin-slot` entirely). ✅ removals done.
 
 **DECIDED (2026-08-03): blueprints are NOT shaken from the default entry.** Blueprint
-consumers' contract is *markup* — they have no import statement to protect them, and a
+consumers' contract is _markup_ — they have no import statement to protect them, and a
 shaken registration fails SILENTLY (unknown element, no error, nothing hydrates; the
 code that would warn is the code that's gone). So: `blueprint-loader.ts` stays listed
 side-effectful and resident in `tosijs`; the size win ships as an opt-in **slim entry**
@@ -57,7 +57,7 @@ as a value but uses it only in types — make it `import type`.
 
 First CI for the repo (`.github/workflows/ci.yml`): `unit` (bun test) + `e2e` (Playwright).
 The e2e lane runs the inline ```test doc fences through **Chromium + Firefox** via
-`tests/doc-tests.pw.ts` (one navigation → `window.__docTestResults` gates the whole
+`tests/doc-tests.pw.ts`(one navigation →`window.\_\_docTestResults` gates the whole
 corpus; reuses the fences, zero duplication). Green in CI (~1.5 min). This closes the
 review's practices finding — the browser lane no longer depends on anyone remembering to
 run it.
@@ -84,50 +84,56 @@ before acting):
 Most of this list was **retired in v1.7.1** (2026-07-21) — see the ✅ items.
 
 **Coverage (minor):**
+
 - [x] ✅ **v1.7.1** — Date-family control coverage: `getValue`/`setValue` round-trips for
-  `datetime-local`/`month`/`week`/time-from-`Date` (`dom.test.ts`). *(The numeric-epoch
-  `handleChange` UTC-vs-local test is still worth adding but not blocking.)*
+      `datetime-local`/`month`/`week`/time-from-`Date` (`dom.test.ts`). _(The numeric-epoch
+      `handleChange` UTC-vs-local test is still worth adding but not blocking.)_
 - [ ] Headless assertion for the css theme-recompute fix — after changing a themed proxy
-  var, assert the computed-colors `<style>` `textContent` regenerated (guard in `bun test`,
-  not only the in-browser fence). (`css.ts`) *(unverified; covered by the Playwright fence)*
+      var, assert the computed-colors `<style>` `textContent` regenerated (guard in `bun test`,
+      not only the in-browser fence). (`css.ts`) _(unverified; covered by the Playwright fence)_
 
 **DRY / cleanup (nit):**
+
 - [x] ✅ **v1.7.1** — Extracted `settleBlueprints(host, selector, loaderTag)` for the
-  copy-pasted allSettled+report block, and `configureTjs({...})` shared by both
-  `configure-tjs-*.ts` (new `configure-tjs.ts`).
+      copy-pasted allSettled+report block, and `configureTjs({...})` shared by both
+      `configure-tjs-*.ts` (new `configure-tjs.ts`).
 - [x] ✅ **v1.7.1** — Removed the dead `DATEISH` export from `dom.ts`.
 - [ ] Centralize color recognition — an `isCssColor`/`tryParseColor` on `Color` so
-  `invertLuminance`'s regex and `Color.fromCss` don't drift (regex rejects 4/8-digit hex +
-  system colors that fromCss accepts). (`css.ts`)
+      `invertLuminance`'s regex and `Color.fromCss` don't drift (regex rejects 4/8-digit hex +
+      system colors that fromCss accepts). (`css.ts`)
 - [x] ✅ **v1.7.1** — Reworded the `list-binding.ts` null-anchor comment (SVG/MathML
-  namespaced case; HTML-table list containers unsupported).
+      namespaced case; HTML-table list containers unsupported).
 
 **Efficiency micro-guards (nit, optional):** gate the shadow-content-binding diagnostic
 behind `settings.debug` or record tagName regardless of query outcome (`component.ts:1584`);
 short-circuit the `seenIds` build once `warnedDuplicateListId` (`list-binding.ts:1484`).
+
 - [x] ✅ **v1.7.1** — `composedPath()` now guarded behind `event.composed` in `bind.ts`.
 
 **Ecosystem / upstream:**
+
 - [x] ✅ **v1.7.1** — #9/#16/#17 given explicit STILL-OPEN dispositions (commented on each;
-  #9 = resize/hiddenProp, untouched by 1.7's nested-list/reorder work; #16 untouched; #17
-  integrator caveat now documented, subscription seam still open).
+      #9 = resize/hiddenProp, untouched by 1.7's nested-list/reorder work; #16 untouched; #17
+      integrator caveat now documented, subscription seam still open).
 - [x] ✅ **v1.7.1** — Filed the tjs-lang post-eval reconfiguration seam as
-  [tjs-lang#23](https://github.com/tonioloewald/tjs-lang/issues/23) (UPSTREAM.md updated).
+      [tjs-lang#23](https://github.com/tonioloewald/tjs-lang/issues/23) (UPSTREAM.md updated).
 - [x] ✅ **v1.7.1** — #17's integrator note added to Building-Apps "Gotchas" (boxed proxies
-  minted per access; never key memo on identity; `.map()` yields raw items).
+      minted per access; never key memo on identity; `.map()` yields raw items).
 - [ ] (optional) File tosijs-ui issue: site builder should strip its `.tjs`/`bun-plugin`/
-  `*.tsbuildinfo` staging from `dist` after bundling so consumers don't need `files`
-  negations.
+      `*.tsbuildinfo` staging from `dist` after bundling so consumers don't need `files`
+      negations.
 
 **Packaging:**
+
 - [x] ✅ **v1.7.1** — `CHANGELOG.md` + `llms.txt` added to the package `files` allowlist
-  (they were built and committed but never published to npm). **This was the headline fix.**
+      (they were built and committed but never published to npm). **This was the headline fix.**
 
 **Practices / CLAUDE.md:**
+
 - [x] ✅ **v1.7.1** — CLAUDE.md Build System debug/safe description updated (EXPERIMENTAL/inert,
-  `configure-tjs-*` import-first ESM-order fix, strictness-is-a-different-axis note).
+      `configure-tjs-*` import-first ESM-order fix, strictness-is-a-different-axis note).
 - [ ] Practices repo (`tosijs-coding-practices`): add "tosijs" to the haltija-port-squatting
-  "seen in" note (review.md ~L448), reference haltija#1 as the in-flight isolation fix.
+      "seen in" note (review.md ~L448), reference haltija#1 as the in-flight isolation fix.
 
 ## 1.7 — the correctness release (planned)
 
@@ -180,7 +186,7 @@ that lookup).
   like an `<input>`/`<textarea>` — its `value` is the binding surface.** Bind the
   component itself with `bindings.value`; setting `value` queues `render()` and emits
   `change` automatically; `render()` reflects value into the shadow DOM; internal
-  representation is the implementer's business. Bindings do not compose *through* a
+  representation is the implementer's business. Bindings do not compose _through_ a
   shadow tree (nested widgets are wired manually in `render()`) — a shadow component is
   materially different from a light-DOM component. Docs and warning text teach this
   model. (This is deliberate, original design — light-DOM-first with `tosi-slot`
@@ -200,13 +206,13 @@ that lookup).
      only by the boundary-hop test — verify origin resolution in a real browser.
   3. **Path-indexed bind dispatch: WITHDRAWN — tried before, rejected again (2026-07-17).**
      Recorded so it stays dead: virtual list bindings keep the DOM at O(visible) by
-     recycling elements and *reassigning their binding paths in place* every scroll frame
+     recycling elements and _reassigning their binding paths in place_ every scroll frame
      (`updateRelativeBindings` rewrites `binding.path`), so any path-keyed index turns
      scroll into per-element index churn on the exact hot path virtual scrolling keeps
      flat; and a leak-free path→element map is genuinely hard (element churn; strong refs
      leak subtrees, WeakRefs leak key entries). The current DOM-as-registry design is
      leak-free by construction, retargets recycled elements in O(1), and its
-     querySelectorAll scan is bounded *because* virtual lists cap live DOM size — the
+     querySelectorAll scan is bounded _because_ virtual lists cap live DOM size — the
      architecture and virtual lists are co-designed. The review's "O(paths × all bound
      elements)" efficiency finding should be read with that bound in mind. The only
      surviving bind-side shadow idea is an explicit **opt-in** per-root dispatch
@@ -220,7 +226,7 @@ that lookup).
   so all relative bindings under a nested list resolve to malformed paths; make extendPath
   idempotent for bracketed segments. (c) `metadata.ts:250-276` — `cloneWithBindings` on a
   `<template>` reads from `.content` but appends via `cloned.appendChild`, which per spec
-  appends to the *element*; clone into `cloned.content`. Happy-dom masks (c) by redirecting
+  appends to the _element_; clone into `cloned.content`. Happy-dom masks (c) by redirecting
   `appendChild` — needs a browser test.
 - **SB-3: stale id-path cache returns and CLOBBERS the wrong item.** `by-path.ts:63-68` —
   `buildIdPathValueMap` reuses the existing map object and never clears stale keys;
@@ -233,7 +239,7 @@ that lookup).
   — `update()` resets `updateTriggered` before dispatch; an observer that writes state (the
   documented calculator pattern) replaces the module-level `resolveUpdate`, so the prior
   promise never resolves (hang) and the new one resolves before its update runs. Related,
-  same function: a throwing observer *test* function is re-thrown out of the filter after
+  same function: a throwing observer _test_ function is re-thrown out of the filter after
   `touchedPaths` was cleared — remaining observers never fire and `updates()` hangs
   (callback throws are caught; test throws are not, `:172-189`). Fix: chain/settle the
   promise correctly across cascades, try/catch around `test` like callbacks, and
@@ -292,10 +298,10 @@ that lookup).
      NaN/null (empty or partial entry) falls back to the raw string — never fabricate a
      number or a 1970 date from an empty field. This covers the **bind-before-data
      bootstrap**: when state is still undefined (deeply-async pattern) there is no state
-     type to consult, and the control's declaration is what keeps the *first* write
+     type to consult, and the control's declaration is what keeps the _first_ write
      correctly typed. It also keeps `getValue` honest as a public standalone utility.
   2. **State-driven coercion (the general net):** in `handleChange`, state's type is
-     authoritative for controls that *don't* declare one. Path holds a number + control
+     authoritative for controls that _don't_ declare one. Path holds a number + control
      yields a clean numeric string → coerce with `Number()` before writing (fixes text
      inputs, selects with numeric option values, radios). Guard: only non-empty strings
      that parse cleanly (`Number('')` is 0 — never coerce empty to zero); non-numeric
@@ -304,17 +310,17 @@ that lookup).
      Date → write `valueAsDate`; holds a number → `valueAsNumber` (epoch ms); holds a
      string → keep the control's ISO string. Bootstrap default for empty state under a
      date-family control: the `Date` from layer 1.
-  ⚠️ Dependency: Date objects in state require the `deepClone` Date fix (medium backlog —
-  currently `deepClone(new Date())` → `{}`, and Component deep-clones `value` through
-  it) landing in the SAME release; and document that JSON-based share/sync serializes
-  Dates to ISO strings (inherent to JSON — don't pretend otherwise).
-  toDOM direction, same doctrine: `setValue` accepts the union (Date | epoch number |
-  ISO string) for date-family controls and sets via the matching native property; radio
-  `checked` uses strict equality so numeric state never matches `value="5"` — compare
-  `String(state)` to `element.value`; radio group lookup only searches `parentElement`.
-  `setValue` guards: binding a text input to a missing path renders literal `"undefined"`
-  (contradicts "bind before data exists" — render `''`), multi-select with `undefined`
-  throws inside the observer flush, `date` with null must clear the field, not 1970-01-01.
+     ⚠️ Dependency: Date objects in state require the `deepClone` Date fix (medium backlog —
+     currently `deepClone(new Date())` → `{}`, and Component deep-clones `value` through
+     it) landing in the SAME release; and document that JSON-based share/sync serializes
+     Dates to ISO strings (inherent to JSON — don't pretend otherwise).
+     toDOM direction, same doctrine: `setValue` accepts the union (Date | epoch number |
+     ISO string) for date-family controls and sets via the matching native property; radio
+     `checked` uses strict equality so numeric state never matches `value="5"` — compare
+     `String(state)` to `element.value`; radio group lookup only searches `parentElement`.
+     `setValue` guards: binding a text input to a missing path renders literal `"undefined"`
+     (contradicts "bind before data exists" — render `''`), multi-select with `undefined`
+     throws inside the observer flush, `date` with null must clear the field, not 1970-01-01.
 - **H-7: `share()` restore re-broadcasts a stale snapshot over live tabs.**
   `share.ts:328-357` — restore does `setByPath` + `touch`, then registers the outbound
   observer synchronously; since touch is async-batched, the observer sees the restored
@@ -345,16 +351,17 @@ that lookup).
   `bind.ts` `handleChange`/`handleBoundEvent` — WeakMap `get(target)` is used without a null
   check; clones carry the `-xin-data` class (and, pre-1.7.3, `-xin-event`) but no WeakMap
   entries. Degrade gracefully (skip) instead of TypeError-ing and aborting ancestor traversal.
-  *(1.7.3: the `-xin-event` marker class was retired entirely — the event ancestor walk now
+  _(1.7.3: the `-xin-event` marker class was retired entirely — the event ancestor walk now
   consults the elementToHandlers WeakMap directly, so clones are never even visited. The data
   marker stays but was renamed `-xin-data` → `-tosi-data` in 1.7.4, and dispatch now enumerates
   it via getElementsByClassName (1.6–2.6× faster than querySelectorAll); it can't be a WeakMap
   because dispatch enumerates by path, and can't be a data-attribute because getElementsByClassName
-  is class-only.)*
+  is class-only.)_
 
 ### Medium backlog (fix in 1.7 where cheap; otherwise carry, don't drop)
 
 **✅ FIXED in 1.7 (2026-07-18 triage pass, each with a regression test):**
+
 - packaging: `types`-first in exports; excluded `*.tsbuildinfo` + `dist/bun-plugin` from
   the tarball.
 - binding/lists: reactive `class` now replaces (not accumulates); `bind()` no longer
@@ -370,6 +377,7 @@ that lookup).
   compound boxed paths already fixed by SB-2b; `deleteByPath` null already fixed by SB-3.
 
 **⏸ DEFERRED / carried (not cheap, or better in 2.0):**
+
 - `tosiValue` function-proxy unwrap — partial fix only (identity already lost to
   `.bind()`-per-access), and taxes the hot path; needs function-identity caching (2.0).
 - no `deleteProperty` trap — `delete proxy.x` mutates silently with no touch. Design
@@ -418,6 +426,7 @@ instance (own server/port/Electron), never adopting the shared interactive brows
 tosijs-ui's dev-server test mode is the consumer that adopts the shared server today.
 Until that lands, run `test:browser` when no other tosijs-ui project's haltija is on 8700.
 Still wanted:
+
 - README has no shadow-DOM guidance beyond one `shadowStyleSpec` code sample — fine
   (README stays lean), but verify llms.txt picks up the Building-Apps section after the
   next build.
@@ -474,12 +483,13 @@ Decision: do **not** backport `settings.strictness` / `pathCreation` / `bindingP
 the 1.7 line. They stay 2.0-only; state-change type checking ships when 2.0 does.
 
 Context (a consumer conflated two mechanisms — keep them straight):
+
 - **`settings.strictness` = state-update type checking** (assign a value whose runtime
   type differs from what the path holds → warn/throw). Real, enforced, tested — but lives
   **only on `tosijs-2.0`** (main's `settings.ts` is just `{ debug, perf }`). This is the
   thing consumers actually want when they say "type checking on state updates."
 - **`tosijs/debug` + `__tjs` metadata = TJS function-signature checking** (H-4). A
-  *different axis*: ships per-function metadata now, enforcement arrives with native-TJS
+  _different axis_: ships per-function metadata now, enforcement arrives with native-TJS
   modules in 2.0. Will never provide state-update checking no matter how enabled.
 - **"flight recording"** — no tosijs feature by that name; nearest is tjs-lang's monadic
   error ring buffer (write-closed; filed upstream), surfaced only via the debug bundle's

@@ -106,12 +106,12 @@ const setValueInner = (element: Element, newValue: any): void => {
   switch (type) {
     case 'radio':
       // String() the state side: numeric state 5 must check value="5"
-      (element as HTMLInputElement).checked =
+      ;(element as HTMLInputElement).checked =
         newValue != null &&
         (element as HTMLInputElement).value === String(newValue)
       break
     case 'checkbox':
-      (element as HTMLInputElement).checked = !!newValue
+      ;(element as HTMLInputElement).checked = !!newValue
       break
     case 'date':
     case 'datetime-local':
@@ -171,7 +171,7 @@ const setValueInner = (element: Element, newValue: any): void => {
     default:
       // binding before the data exists must render an empty control, not
       // the literal string "undefined"
-      (element as HTMLInputElement).value = newValue == null ? '' : newValue
+      ;(element as HTMLInputElement).value = newValue == null ? '' : newValue
   }
 }
 
@@ -204,8 +204,7 @@ export const getValue = (element: ValueElement): any => {
     case 'week': {
       const input = element as HTMLInputElement
       const d =
-        input.valueAsDate ??
-        (input.value !== '' ? new Date(input.value) : null)
+        input.valueAsDate ?? (input.value !== '' ? new Date(input.value) : null)
       return d != null && !Number.isNaN(d.getTime()) ? d : input.value
     }
     case 'time': {
@@ -227,7 +226,6 @@ export const getValue = (element: ValueElement): any => {
       return element.value
   }
 }
-
 
 const { ResizeObserver } = globalThis
 export const resizeObserver =

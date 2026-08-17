@@ -394,26 +394,24 @@ test('bindParts works on SVG elements', async () => {
 })
 
 test('bind() on an element already inside a shadow root warns', () => {
-    const host = document.createElement('div')
-    document.body.append(host)
-    const shadow = host.attachShadow({ mode: 'open' })
-    const target = document.createElement('span')
-    shadow.append(target)
+  const host = document.createElement('div')
+  document.body.append(host)
+  const shadow = host.attachShadow({ mode: 'open' })
+  const target = document.createElement('span')
+  shadow.append(target)
 
-    const warnings: string[] = []
-    const origWarn = console.warn
-    console.warn = (...args: any[]) => {
-      warnings.push(args.map(String).join(' '))
-    }
-    try {
-      bind(target, 'shadowDirectBind.label', bindings.text)
-    } finally {
-      console.warn = origWarn
-    }
-    expect(
-      warnings.some((w) => w.includes('inside a shadow root'))
-    ).toBe(true)
-    host.remove()
+  const warnings: string[] = []
+  const origWarn = console.warn
+  console.warn = (...args: any[]) => {
+    warnings.push(args.map(String).join(' '))
+  }
+  try {
+    bind(target, 'shadowDirectBind.label', bindings.text)
+  } finally {
+    console.warn = origWarn
+  }
+  expect(warnings.some((w) => w.includes('inside a shadow root'))).toBe(true)
+  host.remove()
 })
 
 test('on() works inside an open shadow root (composedPath origin)', () => {

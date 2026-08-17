@@ -514,7 +514,7 @@ describe('list binding element reuse with idPath on array replacement', () => {
     // Simulate polling: replace array with new objects, same ids, mostly same data
     const updated = [
       { name: 'Alice', score: 10 }, // unchanged
-      { name: 'Bob', score: 25 },   // score changed
+      { name: 'Bob', score: 25 }, // score changed
       { name: 'Carol', score: 30 }, // unchanged
     ]
     xin['reuseTest1.list'] = updated
@@ -559,7 +559,7 @@ describe('list binding element reuse with idPath on array replacement', () => {
     // Simulate polling: find each existing item and Object.assign new data
     const polledData = [
       { name: 'Alice', score: 10 }, // unchanged
-      { name: 'Bob', score: 25 },   // score changed
+      { name: 'Bob', score: 25 }, // score changed
       { name: 'Carol', score: 30 }, // unchanged
     ]
     for (const newItem of polledData) {
@@ -728,10 +728,7 @@ describe('itemsPerRow grid layout', () => {
 
     const { div, span, template } = elements
     const container = div(
-      template(
-        span({ bindText: '^.name' }),
-        span({ bindText: '^.score' }),
-      )
+      template(span({ bindText: '^.name' }), span({ bindText: '^.score' }))
     )
     mockDimensions(container, 400, 300)
     document.body.append(container)
@@ -808,10 +805,7 @@ describe('itemsPerRow grid layout', () => {
 
     const { div, span, template } = elements
     const container = div(
-      template(
-        span({ bindText: '^.name' }),
-        span({ bindText: '^.score' }),
-      )
+      template(span({ bindText: '^.name' }), span({ bindText: '^.score' }))
     )
     mockDimensions(container, 400, 300)
     document.body.append(container)
@@ -856,10 +850,7 @@ describe('itemsPerRow grid layout', () => {
 
     const { div, span, template } = elements
     const container = div(
-      template(
-        span({ bindText: '^.name' }),
-        span({ bindText: '^.id' }),
-      )
+      template(span({ bindText: '^.name' }), span({ bindText: '^.id' }))
     )
     mockDimensions(container, 400, 300)
     document.body.append(container)
@@ -937,10 +928,7 @@ describe('itemsPerRow grid layout', () => {
     const container = div(
       header1,
       header2,
-      template(
-        span({ bindText: '^.name' }),
-        span({ bindText: '^.score' }),
-      )
+      template(span({ bindText: '^.name' }), span({ bindText: '^.score' }))
     )
     mockDimensions(container, 400, 300)
     document.body.append(container)
@@ -976,11 +964,7 @@ describe('itemsPerRow grid layout', () => {
     const { div, span, template } = elements
     const header = span('Header')
     const footer = span('Footer')
-    const container = div(
-      header,
-      template(div({ bindText: '^.name' })),
-      footer,
-    )
+    const container = div(header, template(div({ bindText: '^.name' })), footer)
     mockDimensions(container, 400, 300)
     document.body.append(container)
 

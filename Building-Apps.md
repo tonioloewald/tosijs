@@ -448,7 +448,7 @@ Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:
 
 - **Light DOM** (default): bindings flow through naturally.
-- **Shadow DOM**: the component is a *custom input*. Think of it exactly like
+- **Shadow DOM**: the component is a _custom input_. Think of it exactly like
   an `<input>` or `<textarea>`: **its `value` is the binding surface**. Bind
   the component itself (e.g. `bindings.value`) from outside; setting `value`
   automatically queues `render()` and emits `change`, so implement `render()`
@@ -514,9 +514,19 @@ const { demo } = tosi({ demo: { rating: 3 } })
 
 preview.append(
   // the widget: bound by VALUE, like an input
-  elements.starRating({ bind: { value: 'demo.rating', binding: bindings.value } }),
+  elements.starRating({
+    bind: { value: 'demo.rating', binding: bindings.value },
+  }),
   // a plain number input on the SAME path — they stay in sync
-  label(' rating: ', input({ type: 'number', min: 0, max: 5, bind: { value: 'demo.rating', binding: bindings.value } }))
+  label(
+    ' rating: ',
+    input({
+      type: 'number',
+      min: 0,
+      max: 5,
+      bind: { value: 'demo.rating', binding: bindings.value },
+    })
+  )
 )
 ```
 

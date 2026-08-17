@@ -262,8 +262,12 @@ describe('the affordance grammar — actionable is explicit', () => {
     expect(svg).toContain('>↔</text>')
     expect(svg).not.toContain('⟷</text>') // the rare glyph never rides a caption
     // the wired button is BOLD; the display-only span is not
-    expect(svg).toContain('x="210" y="0" width="60" height="30" fill="transparent" stroke="currentColor" stroke-width="2"')
-    expect(svg).toContain('x="280" y="0" width="40" height="30" fill="transparent" stroke="currentColor"/>')
+    expect(svg).toContain(
+      'x="210" y="0" width="60" height="30" fill="transparent" stroke="currentColor" stroke-width="2"'
+    )
+    expect(svg).toContain(
+      'x="280" y="0" width="40" height="30" fill="transparent" stroke="currentColor"/>'
+    )
   })
 })
 
@@ -278,15 +282,48 @@ describe('schematicSVG — control-state truth', () => {
     exposure: 'introspection',
     wiring: [
       // checkbox: checked and not — the state is the caption
-      { tag: 'input', type: 'checkbox', checked: true, value: 'true ⟷ a.on', bounds: { x: 10, y: 10, width: 13, height: 13 } },
-      { tag: 'input', type: 'checkbox', checked: false, bounds: { x: 30, y: 10, width: 13, height: 13 } },
+      {
+        tag: 'input',
+        type: 'checkbox',
+        checked: true,
+        value: 'true ⟷ a.on',
+        bounds: { x: 10, y: 10, width: 13, height: 13 },
+      },
+      {
+        tag: 'input',
+        type: 'checkbox',
+        checked: false,
+        bounds: { x: 30, y: 10, width: 13, height: 13 },
+      },
       // radios
-      { tag: 'input', type: 'radio', checked: true, label: 'medium', bounds: bounds(150) },
-      { tag: 'input', type: 'radio', checked: false, label: 'large', bounds: bounds(280) },
+      {
+        tag: 'input',
+        type: 'radio',
+        checked: true,
+        label: 'medium',
+        bounds: bounds(150),
+      },
+      {
+        tag: 'input',
+        type: 'radio',
+        checked: false,
+        label: 'large',
+        bounds: bounds(280),
+      },
       // empty input with placeholder: an italic HINT, not content
-      { tag: 'input', placeholder: 'add a todo…', value: '⟷ a.newItem', bounds: bounds(410) },
+      {
+        tag: 'input',
+        placeholder: 'add a todo…',
+        value: '⟷ a.newItem',
+        bounds: bounds(410),
+      },
       // input with BOTH: the value wins
-      { tag: 'input', placeholder: 'search…', value: 'milk ⟷ a.filter', bounds: bounds(540) },
+      {
+        tag: 'input',
+        placeholder: 'search…',
+        value: 'milk ⟷ a.filter',
+        bounds: bounds(540),
+      },
       // unbound input harvested live (plain string, no arrow)
       { tag: 'input', value: 'typed by hand', bounds: bounds(670) },
     ],

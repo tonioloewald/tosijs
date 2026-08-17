@@ -10,5 +10,11 @@
     "removeComments": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "src/**/*.test.ts", "src/index-debug.ts", "src/index-safe.ts", "src/index-iife.ts"]
+  "exclude": [
+    "node_modules",
+    "src/**/*.test.ts",
+    "src/index-debug.ts",
+    "src/index-safe.ts",
+    "src/index-iife.ts"
+  ]
 }

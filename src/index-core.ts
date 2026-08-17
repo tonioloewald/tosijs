@@ -45,7 +45,7 @@ if (typeof document !== 'undefined' && settings.quiet !== true) {
       console.warn(
         `tosijs/core: ${orphans.length} blueprint element(s) on this page will ` +
           'NOT hydrate — the slim entry omits the blueprint loader. Import ' +
-          "from 'tosijs' instead (or add `import \"tosijs/blueprints\"`).",
+          'from \'tosijs\' instead (or add `import "tosijs/blueprints"`).',
         orphans[0]
       )
     }

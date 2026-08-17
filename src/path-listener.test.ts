@@ -42,9 +42,12 @@ describe('updates() across cascaded drains', () => {
     ;(xin as any).poisonPt = { ok: 0 }
     await updates()
     let heard = 0
-    const bad = observe(() => {
-      throw new Error('bad predicate')
-    }, () => {})
+    const bad = observe(
+      () => {
+        throw new Error('bad predicate')
+      },
+      () => {}
+    )
     const good = observe('poisonPt.ok', () => {
       heard++
     })

@@ -139,7 +139,9 @@ test('falsy class values add no class (idiomatic conditionals)', () => {
 })
 
 test('class array skips falsy entries', () => {
-  const div = elements.div({ class: ['foo', null, false, undefined, 'bar'] as any })
+  const div = elements.div({
+    class: ['foo', null, false, undefined, 'bar'] as any,
+  })
   expect([...div.classList].sort()).toEqual(['bar', 'foo'])
 })
 

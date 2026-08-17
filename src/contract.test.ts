@@ -282,7 +282,10 @@ describe('exerciseComponent — the component is its own test fixture', () => {
     const { bindings } = await import('./bindings')
     bind(el, 'counterApp.n', bindings.value)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const record = agent
       .describe()
       .wiring.find((w) => w.tag === 'honest-counter')!
@@ -379,7 +382,11 @@ describe('contract.attributes subsumes initAttributes', () => {
     } finally {
       console.warn = original
     }
-    expect(warnings.filter((w) => w.includes('Ideally attributes live in the contract')).length).toBe(1)
+    expect(
+      warnings.filter((w) =>
+        w.includes('Ideally attributes live in the contract')
+      ).length
+    ).toBe(1)
   })
 })
 
@@ -445,7 +452,8 @@ describe('value-setter enforcement — a contract is an opt-in to being held to 
     setContractValidator((value, schema) => {
       const reasons: string[] = []
       const ok = validate(value, schema, {
-        onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
+        onError: (at: string, msg: string) =>
+          void reasons.push(`${at}: ${msg}`),
       })
       return ok ? true : new Error(reasons.join('; '))
     })
@@ -547,7 +555,10 @@ describe('inline element contracts', () => {
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const d = agent.describe()
     const record = d.wiring.find((w) => w.contract != null)
     expect(record?.contract).toEqual(schema)
@@ -566,7 +577,10 @@ describe('inline element contracts', () => {
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     agent.write('inlineGate.level', 7) // conforming: accepted
     expect(agent.read('inlineGate.level')).toBe(7)
     expect(() => agent.write('inlineGate.level', 'seven')).toThrow(
@@ -625,7 +639,10 @@ describe('inline element contracts', () => {
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const report = exerciseContract(agent)
     const mine = report.trials.filter((t) => t.root === 'inlineExercised.name')
     expect(mine.length).toBe(4) // 2 examples + 2 counterexamples
@@ -706,13 +723,17 @@ describe('inline contracts + plugged full validator', () => {
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     agent.write('inlineFull.qty', 0) // native subset: integer, passes
     expect(agent.read('inlineFull.qty')).toBe(0)
     setContractValidator((value, schema) => {
       const reasons: string[] = []
       const ok = validate(value, schema, {
-        onError: (at: string, msg: string) => void reasons.push(`${at}: ${msg}`),
+        onError: (at: string, msg: string) =>
+          void reasons.push(`${at}: ${msg}`),
       })
       return ok ? true : new Error(reasons.join('; '))
     })
@@ -751,16 +772,21 @@ describe('blueprint contract — hydrated components self-describe', () => {
       ],
     } as const
 
-    const { creator, type } = await makeComponent('bp-counter', (tag, { Component: C }) => {
-      class BpCounter extends (C as any) {
-        value = 0
-        content = ({ span }: any) => span({ part: 'readout' })
-        render() {
-          ;(this as any).parts.readout.textContent = String((this as any).value)
+    const { creator, type } = await makeComponent(
+      'bp-counter',
+      (tag, { Component: C }) => {
+        class BpCounter extends (C as any) {
+          value = 0
+          content = ({ span }: any) => span({ part: 'readout' })
+          render() {
+            ;(this as any).parts.readout.textContent = String(
+              (this as any).value
+            )
+          }
         }
+        return { type: BpCounter as any, contract: bpContract as any }
       }
-      return { type: BpCounter as any, contract: bpContract as any }
-    })
+    )
     // stamped as an OWN static at hydration
     expect(Object.prototype.hasOwnProperty.call(type, 'contract')).toBe(true)
 
@@ -771,9 +797,7 @@ describe('blueprint contract — hydrated components self-describe', () => {
     const agent = enableAgentInterface({ global: false, expose: 'all' })
     try {
       // no bindings, no handlers — the DECLARATION is what puts it on the map
-      const rec = agent
-        .describe()
-        .wiring.find((w) => w.tag === 'bp-counter')
+      const rec = agent.describe().wiring.find((w) => w.tag === 'bp-counter')
       expect(rec?.component?.description).toBe('a blueprint-delivered counter')
       // enforced: the value contract gates the setter
       expect(() => {
@@ -855,7 +879,9 @@ describe('contract violations cannot strand the dispatch loop', () => {
     const { bindings } = await import('./bindings')
     const { updates } = await import('./path-listener')
 
-    const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+    const numeric = {
+      value: { type: 'number' },
+    } as const satisfies ComponentMap
     class PreDataCounter extends Component<typeof numeric> {
       static preferredTagName = 'pre-data-counter'
       static contract = numeric
@@ -880,7 +906,9 @@ describe('contract violations cannot strand the dispatch loop', () => {
   })
 
   test('a DIRECT write still throws — the developer error is caught immediately', async () => {
-    const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+    const numeric = {
+      value: { type: 'number' },
+    } as const satisfies ComponentMap
     class DirectCounter extends Component<typeof numeric> {
       static preferredTagName = 'direct-counter'
       static contract = numeric

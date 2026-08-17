@@ -1,7 +1,8 @@
 # One User Interface
+
 <!--{ "pin": "bottom", "order": 320, "description": "One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." }-->
 
-*One source of truth for state, UI — and AI.*
+_One source of truth for state, UI — and AI._
 
 > **Status: shipping in tosijs 1.8.0.** The surface
 > (`enableAgentInterface` → `tosiAgent`), the schematic pipeline
@@ -18,11 +19,11 @@
 ## The thesis, in five claims
 
 Every app now has three kinds of user — **humans** (rendered DOM), **code**
-(state), and **agents**, who today are forced to *impersonate humans*:
+(state), and **agents**, who today are forced to _impersonate humans_:
 screenshot, guess, forge clicks. tosijs never needed the workaround:
 
 - **State lives in one registry, addressed by paths** — `app.cart.items[id=123].qty`
-  is a serializable, LLM-friendly *string*. No DOM required to name a thing.
+  is a serializable, LLM-friendly _string_. No DOM required to name a thing.
 - **Writes are legitimate from any entry point** — assign to a path and every
   bound widget updates, exactly as if the human had done it.
 - **The DOM is persistent** — bindings wire real elements once; nothing is
@@ -30,12 +31,12 @@ screenshot, guess, forge clicks. tosijs never needed the workaround:
 - **Observation is push, not poll** — `observe(path, …)` replaces screenshot
   diffing with notifications.
 - Therefore: **an agent is just another observer with a different intelligence
-  behind it.** We don't extend the architecture to serve AI — we *describe* it.
+  behind it.** We don't extend the architecture to serve AI — we _describe_ it.
 
 **And the description is under oath.** The agent surface couldn't be a
 separate package even if we wanted one — it reads the framework's own
 records (the registry, the binding metadata, the handler wiring), so when
-the map looks wrong, something *real* is wrong: the renderer lied, or the
+the map looks wrong, something _real_ is wrong: the renderer lied, or the
 framework did. There is no adapter layer to absorb the discrepancy, which is
 exactly what makes the map an instrument. One truth-test page found defects
 in four different strata in a day — a harvest lying about accessible names,
@@ -43,8 +44,8 @@ a missing piece of the accessible-name algorithm, a **core binding bug**
 that had shipped silently for two minor versions (fixed on npm within
 hours of the map looking slightly off), and a coding pattern that needed
 writing down. An integration absorbs discrepancies; an intrinsic surface
-prosecutes them. The curb cut doesn't just serve the new users — *building
-it audits the sidewalk.*
+prosecutes them. The curb cut doesn't just serve the new users — _building
+it audits the sidewalk._
 
 ## Proof: two users, one interface (live)
 
@@ -120,7 +121,6 @@ preview.append(
 `tosiAgent.call('oneUI.addItem', 'from the console')`, `tosiAgent.changes()`.
 An agentic browser gets the same deal: no extension, no vision, no selectors.
 
-
 ## The full argument, in five parts
 
 This page is the thesis and its live proof. The detail lives in five child
@@ -141,15 +141,16 @@ documents:
    vending UI on demand, with `elementsSSR` proven live.
 5. **[Plan & Prior Art](/plan-and-prior-art/)** — phases 0–5, the open questions,
    and why the window is real (WebMCP is standardizing the transport slot
-   *right now*; the core idea remains unclaimed).
+   _right now_; the core idea remains unclaimed).
 
 ---
 
-*The observant model, stated for 2026: the framework watches state and updates
+_The observant model, stated for 2026: the framework watches state and updates
 the UI. A human is an observer with eyes. An agent is an observer with a model.
-Neither needs a special interface, because there is only one.*
+Neither needs a special interface, because there is only one._
 
 <!-- toc -->
+
 - [The Derived Surface](/derived-surface/)
 - [The Agent Surface](/agent-surface/)
 - [Trust & Transports](/trust-and-transports/)
