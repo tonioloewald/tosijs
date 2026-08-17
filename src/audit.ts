@@ -210,7 +210,26 @@ export const auditAccessibility = (
     }
 
     if (w.style != null && name !== '') {
-      const ratio = contrastRatio(w.style.color, w.style.background)
+      // A TRANSPARENT BACKGROUND IS NOT BLACK. Computed styles report
+      // `rgba(0,0,0,0)` for "inherit from whatever is behind me", which the
+      // luminance math read as pure black — in a real browser that fired a
+      // severity-error on nearly every element on the page. The map does
+      // not know the effective ancestor background, so the honest answer is
+      // "cannot measure", not a confident wrong number.
+      const transparent = /rgba?\([^)]*,\s*0(\.0+)?\s*\)/.test(
+        w.style.background
+      )
+      if (transparent) {
+        if (!skipped.some((s) => s.startsWith('contrast: transparent'))) {
+          skipped.push(
+            'contrast: transparent backgrounds cannot be measured from the ' +
+              'map alone (the effective ancestor background is unknown)'
+          )
+        }
+      }
+      const ratio = transparent
+        ? null
+        : contrastRatio(w.style.color, w.style.background)
       if (ratio != null && ratio < floor) {
         add(
           'contrast',

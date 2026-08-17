@@ -236,6 +236,7 @@ The blueprint function can be `async`, so you can use async import inside it to 
 
 import { Component } from './component'
 import { warnDeprecated } from './metadata'
+import { settings } from './settings'
 import {
   makeComponent,
   TosiBlueprint,
@@ -301,7 +302,9 @@ export class Blueprint extends Component {
           return makeComponent(tag, bp)
         })
       } else {
-        console.log(`using cached ${tag} with signature ${signature}`)
+        if (settings.debug) {
+          console.log(`using cached ${tag} with signature ${signature}`)
+        }
       }
       try {
         this.loaded = await loadedBlueprints[signature]

@@ -1,5 +1,188 @@
 # todo
 
+## 1.8.0 pre-release review — the complete ledger (rounds 1 & 2)
+
+Two nine-lens reviews ran against this release (`REVIEW-1.8.0-rc.1.md`,
+`REVIEW-1.8.0-rc.1-round2.md`). **Every finding either shipped a fix, is
+scheduled below, or is filed upstream.** Nothing was waved away.
+
+### ✅ Fixed in this release
+
+Round 1: B1 (a contract violation stranding the whole binding-dispatch
+loop), M1 (typeMismatch broke third-party elements), M2 (a false
+`on<Event>` warning), M3 (subclass `contract.attributes` dropped inherited
+`initAttributes`), M4 (ARIA into the matching slot), M5 (the scaffolder's
+open surface), M6 (semver + tombstones), M7 (Migration.md), M8 (ledger cap),
+M9 (`describe()` waste), M10 (entry points), M11 (seven stale size claims),
+M12 (docs speak as shipped), M13 (duplicated path matcher), M15/M16 (inert
+gates became real build gates), M17 (list coverage — which exposed the
+`cloneWithBindings` identity bug), M18 (CLAUDE.md), M20 (practices link),
+M22 (UPSTREAM.md), M23 (WebMCP receipts).
+
+Round 2: B1–B5 (the semver justification, the manifest leak, plaintext
+passwords, non-idempotent `disable()`, read-only act tools) plus:
+`settings.quiet` couldn't suppress what it was added for; contrast fired on
+transparency; gzip budgets and the published bin are now gated in the BUILD;
+unpinned CDN URLs in the scaffolder; Migration.md ships in the tarball;
+`tosijs/state` really is a subset now; ungated `console.log` breadcrumbs;
+tool-name collisions; EXPERIMENTAL surfaced to consumers; "old names still
+work" scoped honestly.
+
+### 🔴 ESCALATED — the review triaged these below blocker; I think they are majors
+
+- [ ] **`share`/`sync`/`hot-reload` bypass contract enforcement entirely.**
+  Contracts are checked in the component value setter and `agent.write()`
+  only, so a BroadcastChannel peer, a `SyncTransport` server, or a
+  hot-reload restore writes illegal state straight into the registry — the
+  exact state an agent is refused. The release's "declared contracts are
+  enforced" claim has a hole. Not fixed here because the fix is
+  architectural (a registry-level write gate).
+- [ ] **`describe().contract` advertises constraints `write()` will not
+  enforce.** Where a curated contract covers a root, inline element
+  contracts beneath it are silently disabled but still emitted. For a
+  project whose thesis is "the description is under oath", a map that
+  states a rule the surface won't apply is the worst class of defect.
+- [ ] **Contract validation fails open, silently.** Only
+  `const`/`enum`/`type` are enforced; `required`/`properties`/`minimum`/
+  `pattern`/`format`/`items` are inert unless a host registered a full
+  validator — so the same shipped blueprint enforces differently per host.
+  Warn once per schema carrying unenforceable keywords, and document the
+  enforced subset.
+- [ ] **`exerciseContract` counts a surface REFUSAL as a passing
+  counterexample** — a contract with only `$counterexamples` yields a green
+  report from a harness that validated nothing.
+
+### 🟠 Scheduled — correctness & packaging
+
+- [ ] `globalThis.tosiAgent` has no collision detection — and two copies on
+  a page is a scenario the scaffolder actively creates.
+- [ ] WebMCP `provideContext` unregister BLANKS the page's entire tool set,
+  including tools tosijs never registered.
+- [ ] `on<Event>` member-vs-sugar depends on custom-element UPGRADE TIMING,
+  which is exactly the blueprint case. Decide from `customElements.get(tag)`.
+- [ ] The tosijs#24 mismatch route stringifies across the connect boundary
+  (`false` before append, `"false"` after) while its error says nothing is
+  coerced.
+- [ ] `contract` became a reserved creator prop with no collision warning.
+- [ ] `tosijs/state` emits `MODULE_TYPELESS_PACKAGE_JSON` under node and has
+  no `require` condition — for exactly the CJS-likeliest audience. Emit
+  `.mjs` (the build already does this for the CLI) or declare ESM-only.
+- [ ] CJS `dist/main.js` grew ~49% carrying the agent surface, with no slim
+  door (`./core` and `./state` declare only `import`).
+- [ ] `index-browser.ts` copy-pastes index.ts's non-core exports; nothing
+  forces a new full-entry export into the CDN artifact.
+- [ ] `bun start` rewrites the tracked `src/schematic.ts` from a floating
+  `^0.3.0` devDep. Pin exactly; run `vendorSchematic()` only under `--build`
+  (verify-and-fail otherwise).
+
+### 🟡 Scheduled — efficiency (confirmed by code shape; none is a ship-stopper)
+
+- [ ] Ledger trim is an O(maxLog) splice per touch once saturated (~8%);
+  amortize, and make `maxLog: 0` mean *don't record*.
+- [ ] `changes()` is quadratic via `unshift` — push, then one reverse.
+- [ ] `inlineSchemaFor()` walks every bound element on every `agent.write()`.
+- [ ] `webmcpTools()` forces a full `describe()` (layout flush) at boot just
+  to read `actions`.
+- [ ] `bindingName`/`propBindingKey` do linear identity scans per record.
+- [ ] `describe()` has no benchmark or budget, on the path a WebMCP host may
+  call every turn.
+
+### 🟡 Scheduled — audit / renderer consistency
+
+- [ ] The audit re-implements the renderer's interactivity and target-size
+  rules and has drifted; make the audit the single implementation once
+  [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4)
+  lands, and disclose the divergence until then.
+- [ ] `boundsOf()` (window scroll only) and `measureBounds()` (accumulates
+  ancestor scroll) define "page coordinates" differently, so the documented
+  `within: boundsOf(el)` idiom mis-selects in inner-scroll apps.
+- [ ] No conformance test that the vendored renderer and the producer agree
+  on the record shape and provenance tokens.
+
+### 🟡 Scheduled — coverage (every red or inert test stays scheduled)
+
+- [ ] **Eight red `tjs convert` signature tests on every build**
+  (`src/color.ts`, "clamp is not defined"); `tjs convert` exits 0, so the
+  build reports success. Pre-existing and NOT dismissed: a new failure is
+  indistinguishable from it.
+- [ ] The `expose: 'all'` consent-warning assertion can never fail (the
+  latch is already spent, and the assertion is `|| length === 0`);
+  `readOnlyNoticeGiven` has no test at all.
+- [ ] No compile-time verification of `PartsOf<T>` / `Component<typeof
+  contract>` — the release's headline TYPE feature lives in files tsc never
+  sees. Add an *included* `.types.ts` with positive and `@ts-expect-error`
+  cases.
+- [ ] `measureBounds()`'s scroll accumulation and fixed/sticky detection are
+  untested in both tiers (happy-dom reports zeros).
+- [ ] CLI error branches untested; the scaffolded *app* is never executed.
+- [ ] `src/cli.test.ts` leaves temp directories behind.
+
+### 🟡 Scheduled — docs
+
+- [ ] `static contract` / `ComponentMap` is absent from the canonical
+  component reference page, though `contract.attributes` supersedes
+  `initAttributes` and declaring both throws.
+- [ ] CLAUDE.md's "Core modules" map omits all six new modules and the five
+  entry modules.
+- [ ] The headline feature sits under "Utilities" in the nav and is
+  unreachable from the README.
+- [ ] `headless-embodiment.md`'s front matter advertises `elementsSSR` as a
+  tosijs API; it does not exist, and the string ships in `llms.txt`.
+- [ ] The review reports sit at the repo root asserting resolved claims as
+  current — date-stamp and move to `reviews/`.
+
+### 📤 Filed upstream (mirrored in UPSTREAM.md)
+
+- Filed: [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4)
+  — one shared interactivity/target-size predicate.
+- To file: tosijs-schema (a vendorable structural core, so one definition of
+  `type`/`enum`/`required`/`minimum` semantics); tjs-lang (a: `convert`
+  should exit non-zero when signature tests fail; b: resolve imported
+  symbols instead of reporting `clamp is not defined`); tosijs-floorplan
+  (the `esc()` workaround needs the tjs-lang#24 URL and a note that tosijs
+  vendors the file through a converter); WebMCP (no unregistration seam).
+- Add tosijs-ui#49 / #66 to UPSTREAM.md; resolve the tjs-lang pin skew
+  (0.10.1 exact vs npm latest 0.12.0, which tosijs-ui@1.9.4 peer-deps).
+
+### 📣 At publish
+
+- [ ] Close #18, #22, #23, #24 naming v1.8.0, **with two honest caveats**:
+  #22's member-wins applies only to custom elements when both sides are
+  functions; #24's fix is declaration-based and covers tosijs Components
+  only, not third-party custom elements.
+- [ ] Comment on haltija#16 (the hold is lifted) and tosijs-ui#59 (the gate
+  is met); add an "Unblocks" section to the CHANGELOG naming both.
+- [ ] Give #9, #16, #17, #26 a recorded disposition — fix, re-scope, or
+  close as stale.
+- [ ] Deprecate `create-xinjs-blueprint` on npm with a pointer.
+
+### 🔧 Process — route to `tosijs-coding-practices`
+
+- [ ] **The nine-lens review has no security lens.** The one release whose
+  headline feature is a remotely-drivable control surface shipped round 1
+  with `security: NEVER RAN`, and round 2's B2/B3/B5 are the second
+  demonstration. Add a conditional tenth lens, and make the report contract
+  carry a mandatory `security: RAN (…) | NOT APPLICABLE because …` line.
+- [ ] Five KB sites teach the pre-1.8.0 `on<Event>` rule; two teach the
+  removed `xinSlot`/`<xin-slot>`.
+- [ ] `00-stack.md` says tosijs has no CI (it has had since 2026-07-20 — but
+  `main`-only, so it never ran against this branch). Add the rule: *a gate
+  scoped to `main` is not a gate for work that never touches `main`;
+  enumerate which lanes actually executed against the release commit.*
+- [ ] `review.md` tells reviewers to file reports into the directory the
+  build `rm -rf`s.
+- [ ] CLAUDE.md mandates `git push` as the definition of done — on a branch
+  the user forbids pushing. Put the carve-out where the rule is read.
+- [ ] CLAUDE.md's Releasing section is a diverged copy of
+  `practices/releasing.md`, and the omitted steps are exactly the ones this
+  release missed (the review itself, publish confirmation, issue closure).
+- [ ] `performance.md`'s "smaller doors" needs the singleton caveat: an
+  entry point that re-bundles module-scope state creates a SECOND instance,
+  so a subpath that must share state has to resolve to the SAME FILE. Prove
+  it by importing two entries in one process. (tosijs 1.8.0 shipped exactly
+  this bug for an hour.)
+
+
 ## ✅ Bundle diet — shipped in 1.8.0 (2026-08-12)
 
 Delivered as **entry points, not tree-shaking**: `tosijs/core` (slim —

@@ -219,7 +219,7 @@ function createBlueprint(tag: string): void {
 <title>${tag}</title>
 <script type="module">
   // registers <tosi-blueprint> (and still hydrates pre-rename xinjs blueprints)
-  import 'https://cdn.jsdelivr.net/npm/tosijs/dist/module.js'
+  import 'https://cdn.jsdelivr.net/npm/tosijs@${version}/dist/module.js'
 </script>
 <h1>${tag}</h1>
 <tosi-blueprint tag="${tag}" src="./dist/index.js"></tosi-blueprint>
@@ -234,9 +234,9 @@ A [tosijs](https://tosijs.net) blueprint: a component consumers load
 **directly from markup** — no build step, no framework install on their side:
 
     <script type="module">
-      import 'https://cdn.jsdelivr.net/npm/tosijs/dist/module.js'
+      import 'https://cdn.jsdelivr.net/npm/tosijs@${version}/dist/module.js'
     </script>
-    <tosi-blueprint tag="${tag}" src="https://cdn.jsdelivr.net/npm/${tag}/dist/index.js"></tosi-blueprint>
+    <tosi-blueprint tag="${tag}" src="https://cdn.jsdelivr.net/npm/${tag}@0.1.0/dist/index.js"></tosi-blueprint>
     <${tag}></${tag}>
 
 The bundle has zero dependencies (tosijs arrives via the hydration factory),

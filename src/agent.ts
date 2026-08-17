@@ -41,6 +41,7 @@ generated tool set automatically — `agent.webmcp` is the receipt, and
 */
 import { registry } from './registry'
 import { version } from './version'
+import { settings } from './settings'
 import { observe, unobserve, extendsPath, Listener } from './path-listener'
 import { setByPath } from './by-path'
 import { xin } from './xin'
@@ -701,7 +702,7 @@ export function enableAgentInterface(
   /** read-only introspection: no manifest, and no explicit `expose: 'all'` */
   const readOnly = !manifestMode && !exposeAll
 
-  if (readOnly && !readOnlyNoticeGiven) {
+  if (readOnly && !readOnlyNoticeGiven && settings.quiet !== true) {
     readOnlyNoticeGiven = true
     console.info(
       'tosijs agent: read-only introspection. describe/read/observe/changes/' +
@@ -710,7 +711,7 @@ export function enableAgentInterface(
         'developing.'
     )
   }
-  if (exposeAll && !exposeAllWarningGiven) {
+  if (exposeAll && !exposeAllWarningGiven && settings.quiet !== true) {
     exposeAllWarningGiven = true
     console.warn(
       "tosijs agent: expose: 'all' — every state root is readable, WRITABLE " +

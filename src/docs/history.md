@@ -70,7 +70,9 @@ tjs-lang, the React and Angular bridges, and more).
 >
 > `tosijs` was formerly published as `xinjs`. The rename is complete, though some
 > older links and articles still say "xinjs". The API is stable across the rename —
-> old names continue to work with one-time deprecation warnings. If you're coming
+> most old names continue to work with one-time deprecation warnings (1.8.0
+> removed the few whose warnings named it — see [Migration](/migration/)).
+> If you're coming
 > from `xinjs`, see the [migration guide](/Migration/).
 
 ## Credits

@@ -267,6 +267,53 @@ async function buildLibrary() {
   }
   console.log('dom-free gate: tosijs/state imports and runs under bare node')
 
+  // SIZE BUDGETS, where the artifacts exist. The suite's copy can't run
+  // during a build (buildSite wipes dist before the tests), so a regression
+  // would ship green and only trip on the next developer's local run.
+  const { gzipSync } = await import('node:zlib')
+  // Budgets are a DECISION, not a measurement: ~1 kB of headroom, so
+  // ordinary work fits and the next feature has to be argued for. Raised
+  // deliberately in the round-2 review commit (restored public API for
+  // compat, the manifest/password/teardown fixes, and the path helpers that
+  // make tosijs/state a true subset) — the gate caught it on its first run,
+  // which is the gate working.
+  const budgets: Record<string, number> = {
+    'index.js': 28_000, // the <script>/CDN artifact — no tree-shaking
+    'module.js': 39_000, // everything; ESM consumers shake it
+    'main.js': 39_500, // CJS — also cannot shake
+    'core.js': 25_500,
+    'state.js': 17_500,
+  }
+  const sizes: string[] = []
+  for (const [file, budget] of Object.entries(budgets)) {
+    const bytes = gzipSync(
+      await Bun.file(`${DIST}/${file}`).bytes()
+    ).length
+    sizes.push(`${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`)
+    if (bytes > budget) {
+      throw new Error(
+        `${file} is ${bytes} gzipped, over its ${budget} budget. Either the ` +
+          'growth is worth it (raise the budget deliberately, in the same ' +
+          'commit) or it is not.'
+      )
+    }
+  }
+  console.log('gzip budgets:', sizes.join(', '))
+
+  // THE PUBLISHED BIN, executed as consumers run it: the bundle, under node.
+  // src/cli.test.ts spawns the SOURCE under bun, so a lost shebang, a lost
+  // exec bit or a bun-only construct would ship green.
+  const cliProbe = Bun.spawnSync(['node', `${DIST}/cli.mjs`, 'version'], {
+    stderr: 'pipe',
+    stdout: 'pipe',
+  })
+  if (cliProbe.exitCode !== 0 || !cliProbe.stdout.toString().includes('.')) {
+    console.error('dist/cli.mjs does not run under node:')
+    console.error(cliProbe.stderr.toString().slice(0, 500))
+    throw new Error('the published bin is broken')
+  }
+  console.log('bin gate: node dist/cli.mjs runs')
+
   console.timeEnd('library')
 }
 

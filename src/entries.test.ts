@@ -201,31 +201,16 @@ describe('entry points', () => {
     expect(extras).toEqual([...new Set(expected)].sort())
   })
 
-  // the size-regression gate the practices KB asks for: budgets per entry,
-  // so the next 11 KB cannot arrive unnoticed (gzip, bytes)
-  test('per-entry gzip budgets', async () => {
-    const { existsSync, readFileSync } = await import('node:fs')
-    const { gzipSync } = await import('node:zlib')
-    const budgets: Record<string, number> = {
-      // the IIFE is what a <script> tag downloads UNSHAKEN — the number
-      // that actually reaches a CDN consumer, and the one to defend
-      // measured with node's zlib at default level (what this test uses —
-      // `gzip -c` on the command line reports ~350 B lower; compare like
-      // with like). Headroom is deliberately ~1 KB: enough for ordinary
-      // work, tight enough that another feature has to be a decision.
-      'dist/index.js': 27_500, // the <script>/CDN artifact — slim, no agent
-      'dist/module.js': 37_500, // everything; ESM consumers shake it
-      'dist/core.js': 25_500,
-      'dist/state.js': 17_500,
-    }
-    const report: string[] = []
-    for (const [file, budget] of Object.entries(budgets)) {
-      if (!existsSync(file)) continue // pre-build run; the build gate covers it
-      const size = gzipSync(readFileSync(file)).length
-      report.push(`${file} ${size} / ${budget}`)
-      expect({ file, over: size > budget }).toEqual({ file, over: false })
-    }
-    if (report.length > 0) console.log('gzip:', report.join(', '))
+  // NB: the size-regression gate lives in buildLibrary() (bin/site.ts),
+  // where the artifacts actually exist. A copy here could never run during
+  // `bun run build` — buildSite() wipes dist BEFORE the suite — so it
+  // asserted nothing and a regression would have shipped fully green.
+  test('the gzip budgets are enforced by the BUILD, not by this suite', async () => {
+    const site = await Bun.file('bin/site.ts').text()
+    expect(site).toContain('gzip budgets:')
+    expect(site).toContain('over its')
+    // and the bin is executed as consumers run it (node, the bundle)
+    expect(site).toContain('bin gate: node dist/cli.mjs runs')
   })
 
   test('slim core warns about blueprint markup it cannot hydrate', async () => {

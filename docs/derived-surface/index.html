@@ -394,8 +394,15 @@ test(&#39;the audit finds real defects in a real page&#39;, () =&gt; {
   // shape, not score: this page is a live document, its findings will vary
   expect(Array.isArray(report.findings)).toBe(true)
   expect(typeof report.failed).toBe(&#39;number&#39;)
-  // styles were supplied, so the contrast rule must NOT be skipped
-  expect(report.skipped.some((s) =&gt; s.startsWith(&#39;contrast:&#39;))).toBe(false)
+  // styles WERE supplied, so the rule must not skip for lack of them…
+  expect(
+    report.skipped.some((s) =&gt; s.includes(&#39;no computed styles&#39;))
+  ).toBe(false)
+  // …though it may honestly report that transparent backgrounds can&#39;t be
+  // measured from the map alone (the effective ancestor colour is unknown)
+  expect(
+    report.skipped.every((s) =&gt; s.startsWith(&#39;contrast:&#39;))
+  ).toBe(true)
 })
 </code></pre>
 <h2>Kitchen sink: the truth test</h2>

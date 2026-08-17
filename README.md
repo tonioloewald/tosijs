@@ -23,7 +23,7 @@
 | import                  | what you get                                                                                                             | gz    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----- |
 | `tosijs`                | everything, agent surface included — bundlers shake what you don't import                                                | 36 KB |
-| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types)                      | —     |
+| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) — **EXPERIMENTAL**   | —     |
 | `tosijs/core`           | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface                                                     | 24 KB |
 | `tosijs/state`          | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths                                                            | 16 KB |
 | `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | 26 KB |
@@ -468,6 +468,7 @@ change adds an explicit patent grant and a patent-retaliation clause.
 ## History & credits
 
 `tosijs` descends from **b8rjs → xinjs → tosijs** — see [tosijs history](/history/)
-for the full lineage and migration notes (coming from `xinjs`? old names still
-work). Developed with [bun](https://bun.sh/); logo animation by
+for the full lineage. **Upgrading?** See [Migration](/migration/) — 1.8.0
+removes the deprecations that named it, keeps the rest working with warnings,
+and relicenses to Apache-2.0. Developed with [bun](https://bun.sh/); logo animation by
 [@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).

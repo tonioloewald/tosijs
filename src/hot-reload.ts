@@ -9,6 +9,7 @@ to `localStorage`.
 hotReload(test: PathTestFunction = () => true): void
 ```
 */
+import { settings } from './settings'
 import { xin, observe } from './xin'
 import { tosiValue } from './metadata'
 import {
@@ -41,7 +42,9 @@ export const hotReload = (test: PathTestFunction = () => true): void => {
       obj[key] = state[key]
     }
     localStorage.setItem('xin-state', JSON.stringify(obj))
-    console.log('xin state saved to localStorage')
+    // debug-only: this fires on every debounced save (~every 500ms of
+    // interaction) and drowned the release's one-time diagnostics
+    if (settings.debug) console.log('tosijs state saved to localStorage')
   }, 500)
 
   // The observer fires with the FULL changed path (e.g. 'app.user.name'),

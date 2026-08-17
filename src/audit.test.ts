@@ -179,3 +179,27 @@ describe('auditAccessibility — the lint the map made obvious', () => {
     expect(flags[0][0].severity).toBe('error')
   })
 })
+
+describe('contrast cannot be measured through transparency (round-2 review)', () => {
+  test('a transparent background is reported as unmeasurable, not as black', () => {
+    const report = auditAccessibility(
+      map([
+        box({
+          tag: 'button',
+          text: 'on the page background',
+          on: { click: 'a.x' },
+          // what getComputedStyle returns for "inherit from behind me"
+          style: {
+            color: 'rgb(17,17,17)',
+            background: 'rgba(0, 0, 0, 0)',
+            borderColor: 'transparent',
+          },
+        }),
+      ])
+    )
+    // it used to score 1.11:1 and fire an ERROR on almost every element
+    expect(report.findings.filter((f) => f.rule === 'contrast')).toEqual([])
+    expect(report.skipped.some((s) => s.includes('transparent'))).toBe(true)
+    expect(report.failed).toBe(0)
+  })
+})

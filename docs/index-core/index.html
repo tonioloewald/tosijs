@@ -49,7 +49,7 @@
 <p>The full library minus the parts a bundle can&#39;t safely shake for you:</p>
 <pre><code>import { tosi, elements, Component } from &#39;tosijs/core&#39;
 </code></pre>
-<p><strong>Not included</strong> (import them from <code>tosijs</code>, or from their own subpaths):</p>
+<p><strong>Not included</strong> (import them from <code>tosijs</code>):</p>
 <table>
 <thead>
 <tr>
@@ -73,9 +73,14 @@
 <td>dev-time localStorage state persistence</td>
 <td><code>tosijs</code></td>
 </tr>
+<tr>
+<td><code>enableAgentInterface</code>, <code>schematicSVG</code>, <code>auditAccessibility</code>, the contract harnesses</td>
+<td>the opt-in agent surface (~11 kB gz)</td>
+<td><code>tosijs</code> or <code>tosijs/agent</code></td>
+</tr>
 </tbody></table>
-<p>Everything else — state, bindings, elements, components, CSS, Color, the
-agent surface, the schematic renderer — is here, identical to <code>tosijs</code>.</p>
+<p>Everything else — state, bindings, elements, components, CSS, Color — is
+here, identical to <code>tosijs</code>.</p>
 <blockquote>
 <p><strong>Why this is opt-in rather than automatic.</strong> Blueprints hydrate from
 <em>markup</em> (<code>&lt;tosi-blueprint tag src&gt;</code>), so a consumer has no import

@@ -131,9 +131,20 @@ export const webmcpTools = (
   // surface used to publish one tosi_act_* tool per discovered function —
   // a menu of the whole app where every item throws on invocation.
   const canAct = description.exposure !== 'read-only'
+  const actionNames = new Set<string>()
   for (const actionPath of canAct ? description.actions : []) {
+    // toolName collapses every non-alphanumeric char, so `app.do.thing` and
+    // `app.do_thing` both become tosi_act_app_do_thing. Disambiguate rather
+    // than silently registering one tool for two actions.
+    let name = toolName(prefix, 'act', actionPath)
+    if (actionNames.has(name)) {
+      let n = 2
+      while (actionNames.has(`${name}_${n}`)) n++
+      name = `${name}_${n}`
+    }
+    actionNames.add(name)
     tools.push({
-      name: toolName(prefix, 'act', actionPath),
+      name,
       description:
         `Invoke the app action \`${actionPath}\` — the same function the ` +
         'UI is wired to. Arguments are passed through positionally.',

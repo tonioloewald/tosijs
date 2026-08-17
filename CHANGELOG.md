@@ -6,13 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.8.0] - 2026-08 (rc.1)
+## [1.8.0-rc.1] - 2026-08-17
+
+> Upgrading from 1.7.x? See **[Migration.md](./Migration.md)** — it lists the
+> removals, the two behaviour changes that shipped without a prior
+> deprecation warning, and the Apache-2.0 relicense.
 
 **One source of truth for state, UI, and AI.** An app's affordances — what
 exists, what it's bound to, what it does — have always been recorded by
 tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
 
 ### Added — the agent surface
+
+> **EXPERIMENTAL.** The agent surface, schematic renderer, audit and
+> contract harnesses are new public API. What 1.x promises: the *record
+> shape* is a versioned contract (`agent.version.surface` plus an
+> enumerable capability list), and we bump it rather than change the shape
+> silently. Names and options may still move in a minor.
+
 
 - **`enableAgentInterface()`** — one call exposes `describe` / `read` /
   `write` / `observe` / `call` / `changes(cursor)` / `when(path, predicate)`

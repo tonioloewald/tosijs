@@ -6,16 +6,17 @@ The full library minus the parts a bundle can't safely shake for you:
 
     import { tosi, elements, Component } from 'tosijs/core'
 
-**Not included** (import them from `tosijs`, or from their own subpaths):
+**Not included** (import them from `tosijs`):
 
 | left out | why | get it back |
 | --- | --- | --- |
 | `<tosi-blueprint>` / `<tosi-loader>`, `makeComponent` | registers custom elements at import — a *markup* contract no import statement protects | `tosijs` |
 | `share`, `sync` | BroadcastChannel/IndexedDB and network transports | `tosijs` |
 | `hotReload` | dev-time localStorage state persistence | `tosijs` |
+| `enableAgentInterface`, `schematicSVG`, `auditAccessibility`, the contract harnesses | the opt-in agent surface (~11 kB gz) | `tosijs` or `tosijs/agent` |
 
-Everything else — state, bindings, elements, components, CSS, Color, the
-agent surface, the schematic renderer — is here, identical to `tosijs`.
+Everything else — state, bindings, elements, components, CSS, Color — is
+here, identical to `tosijs`.
 
 > **Why this is opt-in rather than automatic.** Blueprints hydrate from
 > *markup* (`<tosi-blueprint tag src>`), so a consumer has no import
@@ -36,8 +37,12 @@ import { settings } from './settings'
 // NB: gated on the ABSENCE of an explicit opt-out, not on settings.debug —
 // which defaults to false, so gating on it made this safety net inert (found
 // by the 1.8.0-rc.1 review). The check is one querySelectorAll, once.
-if (typeof document !== 'undefined' && settings.quiet !== true) {
+if (typeof document !== 'undefined') {
   const check = (): void => {
+    // read settings INSIDE the check: this module body evaluates at import,
+    // before any consumer can set settings.quiet, so gating the `if` on it
+    // made the opt-out unusable (rc.1 review round 2)
+    if (settings.quiet === true) return
     const orphans = document.querySelectorAll(
       'tosi-blueprint:not(:defined), tosi-loader:not(:defined)'
     )
@@ -45,7 +50,7 @@ if (typeof document !== 'undefined' && settings.quiet !== true) {
       console.warn(
         `tosijs/core: ${orphans.length} blueprint element(s) on this page will ` +
           'NOT hydrate — the slim entry omits the blueprint loader. Import ' +
-          'from \'tosijs\' instead (or add `import "tosijs/blueprints"`).',
+          "from 'tosijs' instead.",
         orphans[0]
       )
     }
