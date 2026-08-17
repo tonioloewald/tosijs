@@ -16,7 +16,10 @@ afterEach(() => {
 describe('agent interface — read/write/observe', () => {
   test('read returns serializable state; write flows through observers to the DOM', async () => {
     tosi({ agentRW: { name: 'Ada', tags: ['x'] } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     expect(agent.read('agentRW.name')).toBe('Ada')
     expect(agent.read('agentRW')).toEqual({ name: 'Ada', tags: ['x'] })
@@ -38,7 +41,10 @@ describe('agent interface — read/write/observe', () => {
   test('observe pushes on change; unsubscribe stops it', async () => {
     tosi({ agentObs: { count: 0 } })
     await updates() // drain the registration touch — agents act on settled apps
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const seen: string[] = []
     const off = agent.observe('agentObs.count', (path) => seen.push(path))
 
@@ -53,7 +59,10 @@ describe('agent interface — read/write/observe', () => {
   })
 
   test('subscribe-before-data: observing a path that does not exist yet works', async () => {
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const seen: string[] = []
     agent.observe('agentLate.order.confirmation', (path) => seen.push(path))
 
@@ -75,7 +84,10 @@ describe('agent interface — actions', () => {
       },
     }
     tosi(store)
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     agent.call('agentAct.add', 'hello')
     await updates()
     expect(agent.read('agentAct.list')).toEqual(['hello'])
@@ -83,7 +95,10 @@ describe('agent interface — actions', () => {
 
   test('call on a non-function throws', () => {
     tosi({ agentNotFn: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     expect(() => agent.call('agentNotFn.x')).toThrow('not an action')
   })
 })
@@ -91,7 +106,10 @@ describe('agent interface — actions', () => {
 describe('agent interface — when (await a condition)', () => {
   test('resolves immediately when the condition already holds', async () => {
     tosi({ agentWhenNow: { status: 'ready' } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     // no touch will occur — only immediate satisfaction can resolve this
     const value = await agent.when('agentWhenNow.status', (s) => s === 'ready')
     expect(value).toBe('ready')
@@ -100,7 +118,10 @@ describe('agent interface — when (await a condition)', () => {
   test('resolves when the condition becomes true; ignores non-satisfying changes', async () => {
     tosi({ agentWhen: { status: 'pending' } })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     let settled = false
     const wait = agent
       .when('agentWhen.status', (s) => s === 'confirmed')
@@ -144,7 +165,10 @@ describe('agent interface — when (await a condition)', () => {
   test('disable() rejects pending waits', async () => {
     tosi({ agentWhenBye: { done: false } })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const wait = agent.when('agentWhenBye.done', (d) => d === true)
     agent.disable()
     current = undefined
@@ -154,7 +178,10 @@ describe('agent interface — when (await a condition)', () => {
   test('a throwing predicate rejects the wait — both immediately and later', async () => {
     tosi({ agentWhenThrow: { v: 0 } })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     // throws on the immediate check → rejected promise, not a sync throw
     await expect(
       agent.when('agentWhenThrow.v', () => {
@@ -175,7 +202,10 @@ describe('agent interface — changes (turn-based drain)', () => {
   test('coalesces to final-value-per-path since cursor; cursor advances', async () => {
     tosi({ agentDrain: { a: 0, b: 0 } })
     await updates() // drain the registration touch — agents act on settled apps
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const { cursor: start } = agent.changes()
 
     agent.write('agentDrain.a', 1)
@@ -189,9 +219,7 @@ describe('agent interface — changes (turn-based drain)', () => {
     // one entry per path, final value — not three entries
     expect(byPath['agentDrain.a']).toBe(2)
     expect(byPath['agentDrain.b']).toBe(10)
-    expect(
-      changes.filter((c) => c.path === 'agentDrain.a').length
-    ).toBe(1)
+    expect(changes.filter((c) => c.path === 'agentDrain.a').length).toBe(1)
 
     // draining from the new cursor is empty until something changes
     expect(agent.changes(cursor).changes).toEqual([])
@@ -296,7 +324,10 @@ describe('agent interface — describe()', () => {
         submit() {},
       },
     })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     // an input: two-way bound (writable), semantically labeled, event-wired by path
     const input = elements.input({
@@ -420,11 +451,16 @@ describe('describe({ scope }) — hierarchy scoping', () => {
     thereBox.append(there)
     bind(there, 'scopeApp.b', bindings.value)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     const scoped = agent.describe({ scope: hereBox })
     const paths = scoped.wiring.flatMap((w) =>
-      Object.values(w).filter((v) => typeof v === 'string' && v.includes('scopeApp'))
+      Object.values(w).filter(
+        (v) => typeof v === 'string' && v.includes('scopeApp')
+      )
     )
     expect(paths.some((p) => (p as string).includes('scopeApp.a'))).toBe(true)
     expect(paths.some((p) => (p as string).includes('scopeApp.b'))).toBe(false)
@@ -455,11 +491,14 @@ describe('the structural tier', () => {
     // happy-dom reports zero-size for everything; structural records
     // correctly skip sizeless elements, so give these real geometry
     ;(heading as any).getBoundingClientRect = () =>
-      ({ x: 10, y: 10, width: 300, height: 24 }) as DOMRect
+      ({ x: 10, y: 10, width: 300, height: 24 } as DOMRect)
     ;(box as any).getBoundingClientRect = () =>
-      ({ x: 10, y: 40, width: 300, height: 60 }) as DOMRect
+      ({ x: 10, y: 40, width: 300, height: 60 } as DOMRect)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     const d = agent.describe({ scope: section })
     const h = d.wiring.find((w) => w.tag === 'h2')
@@ -486,11 +525,14 @@ describe("describe({ view: 'viewport' }) — the camera", () => {
     bind(onScreen, 'camApp.a', bindings.value)
     bind(offScreen, 'camApp.b', bindings.value)
     ;(onScreen as any).getBoundingClientRect = () =>
-      ({ x: 50, y: 100, width: 200, height: 30 }) as DOMRect
+      ({ x: 50, y: 100, width: 200, height: 30 } as DOMRect)
     ;(offScreen as any).getBoundingClientRect = () =>
-      ({ x: 50, y: 5000, width: 200, height: 30 }) as DOMRect
+      ({ x: 50, y: 5000, width: 200, height: 30 } as DOMRect)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     const cam = agent.describe({ view: 'viewport' })
     const paths = JSON.stringify(cam.wiring)
@@ -526,12 +568,13 @@ describe('ARIA is a two-way street', () => {
     bind(field, 'ariaApp.qty', bindings.value)
     bind(invisible, 'ariaApp.ghost', bindings.value)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     const d = agent.describe()
-    const rec = d.wiring.find((w) =>
-      JSON.stringify(w).includes('ariaApp.qty')
-    )!
+    const rec = d.wiring.find((w) => JSON.stringify(w).includes('ariaApp.qty'))!
     expect(rec.label).toBe('Quantity') // resolved, not the raw id list
     expect(rec.description).toBe('between 1 and 99')
     expect(rec.required).toBe(true)
@@ -649,9 +692,7 @@ describe('describe() — focus harvest', () => {
     try {
       const d = agent.describe()
       expect(d.wiring.find((w) => w.id === 'focus-me')?.focused).toBe(true)
-      expect(
-        d.wiring.find((w) => w.id === 'not-me')?.focused
-      ).toBeUndefined()
+      expect(d.wiring.find((w) => w.id === 'not-me')?.focused).toBeUndefined()
     } finally {
       agent.disable()
       focused.remove()
@@ -740,12 +781,10 @@ describe('describe() — proxy handlers are nameable', () => {
     const agent = enableAgentInterface({ global: false, expose: 'all' })
     try {
       const d = agent.describe()
-      expect(
-        d.wiring.find((w) => w.id === 'raw-named')!.on!.click
-      ).toBe('ƒ retallyEverything')
-      expect(
-        d.wiring.find((w) => w.id === 'raw-artifact')!.on!.click
-      ).toBe('ƒ')
+      expect(d.wiring.find((w) => w.id === 'raw-named')!.on!.click).toBe(
+        'ƒ retallyEverything'
+      )
+      expect(d.wiring.find((w) => w.id === 'raw-artifact')!.on!.click).toBe('ƒ')
     } finally {
       agent.disable()
       named.remove()
@@ -846,10 +885,15 @@ describe('describe() — links are affordances (the href field)', () => {
 
 describe('surface identity — ask, do not assume (tosijs#23)', () => {
   test('agent.version and describe().version carry shape, library, capabilities', async () => {
-    const { AGENT_SURFACE_VERSION, AGENT_CAPABILITIES } = await import('./agent')
+    const { AGENT_SURFACE_VERSION, AGENT_CAPABILITIES } = await import(
+      './agent'
+    )
     const { version: libVersion } = await import('./version')
     tosi({ verApp: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
 
     expect(agent.version.surface).toBe(AGENT_SURFACE_VERSION)
     expect(agent.version.tosijs).toBe(libVersion)
@@ -869,7 +913,10 @@ describe('surface identity — ask, do not assume (tosijs#23)', () => {
 
   test('the shape contract and the capability list are honest about THIS build', async () => {
     tosi({ verHonest: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const d = agent.describe({ styles: true, view: 'viewport' })
     // every claimed describe-shaping capability is one this build supports
     expect(agent.version.capabilities.includes('viewport')).toBe(true)
@@ -927,13 +974,18 @@ describe('the posture: safe by default, full access behind one line', () => {
     await updates()
     const agent = (current = enableAgentInterface({
       global: false,
-      expose: { roots: ['postureManifest.open'], actions: ['postureManifest.go'] },
+      expose: {
+        roots: ['postureManifest.open'],
+        actions: ['postureManifest.go'],
+      },
     }))
     expect(agent.describe().exposure).toBe('manifest')
     agent.write('postureManifest.open', 2) // allowed
     expect(agent.read('postureManifest.open')).toBe(2)
     expect(() => agent.read('postureManifest.secret')).toThrow(/not exposed/)
-    expect(() => agent.write('postureManifest.secret', 'x')).toThrow(/not exposed/)
+    expect(() => agent.write('postureManifest.secret', 'x')).toThrow(
+      /not exposed/
+    )
   })
 })
 
@@ -995,10 +1047,16 @@ describe('list bindings on the agent surface (review M17)', () => {
       const checks = wiring.filter((w) => w.type === 'checkbox')
       expect(checks.length).toBe(2)
       const paths = checks.map((w) => String(w.value))
-      expect(paths.some((p) => p.includes('listRows.items[id=1].done'))).toBe(true)
-      expect(paths.some((p) => p.includes('listRows.items[id=2].done'))).toBe(true)
+      expect(paths.some((p) => p.includes('listRows.items[id=1].done'))).toBe(
+        true
+      )
+      expect(paths.some((p) => p.includes('listRows.items[id=2].done'))).toBe(
+        true
+      )
       // live state per row, not the template's
-      expect(checks.find((w) => String(w.value).includes('id=2'))?.checked).toBe(true)
+      expect(
+        checks.find((w) => String(w.value).includes('id=2'))?.checked
+      ).toBe(true)
       // and an agent write reaches the right row
       agent.write('listRows.items[id=1].done', true)
       await updates()
@@ -1015,7 +1073,12 @@ describe('list bindings on the agent surface (review M17)', () => {
 
   test('a per-row inline contract survives cloning and is ENFORCED per row', async () => {
     const { rowContracts } = tosi({
-      rowContracts: { items: [{ id: 1, qty: 1 }, { id: 2, qty: 2 }] },
+      rowContracts: {
+        items: [
+          { id: 1, qty: 1 },
+          { id: 2, qty: 2 },
+        ],
+      },
     })
     await updates()
     const { ul } = elements
@@ -1039,7 +1102,9 @@ describe('list bindings on the agent surface (review M17)', () => {
     try {
       // the template's contract reached EVERY cloned row (cloneWithBindings)
       const contract = agent.describe().contract ?? {}
-      const keys = Object.keys(contract).filter((k) => k.includes('rowContracts'))
+      const keys = Object.keys(contract).filter((k) =>
+        k.includes('rowContracts')
+      )
       expect(keys.length).toBe(2)
       // …and it is enforced per row, not just declared
       expect(() =>
@@ -1051,5 +1116,87 @@ describe('list bindings on the agent surface (review M17)', () => {
       agent.disable()
       list.remove()
     }
+  })
+})
+
+describe('review round 2: the surface must not leak or lie', () => {
+  test('B2: manifest mode scopes HANDLERS, not just data bindings', async () => {
+    tosi({
+      scopePub: { n: 1 },
+      scopePriv: { wipe() {}, token: 'sekrit' },
+    })
+    await updates()
+    const publicBtn = elements.button('ok', { id: 'scope-public' })
+    const privateBtn = elements.button('wipe', { id: 'scope-private' })
+    on(publicBtn, 'click', 'scopePub.noop' as any)
+    on(privateBtn, 'click', 'scopePriv.wipe' as any)
+    document.body.append(publicBtn, privateBtn)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['scopePub'], actions: ['scopePub.noop'] },
+    }))
+    const wiring = agent.describe().wiring
+    const serialized = JSON.stringify(wiring)
+    // the private action PATH must not appear anywhere in the map
+    expect(serialized.includes('scopePriv.wipe')).toBe(false)
+    // and the out-of-scope element contributes no harvested content
+    expect(wiring.find((w) => w.id === 'scope-private')).toBeUndefined()
+    // the allowlisted one is fully described
+    expect(wiring.find((w) => w.id === 'scope-public')?.on?.click).toBe(
+      'scopePub.noop'
+    )
+  })
+
+  test('B3: a password value is NEVER emitted — the affordance still is', async () => {
+    tosi({ secretApp: { password: 'hunter2', note: 'fine' } })
+    await updates()
+    const secret = elements.input({ type: 'password', id: 'pw' })
+    const otp = elements.input({ id: 'otp', autocomplete: 'one-time-code' })
+    const plain = elements.input({ id: 'plain' })
+    document.body.append(secret, otp, plain)
+    bind(secret, 'secretApp.password', bindings.value)
+    bind(otp, 'secretApp.password', bindings.value)
+    bind(plain, 'secretApp.note', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    const d = agent.describe()
+    expect(JSON.stringify(d).includes('hunter2')).toBe(false)
+    const pw = d.wiring.find((w) => w.id === 'pw')!
+    expect(pw.secret).toBe(true)
+    // the PATH still travels — an agent can see what it's bound to
+    expect(String(pw.value)).toContain('secretApp.password')
+    expect(d.wiring.find((w) => w.id === 'otp')?.secret).toBe(true)
+    // a normal field is unaffected
+    expect(String(d.wiring.find((w) => w.id === 'plain')?.value)).toContain(
+      'fine'
+    )
+    for (const el of [secret, otp, plain]) el.remove()
+  })
+
+  test('B4: disable() and un-subscribe are idempotent and complete', async () => {
+    tosi({ teardownApp: { n: 1 } })
+    await updates()
+    const agent = enableAgentInterface({ expose: 'all' })
+    expect((globalThis as any).tosiAgent).toBe(agent)
+    const off = agent.observe('teardownApp.n', () => {})
+    off()
+    expect(() => off()).not.toThrow() // second unsubscribe is a no-op
+
+    agent.disable()
+    expect(() => agent.disable()).not.toThrow() // second disable is a no-op
+    expect((globalThis as any).tosiAgent).toBeUndefined()
+
+    // a STALE surface must not delete the CURRENT surface's global
+    const fresh = (current = enableAgentInterface({ expose: 'all' }))
+    agent.disable()
+    expect((globalThis as any).tosiAgent).toBe(fresh)
+    fresh.disable()
+    current = undefined
   })
 })

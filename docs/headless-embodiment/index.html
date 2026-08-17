@@ -74,26 +74,28 @@ const kebab = (s) =&gt; s.replace(/[A-Z]/g, (c) =&gt; &#39;-&#39; + c.toLowerCas
 const elementsSSR = new Proxy(
   {},
   {
-    get: (_, tag) =&gt; (...args) =&gt; {
-      const attrs = []
-      const children = []
-      for (const arg of args) {
-        if (typeof arg === &#39;string&#39; || typeof arg === &#39;number&#39;) {
-          children.push(esc(arg))
-        } else if (arg &amp;&amp; arg.__html) {
-          children.push(arg.__html)
-        } else if (arg &amp;&amp; typeof arg === &#39;object&#39;) {
-          for (const [k, v] of Object.entries(arg)) {
-            attrs.push(` ${kebab(k)}=&quot;${esc(v)}&quot;`)
+    get:
+      (_, tag) =&gt;
+      (...args) =&gt; {
+        const attrs = []
+        const children = []
+        for (const arg of args) {
+          if (typeof arg === &#39;string&#39; || typeof arg === &#39;number&#39;) {
+            children.push(esc(arg))
+          } else if (arg &amp;&amp; arg.__html) {
+            children.push(arg.__html)
+          } else if (arg &amp;&amp; typeof arg === &#39;object&#39;) {
+            for (const [k, v] of Object.entries(arg)) {
+              attrs.push(` ${kebab(k)}=&quot;${esc(v)}&quot;`)
+            }
           }
         }
-      }
-      const t = kebab(tag)
-      const html = VOID.has(t)
-        ? `&lt;${t}${attrs.join(&#39;&#39;)}&gt;`
-        : `&lt;${t}${attrs.join(&#39;&#39;)}&gt;${children.join(&#39;&#39;)}&lt;/${t}&gt;`
-      return { __html: html, toString: () =&gt; html }
-    },
+        const t = kebab(tag)
+        const html = VOID.has(t)
+          ? `&lt;${t}${attrs.join(&#39;&#39;)}&gt;`
+          : `&lt;${t}${attrs.join(&#39;&#39;)}&gt;${children.join(&#39;&#39;)}&lt;/${t}&gt;`
+        return { __html: html, toString: () =&gt; html }
+      },
   }
 )
 

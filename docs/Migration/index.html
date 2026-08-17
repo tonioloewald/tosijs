@@ -60,7 +60,8 @@ should be the module names.</p>
 <p>Please <a href="https://discord.gg/ramJ9rgky5">let me know</a> if there are any issues.</p>
 </blockquote>
 <h1>Upgrading to 1.8.0</h1>
-<p><strong>Removed</strong> (deprecated through 1.7, with 1.8.0 named in their warnings):</p>
+<p><strong>Removed.</strong> Only one deprecation named 1.8.0 in its 1.7 warning, and it is
+the only thing actually removed:</p>
 <table>
 <thead>
 <tr>
@@ -73,16 +74,26 @@ should be the module names.</p>
 <td><code>part=&quot;thing&quot;</code> (bare CSS-selector refs still work)</td>
 </tr>
 <tr>
-<td><code>&lt;xin-blueprint&gt;</code></td>
-<td><code>&lt;tosi-blueprint&gt;</code> — same attributes. The old tag is a <strong>tombstone</strong>: registered, renders nothing, and logs exactly what to rename</td>
+<td><code>&lt;xin-blueprint&gt;</code>, <code>&lt;xin-loader&gt;</code> markup</td>
+<td><code>&lt;tosi-blueprint&gt;</code>, <code>&lt;tosi-loader&gt;</code>. The old tags are <strong>tombstones</strong>: still registered, render nothing, and log exactly what to rename</td>
 </tr>
 <tr>
-<td><code>&lt;xin-loader&gt;</code></td>
-<td><code>&lt;tosi-loader&gt;</code> — same</td>
+<td><code>&lt;xin-slot&gt;</code> element</td>
+<td><code>&lt;tosi-slot&gt;</code> (the rewrite produces it automatically)</td>
 </tr>
+</tbody></table>
+<p><strong>Deprecated but still working</strong> (their 1.7 warnings named no version, so
+they survive 1.x and now warn naming <strong>2.0</strong>):</p>
+<table>
+<thead>
 <tr>
-<td><code>&lt;xin-slot&gt;</code> / <code>xinSlot()</code></td>
-<td><code>&lt;tosi-slot&gt;</code> / <code>tosiSlot()</code></td>
+<th>still works</th>
+<th>prefer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>xinSlot()</code></td>
+<td><code>tosiSlot()</code></td>
 </tr>
 <tr>
 <td><code>blueprint()</code></td>

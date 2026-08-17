@@ -139,14 +139,15 @@ preview.append(
           ),
         { idPath: &#39;id&#39; }
       )
-    ),
+    )
   )
 )
 
 // four live views in tabs — the selected one redraws on every state
 // change: the map follows the app, hands off
 const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
-const pane = (name) =&gt; div({ name, style: { overflow: &#39;auto&#39;, height: &#39;100%&#39; } })
+const pane = (name) =&gt;
+  div({ name, style: { overflow: &#39;auto&#39;, height: &#39;100%&#39; } })
 const panes = [
   // what an agent&#39;s vision encoder receives: map -&gt; SVG -&gt; raster, 2× —
   // the default view, because it&#39;s the one that has to stand alone
@@ -158,7 +159,10 @@ const panes = [
   // the atlas: the ENTIRE host app, chrome and all (best maximized)
   pane(&#39;whole page&#39;),
 ]
-const tabs = tosiTabs({ style: { flex: &#39;1 1 auto&#39;, minHeight: &#39;160px&#39; } }, ...panes)
+const tabs = tosiTabs(
+  { style: { flex: &#39;1 1 auto&#39;, minHeight: &#39;160px&#39; } },
+  ...panes
+)
 
 // display fit + click-to-inspect (the image is an index: data-record links
 // each box to its JSON record)
@@ -173,7 +177,9 @@ const show = (target, d) =&gt; {
     const g = event.target.closest(&#39;[data-record]&#39;)
     if (g) {
       detail.textContent = JSON.stringify(
-        d.wiring[Number(g.dataset.record)], null, 2
+        d.wiring[Number(g.dataset.record)],
+        null,
+        2
       )
     }
   }
@@ -333,7 +339,13 @@ should have a name, a role, and enough contrast and size to use</em> — and
 because the map is the framework&#39;s own record of its wiring, a finding is a
 real defect rather than a scraper&#39;s guess. <code>auditFlags()</code> turns the report
 into schematic <code>flags</code>, so the drawing shows you where they are.</p>
-<pre><code class="language-js">import { enableAgentInterface, auditAccessibility, auditFlags, schematicSVG, elements } from &#39;tosijs&#39;
+<pre><code class="language-js">import {
+  enableAgentInterface,
+  auditAccessibility,
+  auditFlags,
+  schematicSVG,
+  elements,
+} from &#39;tosijs&#39;
 
 const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
 const { div, button, pre } = elements
@@ -343,7 +355,12 @@ const bad = div(
   { style: { display: &#39;flex&#39;, gap: &#39;8px&#39;, alignItems: &#39;center&#39; } },
   div({
     onClick() {},
-    style: { color: &#39;#bbb&#39;, background: &#39;white&#39;, padding: &#39;2px 6px&#39;, cursor: &#39;pointer&#39; },
+    style: {
+      color: &#39;#bbb&#39;,
+      background: &#39;white&#39;,
+      padding: &#39;2px 6px&#39;,
+      cursor: &#39;pointer&#39;,
+    },
     textContent: &#39;delete&#39;,
   }),
   div({ onClick() {} }) // no name at all
@@ -358,8 +375,12 @@ preview.append(
       const report = auditAccessibility(map)
       out.textContent =
         `${report.failed} error(s), ${report.findings.length} finding(s)\n\n` +
-        report.findings.map((f) =&gt; `[${f.severity}] ${f.rule}\n  ${f.message}`).join(&#39;\n\n&#39;) +
-        (report.skipped.length ? `\n\nskipped: ${report.skipped.join(&#39;; &#39;)}` : &#39;&#39;)
+        report.findings
+          .map((f) =&gt; `[${f.severity}] ${f.rule}\n  ${f.message}`)
+          .join(&#39;\n\n&#39;) +
+        (report.skipped.length
+          ? `\n\nskipped: ${report.skipped.join(&#39;; &#39;)}`
+          : &#39;&#39;)
     },
   }),
   out
@@ -428,8 +449,14 @@ const controls = div(
     placeholder: &#39;email (required)&#39;,
     bindValue: sink.email,
   }),
-  label(input({ type: &#39;number&#39;, bindValue: sink.qty, style: { width: &#39;4em&#39; } }), &#39; qty&#39;),
-  label(input({ type: &#39;range&#39;, min: 0, max: 10, bindValue: sink.volume }), &#39; volume&#39;),
+  label(
+    input({ type: &#39;number&#39;, bindValue: sink.qty, style: { width: &#39;4em&#39; } }),
+    &#39; qty&#39;
+  ),
+  label(
+    input({ type: &#39;range&#39;, min: 0, max: 10, bindValue: sink.volume }),
+    &#39; volume&#39;
+  ),
   label(input({ type: &#39;checkbox&#39;, bindValue: sink.terms }), &#39; terms&#39;),
   label(input({ type: &#39;checkbox&#39;, bindValue: sink.spam }), &#39; spam me&#39;),
   div(radio(&#39;small&#39;), radio(&#39;medium&#39;), radio(&#39;large&#39;)),
@@ -440,7 +467,11 @@ const controls = div(
     {
       contenteditable: &#39;true&#39;,
       ariaPlaceholder: &#39;editable region…&#39;,
-      style: { border: &#39;1px dashed gray&#39;, padding: &#39;2px 4px&#39;, minHeight: &#39;1.2em&#39; },
+      style: {
+        border: &#39;1px dashed gray&#39;,
+        padding: &#39;2px 4px&#39;,
+        minHeight: &#39;1.2em&#39;,
+      },
     },
     &#39;edit me&#39;
   ),

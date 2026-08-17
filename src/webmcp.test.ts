@@ -19,7 +19,10 @@ describe('webmcpTools — the tools write themselves', () => {
       },
     })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const tools = webmcpTools(agent)
     const names = tools.map((t) => t.name)
     expect(names).toContain('tosi_describe')
@@ -33,10 +36,15 @@ describe('webmcpTools — the tools write themselves', () => {
     await updates()
     // 1.8.0: introspection mode is no longer consent to publish an
     // unvalidated write endpoint to the browser's tool registry
-    const dev = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const dev = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     expect(webmcpTools(dev).some((t) => t.name === 'tosi_write')).toBe(false)
     expect(
-      webmcpTools(dev, { allowWrites: true }).some((t) => t.name === 'tosi_write')
+      webmcpTools(dev, { allowWrites: true }).some(
+        (t) => t.name === 'tosi_write'
+      )
     ).toBe(true)
     dev.disable()
 
@@ -51,9 +59,9 @@ describe('webmcpTools — the tools write themselves', () => {
       )
     ).toBe(true)
     // manifest mode still gets its declared action as a named tool
-    expect(webmcpTools(prod).some((t) => t.name === 'tosi_act_mcpGate_go')).toBe(
-      true
-    )
+    expect(
+      webmcpTools(prod).some((t) => t.name === 'tosi_act_mcpGate_go')
+    ).toBe(true)
   })
 
   test('execute plumbing round-trips through the real surface', async () => {
@@ -67,10 +75,11 @@ describe('webmcpTools — the tools write themselves', () => {
     }
     const { mcpExec } = tosi(store)
     await updates()
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
-    const tools = Object.fromEntries(
-      webmcpTools(agent).map((t) => [t.name, t])
-    )
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    const tools = Object.fromEntries(webmcpTools(agent).map((t) => [t.name, t]))
 
     const { cursor } = tools.tosi_changes.execute({})
     tools.tosi_act_mcpExec_add.execute({ args: ['from a tool'] })
@@ -94,13 +103,19 @@ describe('webmcpTools — the tools write themselves', () => {
 describe('webmcpAdapter — registration against a host', () => {
   test('no host: returns undefined (callers feature-detect by result)', () => {
     tosi({ mcpNoHost: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     expect(webmcpAdapter(agent)).toBeUndefined()
   })
 
   test('registerTool host: registers each tool, unregister reverses', () => {
     tosi({ mcpHostA: { go() {} } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const registered: string[] = []
     const removed: string[] = []
     const host = {
@@ -118,7 +133,10 @@ describe('webmcpAdapter — registration against a host', () => {
 
   test('provideContext host: batch registration, unregister clears', () => {
     tosi({ mcpHostB: { x: 0 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const calls: any[] = []
     const host = { provideContext: (ctx: any) => calls.push(ctx) }
     const mcp = webmcpAdapter(agent, { modelContext: host })!
@@ -141,6 +159,7 @@ describe('enableAgentInterface — one call, whole surface', () => {
     }
     current = enableAgentInterface({
       global: false,
+      expose: 'all', // act tools require a surface that will EXECUTE them
       webmcp: { modelContext: host },
     })
     expect(registered).toContain('tosi_describe')
@@ -225,7 +244,10 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
 describe('tosi_surface — the identity tool (tosijs#23)', () => {
   test('a WebMCP consumer can interrogate the surface before trusting it', async () => {
     tosi({ mcpSurface: { x: 1 } })
-    const agent = (current = enableAgentInterface({ global: false, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
     const tools = Object.fromEntries(webmcpTools(agent).map((t) => [t.name, t]))
     expect(tools.tosi_surface).toBeDefined()
     const identity = tools.tosi_surface.execute({})
@@ -274,5 +296,28 @@ describe('a refused tool is not a registered tool (review M23)', () => {
     }
     const second = webmcpAdapter(agent, { modelContext: retryHost })!
     expect(second.tools).toContain('tosi_changes')
+  })
+})
+
+describe('B5: advertise only what the surface will execute', () => {
+  test('a read-only surface publishes no act tools', async () => {
+    tosi({ readOnlyTools: { x: 1, go() {} } })
+    await updates()
+    const readOnly = (current = enableAgentInterface({ global: false }))
+    const names = webmcpTools(readOnly).map((t) => t.name)
+    // a menu where every item throws on invocation is worse than no menu
+    expect(names.some((n) => n.startsWith('tosi_act_'))).toBe(false)
+    expect(names).toContain('tosi_describe')
+    expect(names).toContain('tosi_surface')
+    readOnly.disable()
+
+    // …and they appear the moment the surface can actually execute them
+    const acting = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    expect(
+      webmcpTools(acting).some((t) => t.name === 'tosi_act_readOnlyTools_go')
+    ).toBe(true)
   })
 })

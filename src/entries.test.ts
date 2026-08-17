@@ -50,7 +50,7 @@ describe('entry points', () => {
     // the bundle exists (bare node, no happy-dom). This copy is for
     // developers running `bun test` against an existing build.
     if (!existsSync(bundle)) {
-      console.log('(state.js absent — the build\'s dom-free gate covers this)')
+      console.log("(state.js absent — the build's dom-free gate covers this)")
       return
     }
     const script = `
@@ -64,11 +64,14 @@ describe('entry points', () => {
       if (seen[0] !== 'nodeProbe.n' || xin['nodeProbe.n'] !== 42) process.exit(2)
       process.exit(0)
     `
-    const result = Bun.spawnSync(['node', '--input-type=module', '-e', script], {
-      cwd: process.cwd(),
-      stderr: 'pipe',
-      stdout: 'pipe',
-    })
+    const result = Bun.spawnSync(
+      ['node', '--input-type=module', '-e', script],
+      {
+        cwd: process.cwd(),
+        stderr: 'pipe',
+        stdout: 'pipe',
+      }
+    )
     expect({
       code: result.exitCode,
       stderr: result.stderr.toString().slice(0, 300),
@@ -158,7 +161,11 @@ describe('entry points', () => {
 
   test('the IIFE/browser entry omits the agent surface (a script tag cannot shake)', async () => {
     const browser = await import('./index-browser')
-    for (const name of ['enableAgentInterface', 'schematicSVG', 'auditAccessibility']) {
+    for (const name of [
+      'enableAgentInterface',
+      'schematicSVG',
+      'auditAccessibility',
+    ]) {
       expect(name in browser).toBe(false)
     }
     for (const name of ['tosi', 'elements', 'Component', 'tosiBlueprint']) {
@@ -172,11 +179,15 @@ describe('entry points', () => {
     const missing = Object.keys(core).filter((name) => !(name in full))
     expect(missing).toEqual([])
     // …and the extras are exactly the documented ones
-    const extras = Object.keys(full).filter((name) => !(name in core)).sort()
+    const extras = Object.keys(full)
+      .filter((name) => !(name in core))
+      .sort()
     const agentEntry = await import('./index-agent')
     const expected = [
       'Blueprint',
       'BlueprintLoader',
+      'blueprint',
+      'blueprintLoader',
       'hotReload',
       'makeComponent',
       'share',
@@ -230,9 +241,9 @@ describe('entry points', () => {
       const orphans = document.querySelectorAll(
         'tosi-blueprint:not(:defined), tosi-loader:not(:defined)'
       )
-      expect(orphans.length > 0 || customElements.get('tosi-blueprint') != null).toBe(
-        true
-      )
+      expect(
+        orphans.length > 0 || customElements.get('tosi-blueprint') != null
+      ).toBe(true)
     } finally {
       console.warn = original
       el.remove()

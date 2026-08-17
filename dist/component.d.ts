@@ -162,3 +162,11 @@ declare class TosiSlot extends Component<SlotParts> {
     static replaceSlot(slot: HTMLSlotElement): void;
 }
 export declare const tosiSlot: ElementCreator<TosiSlot>;
+/**
+ * @deprecated Use `tosiSlot()`. Kept because 1.7's warning never named a
+ * removal version — only `data-ref` did — so removing it outright in a
+ * MINOR would have broken code that was promised nothing. It now creates a
+ * `<tosi-slot>` (composition is identical; only the tag name differs, which
+ * matters solely if you wrote CSS against `xin-slot`). Removed in 2.0.
+ */
+export declare const xinSlot: typeof tosiSlot;

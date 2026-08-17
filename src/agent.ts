@@ -217,6 +217,9 @@ export interface AgentWiringRecord {
   type?: string
   /** live checked state for checkboxes and radios — DOM truth at map time */
   checked?: boolean
+  /** this control holds a secret (password / one-time code): its VALUE is
+   * never emitted, only the fact that it exists and what it's bound to */
+  secret?: boolean
   /** this element holds keyboard focus right now — where the user IS */
   focused?: boolean
   /** resolved aria-describedby text — the author's own explanation */
@@ -426,7 +429,10 @@ const serialize = (value: any): any => {
 const measureBounds = (
   el: Element,
   viewportView = false
-): { bounds: NonNullable<AgentWiringRecord['bounds']>; fixed: boolean } | null => {
+): {
+  bounds: NonNullable<AgentWiringRecord['bounds']>
+  fixed: boolean
+} | null => {
   const rect = (el as HTMLElement).getBoundingClientRect?.()
   if (rect == null) return null
   if (viewportView) {
@@ -434,7 +440,10 @@ const measureBounds = (
     const vw = (globalThis as any).innerWidth ?? 0
     const vh = (globalThis as any).innerHeight ?? 0
     const onScreen =
-      rect.x < vw && rect.y < vh && rect.x + rect.width > 0 && rect.y + rect.height > 0
+      rect.x < vw &&
+      rect.y < vh &&
+      rect.x + rect.width > 0 &&
+      rect.y + rect.height > 0
     if (!onScreen) return null
     return {
       bounds: {
@@ -502,8 +511,7 @@ const associatedLabel = (el: Element): string | undefined => {
   }
   let labelEl: Element | null = el.closest?.('label') ?? null
   if (labelEl == null && el.id) {
-    labelEl =
-      el.ownerDocument?.querySelector?.(`label[for="${el.id}"]`) ?? null
+    labelEl = el.ownerDocument?.querySelector?.(`label[for="${el.id}"]`) ?? null
   }
   const text = labelEl?.textContent?.trim().slice(0, 60)
   return text || undefined
@@ -553,6 +561,19 @@ const describeElement = (el: Element): AgentWiringRecord => {
   if (record.tag === 'input') {
     const type = (el as any).type || 'text'
     if (type !== 'text') record.type = type
+    // SECRETS ARE NEVER VALUES. A password field's content is exactly what
+    // must not travel to an agent, a log, a WebMCP host or a screenshot of
+    // the map. The affordance is still described — kind, name, bound path,
+    // geometry — just never its content.
+    const autocomplete = el.getAttribute('autocomplete') ?? ''
+    if (
+      type === 'password' ||
+      autocomplete === 'current-password' ||
+      autocomplete === 'new-password' ||
+      autocomplete === 'one-time-code'
+    ) {
+      record.secret = true
+    }
     if (type === 'checkbox' || type === 'radio') {
       record.checked = (el as any).checked === true
     }
@@ -578,8 +599,7 @@ const describeElement = (el: Element): AgentWiringRecord => {
   // components via ElementInternals) or an explicit aria-invalid
   if (
     el.getAttribute('aria-invalid') === 'true' ||
-    ((el as any).willValidate === true &&
-      (el as any).validity?.valid === false)
+    ((el as any).willValidate === true && (el as any).validity?.valid === false)
   ) {
     record.invalid = true
   }
@@ -617,7 +637,11 @@ const ariaHidden = (el: Element): boolean => {
 }
 
 // "value ⟷ path" — current value plus provenance in one parseable string
-const boundValue = (path: string, twoWay: boolean): string => {
+const boundValue = (path: string, twoWay: boolean, secret = false): string => {
+  const arrowOnly = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM
+  // a secret's PATH is useful (an agent can still see what it's bound to);
+  // its content never is
+  if (secret) return `${arrowOnly} ${path}`
   const raw = serialize(xin[path])
   const shown =
     raw === undefined ? '' : typeof raw === 'string' ? raw : JSON.stringify(raw)
@@ -638,7 +662,6 @@ const bindingName = (binding: any): string | undefined => {
 let readOnlyNoticeGiven = false
 let exposeAllWarningGiven = false
 let active: AgentInterface | undefined
-let activeGlobalName: string | undefined
 
 export function enableAgentInterface(
   options: AgentInterfaceOptions = {}
@@ -665,7 +688,8 @@ export function enableAgentInterface(
   // the part that only LOOKS (the map is the point) and requires consent
   // for the verbs that change the world.
   const exposeAll = expose === 'all'
-  const manifest = typeof expose === 'object' && expose !== null ? expose : undefined
+  const manifest =
+    typeof expose === 'object' && expose !== null ? expose : undefined
   const roots = manifest?.roots
   const exposedActions = manifest?.actions
   const contract = manifest?.contract
@@ -681,7 +705,7 @@ export function enableAgentInterface(
     readOnlyNoticeGiven = true
     console.info(
       'tosijs agent: read-only introspection. describe/read/observe/changes/' +
-        "when/log work over everything; write() and call() refuse. Declare " +
+        'when/log work over everything; write() and call() refuse. Declare ' +
         "expose: { roots, actions } for production, or expose: 'all' while " +
         'developing.'
     )
@@ -696,6 +720,8 @@ export function enableAgentInterface(
     )
   }
 
+  let disabled = false
+  let myGlobalName: string | undefined
   const surfaceVersion: AgentSurfaceVersion = {
     surface: AGENT_SURFACE_VERSION,
     tosijs: version,
@@ -826,12 +852,18 @@ export function enableAgentInterface(
               }
               const idPath = (b.options as any)?.idPath
               if (idPath != null || b.binding === (bindings as any).list) {
-                record.list = idPath ? { path: b.path, idPath } : { path: b.path }
+                record.list = idPath
+                  ? { path: b.path, idPath }
+                  : { path: b.path }
                 continue
               }
               const name = bindingName(b.binding)
               if (name != null && record[name] === undefined) {
-                record[name] = boundValue(b.path, b.binding.fromDOM != null)
+                record[name] = boundValue(
+                  b.path,
+                  b.binding.fromDOM != null,
+                  record.secret === true
+                )
               } else {
                 // obscure stuff one level deeper
                 record.detail ??= []
@@ -846,8 +878,19 @@ export function enableAgentInterface(
           if (eventBindings != null) {
             const on: Record<string, string | string[]> = {}
             for (const [type, set] of Object.entries(eventBindings)) {
+              // MANIFEST SCOPE APPLIES HERE TOO. Data bindings were filtered
+              // but handlers were not, so an allowlisted surface published
+              // the private action namespace ('app.secret.wipe') — and,
+              // because an unscoped handler still flipped `wired`, the
+              // record then harvested text, live control values, labels and
+              // geometry from regions the manifest deliberately excluded.
               const names = Array.from(set as Set<any>, (h) => {
-                if (typeof h === 'string') return h
+                if (typeof h === 'string') {
+                  // a by-path handler outside the manifest is not ours to
+                  // name — report it as anonymous rather than leaking the
+                  // path (the element is still visibly interactive)
+                  return inScope(h) ? h : 'ƒ'
+                }
                 // on() normalizes proxies to paths at registration; this is
                 // defense for handlers registered around it. A raw function
                 // contributes its NAME as a breadcrumb when it has a real
@@ -865,7 +908,12 @@ export function enableAgentInterface(
             }
             if (Object.keys(on).length > 0) {
               record.on = on
-              wired = true
+              // in manifest mode, handlers that are ALL out of scope do not
+              // make this element part of the exposed surface
+              const anyInScope = Object.values(on)
+                .flatMap((v) => (Array.isArray(v) ? v : [v]))
+                .some((name) => name !== 'ƒ')
+              if (!manifestMode || anyInScope) wired = true
             }
           }
           // static text, when textContent isn't already surfaced as bound
@@ -878,6 +926,7 @@ export function enableAgentInterface(
           if (
             record.value === undefined &&
             record.checked === undefined &&
+            record.secret !== true &&
             (record.tag === 'input' ||
               record.tag === 'textarea' ||
               record.tag === 'select')
@@ -901,7 +950,10 @@ export function enableAgentInterface(
           }
           if (inline != null) {
             record.contract = inline
-            if (inlinePath != null && inlineContracts[inlinePath] === undefined) {
+            if (
+              inlinePath != null &&
+              inlineContracts[inlinePath] === undefined
+            ) {
               inlineContracts[inlinePath] = inline
             }
           }
@@ -965,7 +1017,10 @@ export function enableAgentInterface(
           const record = recordFor(el)
           if (record) wiring.push(record)
         }
-        for (const el of [walkRoot, ...Array.from(walkRoot.querySelectorAll('*'))]) {
+        for (const el of [
+          walkRoot,
+          ...Array.from(walkRoot.querySelectorAll('*')),
+        ]) {
           // handlers wire an element; a custom element may instead be
           // self-declared (own static contract / post-hoc components map) —
           // recordFor decides, we just make sure it gets ASKED
@@ -1058,8 +1113,8 @@ export function enableAgentInterface(
         exposure: manifestMode
           ? 'manifest'
           : exposeAll
-            ? 'introspection'
-            : 'read-only',
+          ? 'introspection'
+          : 'read-only',
       }
       // inline declarations fill the contract; top-level curation OVERRIDES
       // on collision — declare where you build, curate at the top
@@ -1149,7 +1204,10 @@ export function enableAgentInterface(
       assertScope(path)
       const listener = observe(path, callback)
       subscriptions.add(listener)
+      let off = false
       return () => {
+        if (off) return // idempotent: unobserve throws on a stranger
+        off = true
         subscriptions.delete(listener)
         unobserve(listener)
       }
@@ -1251,6 +1309,13 @@ export function enableAgentInterface(
     version: surfaceVersion,
 
     disable(): void {
+      // IDEMPOTENT. A second disable() used to throw out of unobserve —
+      // after already unregistering WebMCP, so subscriptions, pending
+      // when()s and the global were left behind. The documented reconfigure
+      // flow (enableAgentInterface auto-disables the previous surface, then
+      // the app calls its own cleanup) hit this every time.
+      if (disabled) return
+      disabled = true
       webmcpRegistration?.unregister()
       webmcpRegistration = undefined
       delete surface.webmcp
@@ -1261,17 +1326,22 @@ export function enableAgentInterface(
         pending.reject(new Error('agent interface disabled'))
       }
       pendingWhens.clear()
-      if (activeGlobalName != null) {
-        delete (globalThis as any)[activeGlobalName]
-        activeGlobalName = undefined
+      // delete OUR global, and only if it is still ours: a stale surface
+      // must never remove the current one's (activeGlobalName was
+      // module-level, so it did exactly that)
+      if (
+        myGlobalName != null &&
+        (globalThis as any)[myGlobalName] === surface
+      ) {
+        delete (globalThis as any)[myGlobalName]
       }
       if (active === surface) active = undefined
     },
   }
 
   if (global !== false) {
-    activeGlobalName = typeof global === 'string' ? global : 'tosiAgent'
-    ;(globalThis as any)[activeGlobalName] = surface
+    myGlobalName = typeof global === 'string' ? global : 'tosiAgent'
+    ;(globalThis as any)[myGlobalName] = surface
   }
   // one call, whole surface: where the browser provides a model-context
   // host, the generated WebMCP tool set registers automatically (and a

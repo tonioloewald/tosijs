@@ -493,9 +493,19 @@ const { demo } = tosi({ demo: { rating: 3 } })
 
 preview.append(
   // the widget: bound by VALUE, like an input
-  elements.starRating({ bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }),
+  elements.starRating({
+    bind: { value: &#39;demo.rating&#39;, binding: bindings.value },
+  }),
   // a plain number input on the SAME path — they stay in sync
-  label(&#39; rating: &#39;, input({ type: &#39;number&#39;, min: 0, max: 5, bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }))
+  label(
+    &#39; rating: &#39;,
+    input({
+      type: &#39;number&#39;,
+      min: 0,
+      max: 5,
+      bind: { value: &#39;demo.rating&#39;, binding: bindings.value },
+    })
+  )
 )
 </code></pre>
 <pre><code class="language-test">const { Component, elements, bindings, tosi, xin, updates } = tosijs

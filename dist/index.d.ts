@@ -1,5 +1,5 @@
 export * from './index-core-exports';
-export { tosiBlueprint, tosiLoader, Blueprint, BlueprintLoader, } from './blueprint-loader';
+export { tosiBlueprint, tosiLoader, Blueprint, BlueprintLoader, blueprint, blueprintLoader, } from './blueprint-loader';
 export { makeComponent } from './make-component';
 export { share } from './share';
 export { sync } from './sync';

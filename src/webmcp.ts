@@ -127,7 +127,11 @@ export const webmcpTools = (
       execute: (input) => agent.changes(Number(input?.since ?? 0)),
     },
   ]
-  for (const actionPath of description.actions) {
+  // Only advertise what the surface will actually execute. A read-only
+  // surface used to publish one tosi_act_* tool per discovered function —
+  // a menu of the whole app where every item throws on invocation.
+  const canAct = description.exposure !== 'read-only'
+  for (const actionPath of canAct ? description.actions : []) {
     tools.push({
       name: toolName(prefix, 'act', actionPath),
       description:
@@ -222,7 +226,7 @@ export const webmcpAdapter = (
         if (duplicate && !canUnregister) held.add(tool.name)
         console.warn(
           `tosijs webmcp: the host refused "${tool.name}" — it is NOT in ` +
-            'this surface\'s tool list.',
+            "this surface's tool list.",
           error
         )
       }

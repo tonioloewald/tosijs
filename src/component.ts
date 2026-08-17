@@ -692,10 +692,10 @@ export type PartsOf<T> = T extends {
 }
   ? { [K in keyof P]: TagToElement<P[K]> } & PartsMap
   : T extends Record<string, Element>
-    ? T // classic PartsMap, verbatim
-    : T extends ComponentMap
-      ? PartsMap // a contract with no parts declared — untyped parts
-      : T
+  ? T // classic PartsMap, verbatim
+  : T extends ComponentMap
+  ? PartsMap // a contract with no parts declared — untyped parts
+  : T
 
 function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
@@ -871,10 +871,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     const ownContract = Object.prototype.hasOwnProperty.call(this, 'contract')
       ? (this as any).contract
       : undefined
-    const ownInit = Object.prototype.hasOwnProperty.call(
-      this,
-      'initAttributes'
-    )
+    const ownInit = Object.prototype.hasOwnProperty.call(this, 'initAttributes')
       ? this.initAttributes
       : undefined
     if (ownContract?.attributes != null) {
@@ -1561,7 +1558,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             attrTypeMismatchWarned.add(key)
             console.error(
               `<${this.tagName.toLowerCase()}>: ${attrName} is declared ` +
-                `${typeof defaultValue} (default ${JSON.stringify(defaultValue)}), ` +
+                `${typeof defaultValue} (default ${JSON.stringify(
+                  defaultValue
+                )}), ` +
                 `but was written ${typeof value} ${JSON.stringify(value)}. ` +
                 `The value is applied as given — nothing is coerced — but this ` +
                 `is usually a call site left behind by a type change. ` +
@@ -1906,8 +1905,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         appendContentToElement(this as HTMLElement, _content, cloneElements)
         // querySelector returns null (never undefined) when there's no match,
         // so `!== undefined` was always true
-        this.isSlotted =
-          this.querySelector('slot,tosi-slot,xin-slot') !== null
+        this.isSlotted = this.querySelector('slot,tosi-slot,xin-slot') !== null
         const slots = Array.from(this.querySelectorAll('slot'))
         if (slots.length > 0) {
           slots.forEach(TosiSlot.replaceSlot)
@@ -1986,5 +1984,19 @@ class TosiSlot extends Component<SlotParts> {
 
 export const tosiSlot = TosiSlot.elementCreator()
 
-// (<xin-slot> was deprecated through 1.7 and REMOVED in 1.8.0 — one fewer
-// custom element registered at import, which the bundle diet counts on.)
+/**
+ * @deprecated Use `tosiSlot()`. Kept because 1.7's warning never named a
+ * removal version — only `data-ref` did — so removing it outright in a
+ * MINOR would have broken code that was promised nothing. It now creates a
+ * `<tosi-slot>` (composition is identical; only the tag name differs, which
+ * matters solely if you wrote CSS against `xin-slot`). Removed in 2.0.
+ */
+export const xinSlot: typeof tosiSlot = (...args) => {
+  warnDeprecated(
+    'xinSlot',
+    'xinSlot() is deprecated and will be REMOVED IN 2.0 — use tosiSlot(). ' +
+      'It now creates a <tosi-slot> (identical composition; the tag name ' +
+      'differs, which only matters if you styled `xin-slot`).'
+  )
+  return tosiSlot(...args)
+}

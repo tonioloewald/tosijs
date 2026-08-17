@@ -96,13 +96,11 @@ describe('tosi-blueprint (canonical)', () => {
   })
 })
 
-describe('xin-* blueprint aliases (REMOVED in 1.8.0)', () => {
-  test('the aliases are gone from the public surface and the registry', async () => {
+describe('xin-* blueprint tags (inert in 1.8.0)', () => {
+  test('the working implementation is gone; the tags are tombstones', async () => {
     const api = (await import('./index')) as Record<string, unknown>
     expect('tosiBlueprint' in api).toBe(true)
     expect('tosiLoader' in api).toBe(true)
-    expect('blueprint' in api).toBe(false)
-    expect('blueprintLoader' in api).toBe(false)
     // the TAGS remain registered — as tombstones, so the markup path can
     // say what happened instead of failing silently (see the tombstone
     // tests below). What's gone is the working implementation behind them.
@@ -432,11 +430,29 @@ describe('xin-* tombstones (1.8.0): removed, but never silent', () => {
     el!.remove()
   })
 
-  test('the CREATORS stay removed — those break loudly at import', async () => {
-    const api = (await import('./index')) as Record<string, unknown>
-    expect('blueprint' in api).toBe(false)
-    expect('blueprintLoader' in api).toBe(false)
-    expect('xinSlot' in api).toBe(false)
-    expect(typeof api.tosiBlueprint).toBe('function')
+  test('the CREATORS survive 1.x as deprecated aliases naming 2.0', async () => {
+    // 1.7 named a removal version for `data-ref` ONLY — these three were
+    // deprecated with no version, so removing them in a MINOR would have
+    // broken code that was promised nothing (1.8.0-rc.1 review, B1).
+    const api = (await import('./index')) as Record<string, any>
+    expect(typeof api.blueprint).toBe('function')
+    expect(typeof api.blueprintLoader).toBe('function')
+    expect(typeof api.xinSlot).toBe('function')
+
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let el: any
+    try {
+      el = api.blueprint({ tag: 'aliased-thing', src: './x.js' })
+    } finally {
+      console.warn = original
+    }
+    // they WORK (creating the element that actually hydrates)…
+    expect(el.tagName.toLowerCase()).toBe('tosi-blueprint')
+    // …and they say when they go
+    expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
   })
 })

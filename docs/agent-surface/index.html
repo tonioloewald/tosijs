@@ -193,7 +193,11 @@ functions. A sketch of what an agent sees:</p>
 <pre><code class="language-json">{
   &quot;roots&quot;: { &quot;app&quot;: &quot;object&quot; },
   &quot;wiring&quot;: [
-    { &quot;tag&quot;: &quot;input&quot;, &quot;label&quot;: &quot;search products…&quot;, &quot;value&quot;: &quot;milk ⟷ app.filter&quot; },
+    {
+      &quot;tag&quot;: &quot;input&quot;,
+      &quot;label&quot;: &quot;search products…&quot;,
+      &quot;value&quot;: &quot;milk ⟷ app.filter&quot;
+    },
     { &quot;tag&quot;: &quot;ul&quot;, &quot;list&quot;: { &quot;path&quot;: &quot;app.items&quot;, &quot;idPath&quot;: &quot;id&quot; } },
     { &quot;tag&quot;: &quot;button&quot;, &quot;text&quot;: &quot;Add&quot;, &quot;on&quot;: { &quot;click&quot;: &quot;app.addItem&quot; } }
   ],
@@ -480,7 +484,9 @@ preview.append(
         const lines = []
         let agent = enableAgentInterface({ expose: &#39;all&#39; })
         lines.push(
-          `dev (expose: &#39;all&#39;): ${Object.keys(agent.describe().roots).length} roots visible`
+          `dev (expose: &#39;all&#39;): ${
+            Object.keys(agent.describe().roots).length
+          } roots visible`
         )
         lines.push(attempt(agent, &#39;shipDay.qty&#39;, &#39;lots&#39;))
         lines.push(
@@ -509,7 +515,9 @@ preview.append(
           },
         })
         lines.push(
-          `ship (manifest + curated): ${Object.keys(agent.describe().roots).length} root visible`
+          `ship (manifest + curated): ${
+            Object.keys(agent.describe().roots).length
+          } root visible`
         )
         lines.push(
           attempt(agent, &#39;shipDay.qty&#39;, 150) +

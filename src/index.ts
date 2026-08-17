@@ -11,6 +11,10 @@ export {
   tosiLoader,
   Blueprint,
   BlueprintLoader,
+  // deprecated aliases — 1.7 never named a removal version for these, so
+  // they survive 1.x with a warning that names 2.0
+  blueprint,
+  blueprintLoader,
 } from './blueprint-loader'
 export { makeComponent } from './make-component'
 

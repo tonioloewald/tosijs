@@ -22,7 +22,7 @@ export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 // `static contract` is a component-authoring act, and it is type-only
 export type { ComponentMap, ComponentTestStep } from './agent'
 export { Color } from './color'
-export { Component, tosiSlot, setContractValidator } from './component'
+export { Component, tosiSlot, xinSlot, setContractValidator } from './component'
 export type { PartsOf } from './component'
 export {
   validateAgainstConstraints,

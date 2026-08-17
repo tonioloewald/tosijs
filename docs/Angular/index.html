@@ -107,13 +107,15 @@ automatically because neither owns the state.</p>
 <p>Framework-free — identical to react-tosijs:</p>
 <pre><code class="language-typescript">import { typedTosi, persist, connectDevTools } from &#39;ngx-tosijs&#39;
 
-type AppState = { app: { count: number; todos: { id: string; text: string }[] } }
+type AppState = {
+  app: { count: number; todos: { id: string; text: string }[] }
+}
 const { tosiSignal } = typedTosi&lt;AppState&gt;()
-const text = tosiSignal(&#39;app.todos[0].text&#39;)  // TosiSignal&lt;string | undefined&gt;
-const oops = tosiSignal(&#39;app.cuont&#39;)           // compile error
+const text = tosiSignal(&#39;app.todos[0].text&#39;) // TosiSignal&lt;string | undefined&gt;
+const oops = tosiSignal(&#39;app.cuont&#39;) // compile error
 
-persist(&#39;app.todos&#39;)                 // localStorage, coalesced writes
-connectDevTools({ roots: [&#39;app&#39;] })  // Redux DevTools tap
+persist(&#39;app.todos&#39;) // localStorage, coalesced writes
+connectDevTools({ roots: [&#39;app&#39;] }) // Redux DevTools tap
 </code></pre>
 <h2>The off-ramp, step by step</h2>
 <p>Because your state lives in tosijs, moving off Angular is incremental, never a big-bang

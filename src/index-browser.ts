@@ -10,6 +10,8 @@ export {
   tosiLoader,
   Blueprint,
   BlueprintLoader,
+  blueprint,
+  blueprintLoader,
 } from './blueprint-loader'
 export { makeComponent } from './make-component'
 export { share } from './share'

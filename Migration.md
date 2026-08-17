@@ -15,29 +15,36 @@ should be the module names.
 
 # Upgrading to 1.8.0
 
-**Removed** (deprecated through 1.7, with 1.8.0 named in their warnings):
+**Removed.** Only one deprecation named 1.8.0 in its 1.7 warning, and it is
+the only thing actually removed:
 
-| was | now |
-| --- | --- |
-| `data-ref="thing"` | `part="thing"` (bare CSS-selector refs still work) |
-| `<xin-blueprint>` | `<tosi-blueprint>` — same attributes. The old tag is a **tombstone**: registered, renders nothing, and logs exactly what to rename |
-| `<xin-loader>` | `<tosi-loader>` — same |
-| `<xin-slot>` / `xinSlot()` | `<tosi-slot>` / `tosiSlot()` |
-| `blueprint()` | `tosiBlueprint()` |
-| `blueprintLoader()` | `tosiLoader()` |
+| was                                      | now                                                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-ref="thing"`                       | `part="thing"` (bare CSS-selector refs still work)                                                                                     |
+| `<xin-blueprint>`, `<xin-loader>` markup | `<tosi-blueprint>`, `<tosi-loader>`. The old tags are **tombstones**: still registered, render nothing, and log exactly what to rename |
+| `<xin-slot>` element                     | `<tosi-slot>` (the rewrite produces it automatically)                                                                                  |
+
+**Deprecated but still working** (their 1.7 warnings named no version, so
+they survive 1.x and now warn naming **2.0**):
+
+| still works         | prefer            |
+| ------------------- | ----------------- |
+| `xinSlot()`         | `tosiSlot()`      |
+| `blueprint()`       | `tosiBlueprint()` |
+| `blueprintLoader()` | `tosiLoader()`    |
 
 **Behaviour changes worth checking even if you use no removed names** —
 neither had a prior deprecation warning:
 
 - **A component member named `on<Event>` now wins over the event sugar.** If
-  your component holds a *function* under, say, `onClose`, then
+  your component holds a _function_ under, say, `onClose`, then
   `creator({ onClose: fn })` now **assigns the member** instead of attaching
   a `close` listener; previously the sugar won and your member was shadowed.
   Rename to `handle<Event>` if you want the event channel. (A member left
   `undefined`/`null` still gets event sugar.)
 - **A type-contradicting attribute write is applied and reported, not
   silently discarded.** Writing `false` to an attribute declared
-  `'on' | 'off'` used to *remove* the attribute — so the default read back
+  `'on' | 'off'` used to _remove_ the attribute — so the default read back
   and a feature you turned off stayed on. It now lands as written, with one
   `console.error` naming both types.
 
@@ -86,7 +93,7 @@ control's native type instead of a string:
   string for `type=date`).
 - `type="time"` → **milliseconds since midnight**.
 
-Bound numeric state now *stays* numeric across edits. **If you read `getValue()`
+Bound numeric state now _stays_ numeric across edits. **If you read `getValue()`
 directly and expected a string**, coerce explicitly (`String(getValue(el))`), or
 read `el.value`. If you bound a `type=date` input and stored the ISO string, note
 the stored value is now a `Date` — bind to string state and it keeps the control's

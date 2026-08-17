@@ -376,3 +376,30 @@ class RemovedLoader extends TombstoneElement {
   static preferredTagName = 'xin-loader'
 }
 RemovedLoader.elementCreator()
+
+/**
+ * @deprecated Use `tosiBlueprint()`. 1.7's warning never named a removal
+ * version, so this stays through 1.x; it now creates a `<tosi-blueprint>`,
+ * which is the element that actually hydrates. Removed in 2.0.
+ */
+export const blueprint: typeof tosiBlueprint = (...args) => {
+  warnDeprecated(
+    'blueprint',
+    'blueprint() is deprecated and will be REMOVED IN 2.0 — use ' +
+      'tosiBlueprint(). It now creates a <tosi-blueprint>, the element that ' +
+      'hydrates; <xin-blueprint> is an inert tombstone.'
+  )
+  return tosiBlueprint(...args)
+}
+
+/**
+ * @deprecated Use `tosiLoader()`. Same reasoning as `blueprint` above.
+ */
+export const blueprintLoader: typeof tosiLoader = (...args) => {
+  warnDeprecated(
+    'blueprintLoader',
+    'blueprintLoader() is deprecated and will be REMOVED IN 2.0 — use ' +
+      'tosiLoader(). It now creates a <tosi-loader>.'
+  )
+  return tosiLoader(...args)
+}

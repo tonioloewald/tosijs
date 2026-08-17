@@ -457,12 +457,27 @@ describe('tosiSlot', () => {
   })
 })
 
-describe('xinSlot (REMOVED in 1.8.0)', () => {
-  test('the alias is gone from the public surface', async () => {
-    const api = (await import('./index')) as Record<string, unknown>
-    expect('tosiSlot' in api).toBe(true)
-    expect('xinSlot' in api).toBe(false)
-    // and no <xin-slot> is registered at import any more
+describe('xinSlot (deprecated, removed in 2.0)', () => {
+  test('it still works, warns, and creates a tosi-slot', async () => {
+    const api = (await import('./index')) as Record<string, any>
+    expect(typeof api.xinSlot).toBe('function')
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let slot: any
+    try {
+      slot = api.xinSlot({ name: 'top' })
+    } finally {
+      console.warn = original
+    }
+    expect(slot.tagName.toLowerCase()).toBe('tosi-slot')
+    document.body.append(slot) // attrs drain on connect
+    expect(slot.getAttribute('name')).toBe('top')
+    slot.remove()
+    expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
+    // the legacy TAG is still gone (nothing registers <xin-slot>)
     expect(customElements.get('xin-slot')).toBeUndefined()
   })
 })
@@ -887,9 +902,7 @@ describe('deprecated elementCreator options', () => {
     const style = document.getElementById('legacy-style-test-component')
     expect(style).not.toBeNull()
     expect(
-      warnings.some(
-        (w) => w.includes('deprecated') && w.includes('styleSpec')
-      )
+      warnings.some((w) => w.includes('deprecated') && w.includes('styleSpec'))
     ).toBe(true)
     el.remove()
   })
@@ -901,7 +914,11 @@ describe('content array with ElementProps on host', () => {
     class ClickHostComponent extends Component {
       static preferredTagName = 'click-host-test'
       content = ({ div }: typeof elements) => [
-        { onClick: () => { clicked = true } },
+        {
+          onClick: () => {
+            clicked = true
+          },
+        },
         div('child'),
       ]
     }
@@ -934,7 +951,12 @@ describe('content array with ElementProps on host', () => {
     class MergePropsComponent extends Component {
       static preferredTagName = 'merge-props-test'
       content = ({ div }: typeof elements) => [
-        { class: 'first', onClick: () => { count++ } },
+        {
+          class: 'first',
+          onClick: () => {
+            count++
+          },
+        },
         div('child'),
         { class: 'second' },
       ]
@@ -971,10 +993,7 @@ describe('content array with ElementProps on host', () => {
   test('content array with no ElementProps works as before', () => {
     class PlainArrayComponent extends Component {
       static preferredTagName = 'plain-array-test'
-      content = ({ div, span }: typeof elements) => [
-        div('one'),
-        span('two'),
-      ]
+      content = ({ div, span }: typeof elements) => [div('one'), span('two')]
     }
     const creator = PlainArrayComponent.elementCreator()
     const el = creator()
@@ -997,7 +1016,10 @@ describe('constructor must not gain attributes', () => {
   ): { result: T; calls: Array<[string, string]> } {
     const calls: Array<[string, string]> = []
     const orig = HTMLElement.prototype.setAttribute
-    HTMLElement.prototype.setAttribute = function (name: string, value: string) {
+    HTMLElement.prototype.setAttribute = function (
+      name: string,
+      value: string
+    ) {
       if (match(this)) calls.push([name, String(value)])
       return orig.call(this, name, value)
     }
@@ -1535,7 +1557,9 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     class OuterA extends Component {
       static preferredTagName = 'cap-outer-a'
       static initAttributes = { role: 'group' }
-      content = ({ div }: typeof elements) => [capSlotWrap(div({ part: 'inner' }, 'OWN'))]
+      content = ({ div }: typeof elements) => [
+        capSlotWrap(div({ part: 'inner' }, 'OWN')),
+      ]
     }
     OuterA.elementCreator()
     const el = new OuterA()
@@ -1550,7 +1574,10 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     class NodeC extends Component {
       static preferredTagName = 'cap-node'
       static initAttributes = { role: 'group' }
-      content = ({ div }: typeof elements) => [div({ part: 'x' }, 'OWN'), div({ part: 'body' })]
+      content = ({ div }: typeof elements) => [
+        div({ part: 'x' }, 'OWN'),
+        div({ part: 'body' }),
+      ]
     }
     NodeC.elementCreator()
     const outer = new NodeC()
@@ -1655,7 +1682,9 @@ describe('parts capture — lazy hydration', () => {
     expect(w.tagName).toBe('CAP-INNER-W')
     expect(w.isConnected).toBe(true)
     // its own (lazy) hydration ran, and the captured ref points at the hydrated node
-    expect(w.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe('hydrated')
+    expect(w.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe(
+      'hydrated'
+    )
     expect((host.parts as any).widget).toBe(w) // identity stable across reads
     host.remove()
   })

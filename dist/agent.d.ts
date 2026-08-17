@@ -160,6 +160,9 @@ export interface AgentWiringRecord {
     type?: string;
     /** live checked state for checkboxes and radios — DOM truth at map time */
     checked?: boolean;
+    /** this control holds a secret (password / one-time code): its VALUE is
+     * never emitted, only the fact that it exists and what it's bound to */
+    secret?: boolean;
     /** this element holds keyboard focus right now — where the user IS */
     focused?: boolean;
     /** resolved aria-describedby text — the author's own explanation */

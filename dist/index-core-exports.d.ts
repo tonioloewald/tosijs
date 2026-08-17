@@ -5,7 +5,7 @@ export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types';
 export type { ComponentMap, ComponentTestStep } from './agent';
 export { Color } from './color';
-export { Component, tosiSlot, setContractValidator } from './component';
+export { Component, tosiSlot, xinSlot, setContractValidator } from './component';
 export type { PartsOf } from './component';
 export { validateAgainstConstraints, type FormValidation, } from './form-validation';
 export { elements, svgElements, mathML, bindParts } from './elements';

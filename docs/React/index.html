@@ -101,13 +101,15 @@ them as attributes verbatim; React 19 handles <code>className</code> on custom e
 nothing at all:</p>
 <pre><code class="language-typescript">import { typedTosi, persist, connectDevTools } from &#39;react-tosijs&#39;
 
-type AppState = { app: { count: number; todos: { id: string; text: string }[] } }
+type AppState = {
+  app: { count: number; todos: { id: string; text: string }[] }
+}
 const { useTosi } = typedTosi&lt;AppState&gt;()
-const [text] = useTosi(&#39;app.todos[0].text&#39;)  // string
-const [oops] = useTosi(&#39;app.cuont&#39;)           // compile error
+const [text] = useTosi(&#39;app.todos[0].text&#39;) // string
+const [oops] = useTosi(&#39;app.cuont&#39;) // compile error
 
-persist(&#39;app.todos&#39;)                 // localStorage, coalesced writes
-connectDevTools({ roots: [&#39;app&#39;] })  // Redux DevTools tap
+persist(&#39;app.todos&#39;) // localStorage, coalesced writes
+connectDevTools({ roots: [&#39;app&#39;] }) // Redux DevTools tap
 </code></pre>
 <h2>Observant, not reactive</h2>
 <p>React answers <em>&quot;did it change?&quot;</em> at the subscription source and re-renders from there;
