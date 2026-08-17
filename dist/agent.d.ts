@@ -5,6 +5,24 @@ import { WebMCPAdapterOptions } from './webmcp';
  * over tosijs-schema (`validate` on write, schemas into `describe()`), but
  * anything that can say "no, and here's why" fits.
  */
+/**
+ * **What a contract gates, and what it does not.** A contract is checked at
+ * two boundaries: `agent.write()` (a non-human actor writing into your app)
+ * and a Component's `value` setter. It is deliberately NOT a registry-wide
+ * invariant — `share()`, `sync()` and `hotReload()` write straight to state.
+ *
+ * That is a trust boundary, not a gap: `share()` peers are same-origin by
+ * construction (anything that can post to that channel can already assign
+ * to `xin` directly), a `SyncTransport` is chosen and wired by the app
+ * itself, and `hotReload()` restores what the same app wrote. Validation
+ * would add ceremony, not safety. Those writes remain **auditable** — the
+ * agent ledger observes every touch in scope.
+ *
+ * The case that MAY warrant enforcement is version skew (a peer or server
+ * ahead of this client pushing a shape it doesn't expect); that is planned
+ * as an opt-in on those APIs rather than a default, because refusing an
+ * inbound delta leaves the receiver stuck rather than merely inconsistent.
+ */
 export interface AgentContract {
     /**
      * Validate a write at `path`; `true`, or an Error saying WHY (the refusal

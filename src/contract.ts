@@ -73,13 +73,40 @@ const same = (a: any, b: any): boolean => {
  * from bun test, a doc fence, or an agent's own self-check.
  */
 export const exerciseContract = (agent: AgentInterface): ContractReport => {
-  const contract = agent.describe().contract ?? {}
+  const description = agent.describe()
+  if (description.exposure === 'read-only') {
+    throw new Error(
+      'exerciseContract: this surface is read-only, so every write would be ' +
+        'refused before any contract ran — the report would be green and ' +
+        'meaningless. Enable a surface that can write: ' +
+        'enableAgentInterface({ expose: "all" }) in dev, or a manifest ' +
+        'covering the contracted roots.'
+    )
+  }
+  const contract = description.contract ?? {}
   const trials: ContractTrial[] = []
 
   for (const [root, schema] of Object.entries(contract)) {
     const examples: any[] = (schema as any)?.examples ?? []
     const counterexamples: any[] = (schema as any)?.$counterexamples ?? []
-    const snapshot = agent.read(root)
+    // a contracted root the surface cannot even READ is inconclusive, not a
+    // crash mid-loop and not a pass
+    let snapshot: any
+    try {
+      snapshot = agent.read(root)
+    } catch (e) {
+      trials.push({
+        root,
+        kind: 'example',
+        value: undefined,
+        passed: false,
+        error:
+          'inconclusive: the surface cannot read this contracted root (' +
+          ((e as Error)?.message ?? '') +
+          ') — nothing here was validated.',
+      })
+      continue
+    }
 
     for (const value of examples) {
       let passed = true
@@ -104,8 +131,24 @@ export const exerciseContract = (agent: AgentInterface): ContractReport => {
       try {
         agent.write(root, value)
         error = 'counterexample was ACCEPTED'
-      } catch {
-        passed = true // refusal is the pass
+      } catch (e) {
+        // NOT EVERY REFUSAL IS A CONTRACT REFUSAL. A read-only or
+        // manifest-scoped surface refuses every write, so a contract with
+        // only $counterexamples used to produce a fully green report from a
+        // harness that had validated nothing at all.
+        const message = (e as Error)?.message ?? ''
+        const refusedBySurface =
+          message.includes('read-only') || message.includes('not exposed')
+        if (refusedBySurface) {
+          error =
+            'inconclusive: the SURFACE refused this write before any ' +
+            'contract ran (' +
+            message +
+            '). Exercise a surface that can write — expose: "all" or a ' +
+            'manifest covering this root.'
+        } else {
+          passed = true // a genuine contract refusal is the pass
+        }
       }
       trials.push({ root, kind: 'counterexample', value, passed, error })
     }

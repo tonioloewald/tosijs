@@ -1005,3 +1005,35 @@ describe('contract.attributes inheritance (review M3)', () => {
     )
   })
 })
+
+describe('the harness cannot report green without validating (round-2 review)', () => {
+  test('a read-only surface is refused up front, not reported as passing', async () => {
+    tosi({ inconclusive: { qty: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({ global: false })) // read-only
+    expect(() => exerciseContract(agent)).toThrow(/read-only/)
+  })
+
+  test('a manifest refusal is INCONCLUSIVE, never a pass', async () => {
+    tosi({ exPub: { n: 1 }, exPriv: { n: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['exPub'],
+        contract: {
+          check: () => true,
+          // a contract naming a root the manifest does NOT expose
+          describe: () => ({
+            'exPriv.n': { type: 'integer', $counterexamples: ['nope'] },
+          }),
+        },
+      },
+    }))
+    const report = exerciseContract(agent)
+    const trial = report.trials.find((t) => t.root === 'exPriv.n')!
+    expect(trial.passed).toBe(false)
+    expect(trial.error).toContain('inconclusive')
+    expect(report.failed).toBeGreaterThan(0) // a green report would be a lie
+  })
+})

@@ -64,6 +64,24 @@ import { webmcpAdapter, WebMCPAdapterOptions } from './webmcp'
  * over tosijs-schema (`validate` on write, schemas into `describe()`), but
  * anything that can say "no, and here's why" fits.
  */
+/**
+ * **What a contract gates, and what it does not.** A contract is checked at
+ * two boundaries: `agent.write()` (a non-human actor writing into your app)
+ * and a Component's `value` setter. It is deliberately NOT a registry-wide
+ * invariant — `share()`, `sync()` and `hotReload()` write straight to state.
+ *
+ * That is a trust boundary, not a gap: `share()` peers are same-origin by
+ * construction (anything that can post to that channel can already assign
+ * to `xin` directly), a `SyncTransport` is chosen and wired by the app
+ * itself, and `hotReload()` restores what the same app wrote. Validation
+ * would add ceremony, not safety. Those writes remain **auditable** — the
+ * agent ledger observes every touch in scope.
+ *
+ * The case that MAY warrant enforcement is version skew (a peer or server
+ * ahead of this client pushing a shape it doesn't expect); that is planned
+ * as an opt-in on those APIs rather than a default, because refusing an
+ * inbound delta leaves the receiver stuck rather than merely inconsistent.
+ */
 export interface AgentContract {
   /**
    * Validate a write at `path`; `true`, or an Error saying WHY (the refusal
@@ -1121,7 +1139,21 @@ export function enableAgentInterface(
       // on collision — declare where you build, curate at the top
       const declared =
         contract?.describe != null ? contract.describe() : undefined
-      const merged = { ...inlineContracts, ...(declared ?? {}) }
+      // THE MAP MUST NOT ADVERTISE WHAT write() WILL NOT ENFORCE. Curation
+      // supersedes inline declarations beneath its roots — that is the
+      // documented precedence — but the inline schema was still emitted, so
+      // describe().contract stated a rule the surface would then accept a
+      // violation of. For a surface whose whole claim is that its
+      // description is honest, that is the worst possible defect: drop the
+      // superseded entries instead.
+      const supersededByCuration = (path: string): boolean =>
+        contract != null &&
+        contractRoots.some((root) => extendsPath(root, path))
+      const enforceable: Record<string, any> = {}
+      for (const [path, schema] of Object.entries(inlineContracts)) {
+        if (!supersededByCuration(path)) enforceable[path] = schema
+      }
+      const merged = { ...enforceable, ...(declared ?? {}) }
       if (Object.keys(merged).length > 0) {
         description.contract = merged
       }

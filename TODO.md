@@ -28,29 +28,48 @@ unpinned CDN URLs in the scaffolder; Migration.md ships in the tarball;
 tool-name collisions; EXPERIMENTAL surfaced to consumers; "old names still
 work" scoped honestly.
 
-### 🔴 ESCALATED — the review triaged these below blocker; I think they are majors
+### 🔴 ESCALATED on review — three fixed, one de-escalated after discussion
 
-- [ ] **`share`/`sync`/`hot-reload` bypass contract enforcement entirely.**
-  Contracts are checked in the component value setter and `agent.write()`
-  only, so a BroadcastChannel peer, a `SyncTransport` server, or a
-  hot-reload restore writes illegal state straight into the registry — the
-  exact state an agent is refused. The release's "declared contracts are
-  enforced" claim has a hole. Not fixed here because the fix is
-  architectural (a registry-level write gate).
-- [ ] **`describe().contract` advertises constraints `write()` will not
-  enforce.** Where a curated contract covers a root, inline element
-  contracts beneath it are silently disabled but still emitted. For a
-  project whose thesis is "the description is under oath", a map that
-  states a rule the surface won't apply is the worst class of defect.
-- [ ] **Contract validation fails open, silently.** Only
-  `const`/`enum`/`type` are enforced; `required`/`properties`/`minimum`/
-  `pattern`/`format`/`items` are inert unless a host registered a full
-  validator — so the same shipped blueprint enforces differently per host.
-  Warn once per schema carrying unenforceable keywords, and document the
-  enforced subset.
-- [ ] **`exerciseContract` counts a surface REFUSAL as a passing
-  counterexample** — a contract with only `$counterexamples` yields a green
-  report from a harness that validated nothing.
+- [x] ~~**`share`/`sync`/`hot-reload` bypass contract enforcement.**~~
+  **DE-ESCALATED after review (2026-08-17) — not a major, and arguably not a
+  defect.** I escalated this as a security hole; it is a *trust boundary*,
+  and the boundary is drawn correctly:
+  - `share()` peers are **same-origin by construction** (BroadcastChannel).
+    Injecting a message requires code execution on the origin — and anything
+    with that can call `xin[path] = …` directly, so a contract check adds
+    nothing against an attacker.
+  - `sync()`'s transport is **chosen and wired by the app**. If your own
+    server is hostile, contract validation is not the layer that saves you.
+  - `hotReload()` restores what the same app wrote, in dev.
+
+  Contracts gate the **agent boundary** (a non-human actor writing in) and
+  the **component value boundary**. They were never a registry-wide
+  invariant, and the docs now say so explicitly rather than implying it.
+  Writes from these paths are still **auditable** — the agent ledger
+  observes every touch in scope, so they are visible even when unvalidated.
+
+  The one real residual is **version skew** (a v2 tab or a server ahead of
+  the client pushing a shape the receiver doesn't expect) — a data-migration
+  problem, not a security one, and one where refusing the write leaves the
+  receiver *stuck* rather than merely inconsistent. Scheduled as an opt-in,
+  not a default:
+- [ ] Optional `validate: true` on `share()`/`sync()` for the version-skew
+  case, routing inbound deltas through the same contract check as
+  `agent.write()` — with a documented failure mode (the delta is dropped and
+  reported, not applied).
+- [x] ~~`describe().contract` advertises constraints `write()` will not
+  enforce.~~ **FIXED** — superseded inline schemas are dropped from the
+  emitted contract, so the map never states a rule the surface won't apply.
+- [x] ~~Contract validation fails open, silently.~~ **FIXED** — the
+  built-in checker now warns once per keyword set when a schema declares
+  constraints it cannot enforce, naming `setContractValidator`. Still
+  paired with the upstream tosijs-schema vendorable-core ask, which would
+  remove the divergence entirely.
+- [x] ~~`exerciseContract` counts a surface REFUSAL as a passing
+  counterexample.~~ **FIXED** — a read-only surface is refused up front with
+  an actionable message; scope refusals and unreadable roots are recorded as
+  *inconclusive* failures. A harness that validated nothing can no longer
+  report green.
 
 ### 🟠 Scheduled — correctness & packaging
 
