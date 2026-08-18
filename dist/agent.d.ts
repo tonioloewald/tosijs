@@ -355,4 +355,12 @@ export interface AgentInterface {
         tools: string[];
     };
 }
+/**
+ * Reset the once-per-process posture notices (testing only). Without this
+ * the `expose: 'all'` consent warning could not be asserted — the latch is
+ * spent by the first surface any test creates, so the assertion had to be
+ * written as "…or no warnings at all", which can never fail. That warning
+ * is the only signal that every state root is writable through a global.
+ */
+export declare function _resetPostureNotices(): void;
 export declare function enableAgentInterface(options?: AgentInterfaceOptions): AgentInterface;

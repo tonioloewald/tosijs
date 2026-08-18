@@ -59,7 +59,12 @@ tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
 - **`auditAccessibility(map)`** — anonymous affordances, unnameable actions,
   missing roles, WCAG contrast, target size, placeholder-as-label. Pure over
   the description; `auditFlags()` turns findings into schematic flags so
-  they can be drawn. Skips _loudly_ when computed styles weren't requested.
+  they can be drawn. It skips _loudly_ rather than passing silently whenever
+  it cannot measure — computed styles weren't requested, or a background is
+  transparent so the effective colour is unknown. Known divergence:
+  `target-size` is currently decided twice (here and in the vendored
+  renderer) and the two disagree on named icon-links —
+  [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4).
 
 ### Security posture — safe by default
 

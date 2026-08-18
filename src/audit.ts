@@ -33,6 +33,18 @@ contrast rule has nothing to measure and skips itself (it says so).
 Findings carry the record and its index, so a caller can jump straight to
 the element — or hand the pair to `schematicSVG`'s `flags` to *draw* them.
 
+> **Known divergence (tosijs-floorplan#4).** `target-size` and "is this
+> interactive" are currently implemented *twice* — here, and in the vendored
+> renderer that draws the same map — and the two have drifted: this module
+> counts `href` as interactive and exempts a link named by `aria-label`; the
+> renderer does neither. So an icon-only `<a href onClick aria-label="Buy">`
+> at 20×20 audits clean while the drawing flags it, and a nameless 16×16
+> `<a href>` does the reverse. Reconciliation has to happen upstream
+> (`src/schematic.ts` is machine-vendored) — see
+> [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4).
+> Until it lands, trust *this* module's verdict for `target-size`: it has
+> the accessible name, which the renderer does not.
+
 > **EXPERIMENTAL.** Ships with the agent surface; rules and shapes may change.
 */
 import { AgentDescription, AgentWiringRecord, BOUND_TWO_WAY } from './agent'

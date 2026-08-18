@@ -680,6 +680,18 @@ const bindingName = (binding: any): string | undefined => {
 
 let readOnlyNoticeGiven = false
 let exposeAllWarningGiven = false
+
+/**
+ * Reset the once-per-process posture notices (testing only). Without this
+ * the `expose: 'all'` consent warning could not be asserted — the latch is
+ * spent by the first surface any test creates, so the assertion had to be
+ * written as "…or no warnings at all", which can never fail. That warning
+ * is the only signal that every state root is writable through a global.
+ */
+export function _resetPostureNotices(): void {
+  readOnlyNoticeGiven = false
+  exposeAllWarningGiven = false
+}
 let active: AgentInterface | undefined
 
 export function enableAgentInterface(

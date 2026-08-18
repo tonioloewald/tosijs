@@ -954,6 +954,8 @@ describe('the posture: safe by default, full access behind one line', () => {
     const warnings: string[] = []
     const original = console.warn
     console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    const { _resetPostureNotices } = await import('./agent')
+    _resetPostureNotices() // the latch is once-per-process; spend it here
     let agent: ReturnType<typeof enableAgentInterface>
     try {
       agent = current = enableAgentInterface({ global: false, expose: 'all' })
@@ -963,10 +965,45 @@ describe('the posture: safe by default, full access behind one line', () => {
     agent!.write('postureAll.n', 7)
     expect(agent!.read('postureAll.n')).toBe(7)
     expect(agent!.describe().exposure).toBe('introspection')
-    // warned once per process — the first caller gets it
-    expect(
-      warnings.some((w) => w.includes('WRITABLE')) || warnings.length === 0
-    ).toBe(true)
+    // asserted UNCONDITIONALLY — the old form was `… || warnings.length === 0`,
+    // which passes even if the warning is deleted outright
+    expect(warnings.some((w) => w.includes('WRITABLE'))).toBe(true)
+    expect(warnings.some((w) => w.includes('any script on this page'))).toBe(
+      true
+    )
+  })
+
+  test('the read-only notice fires, names the escape hatches, and respects quiet', async () => {
+    const { _resetPostureNotices } = await import('./agent')
+    const { settings } = await import('./settings')
+    tosi({ noticeApp: { n: 1 } })
+    await updates()
+
+    _resetPostureNotices()
+    const infos: string[] = []
+    const original = console.info
+    console.info = (...args: any[]) => infos.push(args.map(String).join(' '))
+    try {
+      ;(current = enableAgentInterface({ global: false })).disable()
+    } finally {
+      console.info = original
+    }
+    expect(infos.some((i) => i.includes('read-only'))).toBe(true)
+    expect(infos.some((i) => i.includes('expose'))).toBe(true)
+
+    // …and settings.quiet actually silences it
+    _resetPostureNotices()
+    const quiet: string[] = []
+    console.info = (...args: any[]) => quiet.push(args.map(String).join(' '))
+    settings.quiet = true
+    try {
+      ;(current = enableAgentInterface({ global: false })).disable()
+    } finally {
+      console.info = original
+      settings.quiet = false
+      current = undefined
+    }
+    expect(quiet).toEqual([])
   })
 
   test('manifest mode is unchanged and remains the production shape', async () => {

@@ -113,7 +113,33 @@ State (xin) ──────────────────────�
 - `more-math.ts` - Math utilities (`clamp`, `lerp`, constants)
 - `share.ts` - Cross-tab state sync via `BroadcastChannel` + `IndexedDB`; delta-based `{ path, value }` messages
 - `sync.ts` - Network state sync via pluggable `SyncTransport`; throttled outbound batching, same delta/echo-prevention pattern as `share.ts`
-- `settings.ts` - Debug/performance flags (`settings.perf`, `settings.debug`)
+- `settings.ts` - Debug/performance flags (`settings.perf`, `settings.debug`,
+  `settings.quiet` — silences tosijs's own advisory warnings)
+
+**The agent surface** (1.8.0; exported from `tosijs` and, with a narrower
+type surface, from `tosijs/agent` — the SAME file, because a separate bundle
+would carry its own copy of the registry):
+
+- `agent.ts` - `enableAgentInterface()`: `describe`/`read`/`write`/`observe`/
+  `call`/`changes`/`when`/`log`, the exposure ladder (read-only default,
+  manifest, `expose: 'all'`), the audit ledger, and `agent.version`
+- `webmcp.ts` - the generated WebMCP tool set + host adapter (auto-registered
+  by `enableAgentInterface` where a model-context host exists)
+- `schematic.ts` - **VENDORED** from tosijs-floorplan at build time; do not
+  edit (see the build-system note above)
+- `audit.ts` - `auditAccessibility()` over a map: anonymous affordances,
+  unnameable actions, missing roles, contrast, target size
+- `contract.ts` - `exerciseContract()` / `exerciseComponent()`: contracts as
+  executable tests
+- `contract-check.ts` - the shared zero-dependency validation subset
+  (type/enum/const) plus the `setContractValidator` plug
+
+**Entry modules** (one per published export condition):
+
+- `index.ts` (everything) · `index-core-exports.ts` (the shared surface) ·
+  `index-browser.ts` (IIFE/CDN — omits the agent surface) ·
+  `index-core.ts` (`tosijs/core`) · `index-state.ts` (`tosijs/state`,
+  DOM-free) · `index-agent.ts` (`tosijs/agent`, types only)
 
 ### Dual Proxy System (`xin` vs `boxed`)
 

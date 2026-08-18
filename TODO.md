@@ -111,7 +111,8 @@ work" scoped honestly.
 - [ ] The audit re-implements the renderer's interactivity and target-size
   rules and has drifted; make the audit the single implementation once
   [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4)
-  lands, and disclose the divergence until then.
+  lands. **Disclosed** in the audit doc block and the CHANGELOG meanwhile
+  (which verdict to trust, and why).
 - [ ] `boundsOf()` (window scroll only) and `measureBounds()` (accumulates
   ancestor scroll) define "page coordinates" differently, so the documented
   `within: boundsOf(el)` idiom mis-selects in inner-scroll apps.
@@ -124,9 +125,12 @@ work" scoped honestly.
   (`src/color.ts`, "clamp is not defined"); `tjs convert` exits 0, so the
   build reports success. Pre-existing and NOT dismissed: a new failure is
   indistinguishable from it.
-- [ ] The `expose: 'all'` consent-warning assertion can never fail (the
-  latch is already spent, and the assertion is `|| length === 0`);
-  `readOnlyNoticeGiven` has no test at all.
+- [x] ~~The `expose: 'all'` consent-warning assertion can never fail;
+  `readOnlyNoticeGiven` has no test.~~ **FIXED** — `_resetPostureNotices()`
+  (the test-only-reset pattern the deprecation registry already uses) makes
+  both assertable; the consent warning is now asserted unconditionally, and
+  the read-only notice has a test including that `settings.quiet` silences
+  it.
 - [ ] No compile-time verification of `PartsOf<T>` / `Component<typeof
   contract>` — the release's headline TYPE feature lives in files tsc never
   sees. Add an *included* `.types.ts` with positive and `@ts-expect-error`
@@ -141,8 +145,9 @@ work" scoped honestly.
 - [ ] `static contract` / `ComponentMap` is absent from the canonical
   component reference page, though `contract.attributes` supersedes
   `initAttributes` and declaring both throws.
-- [ ] CLAUDE.md's "Core modules" map omits all six new modules and the five
-  entry modules.
+- [x] ~~CLAUDE.md's "Core modules" map omits all six new modules and the
+  five entry modules.~~ **FIXED** — both groups documented, with the
+  vendoring hazard and the same-file reason for `tosijs/agent`.
 - [ ] The headline feature sits under "Utilities" in the nav and is
   unreachable from the README.
 - [ ] `headless-embodiment.md`'s front matter advertises `elementsSSR` as a
