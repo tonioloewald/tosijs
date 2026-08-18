@@ -129,6 +129,19 @@ precedent), suite synced.
 
 ## tosijs-schema
 
+### 📋 FILED (consumer input) — `inferSchema(sample)`: derived schemas
+**Issue:** https://github.com/tonioloewald/tosijs-schema/issues/6 (OPEN)
+Requested by tosijs-ui's schema-powered form editor; tosijs is the third
+consumer. It is the adoption half of tjs-lang#27: contracts today are
+DECLARED (a cliff — nothing until someone writes a schema), and inference
+makes the same machinery derived-by-default, curated-when-it-matters. Uses
+here: type-drift warnings from the proxy with no declaration,
+`describe().contract` for apps that declared nothing, and field types for
+better wiring diagrams. **Our added requirement:** an inferred schema must be
+distinguishable from an authored one *in the artifact* (`$inferred` /
+`$source`), and the marker must survive serialization — a consumer needs to
+know whether it is reading a rule or a sample.
+
 ### ✅ RESOLVED (tosijs-schema 1.5.0 / 1.5.1) — `agentContract()` + executable-contract conventions
 
 **Issue:** https://github.com/tonioloewald/tosijs-schema/issues/2 (CLOSED)

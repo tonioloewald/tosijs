@@ -757,6 +757,39 @@ worked example of the practice that a framework feature should subtract more
 than it adds. **Filed upstream:** tjs-lang#(see UPSTREAM.md) so the language
 side has the use case with receipts.
 
+### inferSchema: the other half — derived schemas, not just declared ones
+
+**tosijs-schema#6** (`inferSchema(sample) → JSONSchema`, requested by
+tosijs-ui's schema-powered form editor) is the adoption half of the islands
+idea above. Contracts today are **declared**, which is the right end state
+but also a cliff: nothing happens until someone writes a schema. Inference
+makes the same machinery *derived-by-default, curated-when-it-matters* —
+the shape the agent surface already uses (`describe()` derives; `contract`
+curates).
+
+Three uses here, in rough order of value:
+
+1. **Type-drift warnings from the proxy with zero declaration.** The 2.0
+   branch's `settings.strictness` compares an assignment against the
+   *previous value*; against an inferred schema of the island it could catch
+   a `qty` that becomes a string, or an object that loses a required key, on
+   the write that does it. Pairs directly with [tjs-lang#27]
+   (https://github.com/tonioloewald/tjs-lang/issues/27) — infer to get the
+   schema for free, enforce it where the write happens, promote it to a
+   declaration when you want a guarantee rather than an observation.
+2. **`describe().contract` for apps that declared nothing** — the map
+   answers "what's legal here", not only "what exists".
+3. **Better wiring diagrams** — field *types* let tosijs-floorplan render a
+   control the way its data behaves (enum → segmented, integer+range →
+   slider) instead of inferring from the DOM.
+
+**The requirement we contributed upstream:** an inferred schema must be
+*distinguishable from an authored one in the artifact itself* (`$inferred:
+true` or `$source`). `{ type: 'integer' }` looks identical either way, and a
+consumer — agent, form editor, validator — needs to know whether it is
+reading a rule or a sample. It has to survive serialization, because these
+schemas travel over wires.
+
 ## 2.0 refactoring candidates
 
 - **Remove deprecated exports** (~2-3KB gzipped): `xinPath`, `xinValue`, `boxedProxy`,
