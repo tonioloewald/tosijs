@@ -108,7 +108,13 @@ const { oneUI } = tosi({
   },
 })
 
-const agent = enableAgentInterface() // also installs globalThis.tosiAgent
+// The PRODUCTION posture, not the dev one: this manifest names exactly what
+// the agent side below touches. A bare enableAgentInterface() is read-only
+// introspection — describe and read work, call and write refuse — so the
+// demo would only be half a demo. (Also installs globalThis.tosiAgent.)
+const agent = enableAgentInterface({
+  expose: { roots: [&#39;oneUI&#39;], actions: [&#39;oneUI.addItem&#39;] },
+})
 const { div, h4, ul, input, button, pre } = elements
 
 // THE HUMAN SIDE — an ordinary bound UI
@@ -156,6 +162,30 @@ preview.append(
   ),
   log
 )
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface } from &#39;tosijs&#39;
+
+// The page&#39;s own demo is the release&#39;s headline proof, and it was a plain
+// ```js fence — so when the default posture became read-only, this page kept
+// calling call() on a surface that refuses it and NOTHING went red. This
+// fence is the guard: it runs in Chromium and Firefox on every release.
+test(&#39;the manifesto demo posture can actually do what the demo does&#39;, () =&gt; {
+  const agent = enableAgentInterface({
+    expose: { roots: [&#39;oneUI&#39;], actions: [&#39;oneUI.addItem&#39;] },
+  })
+  const before = agent.read(&#39;oneUI.list&#39;).length
+  agent.call(&#39;oneUI.addItem&#39;, &#39;from the test&#39;)
+  expect(agent.read(&#39;oneUI.list&#39;).length).toBe(before + 1)
+  // …and the manifest is still a manifest: nothing outside it is reachable
+  // (the doc-fence expect() is a small shim — no toThrow, so catch by hand)
+  let refused = false
+  try {
+    agent.read(&#39;somethingElse&#39;)
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+})
 </code></pre>
 <p><strong>Open the console — you are the second user</strong>: <code>tosiAgent.describe()</code>,
 <code>tosiAgent.call(&#39;oneUI.addItem&#39;, &#39;from the console&#39;)</code>, <code>tosiAgent.changes()</code>.

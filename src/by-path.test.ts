@@ -1,6 +1,8 @@
-import { test, expect } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { getByPath, setByPath, deleteByPath, pathParts } from './by-path'
 import { XinObject } from './xin-types'
+import { tosi } from './xin-proxy'
+import { xin } from './xin'
 
 const obj = {
   foo: 17,
@@ -236,4 +238,51 @@ test('deleting a nonexistent id is a no-op, not a splice at index 0', () => {
   root.arr.splice(0, 1) // remove id=1 out of band
   deleteByPath(root, 'arr[id=1]')
   expect(root.arr).toEqual([{ id: 2 }])
+})
+
+// The prototype-segment guard (1.8.0 security pass) rewrote byKey's presence
+// test from `=== undefined` to hasOwnProperty. That conflated "inherited, not
+// ours" with "ours, but empty" — and the second is ordinary state.
+describe('an own property holding undefined is empty, not a container', () => {
+  test('a deep write lands under a TS placeholder', () => {
+    const root = { app: { config: undefined } } as XinObject
+    setByPath(root, 'app.config.theme', 'dark')
+    expect(getByPath(root, 'app.config.theme')).toBe('dark')
+  })
+
+  test('clear a subtree, then write into it again', () => {
+    // the commoner trigger: assigning undefined WRITES an own undefined, so
+    // the very next deep write used to throw a raw TypeError from internals
+    const root = { app: { config: { theme: 'dark' } } } as XinObject
+    setByPath(root, 'app.config', undefined)
+    setByPath(root, 'app.config.theme', 'light')
+    expect(getByPath(root, 'app.config.theme')).toBe('light')
+  })
+
+  test('through the proxy, which is how an app actually hits it', () => {
+    const { placeholderApp } = tosi({
+      placeholderApp: { config: undefined as { theme?: string } | undefined },
+    })
+    xin['placeholderApp.config.theme'] = 'dark'
+    expect(placeholderApp.config.theme.value).toBe('dark')
+    xin['placeholderApp.config'] = undefined
+    xin['placeholderApp.config.theme'] = 'light'
+    expect(placeholderApp.config.theme.value).toBe('light')
+  })
+
+  test('an INHERITED member is still not a container to descend into', () => {
+    // the distinction the guard exists for: `toString` reports as present via
+    // the prototype, and writing through it would corrupt every object
+    const root = { app: {} } as XinObject
+    setByPath(root, 'app.toString.x', 1)
+    expect((root.app as XinObject).toString).toEqual({ x: 1 })
+    expect(({} as any).x).toBeUndefined()
+  })
+
+  test('and the prototype-segment guard still refuses', () => {
+    expect(() => setByPath({ a: {} } as XinObject, 'a.__proto__.x', 1)).toThrow(
+      /unsafe path segment/
+    )
+    expect(({} as any).x).toBeUndefined()
+  })
 })

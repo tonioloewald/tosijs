@@ -272,8 +272,27 @@ function applyInbound(path: string, value: any): void {
     freshDuringRestore.add(root)
   }
   inboundPaths.add(path)
-  setByPath(registry, path, value)
-  touch(path)
+  try {
+    setByPath(registry, path, value)
+    touch(path)
+  } catch (e) {
+    // A REFUSED DELTA MUST NOT POISON THE CHANNEL. The path is registered as
+    // inbound BEFORE the write so the echo suppressor can recognize it; if
+    // the write throws, the cleanup below was never scheduled, so the path
+    // stayed in inboundPaths for the life of the page — and isInbound()
+    // matches by PREFIX, so every subsequent LOCAL change to that path and
+    // its whole subtree was mistaken for an echo and silently never sent.
+    // One bad message killed sync for a subtree, permanently and quietly.
+    // 1.8.0 made this reachable on purpose: setByPath now REFUSES unsafe path
+    // segments, and a peer or server supplies those paths.
+    inboundPaths.delete(path)
+    console.error(
+      `tosijs: refused an inbound delta at "${path}" —`,
+      e,
+      '(the local state is unchanged and this channel keeps working)'
+    )
+    return
+  }
   updates().then(() => {
     inboundPaths.delete(path)
   })

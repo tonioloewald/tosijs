@@ -138,12 +138,22 @@ export function assertSafeKey(key: string): void {
 
 function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
   assertSafeKey(key)
-  // hasOwnProperty, not `=== undefined`: an INHERITED member (toString,
-  // valueOf, …) is not a container we may descend into or overwrite
-  if (
-    !Object.prototype.hasOwnProperty.call(obj, key) &&
-    valueToInsert !== undefined
-  ) {
+  // TWO different things are "not a container here", and only one of them is
+  // about ownership:
+  //   - an INHERITED member (toString, valueOf, …) — never ours to descend
+  //     into or overwrite, which is why this asks hasOwnProperty rather than
+  //     `=== undefined`
+  //   - an own property whose VALUE is undefined — ours, but empty
+  // Testing ownership alone conflated them: `{ app: { config: undefined } }`
+  // reported the key as present, so nothing was created and `undefined` came
+  // back for the descent to dereference. That is ordinary state — a TS
+  // placeholder (`user: undefined as User | undefined`, which our own
+  // bind-before-data guidance encourages) or a cleared subtree
+  // (`xin['app.config'] = undefined` writes an own undefined) — so the very
+  // next deep write crashed, and inbound share()/sync() deltas crashed inside
+  // the receive handler.
+  const own = Object.prototype.hasOwnProperty.call(obj, key)
+  if ((!own || obj[key] === undefined) && valueToInsert !== undefined) {
     obj[key] = valueToInsert
   }
   return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined
@@ -281,6 +291,15 @@ function setByPath(
         if (part.length > 0 || parts.length > 0) {
           // if we're at the end of part.length then we need to insert an array
           obj = byKey(obj as XinObject, key, part.length > 0 ? {} : [])
+          // the OUTER loop guards `obj != null`; this one never did, so a
+          // byKey that legitimately declines to create a container (an
+          // inherited member) reported it as a raw TypeError from library
+          // internals instead of naming the path
+          if (obj == null) {
+            throw new Error(
+              `setByPath failed at "${key}" in "${path}": not a container`
+            )
+          }
         } else {
           assertSafeKey(key)
           if (val !== _delete_) {

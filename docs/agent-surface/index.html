@@ -132,11 +132,21 @@ framework where the WebMCP tools write themselves.</p>
 <h2>The design: a launch toggle, not a framework</h2>
 <p>Nothing is exposed by default. The programmer flips a switch at launch:</p>
 <pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
-// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
+// `tosijs/agent` is the same file with narrower types — deliberately NOT a
+// separate bundle, which would carry its own copy of the state registry and
+// describe an empty app
 
-const agent = enableAgentInterface({
-  // DEV: expose everything tosijs already knows (the deliberate override)
-  // PROD: expose exactly what you declare (manifest mode) — see below
+// the DEFAULT: read-only introspection. describe/read/observe/changes/when
+// see everything; write() and call() refuse.
+const agent = enableAgentInterface()
+
+// DEV: everything, read/write/call, deliberately and with a warning
+const dev = enableAgentInterface({ expose: &#39;all&#39; })
+
+// PROD: exactly what you declare. A manifest scopes SIGHT — add write: true
+// to let an agent change it; declared actions stay callable either way.
+const prod = enableAgentInterface({
+  expose: { roots: [&#39;app.cart&#39;], actions: [&#39;app.checkout&#39;], write: true },
 })
 </code></pre>
 <p>The returned surface (also reachable as a global for injected/extension
@@ -299,8 +309,15 @@ say this; it cannot enforce it.</p>
 </blockquote>
 <ol>
 <li><strong>Off</strong> (default) — nothing. Zero cost, zero surface.</li>
-<li><strong>Introspection mode</strong> — everything tosijs knows, <strong>dev-only and explicitly
-unstable</strong>. For exploration, debugging, agent-assisted development, and
+<li><strong>Read-only introspection</strong> — what a bare <code>enableAgentInterface()</code> gives
+you, and the tier this list used to omit entirely. Everything is
+<em>readable</em> and observable; <code>write()</code> and <code>call()</code> refuse. It is
+simultaneously the safest <strong>verb</strong> posture and the widest <strong>read</strong>
+posture — see <a href="/trust-and-transports/">Trust &amp; Transports</a>.</li>
+<li><strong>Introspection mode</strong> (<code>expose: &#39;all&#39;</code>) — everything tosijs knows,
+read/write/call, <strong>dev-only and explicitly unstable</strong>. (The name is the
+code&#39;s: <code>describe().exposure</code> reports <code>&#39;introspection&#39;</code> for this tier and
+<code>&#39;read-only&#39;</code> for the one above.) For exploration, debugging, agent-assisted development, and
 <em>discovering what belongs in the schema</em>. Also a better haltija/Playwright
 substrate than selector-scraping — but nothing durable (tests, agent
 workflows) should script against it, because its shape is whatever the

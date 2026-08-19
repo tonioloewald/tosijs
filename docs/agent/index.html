@@ -53,16 +53,21 @@ automation. Nothing is recorded that tosijs doesn&#39;t already know; <code>desc
 assembles the picture on demand.</p>
 <pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
 
-const agent = enableAgentInterface() // introspection mode: expose everything
+const agent = enableAgentInterface() // READ-ONLY introspection (the default)
 
 agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
 agent.read(&#39;app.filter&#39;)  // serializable value
-agent.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
 agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
-agent.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)        // invoke an action by path
 agent.changes(cursor)     // turn-based drain: final value per changed path
 await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
 agent.log()               // the audit trail
+</code></pre>
+<p>The verbs that CHANGE things need consent, so they are not in that list —
+<code>write()</code> and <code>call()</code> refuse on the default surface and say how to enable
+them. Declare a manifest (below), or <code>expose: &#39;all&#39;</code> while developing:</p>
+<pre><code>const dev = enableAgentInterface({ expose: &#39;all&#39; })
+dev.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
+dev.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)          // invoke an action by path
 </code></pre>
 <p>In production, expose only what you declare:</p>
 <pre><code>enableAgentInterface({

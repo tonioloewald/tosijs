@@ -99,11 +99,21 @@ Nothing is exposed by default. The programmer flips a switch at launch:
 
 ```
 import { enableAgentInterface } from 'tosijs'
-// (a tree-shaken `tosijs/agent` subpath is the likely published shape)
+// `tosijs/agent` is the same file with narrower types — deliberately NOT a
+// separate bundle, which would carry its own copy of the state registry and
+// describe an empty app
 
-const agent = enableAgentInterface({
-  // DEV: expose everything tosijs already knows (the deliberate override)
-  // PROD: expose exactly what you declare (manifest mode) — see below
+// the DEFAULT: read-only introspection. describe/read/observe/changes/when
+// see everything; write() and call() refuse.
+const agent = enableAgentInterface()
+
+// DEV: everything, read/write/call, deliberately and with a warning
+const dev = enableAgentInterface({ expose: 'all' })
+
+// PROD: exactly what you declare. A manifest scopes SIGHT — add write: true
+// to let an agent change it; declared actions stay callable either way.
+const prod = enableAgentInterface({
+  expose: { roots: ['app.cart'], actions: ['app.checkout'], write: true },
 })
 ```
 
@@ -238,8 +248,15 @@ channel.)
 > say this; it cannot enforce it.
 
 1. **Off** (default) — nothing. Zero cost, zero surface.
-2. **Introspection mode** — everything tosijs knows, **dev-only and explicitly
-   unstable**. For exploration, debugging, agent-assisted development, and
+1. **Read-only introspection** — what a bare `enableAgentInterface()` gives
+   you, and the tier this list used to omit entirely. Everything is
+   *readable* and observable; `write()` and `call()` refuse. It is
+   simultaneously the safest **verb** posture and the widest **read**
+   posture — see [Trust & Transports](/trust-and-transports/).
+2. **Introspection mode** (`expose: 'all'`) — everything tosijs knows,
+   read/write/call, **dev-only and explicitly unstable**. (The name is the
+   code's: `describe().exposure` reports `'introspection'` for this tier and
+   `'read-only'` for the one above.) For exploration, debugging, agent-assisted development, and
    _discovering what belongs in the schema_. Also a better haltija/Playwright
    substrate than selector-scraping — but nothing durable (tests, agent
    workflows) should script against it, because its shape is whatever the

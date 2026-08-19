@@ -276,22 +276,42 @@ export const exerciseComponent = async (
   const valueExamples: any[] = (declared.value as any)?.examples ?? []
   if (valueExamples.length > 0) {
     const snapshot = (element as any).value
-    for (const example of valueExamples) {
-      ;(element as any).value = example
-      const back = (element as any).value
-      trials.push(
-        same(back, example)
-          ? { claim: `value example round-trips`, passed: true }
-          : {
-              claim: `value example round-trips`,
-              passed: false,
-              error: `wrote ${JSON.stringify(example)}, read ${JSON.stringify(
-                back
-              )}`,
-            }
-      )
+    // A HARNESS REPORTS; IT DOES NOT THROW. The assignment goes through the
+    // component's value setter, which ENFORCES the contract — so an example
+    // that violates the very contract declaring it made exerciseComponent
+    // reject instead of returning a failed trial, and the restore below (then
+    // outside the loop) never ran, leaving the component holding a probe
+    // value. The `tests` loop further down already got this right.
+    try {
+      for (const example of valueExamples) {
+        try {
+          ;(element as any).value = example
+        } catch (error) {
+          trials.push({
+            claim: `value example round-trips`,
+            passed: false,
+            error: `the component REFUSED its own declared example ${JSON.stringify(
+              example
+            )}: ${(error as Error).message}`,
+          })
+          continue
+        }
+        const back = (element as any).value
+        trials.push(
+          same(back, example)
+            ? { claim: `value example round-trips`, passed: true }
+            : {
+                claim: `value example round-trips`,
+                passed: false,
+                error: `wrote ${JSON.stringify(example)}, read ${JSON.stringify(
+                  back
+                )}`,
+              }
+        )
+      }
+    } finally {
+      ;(element as any).value = snapshot
     }
-    ;(element as any).value = snapshot
   }
 
   // observers settle via updates(); component renders queue on rAF — a step

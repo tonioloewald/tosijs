@@ -15,14 +15,19 @@ describe('entry points', () => {
       'unobserve',
       'touch',
       'updates',
-      'getByPath',
-      'setByPath',
       'tosiPath',
       'tosiValue',
       'throttle',
     ]) {
       expect(typeof (state as any)[name]).not.toBe('undefined')
     }
+    // the by-path helpers are deliberately NOT here: they were public from
+    // this entry and nowhere else, which made the subset claim false. The
+    // path API is the proxy — xin['a.b.c'] — which needs no DOM either.
+    expect('getByPath' in state).toBe(false)
+    expect('setByPath' in state).toBe(false)
+    expect('id' in state).toBe(false)
+
     // and nothing DOM-facing leaked in
     expect('Component' in state).toBe(false)
     expect('elements' in state).toBe(false)
@@ -171,6 +176,17 @@ describe('entry points', () => {
     for (const name of ['tosi', 'elements', 'Component', 'tosiBlueprint']) {
       expect(typeof (browser as any)[name]).not.toBe('undefined')
     }
+  })
+
+  // tosijs/state calls itself "a narrower door onto the same house". That was
+  // FALSE for five exports (getByPath/setByPath/deleteByPath/pathParts/id),
+  // which shipped public from tosijs/state and nowhere else — and no test
+  // asked, because only core ⊆ full was pinned (round-3 review, M7).
+  test('the full entry is a SUPERSET of tosijs/state — the subset claim holds', async () => {
+    const full = await import('./index')
+    const state = await import('./index-state')
+    const missing = Object.keys(state).filter((name) => !(name in full))
+    expect(missing).toEqual([])
   })
 
   test('the full entry is a SUPERSET of core — no export lands in one and not the other', async () => {

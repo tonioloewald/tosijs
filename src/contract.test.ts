@@ -1069,3 +1069,72 @@ describe('the harness cannot report green without validating (round-2 review)', 
     expect(report.failed).toBeGreaterThan(0) // a green report would be a lie
   })
 })
+
+// Review round 3, M2: the check only ever ran from the accessor initValue
+// installs, and initValue returned early when the class had no own `value`
+// field — so a declared value contract was completely inert, and the harness
+// reported its examples AND its counterexamples green.
+describe('a declared value contract is enforced even without a value field', () => {
+  test('a class with contract.value but no `value = …` still enforces it', async () => {
+    const map = {
+      value: { type: 'number', examples: [1, 42], $counterexamples: ['nope'] },
+    } as const satisfies ComponentMap
+
+    class ContractOnlyValue extends Component<typeof map> {
+      static preferredTagName = 'contract-only-value'
+      static contract = map
+      content = null
+    }
+    const create = ContractOnlyValue.elementCreator()
+    const el = create() as any
+    document.body.append(el)
+    await el.whenHydrated
+
+    expect(() => {
+      el.value = 'nope'
+    }).toThrow(/contract violation/)
+    el.value = 42
+    expect(el.value).toBe(42)
+
+    // and the harness now agrees with reality: the counterexample must FAIL
+    // to be accepted, which is a pass for the contract
+    const report = await exerciseComponent(el)
+    expect(report.failed).toBe(0)
+    el.remove()
+  })
+
+  test('a class that owns `value` itself is told the contract cannot be enforced', async () => {
+    const map = { value: { type: 'number' } } as const satisfies ComponentMap
+
+    class OwnAccessorValue extends Component<typeof map> {
+      static preferredTagName = 'own-accessor-value'
+      static contract = map
+      private _v: any = 0
+      get value() {
+        return this._v
+      }
+      set value(v: any) {
+        this._v = v
+      }
+      content = null
+    }
+    const create = OwnAccessorValue.elementCreator()
+    const errors: any[] = []
+    const realError = console.error
+    console.error = (...args: any[]) => errors.push(args)
+    try {
+      const el = create() as any
+      document.body.append(el)
+      await el.whenHydrated
+      el.value = 'anything' // the class's own setter — we never see it
+      expect(el.value).toBe('anything')
+      el.remove()
+    } finally {
+      console.error = realError
+    }
+    // silence would be the bug: the map publishes a rule nothing checks
+    expect(
+      errors.some((args) => String(args[0]).includes('cannot enforce'))
+    ).toBe(true)
+  })
+})

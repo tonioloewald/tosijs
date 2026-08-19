@@ -2,7 +2,7 @@ import { test, expect, describe } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, bindParts } from './elements'
 import { updates, touch } from './path-listener'
-import { on, bind, touchElement } from './bind'
+import { on, bind, touchElement, hydrateInsertedSubtree } from './bind'
 import { bindings } from './bindings'
 
 test('element binding works', async () => {
@@ -650,4 +650,82 @@ test('bind() does not mutate the caller spec — a bindList spec is reusable', (
   expect(() => bind(b, spec2 as any, bindings.list)).not.toThrow()
   a.remove()
   b.remove()
+})
+
+// The MutationObserver hydration path had ZERO test hits in either tier (fast
+// review round 3, M4) — including the isolation try/catch the security pass
+// added. Brand-new code that had never executed, sitting on top of a real
+// defect. These call the extracted function directly: happy-dom's mutation
+// delivery is order-dependent enough that observer-driven assertions pass and
+// fail by run order, and a flaky test is worse than none. The real-engine
+// wiring is covered by a ```test doc fence.
+describe('hydrateInsertedSubtree (the MutationObserver payload)', () => {
+  test('a node bound while DETACHED hydrates when inserted AS THE ROOT', async () => {
+    tosi({ mutationRoot: { label: 'hello from state' } })
+    await updates()
+    const detached = elements.span()
+    bind(detached, 'mutationRoot.label', bindings.text)
+    await updates()
+    // the defect: getElementsByClassName is descendants-only, so the inserted
+    // node itself was skipped and this rendered empty
+    expect(detached.textContent).toBe('')
+    hydrateInsertedSubtree(detached)
+    expect(detached.textContent).toBe('hello from state')
+  })
+
+  test('a bound DESCENDANT of an inserted node still hydrates', async () => {
+    tosi({ mutationNested: { label: 'nested value' } })
+    await updates()
+    const wrapper = elements.div()
+    const inner = elements.span()
+    wrapper.append(inner)
+    bind(inner, 'mutationNested.label', bindings.text)
+    await updates()
+    hydrateInsertedSubtree(wrapper)
+    expect(inner.textContent).toBe('nested value')
+  })
+
+  test('the root and its descendants both hydrate, root first', async () => {
+    tosi({ mutationBoth: { outer: 'OUT', inner: 'IN' } })
+    await updates()
+    const wrapper = elements.div()
+    const inner = elements.span()
+    wrapper.append(inner)
+    bind(wrapper, 'mutationBoth.outer', {
+      toDOM: (el: any, v: any) => el.setAttribute('title', v),
+    })
+    bind(inner, 'mutationBoth.inner', bindings.text)
+    await updates()
+    hydrateInsertedSubtree(wrapper)
+    expect(wrapper.getAttribute('title')).toBe('OUT')
+    expect(inner.textContent).toBe('IN')
+  })
+
+  test('one throwing binding does not strand its siblings', async () => {
+    tosi({ mutationIsolate: { a: 'first', b: 'second' } })
+    await updates()
+    const wrapper = elements.div()
+    const bad = elements.span()
+    const good = elements.span()
+    wrapper.append(bad, good)
+    bind(bad, 'mutationIsolate.a', {
+      toDOM() {
+        throw new Error('binding exploded during hydration')
+      },
+    })
+    bind(good, 'mutationIsolate.b', bindings.text)
+    await updates()
+    const errors: any[] = []
+    const realError = console.error
+    console.error = (...args: any[]) => errors.push(args)
+    try {
+      hydrateInsertedSubtree(wrapper)
+    } finally {
+      console.error = realError
+    }
+    // the sibling AFTER the thrower still hydrated…
+    expect(good.textContent).toBe('second')
+    // …and the failure was reported rather than swallowed
+    expect(errors.length).toBeGreaterThan(0)
+  })
 })

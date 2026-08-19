@@ -271,6 +271,32 @@ test(&#39;delegation crosses the shadow boundary to a light-DOM ancestor&#39;, (
 want to force a render of an element (versus anything bound to a path), simply call
 <code>touchElement(element)</code>. Specifying a <code>changedPath</code> will only trigger bindings bound
 to paths staring with the provided path.</p>
+<h2>Binding before insertion</h2>
+<p>You can bind an element that isn&#39;t in the document yet — build a view offscreen,
+cache a dialog, detach and re-attach a panel — and it hydrates when it lands. A
+<code>MutationObserver</code> on <code>document.body</code> catches the insertion and renders every
+bound element in the subtree, <strong>including the inserted node itself</strong>.</p>
+<pre><code class="language-test">import { elements, tosi, bind, bindings, updates } from &#39;tosijs&#39;
+
+test(&#39;an element bound while detached hydrates when it is inserted&#39;, async () =&gt; {
+  const { detachedDemo } = tosi({ detachedDemo: { label: &#39;arrived&#39; } })
+  const panel = elements.div(elements.span())
+  // bound while OUTSIDE the document, and inserted a turn later — only the
+  // MutationObserver can render this, and it must cover the root as well as
+  // the descendants (happy-dom&#39;s mutation delivery is too order-dependent to
+  // assert this in the unit tier, so the real engine owns it)
+  bind(panel, &#39;detachedDemo.label&#39;, {
+    toDOM: (el, value) =&gt; el.setAttribute(&#39;data-label&#39;, value),
+  })
+  bind(panel.querySelector(&#39;span&#39;), &#39;detachedDemo.label&#39;, bindings.text)
+  await updates()
+  document.body.append(panel)
+  await new Promise((resolve) =&gt; setTimeout(resolve, 50))
+  expect(panel.getAttribute(&#39;data-label&#39;)).toBe(&#39;arrived&#39;)
+  expect(panel.querySelector(&#39;span&#39;).textContent).toBe(&#39;arrived&#39;)
+  panel.remove()
+})
+</code></pre>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">

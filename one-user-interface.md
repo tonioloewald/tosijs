@@ -67,7 +67,13 @@ const { oneUI } = tosi({
   },
 })
 
-const agent = enableAgentInterface() // also installs globalThis.tosiAgent
+// The PRODUCTION posture, not the dev one: this manifest names exactly what
+// the agent side below touches. A bare enableAgentInterface() is read-only
+// introspection — describe and read work, call and write refuse — so the
+// demo would only be half a demo. (Also installs globalThis.tosiAgent.)
+const agent = enableAgentInterface({
+  expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] },
+})
 const { div, h4, ul, input, button, pre } = elements
 
 // THE HUMAN SIDE — an ordinary bound UI
@@ -115,6 +121,32 @@ preview.append(
   ),
   log
 )
+```
+
+```test
+import { enableAgentInterface } from 'tosijs'
+
+// The page's own demo is the release's headline proof, and it was a plain
+// ```js fence — so when the default posture became read-only, this page kept
+// calling call() on a surface that refuses it and NOTHING went red. This
+// fence is the guard: it runs in Chromium and Firefox on every release.
+test('the manifesto demo posture can actually do what the demo does', () => {
+  const agent = enableAgentInterface({
+    expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] },
+  })
+  const before = agent.read('oneUI.list').length
+  agent.call('oneUI.addItem', 'from the test')
+  expect(agent.read('oneUI.list').length).toBe(before + 1)
+  // …and the manifest is still a manifest: nothing outside it is reachable
+  // (the doc-fence expect() is a small shim — no toThrow, so catch by hand)
+  let refused = false
+  try {
+    agent.read('somethingElse')
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+})
 ```
 
 **Open the console — you are the second user**: `tosiAgent.describe()`,

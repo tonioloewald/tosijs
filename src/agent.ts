@@ -10,16 +10,22 @@ assembles the picture on demand.
 
     import { enableAgentInterface } from 'tosijs'
 
-    const agent = enableAgentInterface() // introspection mode: expose everything
+    const agent = enableAgentInterface() // READ-ONLY introspection (the default)
 
     agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
     agent.read('app.filter')  // serializable value
-    agent.write('app.filter', 'milk') // through the same observers as any write
     agent.observe('app.cart', (path) => { ... }) // push; returns un-observe
-    agent.call('app.addItem', 'buy milk')        // invoke an action by path
     agent.changes(cursor)     // turn-based drain: final value per changed path
     await agent.when('app.order.status', (s) => s === 'confirmed') // await a condition
     agent.log()               // the audit trail
+
+The verbs that CHANGE things need consent, so they are not in that list —
+`write()` and `call()` refuse on the default surface and say how to enable
+them. Declare a manifest (below), or `expose: 'all'` while developing:
+
+    const dev = enableAgentInterface({ expose: 'all' })
+    dev.write('app.filter', 'milk') // through the same observers as any write
+    dev.call('app.addItem', 'buy milk')          // invoke an action by path
 
 In production, expose only what you declare:
 

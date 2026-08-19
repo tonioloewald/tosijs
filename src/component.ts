@@ -633,6 +633,10 @@ export { setContractValidator }
 // warned once per tag+reason about a contract violation arriving via a binding
 const bindingViolationWarned = new Set<string>()
 
+// once per tag: a value contract the component's own accessor prevents us
+// from enforcing (see initValue)
+const inertContractWarned = new Set<string>()
+
 const checkValueContract = (el: any, newValue: any): void => {
   const cls = el.constructor
   if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
@@ -1161,13 +1165,62 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   private initValue(): void {
     const valueDescriptor = Object.getOwnPropertyDescriptor(this, 'value')
+
     if (
-      valueDescriptor === undefined ||
-      valueDescriptor.get !== undefined ||
-      valueDescriptor.set !== undefined
+      valueDescriptor !== undefined &&
+      (valueDescriptor.get !== undefined || valueDescriptor.set !== undefined)
     ) {
-      return
+      return // the instance already owns an accessor — not ours to replace
     }
+
+    if (valueDescriptor === undefined) {
+      // NO OWN `value` FIELD. Normally that means the component has no value
+      // and there is nothing to install. But if the class DECLARED a value
+      // contract, silence is the wrong answer: the contract check only ever
+      // runs from the accessor installed below, so `static contract = { value:
+      // {...} }` on a class with no `value = …` field was completely inert —
+      // every value accepted, and exerciseComponent reported its examples
+      // green INCLUDING the counterexamples. describe() published the contract
+      // anyway, so the map advertised a rule nothing enforced: exactly the
+      // failure mode this release exists to make impossible.
+      const cls = this.constructor as any
+      const declaresValueContract =
+        Object.prototype.hasOwnProperty.call(cls, 'contract') &&
+        cls.contract?.value != null
+      if (!declaresValueContract) return
+
+      let inherited: PropertyDescriptor | undefined
+      for (
+        let proto = Object.getPrototypeOf(this);
+        proto != null && inherited === undefined;
+        proto = Object.getPrototypeOf(proto)
+      ) {
+        inherited = Object.getOwnPropertyDescriptor(proto, 'value')
+      }
+      if (inherited?.get !== undefined || inherited?.set !== undefined) {
+        // the class implements `value` itself, via a prototype accessor —
+        // shadowing it would break the component, so say so instead of
+        // leaving a contract that quietly means nothing
+        const tag = this.tagName?.toLowerCase()
+        if (!inertContractWarned.has(tag)) {
+          inertContractWarned.add(tag)
+          console.error(
+            `<${tag}> declares contract.value, but implements \`value\` as ` +
+              `its own getter/setter, so tosijs cannot enforce the contract ` +
+              `there — and describe() still publishes it. Call ` +
+              `exerciseComponent in your tests, check the value in your own ` +
+              `setter, or drop contract.value so the map stops advertising a ` +
+              `rule nothing checks.`
+          )
+        }
+        return
+      }
+      // give the declaration something to be load-bearing on
+      ;(this as any).value = this.hasAttribute('value')
+        ? this.getAttribute('value')
+        : undefined
+    }
+
     let value = this.hasAttribute('value')
       ? this.getAttribute('value')
       : deepClone(this.value)

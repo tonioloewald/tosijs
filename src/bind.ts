@@ -268,6 +268,36 @@ This is a low-level function for *immediately* updating a bound element. If you 
 want to force a render of an element (versus anything bound to a path), simply call
 `touchElement(element)`. Specifying a `changedPath` will only trigger bindings bound
 to paths staring with the provided path.
+
+## Binding before insertion
+
+You can bind an element that isn't in the document yet — build a view offscreen,
+cache a dialog, detach and re-attach a panel — and it hydrates when it lands. A
+`MutationObserver` on `document.body` catches the insertion and renders every
+bound element in the subtree, **including the inserted node itself**.
+
+```test
+import { elements, tosi, bind, bindings, updates } from 'tosijs'
+
+test('an element bound while detached hydrates when it is inserted', async () => {
+  const { detachedDemo } = tosi({ detachedDemo: { label: 'arrived' } })
+  const panel = elements.div(elements.span())
+  // bound while OUTSIDE the document, and inserted a turn later — only the
+  // MutationObserver can render this, and it must cover the root as well as
+  // the descendants (happy-dom's mutation delivery is too order-dependent to
+  // assert this in the unit tier, so the real engine owns it)
+  bind(panel, 'detachedDemo.label', {
+    toDOM: (el, value) => el.setAttribute('data-label', value),
+  })
+  bind(panel.querySelector('span'), 'detachedDemo.label', bindings.text)
+  await updates()
+  document.body.append(panel)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(panel.getAttribute('data-label')).toBe('arrived')
+  expect(panel.querySelector('span').textContent).toBe('arrived')
+  panel.remove()
+})
+```
 */
 
 import { touch, observe, extendsPath } from './path-listener'
@@ -335,31 +365,56 @@ export const touchElement = (element: Element, changedPath?: string): void => {
   }
 }
 
+/**
+ * Hydrate every bound element in a subtree that just entered the document.
+ *
+ * EXPORTED SO IT CAN BE TESTED. It used to be an inline closure inside the
+ * MutationObserver callback, and coverage showed the whole block had never
+ * executed in ANY of the suite's tests — including the isolation try/catch —
+ * while sitting on top of a live defect (below). happy-dom delivers mutation
+ * records unreliably enough that a test written against the observer passes
+ * and fails by run order, which is the same hazard the throttled-handler note
+ * in CLAUDE.md describes: test the function, let the real browser test the
+ * wiring (there is a ```test doc fence for that).
+ */
+export function hydrateInsertedSubtree(node: Element): void {
+  // getElementsByClassName (class-bucket index) over querySelectorAll
+  // (whole-tree walk): same descendant set, measured faster; snapshot to
+  // an array because touchElement → toDOM may mutate the DOM mid-scan.
+  const inserted = Array.from(node.getElementsByClassName(BOUND_CLASS))
+  // DESCENDANTS ONLY — so an inserted node that is ITSELF bound was never
+  // hydrated. The same-tick bind()-then-append() case is rescued by the async
+  // touch drain, which is why nothing caught this; the trigger is a node bound
+  // while DETACHED and inserted later (a cached dialog, a re-attached view),
+  // which renders empty. list-binding.ts's updateRelativeBindings already
+  // carried this exact fix and comment — classList.contains, not matches():
+  // no selector to parse.
+  if (node.classList.contains(BOUND_CLASS)) {
+    inserted.unshift(node)
+  }
+  inserted.forEach((element) => {
+    // same isolation as the dispatch loop above: a newly-inserted subtree must
+    // hydrate every bound element even if one throws
+    try {
+      touchElement(element)
+    } catch (error) {
+      console.error(
+        'tosijs: a binding threw while hydrating this element; the ' +
+          'rest of the subtree continued.',
+        element,
+        error
+      )
+    }
+  })
+}
+
 // this is just to allow bind to be testable in node
 if (MutationObserver != null) {
   const observer = new MutationObserver((mutationsList) => {
     mutationsList.forEach((mutation) => {
       Array.from(mutation.addedNodes).forEach((node) => {
         if (node instanceof Element) {
-          // getElementsByClassName (class-bucket index) over querySelectorAll
-          // (whole-tree walk): same descendant set, measured faster; snapshot to
-          // an array because touchElement → toDOM may mutate the DOM mid-scan.
-          Array.from(node.getElementsByClassName(BOUND_CLASS)).forEach(
-            (element) => {
-              // same isolation as the dispatch loop above: a newly-inserted
-              // subtree must hydrate every bound element even if one throws
-              try {
-                touchElement(element as Element)
-              } catch (error) {
-                console.error(
-                  'tosijs: a binding threw while hydrating this element; the ' +
-                    'rest of the subtree continued.',
-                  element,
-                  error
-                )
-              }
-            }
-          )
+          hydrateInsertedSubtree(node)
         }
       })
     })

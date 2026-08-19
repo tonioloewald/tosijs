@@ -260,9 +260,41 @@ async function buildLibrary() {
       throw new Error(`dist/${bundle} does not import cleanly`)
     }
   }
+  // main.js is the CJS artifact: built, published and BUDGETED, but the ESM
+  // probe above cannot reach it, so it was the one bundle nobody executed.
+  // A repeat of the `sideEffects` defect this gate exists for would have
+  // shipped fully green in it. require(), not import().
+  const cjsProbe = Bun.spawnSync(
+    [
+      'bun',
+      '-e',
+      `const { Window } = await import('happy-dom')
+       const w = new Window()
+       globalThis.window = w
+       for (const k of Object.getOwnPropertyNames(w)) {
+         if (globalThis[k] === undefined) {
+           try { globalThis[k] = w[k] } catch {}
+         }
+       }
+       const { createRequire } = await import('node:module')
+       const require = createRequire('${DIST}/')
+       const m = require('${DIST}/main.js')
+       if (Object.keys(m).length === 0) throw new Error('no exports')
+       for (const [name, value] of Object.entries(m)) {
+         if (value === undefined) throw new Error(name + ' is undefined')
+       }`,
+    ],
+    { stderr: 'pipe', stdout: 'pipe' }
+  )
+  if (cjsProbe.exitCode !== 0) {
+    console.error('smoke require FAILED for dist/main.js:')
+    console.error(cjsProbe.stderr.toString().slice(0, 800))
+    throw new Error('dist/main.js does not require cleanly')
+  }
+
   console.log(
     'smoke import: module.js, core.js, state.js, index.js, module.debug.js, ' +
-      'module.safe.js all load'
+      'module.safe.js all load; main.js requires (CJS)'
   )
 
   // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom

@@ -26,7 +26,15 @@ bound for them to update.
 */
 export { xin, boxed, observe, unobserve, touch, updates } from './xin'
 export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'
-export { getByPath, setByPath, deleteByPath, pathParts, id } from './by-path'
+// NOT re-exported: getByPath / setByPath / deleteByPath / pathParts / id.
+// They were never public from `tosijs`, and publishing them only from HERE
+// made the subset claim above false — `import { getByPath } from 'tosijs'` is
+// undefined at runtime (round-3 review, M7). Since nothing depends on them
+// yet, dropping them is free, and it keeps five new names — including one as
+// generic as `id` — out of a surface we are about to freeze. The path API a
+// consumer actually wants is the proxy itself: `xin['a.b.c']` reads and
+// writes any path, DOM or no DOM. `entries.test.ts` now pins state ⊆ full so
+// this cannot drift again.
 export {
   xinPath,
   xinValue,
