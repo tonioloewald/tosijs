@@ -1,5 +1,210 @@
 # todo
 
+## 1.8.0 pre-release review — round 3 (fast pass) + the security pass
+
+Report: `REVIEW-1.8.0-rc.1-round3.md` (verdict BLOCK, now cleared), security
+report: `SECURITY-1.8.0-rc.1.md`. **Commit range covered: `v1.7.9..e6f8eae`**
+plus the follow-up commit that carries these entries — every later commit is
+outside what those reports read, which is the thing round 2 asked for and did
+not get.
+
+### ✅ Fixed in round 3
+
+Both blockers (B1 `setByPath` crashing on an own-`undefined` intermediate;
+B2 the manifesto demo calling `call()` on a read-only surface) and **all nine
+majors** M1–M9 — see the disposition table in the report. Plus five findings
+promoted out of the "minor" tier because they were not minor:
+
+- `assertSafeKey` refused `constructor`/`prototype` as ordinary **leaf** data
+  keys, breaking dictionaries keyed by user data that worked in 1.7.9. Only
+  `__proto__` is a sink at a leaf; descent still refuses all three.
+- The secret-control denylist existed **twice** and had drifted, so a bound
+  `<textarea autocomplete="cc-number">` returned **cleartext** before any
+  `describe()` — a hole in the SEC-2 fix itself. One token list now feeds both.
+- `<xin-slot>` markup was half-removed: still queried, never registered, so
+  its children silently landed on the host. Now a warning tombstone, matching
+  what `<xin-blueprint>`/`<xin-loader>` already got.
+- The per-element isolation `console.error` was unthrottled — N× amplification,
+  forever, because the loop no longer aborts. Now once per element type and
+  message, like every other advisory this release added.
+- CLAUDE.md's Session Completion told the next session to push a branch that
+  **must never be pushed**, and to "resolve and retry until it succeeds". The
+  prohibition existed only in agent memory. Now stated where the rule is read.
+
+Also landed: batched ledger trim (~100× on a long-lived surface), `changes()`
+drain no longer O(n²), `main.js` gained the CJS smoke gate it never had, and
+`vendorSchematic()` now fails the build if NOTICE does not name the vendored
+package's own repository (it went stale once across the rename already).
+
+### 🔭 Open — routed, not dropped
+
+**Needs a decision from the maintainer before the rc publishes:**
+
+- [ ] **E1 — the build host is six versions stale.** `tosijs-ui@1.9.4` vs
+      1.10.0, which closes five issues filed from here (#49, #51, #70, #71,
+      #72). The 10-entry `watchPaths` array duplicating `docPaths` **is** the
+      #49 workaround. Adoption is not free: 1.10.0 peers `tjs-lang ^0.12.0`
+      while we pin 0.10.1. Either bump + resolve the peer + delete the
+      duplication, or write down why the pin stays for 1.8.0.
+- [ ] **E2 — file the WebMCP unregistration-seam issue upstream.** `registerTool`
+      returns no handle and there is no `unregisterTool`, so a page cannot
+      withdraw a tool it registered; this release ships ~80 lines compensating
+      (register-once WeakMap, revoke-by-stub, three-shape `canUnregister`
+      probe). This is a public filing on a standards repo
+      (webmachinelearning/webmcp), so it wants a human's sign-off on tone and
+      timing. Replaces the last `(to file)` marker in `UPSTREAM.md`.
+- [ ] **E3 — close #18, #22, #23, #24 naming v1.8.0** (all fixed by this
+      release, all still open), and record a STILL-OPEN disposition for #26,
+      #17, #16, #9. Deliberately NOT done yet: closing them announces a
+      release that has not been published. Do it as part of the publish
+      ceremony. When closing #22, state the fix's *condition* — sugar is
+      suppressed only when the member already HOLDS a function.
+- [ ] **E4 — comment on haltija#16 and tosijs-ui#59.** Both are gated on
+      "tosijs ships the agent surface" / "tosijs 1.8.0 beta-rc"; the condition
+      is met. Same reasoning as E3 — post when the rc actually publishes.
+- [ ] **E8 — run the three internal consumers' suites against the rc.** Static
+      evidence is good (zero hits for `data-ref|xin-slot|xin-blueprint|
+      xin-loader|xinSlot|blueprintLoader` across all six dependents; no
+      tosijs-ui component declares an `on<Event>` member), but "probably fine"
+      is not a fact. Also bump react-tosijs/ngx-tosijs off `^1.0.6`.
+
+**Correctness / efficiency (no user-visible harm today):**
+
+- [ ] `contractviolation` CustomEvent dispatches unthrottled on every binding
+      write for object/array-valued contracts (the `value !== newValue` guard
+      never matches — the proxy returns a fresh proxy per access). It is also
+      undocumented and untested, so today every dispatch is waste. Deduping is
+      a semantic change: it is the programmatic channel a listener would count.
+- [ ] `agent.write()` scans every bound element on every uncurated write
+      (~12µs per 1000 elements). `setElementContract` is the single
+      registration point — a module-level count enables an O(1) early return.
+- [ ] A contracted root deep-clones the whole root (JSON round-trip) per
+      sub-path write. Copy-on-write spine: clone root→leaf, share siblings.
+- [ ] `refreshSecretPaths()` still runs a full-document `querySelectorAll` per
+      `read()` (already batched for `changes()`). Gate on a DOM-change dirty
+      flag or memoize per microtask; hoist the duplicate scan out of `when()`.
+- [ ] `contractViolation` allocates two arrays per call via `warnIfFailsOpen`
+      on the Component value-setter hot path — memoize on the schema object
+      with a WeakSet; schemas are stable declarations.
+- [ ] The `on<Event>` member-assignment rule depends on whether the element has
+      been **upgraded**, so identical call sites diverge silently. Decide from
+      the class (`customElements.get(tag)` prototype) or re-resolve on upgrade.
+- [ ] tosijs#24's attribute type-mismatch path still coerces, contrary to its
+      own error message: `el.mode = false` on a string-declared attribute reads
+      back the truthy string `"false"`, so the motivating bug still holds.
+- [ ] `settings.quiet` is honoured in ~2 of ~20 warning sites. Route every
+      advisory through one gated helper, or narrow the published doc comment.
+
+**DRYness — four hand-duplicated lists, three of which have already drifted:**
+
+- [ ] The published-bundle manifest is written four times in `buildLibrary()`
+      (three `Bun.build` loops, `keepJs`, the smoke loop, `budgets`). Declare
+      the artifacts once and derive all four. (M6's minimum — the CJS smoke
+      probe — is done.)
+- [ ] `index-browser.ts` hand-duplicates `index.ts`'s non-core export list.
+      Invert the composition, or assert `full − agent === browser`.
+- [ ] The "superseded by curation" predicate is written twice, in `describe()`
+      and `write()` — the two places whose own comment says they must never
+      disagree ("the worst possible defect").
+- [ ] The own-`static contract` lookup is copy-pasted at six sites across four
+      modules, and they already differ in fallback. Export one `ownContract(cls)`.
+
+**Coverage:**
+
+- [ ] `contract-check.ts`'s fail-open warning and `const` branch are untested,
+      and the `?case=N` cache-busting import idiom makes its reported coverage
+      number meaningless — add a comment saying why.
+- [ ] The built-bundle entry test **self-skips into a green pass** when `dist/`
+      is absent, which during a release build is always. Use `test.skipIf` so
+      the skip is visible, or let the build gate own it outright.
+- [ ] The gzip-budget "test" is three `toContain` string assertions — it passes
+      if the budget loop is gutted while the log strings survive.
+- [ ] Add a test asserting every schema in `describe().contract` refuses at
+      least one value through `write()`.
+
+**Docs / packaging:**
+
+- [ ] Documented bundle sizes are below what the build's own gate measures, in
+      five places (README ×3, CLAUDE.md, llms.txt). Have the budget loop emit
+      the figures the docs quote. **Note:** README's "tree-shakes to about
+      1.7.x's size" has two contradictory measurements in the report —
+      measure before editing.
+- [ ] "The agent surface tree-shakes away if unused" is claimed in five places
+      with **no gate**, and `package.json` declares no `sideEffects` (removed
+      deliberately — it shipped broken bundles once). Add a gate that bundles a
+      two-line consumer and asserts gz size, or soften the claim and point
+      minimalists at `tosijs/core`, which is the guarantee we actually ship.
+- [ ] `/migration/` links 404 on the deployed site (case-sensitive host, no
+      `docs/404.html`); companions at `Migration.md:101,108`. Add a build-time
+      link check against the slug map `buildSite` already computes.
+- [ ] Tarball unpacked size grew 3.1 MB → 5.4 MB, 4.36 MB of it source maps —
+      1.68 MB for the two EXPERIMENTAL, inert debug/safe bundles. Drop those
+      maps from `files`; add a package-payload budget beside the gzip gate.
+- [ ] `PartsOf<T>` intersects with `PartsMap`, so `this.parts.readuot`
+      typechecks and throws at runtime. Keep the intersection (lazy parts need
+      it) but say so where "the declaration is the type" is sold.
+- [ ] The comment explaining the new `on<Event>` rule contradicts the code
+      below it (`src/elements.ts:596`).
+- [ ] **P7 — document the semver deviation.** 1.8.0 removes `data-ref` and
+      `<xin-slot>`, de-functions `<xin-blueprint>`/`<xin-loader>`, and flips two
+      behaviours with no prior deprecation warning, while CHANGELOG asserts
+      adherence to semver. Add the note. Same paragraph: the BSD-3 → Apache-2.0
+      relicense is invisible to semver and §4 imposes a NOTICE-redistribution
+      obligation BSD-3 did not — say so, and put the relicense in the release
+      notes' **first line**.
+- [ ] Scaffolder templates model `as any` and untyped `content`, and the
+      generated README names `https://localhost:3000` where `bun index.html`
+      serves plain http.
+- [ ] Freeze the declared-test step DSL's verbs, document that dev-time
+      behaviour belongs in real tests, and consider making the scaffolded
+      `tests:` block opt-in — it is a second, weaker test vocabulary that the
+      scaffolder currently writes into every new component.
+
+**Practices write-back (`../tosijs-coding-practices`) — P1, and P3–P6:**
+
+- [ ] **P1 — do the lens-8 write-back.** It is a direct edit, not an issue, and
+      filing it here is the deferral the KB explicitly warns against. Five
+      edits, each attributed `— seen in: tosijs 1.8.0`: (a) `00-stack.md:122`
+      and `review.md:9-26` omit tosijs from the has-CI list (`.github/workflows/
+      ci.yml` since e12d641); (b) `web-components.md:90,95,96,130` and
+      `model-priors.md:66` still teach `xinSlot()`/`<xin-slot>`; (c)
+      `web-components.md:169-182` teaches the unconditional `on<Capital>` rule
+      this release inverted — rewrite WITH the determinism caveat; (d)
+      `performance.md:155-159` recommends shipping an entry point with no
+      singleton caveat. Tick with commit shas.
+- [ ] **P3** — put a `base..HEAD` range line in all three report headers (this
+      section now carries one), and make the range a literal template line in
+      the KB's CONTRIBUTING.md. Second cycle in which that rule was written and
+      then skipped by the very next write-back.
+- [ ] **P4** — CLAUDE.md's Releasing section is a diverged, weaker copy of
+      `practices/releasing.md` (7 steps vs 9 + scoreboard), and the omitted
+      steps are exactly the ones this release missed. **There is no
+      issue-closure step anywhere in the ceremony** — that is the structural
+      cause of E3, not the four issues.
+- [ ] **P5** — CLAUDE.md's Component Conventions never mentions `static
+      contract`, while `contract.attributes` + `initAttributes` on one class is
+      a hard throw. Second consecutive release in which it drifted behind a
+      component-API change; consider haltija's `docs-coverage.test.ts`
+      CONCEPTS-table mechanism so drift is a failing test.
+- [ ] **P6** — `practices/review.md` tells reviewers to file reports into
+      `docs/reviews/`, which every tosijs-ui/site build `rm -rf`s — and the
+      deletion gets committed, since release commits include regenerated
+      `docs/`. This repo's reports live at the root, which is right, but it was
+      reached by ignoring the practice rather than correcting it. Change the KB
+      to `reviews/<version>-<slug>.md` and state the constraint.
+- [ ] **E5** — `UPSTREAM.md` marks tjs-lang#23 "✅ RESOLVED" while its body says
+      the workaround is still mandatory and no published version carries the
+      fix. Downgrade to 🚧 FIXED-UPSTREAM / NOT-ADOPTED before a 2.0 session
+      reads RESOLVED and deletes the `configure-tjs-*` import-order guard —
+      that is the H-4 defect, paid twice.
+- [ ] **E6** — `tosijs-schema` is a caret dep against a package we filed a
+      "validation tightening in a MINOR" issue against, and 1.7.0 is already
+      published. Pin exactly or narrow to `~1.6.0` and record why.
+- [ ] **E7** — the WCAG 2.5.8 target-size rule is implemented twice and the two
+      disagree; the shipped copy is machine-vendored, so it can only be fixed
+      upstream. Already filed as tosijs-floorplan#4. Interim: let a caller's
+      `flags` suppress the built-in rule map-wide.
+
 ## 1.8.0 pre-release review — the complete ledger (rounds 1 & 2)
 
 Two nine-lens reviews ran against this release (`REVIEW-1.8.0-rc.1.md`,

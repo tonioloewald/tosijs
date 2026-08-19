@@ -2038,6 +2038,33 @@ class TosiSlot extends Component<SlotParts> {
 export const tosiSlot = TosiSlot.elementCreator()
 
 /**
+ * `<xin-slot>` MARKUP, kept working for one more cycle.
+ *
+ * The `xinSlot()` creator was restored as a deprecated alias, but the TAG was
+ * left half-removed: hydrate still queries `'tosi-slot,xin-slot'` and reads
+ * `.name`, while nothing registered the element — so an unupgraded
+ * `<xin-slot>` had `name === undefined`, filed itself under `slotMap[undefined]`,
+ * and its children fell through to the host. No warning, no exception, content
+ * silently in the wrong place: the exact failure mode the blueprint tags got
+ * tombstones for. This subclass composes identically AND says what to rename.
+ * Goes away in 2.0 with the rest of the xin-* markup.
+ */
+class XinSlot extends TosiSlot {
+  static preferredTagName = 'xin-slot'
+
+  connectedCallback(): void {
+    super.connectedCallback()
+    warnDeprecated(
+      'xin-slot',
+      '<xin-slot> is deprecated and will be REMOVED IN 2.0 — rename it to ' +
+        '<tosi-slot> (same attributes, same composition). It is registered ' +
+        'only so your content keeps landing in the right place until you do.'
+    )
+  }
+}
+XinSlot.elementCreator()
+
+/**
  * @deprecated Use `tosiSlot()`. Kept because 1.7's warning never named a
  * removal version — only `data-ref` did — so removing it outright in a
  * MINOR would have broken code that was promised nothing. It now creates a

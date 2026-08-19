@@ -53,6 +53,26 @@ async function vendorSchematic() {
   const upstream = await Bun.file(
     'node_modules/tosijs-floorplan/src/index.ts'
   ).text()
+  // NOTICE is the Apache-2.0 §4(d) attribution artifact and it SHIPS in the
+  // tarball, so a stale URL there is a licensing defect, not a typo. It
+  // already went stale once across the tosijs-schematic → tosijs-floorplan
+  // rename and survived on a GitHub redirect that dies the moment anyone
+  // claims the old path. Check it against the vendored package's own
+  // repository field, here, where the vendoring happens.
+  const upstreamRepo = String(upstreamPkg.repository?.url ?? '')
+    .replace(/^git\+/, '')
+    .replace(/\.git$/, '')
+  if (upstreamRepo !== '') {
+    const notice = await Bun.file('NOTICE').text()
+    if (!notice.includes(upstreamRepo)) {
+      throw new Error(
+        `vendorSchematic: NOTICE does not name the vendored package's own ` +
+          `repository (${upstreamRepo}). NOTICE ships in the published ` +
+          `tarball as the Apache-2.0 attribution — update it in this commit.`
+      )
+    }
+  }
+
   const current = await Bun.file('src/schematic.ts').text()
   const headerStart = current.indexOf('/*#')
   const headerEnd = current.indexOf('*/', headerStart) + 2

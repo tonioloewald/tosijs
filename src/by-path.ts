@@ -123,17 +123,36 @@ const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
 export class UnsafePathError extends Error {
   constructor(key: string) {
     super(
-      `unsafe path segment "${key}": __proto__, constructor and prototype ` +
-        'cannot appear in a state path (they would escape the object graph ' +
-        'into the prototype chain)'
+      `unsafe path segment "${key}": it would escape the object graph into ` +
+        'the prototype chain'
     )
     this.name = 'UnsafePathError'
   }
 }
 
-/** throws on a segment that would reach the prototype chain */
+/**
+ * Throws on a segment that would reach the prototype chain while DESCENDING.
+ * All three names are refused here, because descending through any of them
+ * lands outside the object graph.
+ */
 export function assertSafeKey(key: string): void {
   if (FORBIDDEN_SEGMENTS.has(key)) throw new UnsafePathError(key)
+}
+
+/**
+ * The same guard for a TERMINAL assignment — deliberately narrower.
+ *
+ * Only `__proto__` is a sink at a leaf: `obj.__proto__ = x` reassigns the
+ * prototype, so it must never be a data key. `constructor` and `prototype` are
+ * ordinary own properties when you merely ASSIGN them — and they are real
+ * data keys in real apps, because dictionaries get keyed by user data (an i18n
+ * table, a cache, a colour-name map). Refusing them at a leaf broke code that
+ * worked in 1.7.9 and bought nothing: descent is where they are dangerous, and
+ * descent still refuses all three (assertSafeKey above, plus byKey's
+ * own-property check).
+ */
+export function assertSafeLeafKey(key: string): void {
+  if (key === '__proto__') throw new UnsafePathError(key)
 }
 
 function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
@@ -301,7 +320,7 @@ function setByPath(
             )
           }
         } else {
-          assertSafeKey(key)
+          assertSafeLeafKey(key)
           if (val !== _delete_) {
             if ((obj as XinObject)[key] === val) {
               return false

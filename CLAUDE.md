@@ -47,10 +47,11 @@ The build entry is `bin/site.ts`, a thin wrapper around the reusable doc-site sy
 types: a separately-bundled agent surface carried its own copy of the state
 registry and described an empty app.
 
-**⚠️ `vendorSchematic()` REWRITES the tracked file `src/schematic.ts`** on
-every prebuild (including `bun start`), regenerating it from
-`node_modules/tosijs-floorplan/src/index.ts`. Edit the upstream package, not
-that file — it carries a DO-NOT-EDIT banner.
+**⚠️ `vendorSchematic()` REWRITES the tracked file `src/schematic.ts`**,
+regenerating it from `node_modules/tosijs-floorplan/src/index.ts`. Edit the
+upstream package, not that file — it carries a DO-NOT-EDIT banner. Since
+`4672bc0` it runs **only under `--build`**, not on `bun start`; a dev server
+whose vendored copy is stale warns rather than silently rewriting.
 
 **Build gates that will fail your build** (all in `buildLibrary()`): the
 unit suite, a **smoke import** of every published bundle (every export must
@@ -269,7 +270,19 @@ not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` pat
 
 ## Session Completion ("Landing the Plane")
 
-When ending a work session, work is **not** complete until `git push` succeeds. Follow this workflow:
+> **🚫 BRANCH EXCEPTION — `one-user-interface` IS NEVER PUSHED.** That branch
+> carries the unpublished agent-surface manifesto and its plan docs, held
+> private by the maintainer's explicit instruction. It has no upstream and
+> must not be given one. The rule below says a push failure should be
+> "resolved and retried until it succeeds" — on this branch there is nothing
+> to resolve: **committing locally IS done.** (The manifesto was briefly on
+> public `main` once, in `ad2c1f1`, and had to be force-removed. The
+> prohibition used to live only in agent memory, which is why a review found
+> this section telling the next session to push it.) Work on the branch lands
+> when the maintainer decides to merge and publish — see Releasing.
+
+When ending a work session, work is **not** complete until `git push` succeeds
+**on a branch that has a remote**. Follow this workflow:
 
 1. **File remaining work** — add follow-ups to `TODO.md`.
 2. **Run quality gates** (if code changed) — `bun test`, linters, `bun run build`. If the
@@ -286,3 +299,8 @@ When ending a work session, work is **not** complete until `git push` succeeds. 
 6. **Hand off** — leave context for the next session.
 
 Do not stop before pushing (that strands work locally), and do not say "ready to push when you are" — complete the push. If it fails, resolve and retry until it succeeds.
+
+**Unless the branch is one that must not be pushed** (see the exception above),
+in which case step 3 is "commit, and verify `git status` is clean" and the
+session is complete there. Check for an exception before treating a missing
+upstream as a problem to fix.

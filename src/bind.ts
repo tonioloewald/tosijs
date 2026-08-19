@@ -377,6 +377,35 @@ export const touchElement = (element: Element, changedPath?: string): void => {
  * in CLAUDE.md describes: test the function, let the real browser test the
  * wiring (there is a ```test doc fence for that).
  */
+/**
+ * Report a binding failure ONCE per (element type, message) pair.
+ *
+ * The per-element try/catch is the right behaviour — one bad binding must not
+ * strand every element after it — but it turned a single abort into an
+ * unthrottled `console.error` per failing element per update, forever, because
+ * the loop no longer stops. 20 failing elements measured 20 errors on the
+ * first touch and 20 on every touch after that. Every other advisory this
+ * release added is warn-once; this one was not.
+ */
+const bindingErrorReported = new Set<string>()
+
+function reportBindingError(
+  what: string,
+  element: Element,
+  error: unknown
+): void {
+  const key = `${what}:${element.tagName}:${(error as Error)?.message ?? error}`
+  if (bindingErrorReported.has(key)) return
+  bindingErrorReported.add(key)
+  console.error(
+    `tosijs: a binding threw while ${what} this element; the rest of the ` +
+      'pass continued. (Reported once per element type and message — fix the ' +
+      'binding, the transform, or the state it reads.)',
+    element,
+    error
+  )
+}
+
 export function hydrateInsertedSubtree(node: Element): void {
   // getElementsByClassName (class-bucket index) over querySelectorAll
   // (whole-tree walk): same descendant set, measured faster; snapshot to
@@ -398,12 +427,7 @@ export function hydrateInsertedSubtree(node: Element): void {
     try {
       touchElement(element)
     } catch (error) {
-      console.error(
-        'tosijs: a binding threw while hydrating this element; the ' +
-          'rest of the subtree continued.',
-        element,
-        error
-      )
+      reportBindingError('hydrating', element, error)
     }
   })
 }
@@ -448,12 +472,7 @@ observe(
       try {
         touchElement(element as HTMLElement, changedPath)
       } catch (error) {
-        console.error(
-          'tosijs: a binding threw while updating this element; the rest of ' +
-            'the update continued. Fix the handler/contract below.',
-          element,
-          error
-        )
+        reportBindingError('updating', element as Element, error)
       }
     }
   }

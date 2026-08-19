@@ -477,8 +477,11 @@ describe('xinSlot (deprecated, removed in 2.0)', () => {
     expect(slot.getAttribute('name')).toBe('top')
     slot.remove()
     expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
-    // the legacy TAG is still gone (nothing registers <xin-slot>)
-    expect(customElements.get('xin-slot')).toBeUndefined()
+    // the legacy TAG is registered as a TOMBSTONE. Leaving it unregistered
+    // while hydrate still queried for it was the worst of both worlds: an
+    // unupgraded <xin-slot> had no `.name`, filed under slotMap[undefined],
+    // and dropped its children onto the host — silently (round-3 review).
+    expect(customElements.get('xin-slot')).toBeDefined()
   })
 })
 
