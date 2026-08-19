@@ -833,8 +833,6 @@ const bindingName = (binding: any): string | undefined => {
   return propKey === 'textContent' ? 'text' : propKey
 }
 
-let readOnlyNoticeGiven = false
-let exposeAllWarningGiven = false
 /** the posture last announced — notices fire on CHANGE, not once per process */
 let lastPostureAnnounced: string | undefined
 
@@ -846,8 +844,6 @@ let lastPostureAnnounced: string | undefined
  * is the only signal that every state root is writable through a global.
  */
 export function _resetPostureNotices(): void {
-  readOnlyNoticeGiven = false
-  exposeAllWarningGiven = false
   lastPostureAnnounced = undefined
 }
 let active: AgentInterface | undefined
@@ -907,7 +903,6 @@ export function enableAgentInterface(
   const announce = posture !== lastPostureAnnounced && settings.quiet !== true
   if (announce) lastPostureAnnounced = posture
   if (readOnly && announce) {
-    readOnlyNoticeGiven = true
     console.info(
       'tosijs agent: read-only introspection. describe/read/observe/changes/' +
         'when/log work over EVERYTHING in the registry — and this surface is ' +
@@ -922,7 +917,6 @@ export function enableAgentInterface(
     )
   }
   if (exposeAll && announce) {
-    exposeAllWarningGiven = true
     console.warn(
       "tosijs agent: expose: 'all' — every state root is readable, WRITABLE " +
         'and callable through globalThis.tosiAgent, which any script on this ' +
@@ -1018,13 +1012,18 @@ export function enableAgentInterface(
   )
   const subscriptions = new Set<Listener>()
 
-  const read = (path: string): any => {
+  // the read itself, once the secret-path set is known to be current
+  const readScanned = (path: string): any => {
     assertScope(path)
-    refreshSecretPaths()
     if (isSecretPath(path)) return SECRET_SENTINEL
     const value = serialize(xin[path])
     // an ANCESTOR read must not hand back what a direct read refuses
     return containsSecret(path) ? redactWithin(path, value) : value
+  }
+
+  const read = (path: string): any => {
+    refreshSecretPaths()
+    return readScanned(path)
   }
 
   // one scan at enable time, so the very first read is already redacted
@@ -1582,6 +1581,10 @@ export function enableAgentInterface(
       changes: AgentChange[]
       truncated?: boolean
     } {
+      // ONE scan for the whole drain: the per-path read used to rescan the
+      // DOM for secret-bound controls on every entry, so a 200-path drain
+      // did 200 querySelectorAlls to learn the same thing 200 times
+      refreshSecretPaths()
       const seenPaths = new Set<string>()
       const coalesced: AgentChange[] = []
       for (let i = ledger.length - 1; i >= 0; i--) {
@@ -1590,7 +1593,7 @@ export function enableAgentInterface(
         if (entry.note != null) continue // audit notes are not state changes
         if (seenPaths.has(entry.path)) continue
         seenPaths.add(entry.path)
-        coalesced.unshift({ path: entry.path, value: read(entry.path) })
+        coalesced.unshift({ path: entry.path, value: readScanned(entry.path) })
       }
       // a drain that reaches past trimmed entries cannot claim completeness:
       // compare against the OLDEST entry still held, not a computed offset
