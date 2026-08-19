@@ -788,12 +788,29 @@ Three uses here, in rough order of value:
    control the way its data behaves (enum → segmented, integer+range →
    slider) instead of inferring from the DOM.
 
-**The requirement we contributed upstream:** an inferred schema must be
-*distinguishable from an authored one in the artifact itself* (`$inferred:
-true` or `$source`). `{ type: 'integer' }` looks identical either way, and a
-consumer — agent, form editor, validator — needs to know whether it is
-reading a rule or a sample. It has to survive serialization, because these
-schemas travel over wires.
+**The requirement we contributed upstream — ADOPTED.** tosijs-schema
+**1.6.0** ships `inferSchema`, and its output carries **`$inferred: true`**,
+so an observation can never be mistaken for a promise as it travels. Array
+unification works as asked (a key absent from the first element still
+appears, and is correctly not `required`). devDependency bumped to `^1.6.0`;
+the contract suite (which runs against the published `agentContract`) is
+green.
+
+**Not wired into tosijs yet, deliberately.** tosijs is zero-runtime-
+dependency, so it cannot call `inferSchema` itself, and the review already
+flagged *two* plug seams for one concern — adding a third mid-release would
+be going the wrong way. The integration is post-1.8.0, and the shape to
+consider then:
+
+    // the app owns the engine; tosijs owns the map
+    import { inferSchema } from 'tosijs-schema'
+    const observed = inferSchema(xin.app.value)   // { …, $inferred: true }
+    enableAgentInterface({ expose: { roots: ['app'], contract: … } })
+
+with `describe({ inferContracts })` (opt-in) merging observed schemas for
+roots that declared none — emitted with their `$inferred` marker intact, so
+`describe().contract` gains "what shape is this" for undeclared apps without
+ever asserting a rule nobody promised.
 
 ## 2.0 refactoring candidates
 

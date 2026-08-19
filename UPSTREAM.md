@@ -129,8 +129,14 @@ precedent), suite synced.
 
 ## tosijs-schema
 
-### 📋 FILED (consumer input) — `inferSchema(sample)`: derived schemas
-**Issue:** https://github.com/tonioloewald/tosijs-schema/issues/6 (OPEN)
+### ✅ SHIPPED (tosijs-schema 1.6.0) — `inferSchema(sample)`: derived schemas
+**Issue:** https://github.com/tonioloewald/tosijs-schema/issues/6
+**Our contributed requirement was adopted:** inferred schemas carry
+`$inferred: true`, so an observation cannot be mistaken for a promise once
+it travels. Array unification behaves as asked. devDep bumped to `^1.6.0`;
+tosijs's contract suite is green against it. Integration into `describe()`
+is post-1.8.0 (tosijs is zero-runtime-dependency, so the app owns the
+engine) — see TODO.md § 2.0 / tjs.
 Requested by tosijs-ui's schema-powered form editor; tosijs is the third
 consumer. It is the adoption half of tjs-lang#27: contracts today are
 DECLARED (a cliff — nothing until someone writes a schema), and inference
