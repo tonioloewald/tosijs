@@ -54,8 +54,9 @@ async function vendorSchematic() {
     'node_modules/tosijs-floorplan/src/index.ts'
   ).text()
   const current = await Bun.file('src/schematic.ts').text()
-  const headerEnd = current.indexOf('*/', current.indexOf('/*#')) + 2
-  if (headerEnd < 2) {
+  const headerStart = current.indexOf('/*#')
+  const headerEnd = current.indexOf('*/', headerStart) + 2
+  if (headerStart < 0 || headerEnd < 2) {
     throw new Error('vendorSchematic: src/schematic.ts doc header not found')
   }
   const header = current.slice(0, headerEnd + 1)
@@ -65,10 +66,21 @@ async function vendorSchematic() {
     `// ${upstreamPkg.name} and rebuild (this section regenerates at build time).\n` +
     '// tosijs stays ZERO runtime dependencies — the core is inlined, not imported.\n\n'
   const generated = header + banner + upstream
-  if (generated !== current) {
-    await Bun.write('src/schematic.ts', generated)
-    console.log('vendored tosijs-floorplan', upstreamPkg.version)
+  if (generated === current) return
+  if (!buildOnly) {
+    // `bun start` must not rewrite a TRACKED SOURCE FILE under the
+    // developer — that dirties the tree on every dev-server start and makes
+    // two contributors' checkouts differ from the same commit. Report and
+    // continue; a real build regenerates it.
+    console.warn(
+      `src/schematic.ts is out of date with tosijs-floorplan@${upstreamPkg.version}. ` +
+        'Run `bun run build` to regenerate it (the dev server will not ' +
+        'rewrite tracked sources).'
+    )
+    return
   }
+  await Bun.write('src/schematic.ts', generated)
+  console.log('vendored tosijs-floorplan', upstreamPkg.version)
 }
 
 async function buildCli() {
