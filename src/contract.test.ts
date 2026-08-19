@@ -47,6 +47,7 @@ describe('agent contract seam — write() enforces, describe() declares', () => 
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conApp'],
         contract: schemaContract({ 'conApp.order': orderSchema }),
       },
@@ -68,6 +69,7 @@ describe('agent contract seam — write() enforces, describe() declares', () => 
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conAudit'],
         contract: schemaContract({ 'conAudit.order': orderSchema }),
       },
@@ -89,6 +91,7 @@ describe('agent contract seam — write() enforces, describe() declares', () => 
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conDesc'],
         contract: schemaContract({ 'conDesc.order': orderSchema }),
       },
@@ -111,6 +114,7 @@ describe('exerciseContract — the contract is a test', () => {
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conRun'],
         contract: schemaContract({ 'conRun.order': orderSchema }),
       },
@@ -129,6 +133,7 @@ describe('exerciseContract — the contract is a test', () => {
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conLiar'],
         contract: {
           check: () => true, // "enforcement" that enforces nothing
@@ -153,6 +158,7 @@ describe('exerciseContract — the contract is a test', () => {
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['conDate'],
         contract: {
           check: () => true,
@@ -493,6 +499,7 @@ describe('sub-path schema routing — a write is judged as the root it would pro
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['wp'],
         contract: schemaContract({ 'wp.docs': docsSchema }),
       },
@@ -524,6 +531,7 @@ describe('sub-path schema routing — a write is judged as the root it would pro
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['wpFree'],
         contract: schemaContract({ 'wpFree.docs': docsSchema }),
       },
@@ -610,6 +618,7 @@ describe('inline element contracts', () => {
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['inlineCurated'],
         contract: {
           check: () => true, // curated: anything goes
@@ -667,6 +676,7 @@ describe('seam guarantee — contracted writes always carry a whole-root proposa
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['seamApp', 'seamFree'],
         contract: {
           check(path, _value, proposal) {
@@ -1007,11 +1017,32 @@ describe('contract.attributes inheritance (review M3)', () => {
 })
 
 describe('the harness cannot report green without validating (round-2 review)', () => {
-  test('a read-only surface is refused up front, not reported as passing', async () => {
+  test('a surface that cannot write is refused up front, not reported as passing', async () => {
     tosi({ inconclusive: { qty: 1 } })
     await updates()
     const agent = (current = enableAgentInterface({ global: false })) // read-only
-    expect(() => exerciseContract(agent)).toThrow(/read-only/)
+    expect(() => exerciseContract(agent)).toThrow(/cannot write/)
+  })
+
+  // a MANIFEST is now read-only too until it says write: true, and that is
+  // the posture most likely to produce a silently-green contract report
+  test('a manifest without write: true is refused up front too', async () => {
+    tosi({ noWriteEx: { qty: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        roots: ['noWriteEx'],
+        contract: {
+          check: () => true,
+          describe: () => ({
+            'noWriteEx.qty': { type: 'integer', examples: [2] },
+          }),
+        },
+      },
+    }))
+    expect(agent.describe().writable).toBe(false)
+    expect(() => exerciseContract(agent)).toThrow(/cannot write/)
   })
 
   test('a manifest refusal is INCONCLUSIVE, never a pass', async () => {
@@ -1020,6 +1051,7 @@ describe('the harness cannot report green without validating (round-2 review)', 
     const agent = (current = enableAgentInterface({
       global: false,
       expose: {
+        write: true,
         roots: ['exPub'],
         contract: {
           check: () => true,

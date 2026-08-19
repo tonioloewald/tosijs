@@ -113,6 +113,23 @@ export interface AgentExpose {
     roots?: string[];
     actions?: string[];
     contract?: AgentContract;
+    /**
+     * Allow `write()` into the declared roots. **Defaults to false** — a
+     * manifest scopes what may be SEEN; changing the world is a separate,
+     * explicit grant.
+     *
+     * The 1.8.0 security pass found the two reachable postures were
+     * unscoped-read and scoped-read-*plus-write*: narrowing reads with
+     * `roots` simultaneously made those roots writable, so the safest-sounding
+     * option was the one that granted the most. There was no way to say
+     * "scoped reads, no writes" — the posture a production surface most often
+     * wants. This flag is that posture's other half; `expose: 'all'` still
+     * grants everything at once.
+     *
+     * Declared `actions` remain callable without it: `call()` invokes what the
+     * app chose to publish, `write()` assigns arbitrary values into state.
+     */
+    write?: boolean;
 }
 export interface AgentInterfaceOptions {
     /**
@@ -283,6 +300,11 @@ export interface AgentDescription {
     /** 'read-only' (the default: look, don't touch), 'introspection'
      * (expose: 'all' — everything, deliberately), or 'manifest' */
     exposure: 'read-only' | 'introspection' | 'manifest';
+    /** whether `write()` can land at all. Orthogonal to `exposure`, because a
+     * manifest scopes what may be SEEN: `expose: { roots }` is readable but
+     * not writable until it says `write: true`. Read this rather than
+     * inferring writability from the posture name. */
+    writable: boolean;
     /** what's LEGAL, per root — present when the manifest declares a contract */
     contract?: Record<string, any>;
 }

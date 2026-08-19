@@ -9,7 +9,9 @@ it breaks visibly when it lies.
 
     import { enableAgentInterface, exerciseContract } from 'tosijs'
 
-    const agent = enableAgentInterface({ expose: { roots, contract } })
+    const agent = enableAgentInterface({
+      expose: { roots, contract, write: true },
+    })
     const report = exerciseContract(agent)
     // report.failed === 0, or report.trials says exactly what lied
 
@@ -74,13 +76,18 @@ const same = (a: any, b: any): boolean => {
  */
 export const exerciseContract = (agent: AgentInterface): ContractReport => {
   const description = agent.describe()
-  if (description.exposure === 'read-only') {
+  // ASK THE SURFACE WHETHER IT CAN WRITE, don't infer it from the posture
+  // name: a manifest scopes sight, and is read-only until it says
+  // `write: true`. Reading `exposure !== 'read-only'` assumed otherwise and
+  // would have run a whole contract suite whose every trial was refused
+  // before a contract ever ran — green, and meaningless.
+  if (!description.writable) {
     throw new Error(
-      'exerciseContract: this surface is read-only, so every write would be ' +
+      'exerciseContract: this surface cannot write, so every write would be ' +
         'refused before any contract ran — the report would be green and ' +
         'meaningless. Enable a surface that can write: ' +
         'enableAgentInterface({ expose: "all" }) in dev, or a manifest ' +
-        'covering the contracted roots.'
+        'covering the contracted roots with write: true.'
     )
   }
   const contract = description.contract ?? {}
@@ -138,7 +145,9 @@ export const exerciseContract = (agent: AgentInterface): ContractReport => {
         // harness that had validated nothing at all.
         const message = (e as Error)?.message ?? ''
         const refusedBySurface =
-          message.includes('read-only') || message.includes('not exposed')
+          message.includes('read-only') ||
+          message.includes('reading only') ||
+          message.includes('not exposed')
         if (refusedBySurface) {
           error =
             'inconclusive: the SURFACE refused this write before any ' +

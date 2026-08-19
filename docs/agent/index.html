@@ -69,9 +69,13 @@ agent.log()               // the audit trail
   expose: {
     roots: [&#39;app.cart&#39;, &#39;app.filter&#39;],
     actions: [&#39;app.addItem&#39;, &#39;app.checkout&#39;],
+    write: true, // omit for scoped reads with no writes
   },
 })
 </code></pre>
+<p>A manifest scopes <strong>sight</strong>, not reach: <code>roots</code> says what may be seen,
+<code>write: true</code> is a separate grant to change it, and declared <code>actions</code> stay
+callable either way. <code>describe().writable</code> reports which you have.</p>
 <p>One call is the whole story: where the browser provides a WebMCP host
 (<code>document.modelContext</code>), <code>enableAgentInterface()</code> also registers the
 generated tool set automatically — <code>agent.webmcp</code> is the receipt, and
@@ -119,6 +123,7 @@ auto-registration is a convenience over that adapter, not a dependency.</p>
       <li><a class="doc-link current" href="../agent/" aria-current="page">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

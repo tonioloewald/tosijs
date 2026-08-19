@@ -10,13 +10,21 @@ set write itself from an ordinary little app:
 ## Proof: the tools write themselves (live)
 
 Every existing WebMCP integration authors its tools by hand.
-`webmcpTools(agent)` **generates** them: the core quartet plus one _named_
-tool per action the registry already holds. With a WebMCP host present
-(Chrome Canary), `enableAgentInterface()` registers them **automatically at
-enable time** (`agent.webmcp` carries the receipt; `webmcp: false` opts out);
-without a host, you see exactly what would register.
-(`tosi_write` appears only because this page opts in with `allowWrites` —
-see [Trust](/trust-and-transports/).)
+`webmcpTools(agent)` **generates** them: the introspection pair
+(`tosi_describe`, `tosi_surface`), the read pair (`tosi_read`,
+`tosi_changes`), `tosi_write`, and one _named_ tool per action the registry
+already holds. With a WebMCP host present (Chrome Canary),
+`enableAgentInterface()` registers them **automatically at enable time**
+(`agent.webmcp` carries the receipt; `webmcp: false` opts out); without a
+host, you see exactly what would register.
+
+**What actually publishes depends on the posture**, because publishing to a
+WebMCP host hands the surface to a different principal. An unscoped
+read-only surface publishes only the introspection pair — declaring
+`expose: { roots }` (or `expose: 'all'`, or `webmcp: { allowReads: true }`)
+is what says "yes, publish a read of this". `tosi_write` needs
+`allowWrites`, which is why it appears on this page — see
+[Trust](/trust-and-transports/).
 
 ```js
 import { elements, tosi, enableAgentInterface, webmcpTools } from 'tosijs'
@@ -143,8 +151,14 @@ obscure drops one level into `detail`. Bound props carry _value and provenance
 in one string_: `"milk ⟷ app.filter"` is the current value, the fact that it's
 live, and its address — and the arrow encodes **direction**, `⟷` two-way (a
 user-writable affordance) vs `⟵` display-only. A value with no arrow is
-static. The tokens are chosen to be unlikely in real data and are exported
-(`BOUND_TWO_WAY`, `BOUND_TO_DOM`) for parsers.
+static. The tokens are exported (`BOUND_TWO_WAY`, `BOUND_TO_DOM`) for parsers
+— **split on the LAST occurrence**: the path is the tail, and the value is
+everything before it. (Earlier text here called the tokens "unlikely in real
+data" and told parsers to split on the first one. Neither was safe: a value
+that merely _contains_ an arrow forged one, so the surface now replaces the
+tokens inside harvested values and text with `<->` / `<-`. Last-occurrence
+parsing is still the rule, because the arrow the surface adds is always the
+last one.)
 
 An agent reading that doesn't need vision, doesn't need to guess selectors, and
 doesn't need to forge events. It needs `write('app.filter', 'milk')` and
@@ -207,6 +221,22 @@ channel.)
 
 ### Exposure tiers (what "or what the programmer explicitly tells it" means)
 
+> **`expose` scopes STATE, not the map.** It says what the surface may read,
+> write and call _as state_. It does not narrow what `describe()` walks —
+> the map covers the whole page in every mode: headings, landmarks, links and
+> their `href`s, contenteditable text, labels, placeholders and geometry.
+> `describe({ scope: el })` is the DOM knob; `expose` is the state knob. Two
+> separate decisions, and a production surface usually wants both.
+>
+> Two more facts worth stating plainly. `enableAgentInterface()` installs
+> `globalThis.tosiAgent` unless you pass `global: false` — that global is a
+> convenience, never a boundary (any script already on your origin can reach
+> your state regardless), but it is worth turning off in a page that hosts
+> third-party script. And **`describe()` returns live user- and peer-supplied
+> content**: labels, text and values that people typed. Treat it the way you
+> treat any tool output — as data, never as instructions. A state library can
+> say this; it cannot enforce it.
+
 1. **Off** (default) — nothing. Zero cost, zero surface.
 2. **Introspection mode** — everything tosijs knows, **dev-only and explicitly
    unstable**. For exploration, debugging, agent-assisted development, and
@@ -221,9 +251,17 @@ channel.)
      expose: {
        roots: ['app.cart', 'app.filter'],
        actions: ['app.addItem', 'app.checkout'],
+       write: true, // omit for scoped reads with no writes
      },
    })
    ```
+   **A manifest scopes sight, not reach.** `roots` says what may be _seen_;
+   `write: true` is a separate, explicit grant to _change_ it, and declared
+   `actions` stay callable either way. This is deliberate: without it the two
+   reachable postures were unscoped-read and scoped-read-plus-write, so the
+   safest-sounding option was the one that granted the most, and "scoped
+   reads, no writes" — the posture a production surface most often wants —
+   could not be expressed at all. `describe().writable` reports which you have.
 4. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
    shapes, constraints, computed predicates. Now `write()` validates against
    the contract, `describe()` tells the agent _what's legal_ rather than what
@@ -449,6 +487,7 @@ preview.append(
         agent = enableAgentInterface({
           expose: {
             roots: ['shipDay'],
+            write: true,
             contract: {
               check(_path, value, proposal) {
                 const qty = proposal?.proposed?.qty ?? value
@@ -497,6 +536,7 @@ test('ship day: curation supersedes inline, the manifest narrows the world', () 
   const curated = enableAgentInterface({
     expose: {
       roots: ['shipDay'],
+      write: true,
       contract: {
         check: (_p, value, proposal) => {
           const qty = proposal?.proposed?.qty ?? value

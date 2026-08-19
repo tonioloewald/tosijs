@@ -32,15 +32,29 @@ The generated set:
 | tool | does |
 | --- | --- |
 | `tosi_describe` | the live affordance map — start here |
-| `tosi_read` | serializable value at a path |
-| `tosi_changes` | turn drain: final-value-per-path since your cursor |
+| `tosi_surface` | what this surface IS: version + capabilities |
+| `tosi_read` | serializable value at a path — **scoped surfaces only** |
+| `tosi_changes` | turn drain: final-value-per-path since your cursor — **scoped surfaces only** |
 | `tosi_act_<path>` | one **named** tool per discovered/declared action |
 | `tosi_write` | direct state writes — **dev-gated** (see below) |
 
-`tosi_write` registers only in introspection mode (or with an explicit
-`allowWrites: true`): production surfaces are read/observe/call-only until
-state-level contracts land — an unvalidated write tool is an RPC endpoint
-with good documentation.
+`tosi_write` registers only with an explicit `allowWrites: true`: an
+unvalidated write tool is an RPC endpoint with good documentation.
+
+`tosi_read` and `tosi_changes` register only once the surface says what it
+exposes — `expose: { roots: [...] }` or `expose: 'all'` — or with an
+explicit `allowReads: true`. The no-options default is read-only over the
+**whole registry**, and a browser agent is a different principal: an
+unscoped read of everything shouldn't be published to the page's tool
+registry as a side effect of one unargumented call. The introspection tools
+still register: they report the DOM an agent can already see, and the map is
+the point.
+
+Tool names are global to the page. Where another script (or a second
+surface) already owns `tosi_*`, pass a distinct `prefix` — the adapter
+reports any generated tool the host did not take as a `console.error`,
+because a name you didn't get is a name an agent will reach *someone else*
+through.
 
 > **EXPERIMENTAL.** The WebMCP spec is churning; the adapter is deliberately
 > tolerant of both registration shapes and takes an injected host for tests.
@@ -61,7 +75,12 @@ export interface WebMCPAdapterOptions {
   modelContext?: any
   /** register tosi_write even outside introspection mode (default false) */
   allowWrites?: boolean
-  /** tool-name prefix (default 'tosi') */
+  /** register tosi_read / tosi_changes on an UNSCOPED read-only surface
+   * (default false) — the deliberate opt-in for "publish a read of
+   * everything" when you don't want to declare an `expose` manifest */
+  allowReads?: boolean
+  /** tool-name prefix (default 'tosi') — namespace this surface when the
+   * page carries more than one, or when another script owns the plain names */
   prefix?: string
 }
 
@@ -76,7 +95,7 @@ export const webmcpTools = (
   agent: AgentInterface,
   options: WebMCPAdapterOptions = {}
 ): WebMCPTool[] => {
-  const { prefix = 'tosi', allowWrites = false } = options
+  const { prefix = 'tosi', allowWrites = false, allowReads = false } = options
   const description = agent.describe()
   const tools: WebMCPTool[] = [
     {
@@ -102,31 +121,45 @@ export const webmcpTools = (
       inputSchema: { type: 'object', properties: {} },
       execute: () => agent.version,
     },
-    {
-      name: toolName(prefix, 'read'),
-      description:
-        'Read the serializable value at a state path (paths come from ' +
-        `${toolName(prefix, 'describe')}).`,
-      inputSchema: {
-        type: 'object',
-        properties: { path: { type: 'string' } },
-        required: ['path'],
-      },
-      execute: (input) => agent.read(String(input?.path)),
-    },
-    {
-      name: toolName(prefix, 'changes'),
-      description:
-        'Everything that changed since your last turn, coalesced to ' +
-        'final-value-per-path. Pass the cursor from your previous call; ' +
-        'the response includes the next cursor.',
-      inputSchema: {
-        type: 'object',
-        properties: { since: { type: 'number' } },
-      },
-      execute: (input) => agent.changes(Number(input?.since ?? 0)),
-    },
   ]
+  // DECLARED SCOPE, OR EXPLICIT CONSENT — the same gate as tosi_write, for
+  // the same reason. 'read-only' is the no-options default AND the widest
+  // read the surface has: with no manifest, inScope() is unconditionally
+  // true, so these two tools published the ENTIRE registry (and, via
+  // changes(), every value that settles in it) to a model-context host —
+  // a different principal — on the strength of one unargumented call.
+  // Declaring `expose: { roots }` or `expose: 'all'` is the opt-in; the
+  // introspection tools above stay, because they report the DOM an agent
+  // can already read for itself.
+  const canRead = description.exposure !== 'read-only' || allowReads
+  if (canRead) {
+    tools.push(
+      {
+        name: toolName(prefix, 'read'),
+        description:
+          'Read the serializable value at a state path (paths come from ' +
+          `${toolName(prefix, 'describe')}).`,
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+        execute: (input) => agent.read(String(input?.path)),
+      },
+      {
+        name: toolName(prefix, 'changes'),
+        description:
+          'Everything that changed since your last turn, coalesced to ' +
+          'final-value-per-path. Pass the cursor from your previous call; ' +
+          'the response includes the next cursor.',
+        inputSchema: {
+          type: 'object',
+          properties: { since: { type: 'number' } },
+        },
+        execute: (input) => agent.changes(Number(input?.since ?? 0)),
+      }
+    )
+  }
   // Only advertise what the surface will actually execute. A read-only
   // surface used to publish one tosi_act_* tool per discovered function —
   // a menu of the whole app where every item throws on invocation.
@@ -164,8 +197,10 @@ export const webmcpTools = (
       name: toolName(prefix, 'write'),
       description:
         'Write a value to a state path — it flows through the same ' +
-        'observers as user input, so every bound widget updates. DEV MODE: ' +
-        'writes are unvalidated until state-level contracts land.',
+        'observers as user input, so every bound widget updates. A write ' +
+        'to a path the app has contracted is validated, and a refusal ' +
+        'names the reason so you can correct it; a write to an ' +
+        'uncontracted path is applied as given.',
       inputSchema: {
         type: 'object',
         properties: { path: { type: 'string' }, value: {} },
@@ -180,18 +215,74 @@ export const webmcpTools = (
   return tools
 }
 
-/**
- * Detect the WebMCP host, register the generated tools, return
- * { tools, unregister } — or undefined when no host API is present.
- */
+/** what a host with no unregistration path is holding on our behalf */
+interface HostRegistrations {
+  /** names WE put there and cannot take back — live, ours, reportable */
+  ours: Set<string>
+  /** names the host refused as already-taken — SOMEONE ELSE'S tools */
+  foreign: Set<string>
+}
+
 // hosts that provide NO unregistration path (no handle.unregister, no
 // unregisterTool — Chrome Canary's registerTool today) get REGISTER-ONCE
 // semantics per tool name: re-registering a held name is a console error on
 // the host side and would strand a stale closure on ours. Skip names the
 // host already holds — paired with enableAgentInterface's live-bound
 // delegate, the existing registration already talks to the current surface.
-const registeredOnHost: WeakMap<object, Set<string>> = new WeakMap()
+// The two sets MUST stay distinct: `ours` is callable and belongs in the
+// receipt, `foreign` is a name we lost to another script and must never be
+// claimed — one set conflated "registered" with "refused as a duplicate".
+const registeredOnHost: WeakMap<object, HostRegistrations> = new WeakMap()
 
+const hostRegistrations = (mc: object): HostRegistrations => {
+  let held = registeredOnHost.get(mc)
+  if (held == null) {
+    held = { ours: new Set(), foreign: new Set() }
+    registeredOnHost.set(mc, held)
+  }
+  return held
+}
+
+/**
+ * Best-effort revocation on a host with no unregisterTool: overwrite the
+ * name with a stub that refuses and says why. A register-once host rejects
+ * the overwrite — and then the ORIGINAL tool is still callable, so the only
+ * honest move left is to say so loudly. Quietly dropping the name would
+ * make "revoked" mean "still there, just unlisted".
+ */
+const revokeOnHost = (
+  mc: any,
+  held: HostRegistrations,
+  name: string,
+  why: string
+): void => {
+  try {
+    mc.registerTool({
+      name,
+      description:
+        `REVOKED by tosijs — ${why}. This tool does nothing; it is listed ` +
+        'only because this host provides no way to withdraw a tool.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: () => {
+        throw new Error(`tosijs webmcp: "${name}" was revoked — ${why}`)
+      },
+    })
+    held.ours.delete(name)
+  } catch (error) {
+    console.error(
+      `tosijs webmcp: CANNOT REVOKE "${name}" — ${why}, but this host has ` +
+        'no unregisterTool and refused the overwrite, so the tool stays ' +
+        'callable. It is late-bound to the current surface, which will ' +
+        'refuse whatever the current posture disallows.',
+      error
+    )
+  }
+}
+
+/**
+ * Detect the WebMCP host, register the generated tools, return
+ * { tools, unregister } — or undefined when no host API is present.
+ */
 export const webmcpAdapter = (
   agent: AgentInterface,
   options: WebMCPAdapterOptions = {}
@@ -203,17 +294,32 @@ export const webmcpAdapter = (
   if (mc == null) return undefined
 
   const tools = webmcpTools(agent, options)
+  const namespace = `${toolName(options.prefix ?? 'tosi')}_`
   const undo: Array<() => void> = []
-  /** names the host ACCEPTED — the receipt must not claim more */
+  /** names the host is holding FOR US — the receipt must not claim more */
   const registered: string[] = []
   if (typeof mc.registerTool === 'function') {
-    let held = registeredOnHost.get(mc)
-    if (held == null) {
-      held = new Set()
-      registeredOnHost.set(mc, held)
+    const held = hostRegistrations(mc)
+    const publishing = new Set(tools.map((tool) => tool.name))
+    // NARROWING IS REVOCATION. Re-enabling with a tighter posture (dropping
+    // tosi_write, or reads via the read-only gate) left the previous
+    // registration live on a host that cannot unregister — the tool an
+    // author believes they revoked is still in the agent's menu. Restricted
+    // to our own namespace: another surface's prefix is not ours to stub.
+    for (const name of [...held.ours]) {
+      if (publishing.has(name) || !name.startsWith(namespace)) continue
+      revokeOnHost(mc, held, name, 'this surface no longer publishes it')
     }
     for (const tool of tools) {
-      if (held.has(tool.name)) continue // already live on this host
+      if (held.ours.has(tool.name)) {
+        // live from an earlier registration, and late-bound to the current
+        // surface — so it IS callable through this surface and belongs in
+        // the receipt. Skipping it made agent.webmcp.tools under-report
+        // exactly the tools nobody can take back.
+        registered.push(tool.name)
+        continue
+      }
+      if (held.foreign.has(tool.name)) continue // lost to another script
       const canUnregister = typeof mc.unregisterTool === 'function'
       try {
         const handle = mc.registerTool(tool)
@@ -222,7 +328,7 @@ export const webmcpAdapter = (
         } else if (canUnregister) {
           undo.push(() => mc.unregisterTool(tool.name))
         } else {
-          held.add(tool.name) // no way back: remember it's registered
+          held.ours.add(tool.name) // no way back: remember it's registered
         }
         registered.push(tool.name)
       } catch (error) {
@@ -234,7 +340,7 @@ export const webmcpAdapter = (
         const duplicate = /already|exist|duplicate|registered/i.test(
           String((error as Error)?.message ?? '')
         )
-        if (duplicate && !canUnregister) held.add(tool.name)
+        if (duplicate && !canUnregister) held.foreign.add(tool.name)
         console.warn(
           `tosijs webmcp: the host refused "${tool.name}" — it is NOT in ` +
             "this surface's tool list.",
@@ -247,16 +353,42 @@ export const webmcpAdapter = (
     // app also registers its own tools this way, coordinate registration in
     // one place (or use a registerTool-shaped host)
     mc.provideContext({ tools })
+    // the batch call has no per-tool result: it replaces the context
+    // wholesale, so the set IS the receipt
+    for (const tool of tools) registered.push(tool.name)
     undo.push(() => mc.provideContext({ tools: [] }))
   } else {
     return undefined
   }
+  // A NAME YOU DIDN'T GET IS A NAME AN AGENT REACHES SOMEONE ELSE THROUGH.
+  // Tool names are page-global and unnamespaced by default, so a script
+  // that registers `tosi_read` first keeps it — and the per-tool warning
+  // above reads as routine host chatter. The mismatch between what this
+  // surface generated and what the host is holding for it is the one
+  // signal worth interrupting for.
+  const missing = tools
+    .map((tool) => tool.name)
+    .filter((name) => !registered.includes(name))
+  if (missing.length > 0) {
+    console.error(
+      `tosijs webmcp: the host is NOT holding ${missing.length} of this ` +
+        `surface's tools: ${missing.join(', ')}. Either another script ` +
+        'registered those names first — in which case an agent calling ' +
+        'them reaches THAT script, not tosijs — or the host rejected ' +
+        'them. Pass a distinct `prefix` to namespace this surface.'
+    )
+  }
   return {
-    // what the host actually took (registerTool path); the batch
-    // provideContext path has no per-tool result, so it reports the set
-    tools: registered.length > 0 ? registered : tools.map((tool) => tool.name),
+    tools: registered,
+    // NOTE: names in `ours` are deliberately NOT forgotten here. On a host
+    // with no unregistration path they are still live and still late-bound;
+    // forgetting them would make the next enableAgentInterface() re-attempt
+    // them, collect the host's duplicate refusal, and file its own tools as
+    // foreign. Revocation happens where the new posture is known — the
+    // narrowing pass above — not on the way out.
     unregister: () => {
       for (const fn of undo) fn()
+      undo.length = 0
     },
   }
 }

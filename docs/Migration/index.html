@@ -122,7 +122,8 @@ and a feature you turned off stayed on. It now lands as written, with one
 <p><strong>New, and opt-in:</strong> the agent surface (<code>enableAgentInterface()</code>) defaults
 to <strong>read-only</strong> introspection — <code>write()</code> and <code>call()</code> refuse until you
 declare <code>expose: { roots, actions }</code> (production) or <code>expose: &#39;all&#39;</code>
-(development). Nothing changes for apps that never call it.</p>
+(development). A manifest scopes what may be <strong>seen</strong>; add <code>write: true</code> to
+let an agent change it. Nothing changes for apps that never call it.</p>
 <p><strong>License:</strong> tosijs is <strong>Apache-2.0</strong> as of 1.8.0 (BSD-3-Clause through
 1.7.x) — adding an explicit patent grant and a patent-retaliation clause.
 Apache-2.0 cannot be combined with <strong>GPLv2-only</strong> code; GPLv3+ is fine.</p>
@@ -215,6 +216,7 @@ never operated there — bind the component by its <code>value</code> instead).<
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

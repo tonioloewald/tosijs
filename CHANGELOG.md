@@ -73,8 +73,29 @@ Three modes, and the safest is the one you get for free:
 | call                                                             | what it grants                                                                                                                                             |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enableAgentInterface()`                                         | **read-only introspection** — `describe`/`read`/`observe`/`changes`/`when`/`log` over everything; `write()` and `call()` refuse and say how to enable them |
-| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist, nothing outside it readable, writable or callable                                                                  |
-| `enableAgentInterface({ expose: 'all' })`                        | everything read/write/call, deliberately, with a one-time warning                                                                                          |
+| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist — scoped **reads** and declared calls, nothing outside it visible                                                    |
+| `enableAgentInterface({ expose: { roots, write: true } })`       | the same allowlist, plus permission to **change** what it scopes                                                                                            |
+| `enableAgentInterface({ expose: 'all' })`                        | everything read/write/call, deliberately, with a warning on every transition into it                                                                       |
+
+**A manifest scopes sight, not reach.** `roots` says what may be seen;
+`write: true` is a separate grant to change it. Without that split the only
+two reachable postures were unscoped-read and scoped-read-_plus-write_, so
+the safest-sounding option granted the most, and "scoped reads, no writes" —
+what a production surface usually wants — was inexpressible.
+`describe().writable` reports which you have. Declared `actions` stay
+callable either way, and a write can no longer land on (or above, or under)
+a declared action, so `write('app', {})` can't wipe the action namespace.
+
+Provenance arrows (`⟷`, `⟵`) are **structure, not content**: values and
+harvested page text that contain them are neutralized to `<->` / `<-`, so a
+string can no longer forge itself a live binding — which the schematic drew
+as a real affordance and the audit reported on. Parsers should split on the
+**last** occurrence. Secrets are a property of the **path**, not of a DOM
+record: a path bound to a password (or hidden, or `autocomplete="cc-*"`, or
+`data-tosi-secret`) control redacts in `read`, `changes`, `when` and inside
+any ancestor read. And `__proto__`/`constructor`/`prototype` are refused as
+path segments at the sink, which covers `agent.write()`, `share()` and
+`sync()` at once.
 
 `tosi_write` now requires **explicit `allowWrites: true`** — being in
 introspection mode is no longer treated as consent to publish an

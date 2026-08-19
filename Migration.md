@@ -51,7 +51,8 @@ neither had a prior deprecation warning:
 **New, and opt-in:** the agent surface (`enableAgentInterface()`) defaults
 to **read-only** introspection — `write()` and `call()` refuse until you
 declare `expose: { roots, actions }` (production) or `expose: 'all'`
-(development). Nothing changes for apps that never call it.
+(development). A manifest scopes what may be **seen**; add `write: true` to
+let an agent change it. Nothing changes for apps that never call it.
 
 **License:** tosijs is **Apache-2.0** as of 1.8.0 (BSD-3-Clause through
 1.7.x) — adding an explicit patent grant and a patent-retaliation clause.

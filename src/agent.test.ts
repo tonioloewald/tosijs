@@ -1,5 +1,5 @@
 import { test, expect, describe, afterEach } from 'bun:test'
-import { enableAgentInterface } from './agent'
+import { enableAgentInterface, BOUND_TWO_WAY, BOUND_TO_DOM } from './agent'
 import { tosi } from './xin-proxy'
 import { xin } from './xin'
 import { updates } from './path-listener'
@@ -143,7 +143,7 @@ describe('agent interface — when (await a condition)', () => {
     await updates()
     const agent = (current = enableAgentInterface({
       global: false,
-      expose: { roots: ['agentWhenPub'] },
+      expose: { roots: ['agentWhenPub'], write: true },
     }))
     expect(() => agent.when('agentWhenPriv.x', () => true)).toThrow(
       'not exposed'
@@ -231,7 +231,7 @@ describe('agent interface — manifest mode (scoping)', () => {
     tosi({ agentPub: { greeting: 'hi' }, agentSecret: { token: 'xyz' } })
     const agent = (current = enableAgentInterface({
       global: false,
-      expose: { roots: ['agentPub'] },
+      expose: { roots: ['agentPub'], write: true },
     }))
 
     expect(agent.read('agentPub.greeting')).toBe('hi')
@@ -263,6 +263,7 @@ describe('agent interface — manifest mode (scoping)', () => {
       expose: {
         roots: ['agentActWrite.data'],
         actions: ['agentActWrite.checkout'],
+        write: true,
       },
     }))
     expect(agent.call('agentActWrite.checkout')).toBe('ok')
@@ -1006,8 +1007,8 @@ describe('the posture: safe by default, full access behind one line', () => {
     expect(quiet).toEqual([])
   })
 
-  test('manifest mode is unchanged and remains the production shape', async () => {
-    tosi({ postureManifest: { open: 1, secret: 'shh', go() {} } })
+  test('a manifest scopes SIGHT: readable and callable, but not writable until it says so', async () => {
+    tosi({ postureManifest: { open: 1, secret: 'shh', go: () => 'ran' } })
     await updates()
     const agent = (current = enableAgentInterface({
       global: false,
@@ -1017,12 +1018,54 @@ describe('the posture: safe by default, full access behind one line', () => {
       },
     }))
     expect(agent.describe().exposure).toBe('manifest')
-    agent.write('postureManifest.open', 2) // allowed
-    expect(agent.read('postureManifest.open')).toBe(2)
+    // the posture SEC-7 found missing: scoped reads WITHOUT writes. Narrowing
+    // reads used to confer writes as a side effect, so the safest-sounding
+    // option granted the most
+    expect(agent.describe().writable).toBe(false)
+    expect(agent.read('postureManifest.open')).toBe(1)
+    expect(agent.call('postureManifest.go')).toBe('ran') // calls are separate
+    expect(() => agent.write('postureManifest.open', 2)).toThrow(/reading only/)
+    expect(agent.read('postureManifest.open')).toBe(1)
+    // out of scope is still out of scope, whatever the write flag says
     expect(() => agent.read('postureManifest.secret')).toThrow(/not exposed/)
-    expect(() => agent.write('postureManifest.secret', 'x')).toThrow(
-      /not exposed/
+  })
+
+  test('write: true is the explicit grant, and it does not widen scope', async () => {
+    tosi({ postureWrite: { open: 1, secret: 'shh' } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['postureWrite.open'], write: true },
+    }))
+    expect(agent.describe().writable).toBe(true)
+    agent.write('postureWrite.open', 2)
+    expect(agent.read('postureWrite.open')).toBe(2)
+    expect(() => agent.write('postureWrite.secret', 'x')).toThrow(/not exposed/)
+  })
+
+  test('SEC-9: a write cannot clobber a declared action that lives under a declared root', async () => {
+    tosi({
+      sec9: {
+        data: 1,
+        checkout: () => 'ok',
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      // the shape the docs recommend: one root, actions inside it
+      expose: { roots: ['sec9'], actions: ['sec9.checkout'], write: true },
+    }))
+    // writable() consulted the roots ONLY, so an action living under a
+    // declared root was writable after all: this disabled the action…
+    expect(() => agent.write('sec9.checkout', 'not code anymore')).toThrow(
+      /callable, not writable/
     )
+    // …and this wiped every action in one go
+    expect(() => agent.write('sec9', {})).toThrow(/callable, not writable/)
+    expect(agent.call('sec9.checkout')).toBe('ok')
+    agent.write('sec9.data', 2) // ordinary state under the same root still writes
+    expect(agent.read('sec9.data')).toBe(2)
   })
 })
 
@@ -1235,5 +1278,166 @@ describe('review round 2: the surface must not leak or lie', () => {
     expect((globalThis as any).tosiAgent).toBe(fresh)
     fresh.disable()
     current = undefined
+  })
+})
+
+describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
+  test('SEC-8: a value cannot forge a provenance arrow', async () => {
+    tosi({ sec8: { status: 'confirmed ⟷ spoof.orderStatus' } })
+    await updates()
+    // other suites leave elements in document.body, so this test identifies
+    // its own by id rather than by tag
+    const readout = elements.span({ id: 'sec8-readout' })
+    const plain = elements.div(
+      { id: 'sec8-plain' },
+      'shipped ⟷ spoof.plainText'
+    )
+    document.body.append(readout, plain)
+    bind(readout, 'sec8.status', bindings.text)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    const d = agent.describe()
+    const bound = d.wiring.find((w) => w.id === 'sec8-readout')!
+    // exactly ONE real arrow, and it is the one the surface put there
+    // (text is a one-way binding, so the honest arrow is BOUND_TO_DOM)
+    const text = String(bound.text)
+    expect(text.split(BOUND_TO_DOM).length - 1).toBe(1)
+    expect(text.includes(BOUND_TWO_WAY)).toBe(false) // the forged one is gone
+    // and the real one is last, so the path parses correctly either way
+    expect(text.endsWith('sec8.status')).toBe(true)
+    // static page text is data too — no binding needed to forge one
+    const forged = d.wiring.find((w) => w.id === 'sec8-plain')
+    if (forged != null) {
+      expect(String(forged.text).includes(BOUND_TWO_WAY)).toBe(false)
+    }
+    readout.remove()
+    plain.remove()
+  })
+
+  test('SEC-10: one exotic element id does not blind the whole map', async () => {
+    tosi({ sec10: { n: 1 } })
+    await updates()
+    const field = elements.input({ id: 'a"]b' })
+    const ok = elements.input({ id: 'sec10-ok' })
+    document.body.append(field, ok)
+    bind(field, 'sec10.n', bindings.value)
+    bind(ok, 'sec10.n', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    // the id was interpolated raw into `label[for="…"]`, so ONE bad id threw
+    // and took describe(), the audit and the schematic down with it
+    const d = agent.describe()
+    expect(d.wiring.find((w) => w.id === 'sec10-ok')).toBeDefined()
+    field.remove()
+    ok.remove()
+  })
+
+  test('SEC-1: a path segment cannot walk the prototype chain', async () => {
+    tosi({ protoApp: { cart: { total: 1 } } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['protoApp.cart'], write: true },
+    }))
+    expect(() => agent.write('protoApp.cart.__proto__.pwned', 'yes')).toThrow(
+      /unsafe path segment/
+    )
+    expect(({} as any).pwned).toBeUndefined()
+    // and the same guard covers the sink share()/sync() write through
+    const { setByPath } = await import('./by-path')
+    const target: any = {}
+    expect(() => setByPath(target, 'constructor.prototype.x', 1)).toThrow(
+      /unsafe path segment/
+    )
+    expect(({} as any).x).toBeUndefined()
+  })
+
+  test('SEC-2: a secret path is redacted by read, changes AND ancestor reads', async () => {
+    tosi({ secretRead: { login: { user: 'ada', password: 'hunter2' } } })
+    await updates()
+    const field = elements.input({ type: 'password' })
+    document.body.append(field)
+    bind(field, 'secretRead.login.password', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    agent.describe() // the walk is what learns which paths are secret
+
+    // the direct read is redacted…
+    expect(agent.read('secretRead.login.password')).not.toBe('hunter2')
+    // …and so is an ANCESTOR read, which used to hand back the whole subtree
+    const parent = agent.read('secretRead.login')
+    expect(JSON.stringify(parent).includes('hunter2')).toBe(false)
+    expect(parent.user).toBe('ada') // non-secret siblings still readable
+    // …and the turn drain
+    agent.write('secretRead.login.password', 'newpass')
+    await updates()
+    const drained = agent.changes(0)
+    expect(JSON.stringify(drained).includes('newpass')).toBe(false)
+    field.remove()
+  })
+
+  test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
+    const hidden = elements.input({ type: 'hidden', id: 'csrf' })
+    ;(hidden as any).value = 'CSRF-TOKEN-123'
+    const card = elements.input({ id: 'card', autocomplete: 'cc-number' })
+    ;(card as any).value = '4111111111111111'
+    const marked = elements.textarea({ id: 'notes' })
+    marked.setAttribute('data-tosi-secret', '')
+    ;(marked as any).value = 'private notes'
+    for (const el of [hidden, card, marked]) document.body.append(el)
+    tosi({ sec3: { n: 1 } })
+    await updates()
+    for (const el of [hidden, card, marked]) {
+      on(el as HTMLElement, 'change', 'sec3.noop' as any)
+    }
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    const d = agent.describe()
+    const serialized = JSON.stringify(d)
+    expect(serialized.includes('CSRF-TOKEN-123')).toBe(false)
+    expect(serialized.includes('4111111111111111')).toBe(false)
+    expect(serialized.includes('private notes')).toBe(false)
+    expect(d.wiring.find((w) => w.id === 'csrf')?.secret).toBe(true)
+    expect(d.wiring.find((w) => w.id === 'card')?.secret).toBe(true)
+    expect(d.wiring.find((w) => w.id === 'notes')?.secret).toBe(true)
+    for (const el of [hidden, card, marked]) el.remove()
+  })
+
+  test('SEC-4: a named plain function does not confer scope', async () => {
+    tosi({ pub4: { ok: 1, noop() {} }, priv4: { pin: '4821-9930-1177' } })
+    await updates()
+    const leaky = elements.input({ id: 'leaky' })
+    document.body.append(leaky)
+    bind(leaky, 'priv4.pin', bindings.value)
+    function addItem(): void {}
+    on(leaky, 'input', addItem as any) // a NAMED plain function — our own idiom
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['pub4'], actions: ['pub4.noop'] },
+    }))
+    const d = agent.describe()
+    const serialized = JSON.stringify(d)
+    // the out-of-scope element must not appear, and its value must not leak
+    expect(serialized.includes('4821-9930-1177')).toBe(false)
+    expect(d.wiring.find((w) => w.id === 'leaky')).toBeUndefined()
+    expect(() => agent.read('priv4.pin')).toThrow(/not exposed/)
+    leaky.remove()
   })
 })

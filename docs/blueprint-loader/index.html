@@ -88,6 +88,33 @@ of component <strong>blueprints</strong>. It will load its <code>&lt;tosi-bluepr
 <p>The legacy names <code>&lt;xin-blueprint&gt;</code> and <code>&lt;xin-loader&gt;</code> were removed in 1.8.0 —
 use <code>&lt;tosi-blueprint&gt;</code> and <code>&lt;tosi-loader&gt;</code>.</p>
 </blockquote>
+<h3>⚠️ These tags execute code</h3>
+<p><code>&lt;tosi-blueprint src=&quot;…&quot;&gt;</code> <strong>runs the module it names</strong>. That is the whole
+feature — but it means the tag is an arbitrary-script-execution sink, and a
+custom element can arrive through <code>innerHTML</code> like any other markup. So:</p>
+<ul>
+<li><strong>Strip <code>&lt;tosi-blueprint&gt;</code> and <code>&lt;tosi-loader&gt;</code> from any HTML you did not
+write.</strong> A sanitizer that passes unknown custom elements through (a denylist
+sanitizer, or <code>DOMPurify</code> configured with <code>CUSTOM_ELEMENT_HANDLING</code>) will
+hand an injected <code>src</code> straight to <code>import()</code>. Allowlist sanitizers —
+DOMPurify and <code>sanitize-html</code> in their default configurations — already drop
+these tags.</li>
+<li><code>javascript:</code>, <code>data:</code> and <code>vbscript:</code> URLs are <strong>refused unconditionally</strong>;
+no honest blueprint uses one.</li>
+<li>Everything else loads by default, because loading a blueprint from a CDN is
+the point. If your app doesn&#39;t need that, narrow it with
+<code>settings.blueprintSrcCheck</code> — return <code>false</code> and the load is refused with a
+<code>console.error</code> naming the URL:</li>
+</ul>
+<pre><code>import { settings } from &#39;tosijs&#39;
+
+settings.blueprintSrcCheck = (src, el) =&gt;
+  new URL(src, location.href).origin === location.origin
+</code></pre>
+<blockquote>
+<p>The default may become same-origin in 2.0. Setting the hook now is
+forward-compatible either way.</p>
+</blockquote>
 <h3><code>&lt;tosi-blueprint&gt;</code> Attributes</h3>
 <ul>
 <li><code>src</code> is the url of the <code>blueprint</code> javascript module (required)</li>
@@ -294,6 +321,7 @@ E.g. you could maintain a list of all the instances of any version of the bluepr
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

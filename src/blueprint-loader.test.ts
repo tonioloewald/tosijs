@@ -5,7 +5,9 @@ import {
   tosiBlueprint,
   tosiLoader,
   setModuleLoader,
+  blueprintSrcRefusal,
 } from './blueprint-loader'
+import { settings } from './settings'
 import {
   makeComponent,
   TosiBlueprint,
@@ -260,6 +262,192 @@ describe('tosi-loader (canonical)', () => {
     } finally {
       console.error = origError
       setModuleLoader((src: string) => import(src))
+    }
+  })
+})
+
+describe('blueprint src policy (SEC-6)', () => {
+  const withSilencedError = async (fn: () => Promise<void>) => {
+    const errors: string[] = []
+    const origError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      await fn()
+    } finally {
+      console.error = origError
+    }
+    return errors
+  }
+
+  // a minimal blueprint module, so an ALLOWED src actually packages
+  const stubModule = {
+    default: ((_tag, { Component: C, elements: e }) => {
+      class PolicyStub extends C {
+        content = () => e.div('stub')
+      }
+      return { type: PolicyStub }
+    }) as TosiBlueprint,
+  }
+
+  const attempt = async (src: string, tag = 'policy-tag') => {
+    let attempts = 0
+    setModuleLoader(async () => {
+      attempts++
+      return stubModule
+    })
+    let error: any = null
+    const errors = await withSilencedError(async () => {
+      const el = tosiBlueprint({ tag, src }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el)
+      await el.packaged().catch((e) => {
+        error = e
+      })
+      el.remove()
+    })
+    setModuleLoader((s: string) => import(s))
+    return { attempts, error, errors }
+  }
+
+  test('javascript: is refused unconditionally', async () => {
+    const { attempts, error, errors } = await attempt(
+      'javascript:window.PWNED=true'
+    )
+    expect(attempts).toBe(0)
+    expect(String(error)).toContain('refused')
+    expect(errors.join('\n')).toContain('javascript:window.PWNED=true')
+  })
+
+  test('data: is refused unconditionally', async () => {
+    const { attempts, error } = await attempt(
+      'data:text/javascript,window.PWNED=true'
+    )
+    expect(attempts).toBe(0)
+    expect(String(error)).toContain('refused')
+  })
+
+  test('vbscript: is refused unconditionally', async () => {
+    const { attempts } = await attempt('vbscript:msgbox(1)')
+    expect(attempts).toBe(0)
+  })
+
+  test('control characters and whitespace do not smuggle a scheme past the check', async () => {
+    for (const src of [
+      '  javascript:x=1',
+      'java\tscript:x=1',
+      'java\nscript:x=1',
+      ' javascript:x=1',
+      'JavaScript:x=1',
+    ]) {
+      expect(blueprintSrcRefusal(src)).not.toBeNull()
+    }
+  })
+
+  test('ordinary http(s) and relative sources are allowed by default (CDN blueprints are the feature)', async () => {
+    expect(blueprintSrcRefusal('https://cdn.example.com/bp.js')).toBeNull()
+    expect(blueprintSrcRefusal('./local-blueprint.js')).toBeNull()
+    expect(blueprintSrcRefusal('/abs/blueprint.js?data:no')).toBeNull()
+    const { attempts, error } = await attempt(
+      'https://cdn.example.com/ok.js',
+      'policy-ok'
+    )
+    expect(attempts).toBe(1)
+    expect(error).toBeNull()
+  })
+
+  test('settings.blueprintSrcCheck refuses a source, and the error says how to allow it', async () => {
+    settings.blueprintSrcCheck = (src) => src.startsWith('/')
+    try {
+      const { attempts, error, errors } = await attempt(
+        'https://evil.example/x.js',
+        'policy-hooked'
+      )
+      expect(attempts).toBe(0)
+      expect(String(error)).toContain('refused')
+      expect(errors.join('\n')).toContain('blueprintSrcCheck')
+      expect(errors.join('\n')).toContain('https://evil.example/x.js')
+    } finally {
+      delete settings.blueprintSrcCheck
+    }
+  })
+
+  test('settings.blueprintSrcCheck sees the element and can allow', async () => {
+    let seen: Element | null = null
+    settings.blueprintSrcCheck = (_src, el) => {
+      seen = el
+      return true
+    }
+    try {
+      const { attempts, error } = await attempt(
+        'https://cdn.example.com/allowed.js',
+        'policy-allowed'
+      )
+      expect(attempts).toBe(1)
+      expect(error).toBeNull()
+      expect((seen as unknown as Element)?.tagName.toLowerCase()).toBe(
+        'tosi-blueprint'
+      )
+    } finally {
+      delete settings.blueprintSrcCheck
+    }
+  })
+
+  test('a refused src is not cached — allowing it later still loads', async () => {
+    settings.blueprintSrcCheck = () => false
+    let attempts = 0
+    setModuleLoader(async () => {
+      attempts++
+      return stubModule
+    })
+    const origError = console.error
+    console.error = () => {}
+    try {
+      const el1 = tosiBlueprint({
+        tag: 'policy-uncached',
+        src: 'https://cdn.example.com/uncached.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el1)
+      await el1.packaged().catch(() => {})
+      el1.remove()
+      expect(attempts).toBe(0)
+
+      delete settings.blueprintSrcCheck
+      const el2 = tosiBlueprint({
+        tag: 'policy-uncached',
+        src: 'https://cdn.example.com/uncached.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el2)
+      await el2.packaged().catch(() => {})
+      el2.remove()
+      expect(attempts).toBe(1)
+    } finally {
+      console.error = origError
+      delete settings.blueprintSrcCheck
+      setModuleLoader((s: string) => import(s))
+    }
+  })
+
+  test('a refused blueprint does not wedge its loader', async () => {
+    const origError = console.error
+    console.error = () => {}
+    let loadedCalled = false
+    try {
+      const el = tosiLoader(
+        {
+          allLoaded() {
+            loadedCalled = true
+          },
+        },
+        tosiBlueprint({
+          tag: 'policy-in-loader',
+          src: 'javascript:window.PWNED=true',
+        })
+      ) as InstanceType<typeof BlueprintLoader>
+      document.body.appendChild(el)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(loadedCalled).toBe(true)
+      el.remove()
+    } finally {
+      console.error = origError
     }
   })
 })

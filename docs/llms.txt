@@ -39,6 +39,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   The Color class: parse CSS colors, do color math (brighten, saturate, blend, mix), convert between HSL and RGB, generate contrasting colors.
 - https://tosijs.net/contract/ — contract harness (EXPERIMENTAL)
   EXPERIMENTAL contract harness: exercise an agent surface's declared contract — schema examples must be accepted, counterexamples refused — through the real surface.
+- https://tosijs.net/contract-check/ — contract validation
+  shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike.
 - https://tosijs.net/elements/ — Creating Elements
   The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required.
 - https://tosijs.net/css/ — CSS

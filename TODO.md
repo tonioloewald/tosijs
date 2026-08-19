@@ -812,6 +812,54 @@ roots that declared none — emitted with their `$inferred` marker intact, so
 `describe().contract` gains "what shape is this" for undeclared apps without
 ever asserting a rule nobody promised.
 
+## Dev-environment hardening (security pass, SEC-5 / SEC-16)
+
+Both are local-environment items, not shipped code — nothing in `dist/`
+changes.
+
+- **`editableSources` is now `process.env.TOSI_EDIT === '1'`** (SEC-5). The
+  upstream endpoint is CSRF-able from any page visited while `bun start`
+  runs, and its repo-root confinement includes `.git/hooks/*`. Turn it on
+  deliberately: `TOSI_EDIT=1 bun start`. Filed as
+  [tosijs-ui#90](https://github.com/tonioloewald/tosijs-ui/issues/90);
+  **when that lands, reconsider defaulting it back on.**
+- **Preview/tunnel target moved to `.env`** (SEC-16) — a root SSH target plus
+  tunnel port in a tracked file in a public repo is free recon. `.env` is
+  gitignored and auto-loaded by bun, and was written with the previous values,
+  so deploy/tunnel keep working here with no action. `.env.example` documents
+  the names. **A fresh clone has no `.env`, so `preview` is absent and
+  `bun run deploy` / `bun run tunnel` refuse to run** — deliberate (loud
+  beats deploying somewhere unexpected), but it is the thing to remember on a
+  new machine.
+- [ ] Deploy as a non-root user — `root@` is the part of SEC-16 that config
+  changes can't fix.
+
+## 2.0 breaking change: blueprint `src` should default to same-origin
+
+**Proposed for 2.0** (security review SEC-6). `<tosi-blueprint src>` executes
+the module it names, and the element can arrive through `innerHTML` — so on a
+page that renders untrusted HTML without stripping the tag, HTML injection is
+arbitrary script execution on the origin. Verified end-to-end in real Chromium.
+
+1.8.0 ships the conservative half only, because loading a blueprint from a CDN
+is a documented, supported use case and breaking it in an rc is worse than the
+risk (the defect is pre-existing and unchanged since xinjs):
+
+- `javascript:`, `data:` and `vbscript:` srcs are refused unconditionally
+  (control characters stripped first, so `java\tscript:` can't smuggle one).
+- `settings.blueprintSrcCheck?: (src, el) => boolean` is the opt-in narrowing
+  hook; refusal `console.error`s the URL and says how to allow it.
+- The doc block now states that these tags execute code and must be stripped
+  from user-supplied HTML.
+
+For 2.0: **invert the default** — allow same-origin, refuse cross-origin
+unless `settings.blueprintSrcCheck` says otherwise (or an explicit
+`settings.blueprintOrigins` allowlist). Same-origin-by-default plus an
+allowlist is the posture every other executable-URL feature on the platform
+has converged on, and apps that set the hook today are already forward
+compatible. Requires a CHANGELOG breaking-change note and a migration line
+for CDN consumers, who are the ones it breaks.
+
 ## 2.0 refactoring candidates
 
 - **Remove deprecated exports** (~2-3KB gzipped): `xinPath`, `xinValue`, `boxedProxy`,

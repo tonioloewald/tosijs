@@ -27,8 +27,13 @@ In production, expose only what you declare:
       expose: {
         roots: ['app.cart', 'app.filter'],
         actions: ['app.addItem', 'app.checkout'],
+        write: true, // omit for scoped reads with no writes
       },
     })
+
+A manifest scopes **sight**, not reach: `roots` says what may be seen,
+`write: true` is a separate grant to change it, and declared `actions` stay
+callable either way. `describe().writable` reports which you have.
 
 One call is the whole story: where the browser provides a WebMCP host
 (`document.modelContext`), `enableAgentInterface()` also registers the
@@ -168,6 +173,23 @@ export interface AgentExpose {
   roots?: string[]
   actions?: string[]
   contract?: AgentContract
+  /**
+   * Allow `write()` into the declared roots. **Defaults to false** — a
+   * manifest scopes what may be SEEN; changing the world is a separate,
+   * explicit grant.
+   *
+   * The 1.8.0 security pass found the two reachable postures were
+   * unscoped-read and scoped-read-*plus-write*: narrowing reads with
+   * `roots` simultaneously made those roots writable, so the safest-sounding
+   * option was the one that granted the most. There was no way to say
+   * "scoped reads, no writes" — the posture a production surface most often
+   * wants. This flag is that posture's other half; `expose: 'all'` still
+   * grants everything at once.
+   *
+   * Declared `actions` remain callable without it: `call()` invokes what the
+   * app chose to publish, `write()` assigns arbitrary values into state.
+   */
+  write?: boolean
 }
 
 export interface AgentInterfaceOptions {
@@ -348,6 +370,11 @@ export interface AgentDescription {
   /** 'read-only' (the default: look, don't touch), 'introspection'
    * (expose: 'all' — everything, deliberately), or 'manifest' */
   exposure: 'read-only' | 'introspection' | 'manifest'
+  /** whether `write()` can land at all. Orthogonal to `exposure`, because a
+   * manifest scopes what may be SEEN: `expose: { roots }` is readable but
+   * not writable until it says `write: true`. Read this rather than
+   * inferring writability from the posture name. */
+  writable: boolean
   /** what's LEGAL, per root — present when the manifest declares a contract */
   contract?: Record<string, any>
 }
@@ -530,10 +557,129 @@ const associatedLabel = (el: Element): string | undefined => {
   }
   let labelEl: Element | null = el.closest?.('label') ?? null
   if (labelEl == null && el.id) {
-    labelEl = el.ownerDocument?.querySelector?.(`label[for="${el.id}"]`) ?? null
+    // an id is author data, and it was interpolated RAW into a selector: one
+    // element with a `"` or `]` in its id threw, and because describeElement
+    // is called bare, the exception blinded the entire map — describe(), the
+    // audit and the schematic all went dark at once (SEC-10)
+    const escaped = (globalThis as any).CSS?.escape
+      ? (globalThis as any).CSS.escape(el.id)
+      : el.id.replace(/["\\\]]/g, '\\$&')
+    try {
+      labelEl =
+        el.ownerDocument?.querySelector?.(`label[for="${escaped}"]`) ?? null
+    } catch (_e) {
+      labelEl = null // a shim without CSS.escape and an exotic id: no label
+    }
   }
   const text = labelEl?.textContent?.trim().slice(0, 60)
   return text || undefined
+}
+
+/**
+ * Paths bound to a secret-bearing control. SECRECY IS A PROPERTY OF THE
+ * PATH, not of a DOM record: `describe()` redacting a password field while
+ * `read('app.login.password')` returns the cleartext is not redaction, it
+ * is a speed bump — and the map publishes the very path to ask for. Learned
+ * the hard way in the 1.8.0 security pass.
+ *
+ * Consulted by read / changes / when. It only ever grows: a path that was
+ * once bound to a password field stays secret for the session, because the
+ * alternative is a window where it isn't. (Over-redaction is the safe
+ * direction; under-redaction is a leak.)
+ */
+const secretPaths = new Set<string>()
+
+/** is this path, or an ancestor of it, bound to a secret-bearing control? */
+const isSecretPath = (path: string): boolean => {
+  if (secretPaths.has(path)) return true
+  for (const secret of secretPaths) {
+    if (extendsPath(secret, path)) return true
+  }
+  return false
+}
+
+/** would this read expose a secret nested anywhere beneath it? */
+const containsSecret = (path: string): boolean => {
+  for (const secret of secretPaths) {
+    if (extendsPath(path, secret)) return true
+  }
+  return false
+}
+
+const SECRET_SENTINEL = '⟨secret⟩'
+
+/**
+ * Learn which state paths are bound to secret-bearing controls, BEFORE
+ * anything reads or publishes them.
+ *
+ * Harvesting this during the describe walk alone left two windows open:
+ * `read('login.password')` called without a prior `describe()` was never
+ * redacted at all (a WebMCP host can call `tosi_read` first), and within a
+ * single walk an element bound to the same path that happened to be visited
+ * *before* the password field had already put the value in its record. So
+ * the scan runs up front — at `enableAgentInterface()`, at the top of every
+ * describe, and before every read/when.
+ *
+ * It is cheap by construction: the selector matches only the handful of
+ * controls that can be secret, not every bound element on the page.
+ */
+const SECRET_CONTROL_SELECTOR = [
+  '[data-tosi-secret]',
+  'input[type="password"]',
+  'input[type="hidden"]',
+  'input[autocomplete^="cc-"]',
+  'input[autocomplete^="current-password"]',
+  'input[autocomplete^="new-password"]',
+  'input[autocomplete^="one-time-code"]',
+].join(',')
+
+const refreshSecretPaths = (): void => {
+  if (typeof document === 'undefined') return
+  let candidates: Element[]
+  try {
+    // Array.from, not for-of: the lib target types NodeListOf without
+    // Symbol.iterator, and happy-dom's list is not iterable either
+    candidates = Array.from(document.querySelectorAll(SECRET_CONTROL_SELECTOR))
+  } catch (_e) {
+    return // a DOM shim without full selector support: nothing to learn
+  }
+  for (const el of candidates) {
+    if (!isSecretControl(el)) continue
+    const { dataBindings } = getElementBindings(el)
+    if (dataBindings == null) continue
+    for (const b of dataBindings) secretPaths.add(b.path)
+  }
+}
+
+/** replace secret-bound leaves inside a serialized value */
+const redactWithin = (path: string, value: any): any => {
+  if (value == null || typeof value !== 'object') return value
+  const clone: any = Array.isArray(value) ? [...value] : { ...value }
+  for (const key of Object.keys(clone)) {
+    const childPath = `${path}.${key}`
+    if (isSecretPath(childPath)) clone[key] = SECRET_SENTINEL
+    else if (containsSecret(childPath)) {
+      clone[key] = redactWithin(childPath, clone[key])
+    }
+  }
+  return clone
+}
+
+/**
+ * Does this control hold something that must never travel? A DENYLIST is
+ * defence in depth, not the control — the control is manifest scoping, and
+ * `data-tosi-secret` is the author's explicit opt-in. Applies to
+ * input/textarea/select, not just `<input type=password>`: hidden CSRF
+ * tokens and `autocomplete="cc-*"` payment fields are the common cases.
+ */
+const isSecretControl = (el: Element, type?: string): boolean => {
+  if (el.hasAttribute?.('data-tosi-secret')) return true
+  const tag = el.tagName.toLowerCase()
+  if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return false
+  const kind = type ?? (el as any).type ?? ''
+  if (kind === 'password' || kind === 'hidden') return true
+  const autocomplete = el.getAttribute('autocomplete') ?? ''
+  return /^(cc-|current-password|new-password|one-time-code)/.test(autocomplete)
 }
 
 const describeElement = (el: Element): AgentWiringRecord => {
@@ -576,6 +722,9 @@ const describeElement = (el: Element): AgentWiringRecord => {
   if ((globalThis as any).document?.activeElement === el) {
     record.focused = true
   }
+  // secrecy is not an <input> concern: a textarea or an author-marked
+  // control can hold one too
+  if (record.tag !== 'input' && isSecretControl(el)) record.secret = true
   // form controls: the control's kind and LIVE state are facts of the map
   if (record.tag === 'input') {
     const type = (el as any).type || 'text'
@@ -584,15 +733,7 @@ const describeElement = (el: Element): AgentWiringRecord => {
     // must not travel to an agent, a log, a WebMCP host or a screenshot of
     // the map. The affordance is still described — kind, name, bound path,
     // geometry — just never its content.
-    const autocomplete = el.getAttribute('autocomplete') ?? ''
-    if (
-      type === 'password' ||
-      autocomplete === 'current-password' ||
-      autocomplete === 'new-password' ||
-      autocomplete === 'one-time-code'
-    ) {
-      record.secret = true
-    }
+    if (isSecretControl(el, type)) record.secret = true
     if (type === 'checkbox' || type === 'radio') {
       record.checked = (el as any).checked === true
     }
@@ -656,6 +797,20 @@ const ariaHidden = (el: Element): boolean => {
 }
 
 // "value ⟷ path" — current value plus provenance in one parseable string
+/**
+ * Neutralize provenance tokens inside DATA. The arrows are structure, not
+ * content: an attacker-controlled string containing ` ⟷ ` forged one, and
+ * every consumer believed it — the schematic truncated the shown value at
+ * the fake arrow and decided editability by `includes(BOUND_TWO_WAY)`, so a
+ * plain string could DRAW itself a false affordance, and the audit reported
+ * on it (SEC-8). Fixed here at the source, which fixes every consumer at
+ * once; the replacement character is visually honest about what happened.
+ */
+const stripArrows = (text: string): string =>
+  text.includes(BOUND_TWO_WAY) || text.includes(BOUND_TO_DOM)
+    ? text.split(BOUND_TWO_WAY).join('<->').split(BOUND_TO_DOM).join('<-')
+    : text
+
 const boundValue = (path: string, twoWay: boolean, secret = false): string => {
   const arrowOnly = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM
   // a secret's PATH is useful (an agent can still see what it's bound to);
@@ -665,7 +820,7 @@ const boundValue = (path: string, twoWay: boolean, secret = false): string => {
   const shown =
     raw === undefined ? '' : typeof raw === 'string' ? raw : JSON.stringify(raw)
   const arrow = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM
-  return shown ? `${shown} ${arrow} ${path}` : `${arrow} ${path}`
+  return shown ? `${stripArrows(shown)} ${arrow} ${path}` : `${arrow} ${path}`
 }
 
 // name a binding by identity: the shared bindings collection first, then the
@@ -680,6 +835,8 @@ const bindingName = (binding: any): string | undefined => {
 
 let readOnlyNoticeGiven = false
 let exposeAllWarningGiven = false
+/** the posture last announced — notices fire on CHANGE, not once per process */
+let lastPostureAnnounced: string | undefined
 
 /**
  * Reset the once-per-process posture notices (testing only). Without this
@@ -691,6 +848,7 @@ let exposeAllWarningGiven = false
 export function _resetPostureNotices(): void {
   readOnlyNoticeGiven = false
   exposeAllWarningGiven = false
+  lastPostureAnnounced = undefined
 }
 let active: AgentInterface | undefined
 
@@ -731,17 +889,39 @@ export function enableAgentInterface(
   const manifestMode = manifest != null
   /** read-only introspection: no manifest, and no explicit `expose: 'all'` */
   const readOnly = !manifestMode && !exposeAll
+  // A MANIFEST SCOPES SIGHT, NOT REACH. `expose: { roots }` used to confer
+  // writes over those roots as a side effect of narrowing reads, which made
+  // the safest-sounding posture the most permissive one available and left
+  // "scoped reads, no writes" inexpressible (1.8.0 security pass, SEC-7).
+  // Writes now need saying so — `write: true`, or `expose: 'all'`.
+  const writesAllowed = exposeAll || (manifestMode && manifest?.write === true)
+  const callsAllowed = exposeAll || manifestMode
 
-  if (readOnly && !readOnlyNoticeGiven && settings.quiet !== true) {
+  // ANNOUNCE EVERY TRANSITION, not just the first one. These were
+  // once-per-process latches, so the documented dev workflow — open it up,
+  // narrow it to a manifest, open it up again — announced full access ONCE
+  // and stayed silent through every later widening (SEC-14). Latching on the
+  // posture keeps repeated identical enables quiet while making each change
+  // of posture speak.
+  const posture = exposeAll ? 'all' : manifestMode ? 'manifest' : 'read-only'
+  const announce = posture !== lastPostureAnnounced && settings.quiet !== true
+  if (announce) lastPostureAnnounced = posture
+  if (readOnly && announce) {
     readOnlyNoticeGiven = true
     console.info(
       'tosijs agent: read-only introspection. describe/read/observe/changes/' +
-        'when/log work over everything; write() and call() refuse. Declare ' +
-        "expose: { roots, actions } for production, or expose: 'all' while " +
-        'developing.'
+        'when/log work over EVERYTHING in the registry — and this surface is ' +
+        `installed as globalThis.${
+          typeof global === 'string' ? global : 'tosiAgent'
+        }${
+          webmcp !== false
+            ? ' and published to any WebMCP host as tosi_describe/tosi_surface'
+            : ''
+        }. write() and call() refuse. Declare expose: { roots, actions } for ` +
+        "production, or expose: 'all' while developing."
     )
   }
-  if (exposeAll && !exposeAllWarningGiven && settings.quiet !== true) {
+  if (exposeAll && announce) {
     exposeAllWarningGiven = true
     console.warn(
       "tosijs agent: expose: 'all' — every state root is readable, WRITABLE " +
@@ -766,9 +946,21 @@ export function enableAgentInterface(
 
   // writes are gated on declared ROOTS only: a declared action is callable,
   // not writable — otherwise `actions: ['app.checkout']` would let an agent
-  // REPLACE app.checkout (a function) with agent-supplied data
+  // REPLACE app.checkout (a function) with agent-supplied data.
+  //
+  // Consulting the roots alone did not actually achieve that, because an
+  // action normally LIVES under a declared root: with
+  // `{ roots: ['app'], actions: ['app.checkout'] }`,
+  // `write('app.checkout', 'x')` disabled the action and `write('app', {})`
+  // wiped every one of them (SEC-9). So a write is refused when it lands ON
+  // a declared action, UNDER one, or on an ancestor that CONTAINS one.
+  const hitsDeclaredAction = (path: string): boolean =>
+    (exposedActions ?? []).some(
+      (action) => extendsPath(action, path) || extendsPath(path, action)
+    )
   const writable = (path: string): boolean =>
-    !manifestMode || (roots ?? []).some((root) => extendsPath(root, path))
+    !hitsDeclaredAction(path) &&
+    (!manifestMode || (roots ?? []).some((root) => extendsPath(root, path)))
 
   const assertScope = (path: string): void => {
     if (!inScope(path)) {
@@ -780,6 +972,8 @@ export function enableAgentInterface(
 
   /** the verbs that CHANGE things need consent; looking does not */
   const assertMutable = (verb: string, path: string): void => {
+    const allowed = verb === 'call' ? callsAllowed : writesAllowed
+    if (allowed) return
     if (readOnly) {
       throw new Error(
         `agent interface: ${verb}("${path}") refused — this surface is ` +
@@ -788,6 +982,11 @@ export function enableAgentInterface(
           } } to allow it, or expose: 'all' while developing.`
       )
     }
+    throw new Error(
+      `agent interface: ${verb}("${path}") refused — this manifest exposes ` +
+        'its roots for reading only. Add write: true to the manifest to ' +
+        "allow writes, or use expose: 'all' while developing."
+    )
   }
 
   // the audit ledger — one global observer; every touch lands here.
@@ -821,8 +1020,16 @@ export function enableAgentInterface(
 
   const read = (path: string): any => {
     assertScope(path)
-    return serialize(xin[path])
+    refreshSecretPaths()
+    if (isSecretPath(path)) return SECRET_SENTINEL
+    const value = serialize(xin[path])
+    // an ANCESTOR read must not hand back what a direct read refuses
+    return containsSecret(path) ? redactWithin(path, value) : value
   }
+
+  // one scan at enable time, so the very first read is already redacted
+  // even if the caller never asks for a description
+  refreshSecretPaths()
 
   const surface: AgentInterface = {
     describe(
@@ -833,6 +1040,10 @@ export function enableAgentInterface(
         view?: 'page' | 'viewport'
       } = {}
     ): AgentDescription {
+      // learn the secret-bound paths BEFORE any record harvests a value:
+      // within a single walk, an element bound to the same path could be
+      // visited before the password field that makes it secret
+      refreshSecretPaths()
       const viewportView = options.view === 'viewport'
       const rootNames = manifestMode
         ? (roots ?? []).slice()
@@ -889,6 +1100,10 @@ export function enableAgentInterface(
                 continue
               }
               const name = bindingName(b.binding)
+              // remember the PATH, so read/changes/when redact it too — the
+              // map publishes this path, so withholding only the DOM value
+              // would just be telling the agent what to ask for
+              if (record.secret === true) secretPaths.add(b.path)
               if (name != null && record[name] === undefined) {
                 record[name] = boundValue(
                   b.path,
@@ -908,6 +1123,13 @@ export function enableAgentInterface(
           }
           if (eventBindings != null) {
             const on: Record<string, string | string[]> = {}
+            // SCOPE COMES FROM PROVENANCE, NEVER FROM THE RENDERED STRING.
+            // This used to test `name !== 'ƒ'`, so a plain named function
+            // (`button({ onClick: addItem })` — our own documented idiom)
+            // rendered as "ƒ addItem", counted as in-scope, and dragged the
+            // element's text and live value into a manifest-scoped map. A
+            // plain function has no path and can never be in-manifest.
+            let anyHandlerInScope = false
             for (const [type, set] of Object.entries(eventBindings)) {
               // MANIFEST SCOPE APPLIES HERE TOO. Data bindings were filtered
               // but handlers were not, so an allowlisted surface published
@@ -920,7 +1142,11 @@ export function enableAgentInterface(
                   // a by-path handler outside the manifest is not ours to
                   // name — report it as anonymous rather than leaking the
                   // path (the element is still visibly interactive)
-                  return inScope(h) ? h : 'ƒ'
+                  if (inScope(h)) {
+                    anyHandlerInScope = true
+                    return h
+                  }
+                  return 'ƒ'
                 }
                 // on() normalizes proxies to paths at registration; this is
                 // defense for handlers registered around it. A raw function
@@ -941,20 +1167,22 @@ export function enableAgentInterface(
               record.on = on
               // in manifest mode, handlers that are ALL out of scope do not
               // make this element part of the exposed surface
-              const anyInScope = Object.values(on)
-                .flatMap((v) => (Array.isArray(v) ? v : [v]))
-                .some((name) => name !== 'ƒ')
-              if (!manifestMode || anyInScope) wired = true
+              if (!manifestMode || anyHandlerInScope) wired = true
             }
           }
           // static text, when textContent isn't already surfaced as bound
           if (record.text === undefined) {
-            const text = (el.textContent || '').trim().slice(0, 40)
+            const text = stripArrows((el.textContent || '').trim()).slice(0, 40)
             if (text) record.text = text
           }
           // an UNBOUND form control still holds a live value — harvest it
-          // (no provenance arrow: a plain string means "current, not bound")
+          // (no provenance arrow: a plain string means "current, not bound").
+          // NOT in manifest mode: an allowlist that hides `read('app.pin')`
+          // must not hand the same digits over as DOM content, and an
+          // unbound control's value is by definition outside every declared
+          // root.
           if (
+            !manifestMode &&
             record.value === undefined &&
             record.checked === undefined &&
             record.secret !== true &&
@@ -962,7 +1190,9 @@ export function enableAgentInterface(
               record.tag === 'textarea' ||
               record.tag === 'select')
           ) {
-            const liveValue = String((el as any).value ?? '').slice(0, 40)
+            const liveValue = stripArrows(
+              String((el as any).value ?? '')
+            ).slice(0, 40)
             if (liveValue) record.value = liveValue
           }
           // links are affordances in themselves — a bare <a href> is on
@@ -974,7 +1204,10 @@ export function enableAgentInterface(
           // affordance in itself, mapped even before bindings attach
           if (record.contentEditable === true) {
             if (record.value === undefined) {
-              const liveText = (el.textContent || '').trim().slice(0, 40)
+              const liveText = stripArrows((el.textContent || '').trim()).slice(
+                0,
+                40
+              )
               if (liveText) record.value = liveText
             }
             wired = true
@@ -1146,6 +1379,7 @@ export function enableAgentInterface(
           : exposeAll
           ? 'introspection'
           : 'read-only',
+        writable: writesAllowed,
       }
       // inline declarations fill the contract; top-level curation OVERRIDES
       // on collision — declare where you build, curate at the top
@@ -1269,6 +1503,17 @@ export function enableAgentInterface(
       if (typeof fn !== 'function') {
         throw new Error(`agent interface: "${actionPath}" is not an action`)
       }
+      // THE INVOCATION IS THE AUDIT EVENT. The ledger records in-scope
+      // TOUCHES, so a call-only surface (`roots: []`) mutating state through
+      // its action left no trace at all — the one posture where the app has
+      // told us exactly what an agent is allowed to do was the one where the
+      // log went blank. Arguments are deliberately not recorded: they are
+      // arbitrary caller data and can carry secrets.
+      record({
+        seq: ++seq,
+        path: actionPath,
+        note: `call: ${args.length} arg${args.length === 1 ? '' : 's'}`,
+      })
       return fn(...args)
     },
 
@@ -1276,6 +1521,7 @@ export function enableAgentInterface(
     // otherwise the first settling round where it does
     when(path: string, predicate: (value: any) => boolean): Promise<any> {
       assertScope(path)
+      refreshSecretPaths()
       const current = serialize(xin[path])
       let alreadySatisfied: boolean
       try {
@@ -1286,7 +1532,15 @@ export function enableAgentInterface(
       }
       if (alreadySatisfied) {
         record({ seq: ++seq, path, note: 'when: already satisfied' })
-        return Promise.resolve(current)
+        // resolve through read() so a secret-bound path redacts here exactly
+        // as it does on a direct read. The PREDICATE still sees the truth —
+        // it has to, or a condition on a secret could never be expressed —
+        // and that is not a hole: a predicate is a live function, so anyone
+        // who can pass one already runs code in this page. What matters is
+        // that the value handed BACK travels the same redacted channel as
+        // read(), which is the one a WebMCP host or a serialized transport
+        // can actually reach.
+        return Promise.resolve(read(path))
       }
       record({
         seq: ++seq,
@@ -1313,7 +1567,7 @@ export function enableAgentInterface(
           }
           if (satisfied) {
             record({ seq: ++seq, path, note: 'when: resolved' })
-            settle(() => resolve(value))
+            settle(() => resolve(read(path)))
           }
         })
         subscriptions.add(listener)

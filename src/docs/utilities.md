@@ -7,6 +7,7 @@ These are lightweight but powerful general useful things. They're used internall
 - [agent (EXPERIMENTAL)](/agent/)
 - [audit (EXPERIMENTAL)](/audit/)
 - [contract harness (EXPERIMENTAL)](/contract/)
+- [contract validation](/contract-check/)
 - [hotReload](/hot-reload/)
 - [more-math](/more-math/)
 - [schematic (EXPERIMENTAL)](/schematic/)

@@ -76,6 +76,15 @@ describe('the scaffolder — bunx tosijs create …', () => {
     const html = readFileSync(join(dir, 'neat-thing/index.html'), 'utf-8')
     expect(html).toContain('<tosi-blueprint tag="neat-thing"')
     expect(html).toContain('<neat-thing></neat-thing>')
+    // THE WRAPPER IS LOAD-BEARING: hydration runs from <tosi-loader>'s
+    // connectedCallback, so a bare <tosi-blueprint> renders nothing and says
+    // nothing. The substring match above passed happily on that broken
+    // markup — and shipped it into the user's published README.
+    expect(html).toMatch(
+      /<tosi-loader>\s*<tosi-blueprint tag="neat-thing"[^>]*><\/tosi-blueprint>\s*<\/tosi-loader>/
+    )
+    const readme = readFileSync(join(dir, 'neat-thing/README.md'), 'utf-8')
+    expect(readme).toContain('<tosi-loader>')
   })
 
   test('THE PROOF: a scaffolded component passes its own harness, out of the box', async () => {

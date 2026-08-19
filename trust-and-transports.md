@@ -24,9 +24,12 @@ problems now, with their planned answers:
   prerequisite for production write access, not an enhancement.** Manifest
   mode alone scopes _which_ paths an agent may write, but nothing about what
   it writes there — a scoped agent can still silently install illegal states
-  the visual UI could never have produced. Until contracts land, the honest
-  production posture is read/observe/call-only; open `write()` is a dev-mode
-  affordance.
+  the visual UI could never have produced. **Contracts landed in 1.8.0** —
+  `expose.contract`, component `static contract`, inline element `contract` —
+  so the honest production posture is a manifest whose writable roots are
+  contracted. A manifest is read/observe/call-only by default: writing needs
+  `write: true`, and open `write()` over everything (`expose: 'all'`) remains
+  a dev-mode affordance.
 - **Capability scoping.** "Run agent logic" must not mean "eval in my page."
   **tjs-lang's AJS** — gas-metered sandbox with injected capabilities — is the
   boundary: the sandbox receives a proxy scoped to exposed roots, nothing else.

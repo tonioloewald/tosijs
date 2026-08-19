@@ -79,7 +79,9 @@ function blueprintFormSource(tag) {
  *
  * Consume WITHOUT a build step, straight from markup:
  *
- *     <tosi-blueprint tag="${tag}" src="./path/to/${tag}.js"></tosi-blueprint>
+ *     <tosi-loader>
+ *       <tosi-blueprint tag="${tag}" src="./path/to/${tag}.js"></tosi-blueprint>
+ *     </tosi-loader>
  *     <${tag}></${tag}>
  *
  * …or in code: \`makeComponent('${tag}', blueprint)\`. The type-only tosijs
@@ -146,7 +148,9 @@ function createComponent(tag, bare) {
   console.log(bare ? `
 import { ${camel(tag)} } from './${tag}' and append ${camel(tag)}()` : `
 consume from markup:
-  <tosi-blueprint tag="${tag}" src="./${file.replace(/\.ts$/, ".js")}"></tosi-blueprint>
+  <tosi-loader>
+    <tosi-blueprint tag="${tag}" src="./${file.replace(/\.ts$/, ".js")}"></tosi-blueprint>
+  </tosi-loader>
   <${tag}></${tag}>
 or in code: makeComponent('${tag}', blueprint)`);
 }
@@ -179,11 +183,16 @@ function createBlueprint(tag) {
   write(join(tag, "index.html"), `<!DOCTYPE html>
 <title>${tag}</title>
 <script type="module">
-  // registers <tosi-blueprint> (and still hydrates pre-rename xinjs blueprints)
+  // registers <tosi-blueprint>/<tosi-loader> (and still hydrates pre-rename
+  // xinjs blueprints). The <tosi-loader> WRAPPER IS REQUIRED: hydration is
+  // driven by the loader's connectedCallback, so a bare <tosi-blueprint>
+  // renders nothing, silently — which is what this scaffold used to emit.
   import 'https://cdn.jsdelivr.net/npm/tosijs@${version}/dist/module.js'
 </script>
 <h1>${tag}</h1>
-<tosi-blueprint tag="${tag}" src="./dist/index.js"></tosi-blueprint>
+<tosi-loader>
+  <tosi-blueprint tag="${tag}" src="./dist/index.js"></tosi-blueprint>
+</tosi-loader>
 <${tag}></${tag}>
 `);
   write(join(tag, "README.md"), `# ${tag}
@@ -194,7 +203,9 @@ A [tosijs](https://tosijs.net) blueprint: a component consumers load
     <script type="module">
       import 'https://cdn.jsdelivr.net/npm/tosijs@${version}/dist/module.js'
     </script>
-    <tosi-blueprint tag="${tag}" src="https://cdn.jsdelivr.net/npm/${tag}@0.1.0/dist/index.js"></tosi-blueprint>
+    <tosi-loader>
+      <tosi-blueprint tag="${tag}" src="https://cdn.jsdelivr.net/npm/${tag}@0.1.0/dist/index.js"></tosi-blueprint>
+    </tosi-loader>
     <${tag}></${tag}>
 
 The bundle has zero dependencies (tosijs arrives via the hydration factory),
@@ -260,7 +271,8 @@ document.querySelector('#app')!.append(
 // where the browser provides a host.
 //
 // This is the PRODUCTION shape — an allowlist. Nothing outside it can be
-// read, written or called:
+// read, written or called, and a manifest scopes SIGHT only: add
+// \`write: true\` when you want an agent to be able to change this state.
 enableAgentInterface({
   expose: {
     roots: ['app'],
@@ -286,11 +298,22 @@ self-describes there and self-verifies via \`exerciseComponent()\`.
 ## the agent surface is an allowlist
 
 \`src/app.ts\` enables it in the production shape: only what you name under
-\`expose.roots\` / \`expose.actions\` can be read, written or called. Widen it
-while developing with \`enableAgentInterface({ expose: 'all' })\` — that makes
-every state root readable, writable and callable through a global any script
-on the page can reach, so it is a development affordance, not a default.
-Omitting \`expose\` entirely gives read-only introspection.
+\`expose.roots\` / \`expose.actions\` can be read or called, and a manifest
+scopes SIGHT — add \`write: true\` to let an agent change that state. Widen it
+while developing with \`enableAgentInterface({ expose: 'all' })\` — every
+state root readable, writable and callable — so it is a development
+affordance, not a default. Omitting \`expose\` entirely gives read-only
+introspection over everything.
+
+Two things to know either way. The surface installs itself as
+\`globalThis.tosiAgent\` unless you pass \`global: false\`; that global is a
+convenience, not a boundary — any script already running on your origin can
+reach your state with or without it — but it is worth turning off in a page
+that hosts third-party script. And \`expose\` scopes STATE, not the map:
+\`describe()\` walks the whole page in every mode, and \`describe({ scope })\`
+is the knob that narrows THAT. In a freshly scaffolded app \`roots: ['app']\`
+is the entire state tree, so the narrowing starts out nil — it becomes real
+as your state grows past what an agent needs.
 `);
   console.log(`
 cd ${name} && bun install && bun start`);

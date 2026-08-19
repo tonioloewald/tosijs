@@ -52,7 +52,9 @@ itself by execution, and a declaration that feeds tests is load-bearing —
 it breaks visibly when it lies.</p>
 <pre><code>import { enableAgentInterface, exerciseContract } from &#39;tosijs&#39;
 
-const agent = enableAgentInterface({ expose: { roots, contract } })
+const agent = enableAgentInterface({
+  expose: { roots, contract, write: true },
+})
 const report = exerciseContract(agent)
 // report.failed === 0, or report.trials says exactly what lied
 </code></pre>
@@ -112,6 +114,7 @@ the whole conformance suite, shippable over the wire.</p>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link current" href="../contract/" aria-current="page">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

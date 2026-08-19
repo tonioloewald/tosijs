@@ -2,6 +2,36 @@ import { defineSiteConfig } from 'tosijs-ui/site'
 
 const PROJECT = 'tosijs'
 
+// Preview host — `bun run deploy` (dry run) / `bun run deploy --go` pushes the
+// built site; `bun run tunnel` (tosijs-tunnel bin) exposes THIS machine's dev
+// server (magic-link -> session; requireToken defaults true) for remote
+// editing. Both deploy AND tunnel self-register their Caddy fragments on the
+// box (rc.1) — no shared-config hand-edits. Hostname convention:
+//   <project>.dev.<domain>       read-only static preview (shareable)
+//   <project>.edit.dev.<domain>  live workspace (session, always)
+// (the local loopback listener self-allocates as PORT + 1 since rc.2)
+//
+// The values live in `.env` (gitignored, auto-loaded by bun), NOT here: this
+// file is public, and a root SSH target plus a tunnel port is a free recon
+// step for anyone reading the repo. See `.env.example` for the names; the
+// remotePort registry is hand-picked per box (tosijs-ui#29), so it belongs
+// with the box, not with the project. With TOSIJS_PREVIEW_HOST unset the
+// preview block is omitted entirely and deploy/tunnel refuse to run — which
+// is the loud failure we want, not a deploy to somewhere unexpected.
+const previewHost = process.env.TOSIJS_PREVIEW_HOST
+const preview = previewHost
+  ? {
+      preview: {
+        host: previewHost,
+        url: process.env.TOSIJS_PREVIEW_URL,
+        tunnel: {
+          remotePort: Number(process.env.TOSIJS_TUNNEL_PORT) || undefined,
+          url: process.env.TOSIJS_TUNNEL_URL,
+        },
+      },
+    }
+  : {}
+
 export default defineSiteConfig({
   name: PROJECT,
   description:
@@ -69,30 +99,20 @@ export default defineSiteConfig({
   // source" read+write the actual repo files via /__docstore/source. Off by
   // default, which makes edit-source fall back to GitHub raw (the last COMMITTED
   // version) — so local, uncommitted edits show stale until this is enabled.
-  editableSources: true,
+  //
+  // Opt-in per session (`TOSI_EDIT=1 bun start`) rather than always-on: the
+  // write endpoint authorizes on the peer address alone, so while `bun start`
+  // runs, ANY page you visit can POST to it cross-origin (no preflight — the
+  // handler JSON-parses a text/plain body), and the confinement-to-repo-root
+  // includes `.git/hooks/*`. Firefox does not block it. Upstream fix filed:
+  // see UPSTREAM.md § tosijs-ui.
+  editableSources: process.env.TOSI_EDIT === '1',
 
   // pop (or reuse) a browser tab on interactive dev-server start — self-skips
   // for CI, test mode, and non-TTY launches (e.g. agent-driven background runs)
   openBrowser: true,
 
-  // Preview host — `bun run deploy` (dry run) / `bun run deploy --go` pushes the
-  // built site; `bun run tunnel` (tosijs-tunnel bin) exposes THIS machine's dev
-  // server (magic-link -> session; requireToken defaults true) for remote
-  // editing. Both deploy AND tunnel self-register their Caddy fragments on the
-  // box (rc.1) — no shared-config hand-edits. Hostname convention:
-  //   tosijs.dev.tosijs.net       read-only static preview (shareable)
-  //   tosijs.edit.dev.tosijs.net  live workspace (session, always)
-  // remotePort registry (still hand-picked — tosijs-ui#29):
-  //   9787 tosijs-ui, 9788 tosijs-3d, 9789 tosijs
-  // (the local loopback listener self-allocates as PORT + 1 since rc.2)
-  preview: {
-    host: 'root@212.147.248.15',
-    url: 'https://tosijs.dev.tosijs.net',
-    tunnel: {
-      remotePort: 9789,
-      url: 'https://tosijs.edit.dev.tosijs.net',
-    },
-  },
+  ...preview,
 
   // Inject the haltija dev-channel so a coding agent can drive the live dev
   // page via `hj` (dev-only, serve-time inject, never in built output) —

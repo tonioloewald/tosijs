@@ -29,67 +29,62 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
-  <title>metadata — tosijs</title>
-  <meta name="description" content="Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely." />
-  <link rel="canonical" href="https://tosijs.net/metadata/" />
+  <title>contract validation — tosijs</title>
+  <meta name="description" content="shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike." />
+  <link rel="canonical" href="https://tosijs.net/contract-check/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
-  <meta property="og:title" content="metadata — tosijs" />
-  <meta property="og:description" content="Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely." />
-  <meta property="og:url" content="https://tosijs.net/metadata/" />
+  <meta property="og:title" content="contract validation — tosijs" />
+  <meta property="og:description" content="shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike." />
+  <meta property="og:url" content="https://tosijs.net/contract-check/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"metadata","description":"Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely.","url":"https://tosijs.net/metadata/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"contract validation","description":"shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike.","url":"https://tosijs.net/contract-check/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
-<h1>metadata</h1>
-<h2><code>tosiAccessor(x: any): TosiAccessor | undefined</code></h2>
-<p><code>tosiAccessor</code> returns the collision-free accessor object from any boxed proxy,
-using the <code>TOSI_ACCESSOR</code> symbol internally. Returns <code>undefined</code> for non-proxy values.</p>
-<p>This is the guaranteed escape hatch — it works even if your data has a property
-named <code>tosi</code> that would shadow the <code>.tosi</code> convenience accessor.</p>
-<pre><code>import { tosiAccessor, TOSI_ACCESSOR } from &#39;tosijs&#39;
-
-const { app } = tosi({ app: { tosi: &#39;shadowed!&#39;, name: &#39;test&#39; } })
-
-// .tosi is always intercepted by the proxy (not shadowed in practice)
-app.tosi.path === &#39;app&#39;
-
-// tosiAccessor() and TOSI_ACCESSOR are guaranteed collision-free
-const acc = tosiAccessor(app)
-acc.path === &#39;app&#39;
-acc.value  // { tosi: &#39;shadowed!&#39;, name: &#39;test&#39; }
-
-// TOSI_ACCESSOR symbol works directly
-app[TOSI_ACCESSOR].path === &#39;app&#39;
-
-// returns undefined for non-proxy values
-tosiAccessor(&#39;hello&#39;) === undefined
-tosiAccessor({ foo: 1 }) === undefined
-</code></pre>
-<h2><code>xinValue(x: any): any</code> (deprecated)</h2>
-<p><code>xinValue</code> strips the <code>xin</code> or <code>boxed</code> proxy off of a value.
-Passes through non-proxy values unchanged. Prefer <code>.value</code> or <code>.tosi.value</code>.</p>
-<pre><code>import { boxed } from &#39;tosijs&#39;
-
-const foo = { bar: &#39;hello&#39;, baz: 17 }
-boxed.foo = foo
-
-boxed.foo.bar === foo.bar               // false, boxed.foo.bar is a proxy
-boxed.foo === foo                       // false, boxed.foo is a proxy
-boxed.foo.baz === 17                    // false, boxed.foo.baz is a proxy
-boxed.foo.bar.value === &#39;hello&#39;         // true (preferred)
-xinValue(boxed.foo.bar) === &#39;hello&#39;     // true
-boxed.foo.baz.value === 17              // true
-xinValue(boxed.foo) === xinValue(foo)   // true
-foo.xinValue                            // undefined! foo isn&#39;t a proxy
-</code></pre>
-<h2><code>xinPath(x: any): string | undefined</code> (deprecated)</h2>
-<p><code>xinPath</code> returns the path of a <code>xin</code> or <code>boxed</code> proxy. Returns <code>undefined</code>
-for non-proxy values. Prefer <code>.path</code> or <code>.tosi.path</code>.</p>
+<h1>contract validation</h1>
+<p>Contracts (a component&#39;s <code>static contract</code>, an element&#39;s inline <code>contract</code>)
+are enforced by one gate, shared by every declaration site. The gate is two
+layers:</p>
+<ol>
+<li><p>the <strong>built-in structural subset</strong> — <code>type</code>, <code>enum</code>, <code>const</code>. Zero
+dependencies, always on, covers the common case.</p>
+</li>
+<li><p>an optional <strong>full schema engine</strong> you register. Everything else a schema
+can say (<code>required</code>, <code>minimum</code>, <code>pattern</code>, <code>items</code>, …) is inert until you
+plug one in — tosijs warns once per unenforceable keyword set so a
+contract never quietly means less than it says.</p>
+<p> import { setContractValidator, getContractValidator } from &#39;tosijs&#39;
+ import { validate } from &#39;tosijs-schema&#39;</p>
+<p> setContractValidator((value, schema) =&gt;
+   validate(value, schema) ? true : new Error(&#39;schema violation&#39;)
+ )</p>
+</li>
+</ol>
+<p>A validator returns <code>true</code> or an <code>Error</code> whose <code>message</code> becomes the
+violation reason.</p>
+<h2>The plug is a security boundary</h2>
+<p>It is process-global: whoever calls it last decides what &quot;valid&quot; means for
+the whole app — including code you did not write but did bundle. So:</p>
+<ul>
+<li><strong>Replacing an installed validator warns</strong>, loudly, naming what was
+swapped for what. Removing one (<code>setContractValidator(null)</code>) warns too:
+uninstalling enforcement is the same event wearing a different hat.</li>
+<li><strong><code>getContractValidator()</code></strong> reads back what is actually installed, so an
+app, a test, or an audit can assert on it rather than assume.</li>
+<li><strong><code>setContractValidator(validate, { final: true })</code></strong> locks it: any later
+attempt to replace or remove it <strong>throws</strong> instead of warning. Lock in
+your own startup path and no dependency can downgrade you afterwards.</li>
+</ul>
+<p>Re-registering the <em>same</em> function is a no-op (a module evaluated twice, or
+hot reload, must not trip the lock).</p>
+<blockquote>
+<p>The built-in subset keeps running whatever happens here, so the worst a
+hostile replacement can do is a downgrade, not a bypass.</p>
+</blockquote>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
@@ -102,10 +97,10 @@ for non-proxy values. Prefer <code>.path</code> or <code>.tosi.path</code>.</p>
       <li><a class="doc-link" href="../color/">color</a></li>
     </ul>
     </details></li>
-    <li><details open><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
     <ul>
       <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
-      <li><a class="doc-link current" href="../metadata/" aria-current="page">metadata</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
       <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
       <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
     </ul>
@@ -123,12 +118,12 @@ for non-proxy values. Prefer <code>.path</code> or <code>.tosi.path</code>.</p>
       <li><a class="doc-link" href="../form-validation/">Validation</a></li>
     </ul>
     </details></li>
-    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
-      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
+      <li><a class="doc-link current" href="../contract-check/" aria-current="page">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

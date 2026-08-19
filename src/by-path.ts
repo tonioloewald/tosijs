@@ -106,11 +106,47 @@ function keyToIndex(array: XinObject[], idPath: string, idValue: any): number {
   return idx
 }
 
+/**
+ * Path segments that would escape the object graph into the prototype chain.
+ * A path is untrusted data — it arrives from an agent, a WebMCP host, a
+ * sync server or a peer tab — so a segment must never be able to reach
+ * `Object.prototype`. Rejected at the SINK, which covers every caller at
+ * once: `agent.write()`, its contract proposal clone, `share()` and
+ * `sync()`. (Found by the 1.8.0 security pass: a manifest-scoped
+ * `write('app.cart.__proto__.isAdmin', true)` polluted Object.prototype
+ * origin-wide, left the registry untouched so nothing showed in the map or
+ * the audit ledger, and passed a schema contract — because the polluted
+ * write never appeared in the proposed value being validated.)
+ */
+const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
+
+export class UnsafePathError extends Error {
+  constructor(key: string) {
+    super(
+      `unsafe path segment "${key}": __proto__, constructor and prototype ` +
+        'cannot appear in a state path (they would escape the object graph ' +
+        'into the prototype chain)'
+    )
+    this.name = 'UnsafePathError'
+  }
+}
+
+/** throws on a segment that would reach the prototype chain */
+export function assertSafeKey(key: string): void {
+  if (FORBIDDEN_SEGMENTS.has(key)) throw new UnsafePathError(key)
+}
+
 function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
-  if (obj[key] === undefined && valueToInsert !== undefined) {
+  assertSafeKey(key)
+  // hasOwnProperty, not `=== undefined`: an INHERITED member (toString,
+  // valueOf, …) is not a container we may descend into or overwrite
+  if (
+    !Object.prototype.hasOwnProperty.call(obj, key) &&
+    valueToInsert !== undefined
+  ) {
     obj[key] = valueToInsert
   }
-  return obj[key]
+  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined
 }
 
 function byIdPath(
@@ -246,6 +282,7 @@ function setByPath(
           // if we're at the end of part.length then we need to insert an array
           obj = byKey(obj as XinObject, key, part.length > 0 ? {} : [])
         } else {
+          assertSafeKey(key)
           if (val !== _delete_) {
             if ((obj as XinObject)[key] === val) {
               return false

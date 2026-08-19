@@ -83,12 +83,16 @@ registration shape the host offers (<code>registerTool</code> per tool, or
 <td>the live affordance map — start here</td>
 </tr>
 <tr>
+<td><code>tosi_surface</code></td>
+<td>what this surface IS: version + capabilities</td>
+</tr>
+<tr>
 <td><code>tosi_read</code></td>
-<td>serializable value at a path</td>
+<td>serializable value at a path — <strong>scoped surfaces only</strong></td>
 </tr>
 <tr>
 <td><code>tosi_changes</code></td>
-<td>turn drain: final-value-per-path since your cursor</td>
+<td>turn drain: final-value-per-path since your cursor — <strong>scoped surfaces only</strong></td>
 </tr>
 <tr>
 <td><code>tosi_act_&lt;path&gt;</code></td>
@@ -99,10 +103,21 @@ registration shape the host offers (<code>registerTool</code> per tool, or
 <td>direct state writes — <strong>dev-gated</strong> (see below)</td>
 </tr>
 </tbody></table>
-<p><code>tosi_write</code> registers only in introspection mode (or with an explicit
-<code>allowWrites: true</code>): production surfaces are read/observe/call-only until
-state-level contracts land — an unvalidated write tool is an RPC endpoint
-with good documentation.</p>
+<p><code>tosi_write</code> registers only with an explicit <code>allowWrites: true</code>: an
+unvalidated write tool is an RPC endpoint with good documentation.</p>
+<p><code>tosi_read</code> and <code>tosi_changes</code> register only once the surface says what it
+exposes — <code>expose: { roots: [...] }</code> or <code>expose: &#39;all&#39;</code> — or with an
+explicit <code>allowReads: true</code>. The no-options default is read-only over the
+<strong>whole registry</strong>, and a browser agent is a different principal: an
+unscoped read of everything shouldn&#39;t be published to the page&#39;s tool
+registry as a side effect of one unargumented call. The introspection tools
+still register: they report the DOM an agent can already see, and the map is
+the point.</p>
+<p>Tool names are global to the page. Where another script (or a second
+surface) already owns <code>tosi_*</code>, pass a distinct <code>prefix</code> — the adapter
+reports any generated tool the host did not take as a <code>console.error</code>,
+because a name you didn&#39;t get is a name an agent will reach <em>someone else</em>
+through.</p>
 <blockquote>
 <p><strong>EXPERIMENTAL.</strong> The WebMCP spec is churning; the adapter is deliberately
 tolerant of both registration shapes and takes an injected host for tests.</p>
@@ -145,6 +160,7 @@ tolerant of both registration shapes and takes an injected host for tests.</p>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

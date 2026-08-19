@@ -216,7 +216,18 @@ async function buildLibrary() {
   // bundles that exported names whose definitions had been shaken away
   // ("H6 is not declared") — green tests, green tsc, green lint, broken
   // package. Only executing the artifact catches that class of defect.
-  for (const bundle of ['module.js', 'core.js', 'state.js', 'index.js']) {
+  // module.debug/module.safe are PUBLISHED entry points (tosijs/debug,
+  // tosijs/safe) and were absent from this loop and from the size budgets —
+  // the two bundles built by the least-trusted toolchain (tjs convert) were
+  // the two nobody executed before publishing (1.8.0 security pass, SEC-15).
+  for (const bundle of [
+    'module.js',
+    'core.js',
+    'state.js',
+    'index.js',
+    'module.debug.js',
+    'module.safe.js',
+  ]) {
     const probe = Bun.spawnSync(
       [
         'bun',
@@ -249,7 +260,10 @@ async function buildLibrary() {
       throw new Error(`dist/${bundle} does not import cleanly`)
     }
   }
-  console.log('smoke import: module.js, core.js, state.js, index.js all load')
+  console.log(
+    'smoke import: module.js, core.js, state.js, index.js, module.debug.js, ' +
+      'module.safe.js all load'
+  )
 
   // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom
   // globals before importing, so a top-level `document.` anywhere reachable
@@ -289,19 +303,32 @@ async function buildLibrary() {
   // compat, the manifest/password/teardown fixes, and the path helpers that
   // make tosijs/state a true subset) — the gate caught it on its first run,
   // which is the gate working.
+  // RAISED DELIBERATELY for the 1.8.0 security pass (+~1.7 kB on module.js):
+  // the path-segment guard at the setByPath sink, path-level secret
+  // redaction, the write/read posture split, arrow neutralization, escaped
+  // id lookups, contract-validator locking and the WebMCP revocation
+  // bookkeeping — plus the doc-block prose that explains them. The gate
+  // caught it on the first run after the fixes, which is the gate working.
   const budgets: Record<string, number> = {
-    'index.js': 28_000, // the <script>/CDN artifact — no tree-shaking
-    'module.js': 39_000, // everything; ESM consumers shake it
-    'main.js': 39_500, // CJS — also cannot shake
-    'core.js': 25_500,
+    'index.js': 29_000, // the <script>/CDN artifact — no tree-shaking
+    'module.js': 42_000, // everything; ESM consumers shake it
+    'main.js': 42_500, // CJS — also cannot shake
+    'core.js': 26_500,
     'state.js': 17_500,
+    // the tjs-built EXPERIMENTAL entries (tosijs/debug, tosijs/safe). They
+    // ship complete per-function __tjs metadata, hence the ~12 kB over
+    // module.js — that overhead is the POINT, so the budget is generous;
+    // it exists to catch it doubling, not to hold it down. They were
+    // published with no gate at all before the 1.8.0 security pass.
+    'module.debug.js': 56_000,
+    'module.safe.js': 56_000,
   }
   const sizes: string[] = []
   for (const [file, budget] of Object.entries(budgets)) {
-    const bytes = gzipSync(
-      await Bun.file(`${DIST}/${file}`).bytes()
-    ).length
-    sizes.push(`${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`)
+    const bytes = gzipSync(await Bun.file(`${DIST}/${file}`).bytes()).length
+    sizes.push(
+      `${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`
+    )
     if (bytes > budget) {
       throw new Error(
         `${file} is ${bytes} gzipped, over its ${budget} budget. Either the ` +

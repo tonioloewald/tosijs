@@ -69,9 +69,12 @@ Stated as sharply as it deserves: <strong>state-level validation is a hard
 prerequisite for production write access, not an enhancement.</strong> Manifest
 mode alone scopes <em>which</em> paths an agent may write, but nothing about what
 it writes there — a scoped agent can still silently install illegal states
-the visual UI could never have produced. Until contracts land, the honest
-production posture is read/observe/call-only; open <code>write()</code> is a dev-mode
-affordance.</li>
+the visual UI could never have produced. <strong>Contracts landed in 1.8.0</strong> —
+<code>expose.contract</code>, component <code>static contract</code>, inline element <code>contract</code> —
+so the honest production posture is a manifest whose writable roots are
+contracted. A manifest is read/observe/call-only by default: writing needs
+<code>write: true</code>, and open <code>write()</code> over everything (<code>expose: &#39;all&#39;</code>) remains
+a dev-mode affordance.</li>
 <li><strong>Capability scoping.</strong> &quot;Run agent logic&quot; must not mean &quot;eval in my page.&quot;
 <strong>tjs-lang&#39;s AJS</strong> — gas-metered sandbox with injected capabilities — is the
 boundary: the sandbox receives a proxy scoped to exposed roots, nothing else.
@@ -145,6 +148,7 @@ browser at all.</li>
       <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
       <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>

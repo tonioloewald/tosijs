@@ -57,6 +57,23 @@ there when the rc publishes.
 
 ## tosijs-ui
 
+### 🚧 FILED — `/__docstore/source` is CSRF-able: local code execution
+
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/90
+While `bun start` runs with `editableSources: true`, any page the maintainer
+visits can `fetch()` a `text/plain` body (CORS-safelisted, so no preflight) at
+`https://localhost:8018/__docstore/source`; `handleWriteSource` JSON-parses it
+regardless of content type, and `mayWriteSource` authorizes direct traffic on
+the loopback peer alone — the session cookie is never consulted. `resolveInRepo`
+confines to the repo root, which **contains `.git/hooks/*`**, so the write is
+local code execution at the next commit. Chromium's Private Network Access
+blocks it today; Firefox does not. Asked for: require the browser-set
+`Sec-Fetch-Site: same-origin`, and reject bodies whose Content-Type is not
+`application/json` (the latter alone forces a preflight and kills the attack).
+**Mitigated here** in `tosijs-site.config.ts` — `editableSources` is now
+`process.env.TOSI_EDIT === '1'`, so the endpoint is off unless a session asks
+for it (tosijs 1.8.0-rc security review, SEC-5).
+
 ### 🚧 Doc-test lane should use `haltija --private`; surface the `haltijaDev` opt-in
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/18
@@ -102,6 +119,21 @@ record-format questions go to github.com/tonioloewald/tosijs-schematic
 issues (repo redirects post-rename), mirrored here. Adopting a new
 version = bump the devDep, `bun update`, rebuild, sync any output-truth
 tests deliberately.
+
+### 🚧 FILED — Provenance-arrow parsing is forgeable from data (tosijs 1.8.0 SEC-8)
+
+**Issue:** https://github.com/tonioloewald/tosijs-floorplan/issues/5
+The renderer splits `"<value> ⟷ <path>"` with `indexOf` and decides
+editability with `.includes(BOUND_TWO_WAY)`, so a bound string whose VALUE
+contains the token forges an arrow: the shown value truncates at the fake
+one, and a plain non-interactive element gets drawn with the `↔` badge and
+the actable outline — a drawing that lies about what the page can do.
+tosijs fixed the producer side in 1.8.0 (both tokens are neutralized to
+`<->` / `<-` inside harvested values and text), but a renderer consumes
+maps it did not generate — over a wire, from an older tosijs, or from
+another producer — so the parse should be robust on its own:
+`lastIndexOf`, and decide editability from the arrow at that position
+rather than from a bare `includes`. **Filed upstream.**
 
 ### 🚧 FILED — Target-size + "is interactive" implemented twice, and they disagree
 

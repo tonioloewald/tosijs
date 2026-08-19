@@ -1,6 +1,11 @@
 import { Component } from './component';
 import { TosiPackagedComponent } from './make-component';
 /**
+ * Why a blueprint `src` was refused, or `null` if it's allowed. Exported for
+ * testing and for apps that want to pre-flight a URL through the same rules.
+ */
+export declare function blueprintSrcRefusal(src: string, el?: Element): string | null;
+/**
  * Replace the module loader (mainly for testing failure/retry paths — the
  * default uses dynamic `import()`, which tests cannot intercept).
  */

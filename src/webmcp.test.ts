@@ -10,6 +10,23 @@ afterEach(() => {
   current = undefined
 })
 
+/** run fn with console.warn/error captured (and out of the test output) */
+const captured = <T>(
+  fn: () => T
+): { result: T; warnings: string[]; errors: string[] } => {
+  const warnings: string[] = []
+  const errors: string[] = []
+  const [warn, error] = [console.warn, console.error]
+  console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+  console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+  try {
+    return { result: fn(), warnings, errors }
+  } finally {
+    console.warn = warn
+    console.error = error
+  }
+}
+
 describe('webmcpTools — the tools write themselves', () => {
   test('core tools plus one named tool per discovered action', async () => {
     tosi({
@@ -208,9 +225,11 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
         // returns nothing: no unregister handle, no unregisterTool — Canary
       },
     }
+    // both roots declared: tosi_read publishes only for a scoped surface
     current = enableAgentInterface({
       global: false,
       webmcp: { modelContext: host },
+      expose: { roots: ['mcpDup', 'mcpDupPriv'] },
     })
     const count = registered.length
     const readTool = registered.find((t) => t.name === 'tosi_read')
@@ -273,19 +292,17 @@ describe('a refused tool is not a registered tool (review M23)', () => {
         return { unregister() {} }
       },
     }
-    const warnings: string[] = []
-    const original = console.warn
-    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
-    let mcp: any
-    try {
-      mcp = webmcpAdapter(agent, { modelContext: host })!
-    } finally {
-      console.warn = original
-    }
+    const {
+      result: mcp,
+      warnings,
+      errors,
+    } = captured(() => webmcpAdapter(agent, { modelContext: host })!)
     // the receipt does not claim a tool the host never received
     expect(mcp.tools).toEqual(accepted)
     expect(mcp.tools).not.toContain('tosi_changes')
     expect(warnings.some((w) => w.includes('tosi_changes'))).toBe(true)
+    // …and the gap between generated and held is escalated (SEC-12)
+    expect(errors.some((e) => e.includes('tosi_changes'))).toBe(true)
 
     // …and the failure did not blacklist the name: a later attempt retries
     const retryHost = {
@@ -319,5 +336,193 @@ describe('B5: advertise only what the surface will execute', () => {
     expect(
       webmcpTools(acting).some((t) => t.name === 'tosi_act_readOnlyTools_go')
     ).toBe(true)
+  })
+})
+
+describe('SEC-7: an unscoped read-only surface publishes no read tools', () => {
+  test('read/changes need a declared scope — or explicit allowReads', async () => {
+    tosi({ sec7: { x: 1 }, sec7Private: { token: 'CSRF-TOKEN-123' } })
+    await updates()
+    // the no-options default reads the WHOLE registry: publishing that to a
+    // model-context host is a cross-principal disclosure nobody asked for
+    const bare = (current = enableAgentInterface({ global: false }))
+    const bareNames = webmcpTools(bare).map((t) => t.name)
+    expect(bareNames).toContain('tosi_describe')
+    expect(bareNames).toContain('tosi_surface')
+    expect(bareNames).not.toContain('tosi_read')
+    expect(bareNames).not.toContain('tosi_changes')
+    // the surface can still read — this is a PUBLICATION gate, not a verb gate
+    expect(bare.read('sec7Private.token')).toBe('CSRF-TOKEN-123')
+    // …and the author can still opt in deliberately
+    const consenting = webmcpTools(bare, { allowReads: true }).map(
+      (t) => t.name
+    )
+    expect(consenting).toContain('tosi_read')
+    expect(consenting).toContain('tosi_changes')
+    bare.disable()
+
+    // declaring what's exposed re-enables them: reads are now bounded
+    const scoped = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['sec7'] },
+    }))
+    const scopedNames = webmcpTools(scoped).map((t) => t.name)
+    expect(scopedNames).toContain('tosi_read')
+    expect(scopedNames).toContain('tosi_changes')
+    scoped.disable()
+
+    // as does introspection mode, which is deliberate by definition
+    const all = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    expect(webmcpTools(all).map((t) => t.name)).toContain('tosi_read')
+  })
+
+  test('auto-registration on a host obeys the same gate', () => {
+    tosi({ sec7Host: { x: 1 } })
+    const registered: string[] = []
+    const host = {
+      registerTool(tool: any) {
+        registered.push(tool.name)
+        return { unregister() {} }
+      },
+    }
+    current = enableAgentInterface({
+      global: false,
+      webmcp: { modelContext: host },
+    })
+    expect(registered).toEqual(['tosi_describe', 'tosi_surface'])
+    expect(current.webmcp?.tools).toEqual(registered)
+  })
+})
+
+describe('SEC-11: revocation must not be a claim the host cannot keep', () => {
+  test('the receipt lists tools the host is holding but cannot give back', () => {
+    tosi({ sec11Held: { x: 1 } })
+    const registered: string[] = []
+    const host = {
+      registerTool(tool: any) {
+        registered.push(tool.name)
+        // Canary: no handle, no unregisterTool
+      },
+    }
+    current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['sec11Held'] },
+      webmcp: { modelContext: host },
+    })
+    const first = current.webmcp?.tools ?? []
+    expect(first).toContain('tosi_read')
+
+    // re-enable on the same host: nothing new is registered, but every one
+    // of those tools is still live and still late-bound to this surface —
+    // the receipt used to omit exactly the tools nobody can withdraw
+    current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['sec11Held'] },
+      webmcp: { modelContext: host },
+    })
+    expect(registered.length).toBe(first.length) // no duplicate registrations
+    expect(current.webmcp?.tools).toEqual(first)
+  })
+
+  test('narrowing revokes: a dropped tool is overwritten with a refusing stub', () => {
+    tosi({ sec11Narrow: { x: 1 } })
+    const live = new Map<string, any>()
+    // handle-less, but tolerant of re-registration (overwrites by name)
+    const host = { registerTool: (tool: any) => live.set(tool.name, tool) }
+    current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: { modelContext: host, allowWrites: true },
+    })
+    expect(live.has('tosi_write')).toBe(true)
+
+    // the same surface re-enabled WITHOUT write consent: the host has no
+    // unregisterTool, so "revoked" would otherwise mean "still callable"
+    current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: { modelContext: host },
+    })
+    expect(current.webmcp?.tools).not.toContain('tosi_write')
+    expect(live.get('tosi_write').description).toMatch(/REVOKED/)
+    expect(() =>
+      live.get('tosi_write').execute({ path: 'sec11Narrow.x', value: 2 })
+    ).toThrow(/revoked/)
+    expect(current.read('sec11Narrow.x')).toBe(1) // the stub wrote nothing
+  })
+
+  test('a register-once host that refuses the overwrite gets a console.error', () => {
+    tosi({ sec11Once: { x: 1 } })
+    const live = new Map<string, any>()
+    const host = {
+      registerTool(tool: any) {
+        if (live.has(tool.name)) {
+          throw new Error(`duplicate tool name: ${tool.name}`)
+        }
+        live.set(tool.name, tool)
+      },
+    }
+    current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: { modelContext: host, allowWrites: true },
+    })
+    const { errors } = captured(() => {
+      current = enableAgentInterface({
+        global: false,
+        expose: 'all',
+        webmcp: { modelContext: host },
+      })
+    })
+    // the tool really is stranded — say so instead of quietly delisting it
+    expect(errors.some((e) => /CANNOT REVOKE.*tosi_write/.test(e))).toBe(true)
+    expect(current!.webmcp?.tools).not.toContain('tosi_write')
+    // stranded, but not a hole: it is late-bound, so the surface still rules
+    expect(() =>
+      live.get('tosi_write').execute({ path: 'sec11Once.x', value: 2 })
+    ).not.toThrow()
+  })
+})
+
+describe('SEC-12: a name you did not get is a name someone else answers', () => {
+  test('a lost tool name is a console.error, not routine host chatter', () => {
+    tosi({ sec12: { x: 1 } })
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    // another script got here first and owns the unnamespaced name
+    const squatted = new Set(['tosi_read'])
+    const host = {
+      registerTool(tool: any) {
+        if (squatted.has(tool.name)) {
+          throw new Error(`tool already registered: ${tool.name}`)
+        }
+      },
+    }
+    const { result: mcp, errors } = captured(
+      () => webmcpAdapter(agent, { modelContext: host })!
+    )
+    expect(mcp.tools).not.toContain('tosi_read')
+    expect(errors.some((e) => e.includes('tosi_read'))).toBe(true)
+    expect(errors.some((e) => e.includes('prefix'))).toBe(true)
+
+    // the escalation persists: a name lost to another script is not
+    // re-attempted, and must never be reported as ours
+    const { result: again, errors: more } = captured(
+      () => webmcpAdapter(agent, { modelContext: host })!
+    )
+    expect(again.tools).not.toContain('tosi_read')
+    expect(more.some((e) => e.includes('tosi_read'))).toBe(true)
+
+    // …and the documented way out lands cleanly
+    const { result: prefixed, errors: none } = captured(
+      () => webmcpAdapter(agent, { modelContext: host, prefix: 'myapp' })!
+    )
+    expect(prefixed.tools).toContain('myapp_read')
+    expect(none).toEqual([])
   })
 })
