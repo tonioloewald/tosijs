@@ -19,7 +19,7 @@ My mental model of an AI agent navigating a *graphical* user interface is a blin
 
 Most agents still interact with browsers through Playwright scripts, CDP, or visual screenshot loops. They treat the web page as an opaque, external artifact. They are either trying to "see" pixels—which requires jumping through heavy WebRTC security hoops and dealing with visual noise—or they are reverse-engineering an unholy mess of mutated HTML nodes.
 
-If you've ever tried to extract semantics from the DOM via the console, you know it's a nightmare. This is why tools like my [haltija](https://www.npmjs.com/package/haltija) library exist: to help agents translate the what's displayed into highly optimized tokens. But it's still fundamentally a hack. You are forcing the agent to play text-based archaeology on a rendered page.
+If you've ever tried to extract semantics from the DOM via the console, you know it's a nightmare. This is why tools like my [haltija](https://www.npmjs.com/package/haltija) library exist: to help agents translate what's displayed into highly optimized tokens. But it's still fundamentally a hack. You are forcing the agent to play text-based archaeology on a rendered page.
 
 The industry noticed. **WebMCP**—a W3C proposal from Google and Microsoft—lets a page hand agents typed, callable tools directly, and it's real: a public Chrome origin trial, `document.modelContext`, default-on across Shopify storefronts and any site behind Cloudflare.
 
