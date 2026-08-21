@@ -602,7 +602,12 @@ describe('xin-* tombstones (1.8.0): removed, but never silent', () => {
     let el: HTMLElement
     try {
       el = document.createElement('xin-blueprint')
-      el.setAttribute('tag', 'legacy-thing')
+      // a tag name UNIQUE TO THIS TEST. `legacy-thing` collided with
+      // agent.test.ts's post-hoc-contract fixture, and customElements is a
+      // process-global registry shared by every test file — so whichever ran
+      // first decided the assertion below. Green locally, red on CI, for
+      // three weeks of nothing changing: the file order differs per machine.
+      el.setAttribute('tag', 'tombstone-probe-thing')
       el.setAttribute('src', './legacy.js')
       document.body.append(el)
     } finally {
@@ -614,7 +619,7 @@ describe('xin-* tombstones (1.8.0): removed, but never silent', () => {
     expect(warning).toContain('does NOTHING')
     expect(warning).toContain('<tosi-blueprint>')
     // and it does nothing, which is honest: no hydration is attempted
-    expect(customElements.get('legacy-thing')).toBeUndefined()
+    expect(customElements.get('tombstone-probe-thing')).toBeUndefined()
     el!.remove()
   })
 
