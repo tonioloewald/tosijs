@@ -288,16 +288,13 @@ not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` pat
 
 ## Session Completion ("Landing the Plane")
 
-> **🚫 BRANCH EXCEPTION — `one-user-interface` IS NEVER PUSHED.** That branch
-> carries the unpublished agent-surface manifesto and its plan docs, held
-> private by the maintainer's explicit instruction. It has no upstream and
-> must not be given one. The rule below says a push failure should be
-> "resolved and retried until it succeeds" — on this branch there is nothing
-> to resolve: **committing locally IS done.** (The manifesto was briefly on
-> public `main` once, in `ad2c1f1`, and had to be force-removed. The
-> prohibition used to live only in agent memory, which is why a review found
-> this section telling the next session to push it.) Work on the branch lands
-> when the maintainer decides to merge and publish — see Releasing.
+> **Branch exceptions.** Some branches deliberately have no remote and must not
+> be given one; on those, "done" means committed locally with a clean
+> `git status`, and a missing upstream is not a problem to fix. Check before
+> treating a failed push as something to resolve. *(There is no such branch
+> today: `one-user-interface`, which carried the unpublished agent-surface
+> manifesto, was merged to `main` for 1.8.0 once secrecy stopped being useful.
+> The rule stays because the situation recurs.)*
 
 When ending a work session, work is **not** complete until `git push` succeeds
 **on a branch that has a remote**. Follow this workflow:
@@ -320,5 +317,4 @@ Do not stop before pushing (that strands work locally), and do not say "ready to
 
 **Unless the branch is one that must not be pushed** (see the exception above),
 in which case step 3 is "commit, and verify `git status` is clean" and the
-session is complete there. Check for an exception before treating a missing
-upstream as a problem to fix.
+session is complete there.
