@@ -1260,3 +1260,65 @@ describe('the contractviolation channel (round-3 follow-up)', () => {
     el.remove()
   })
 })
+
+// "THE MAP MUST NOT ADVERTISE WHAT write() WILL NOT ENFORCE" is the strongest
+// claim this release makes, and it was guarded by a comment plus two copies of
+// one expression. The predicate is hoisted now; this is the test that proves
+// the two USES still line up, which hoisting alone cannot.
+describe('every schema describe() publishes is one write() actually enforces', () => {
+  test('an inline schema superseded by curation is neither advertised nor enforced', async () => {
+    const { bind } = await import('./bind')
+    const { bindings } = await import('./bindings')
+    const { elements } = await import('./elements')
+
+    tosi({ honestMap: { qty: 1, free: 0 } })
+    await updates()
+
+    // an inline contract UNDER a curated root — curation must win in both
+    // directions, or the map lies
+    const curatedField = elements.input({
+      id: 'honest-curated',
+      contract: { type: 'number', maximum: 5 },
+    } as any)
+    // …and one outside every curated root, which must survive in both
+    const freeField = elements.input({
+      id: 'honest-free',
+      contract: { type: 'number' },
+    } as any)
+    document.body.append(curatedField, freeField)
+    bind(curatedField, 'honestMap.qty', bindings.value)
+    bind(freeField, 'honestMap.free', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: {
+        write: true,
+        roots: ['honestMap'],
+        contract: {
+          // curation deliberately accepts everything: if the inline maximum
+          // were still advertised, the map would promise a rule this accepts
+          // a violation of
+          check: () => true,
+          describe: () => ({ 'honestMap.qty': { type: 'number' } }),
+        },
+      },
+    }))
+
+    const published = agent.describe().contract ?? {}
+    // the superseded inline schema is gone from the map…
+    expect(published['honestMap.qty']?.maximum).toBeUndefined()
+    // …and write() agrees: curation accepts what the inline rule forbade
+    agent.write('honestMap.qty', 99)
+    expect(agent.read('honestMap.qty')).toBe(99)
+
+    // the uncurated inline schema is still BOTH published and enforced
+    expect(published['honestMap.free']).toBeDefined()
+    expect(() => agent.write('honestMap.free', 'not a number')).toThrow(
+      /contract/i
+    )
+
+    curatedField.remove()
+    freeField.remove()
+  })
+})

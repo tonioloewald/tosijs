@@ -195,9 +195,12 @@ package's own repository (it went stale once across the rename already).
       publishes, and nothing else would say so. Verified the IIFE is still
       agent-free (`dist/index.js` does not contain `enableAgentInterface`) and
       unchanged in size.
-- [ ] The "superseded by curation" predicate is written twice, in `describe()`
-      and `write()` — the two places whose own comment says they must never
-      disagree ("the worst possible defect").
+- [x] **DONE (1.8.x, post-rc.1).** One hoisted `supersededByCuration()`, used
+      by both `describe()` and `write()`. Hoisting alone does not prove the two
+      USES line up, so there is now a test for the claim the comment was
+      guarding: an inline schema under a curated root is absent from
+      `describe().contract` AND unenforced by `write()`, while an uncurated one
+      is both published and enforced.
 - [ ] The own-`static contract` lookup is copy-pasted at six sites across four
       modules, and they already differ in fallback. Export one `ownContract(cls)`.
 

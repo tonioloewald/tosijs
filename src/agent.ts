@@ -923,6 +923,20 @@ export function enableAgentInterface(
   // sub-path writes can be routed to a whole-root proposal
   const contractRoots =
     contract?.describe != null ? Object.keys(contract.describe()) : []
+  /**
+   * Is this path already governed by top-level curation?
+   *
+   * Two callers must agree on this and only this: `describe()`, which drops
+   * superseded inline schemas so THE MAP DOES NOT ADVERTISE WHAT `write()`
+   * WILL NOT ENFORCE, and `write()`, which skips inline checking under a
+   * curated root. They were two copies of one expression sitting either side
+   * of a comment calling their disagreement "the worst possible defect" — so
+   * now there is one expression, and `curationHonoured()` below proves the
+   * two uses still line up.
+   */
+  const supersededByCuration = (path: string): boolean =>
+    contract != null && contractRoots.some((root) => extendsPath(root, path))
+
   const manifestMode = manifest != null
   /** read-only introspection: no manifest, and no explicit `expose: 'all'` */
   const readOnly = !manifestMode && !exposeAll
@@ -1439,9 +1453,6 @@ export function enableAgentInterface(
       // violation of. For a surface whose whole claim is that its
       // description is honest, that is the worst possible defect: drop the
       // superseded entries instead.
-      const supersededByCuration = (path: string): boolean =>
-        contract != null &&
-        contractRoots.some((root) => extendsPath(root, path))
       const enforceable: Record<string, any> = {}
       for (const [path, schema] of Object.entries(inlineContracts)) {
         if (!supersededByCuration(path)) enforceable[path] = schema
@@ -1504,10 +1515,7 @@ export function enableAgentInterface(
       // path — declared at the element, enforced at the surface. Curation
       // always wins: an expose.contract root supersedes ("curate away") any
       // inline declarations beneath it.
-      const curated =
-        contract != null &&
-        contractRoots.some((contractRoot) => extendsPath(contractRoot, path))
-      if (!curated) {
+      if (!supersededByCuration(path)) {
         const schema = inlineSchemaFor(path)
         if (schema != null) {
           const err = contractViolation(value, schema)
