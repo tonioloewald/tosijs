@@ -8,7 +8,7 @@ Just as curb cuts for wheelchairs ended up benefiting cyclists and people with r
 
 But now, user interface designers have inherited a completely new type of user: Agents.
 
-My mental model of an AI agent navigating a UI is a blind polymath who speed-reads braille. They don't "see" things; they read structural descriptions of things. When you realize this, the way we currently force agents to interact with web apps is absurd.
+My mental model of an AI agent navigating a *graphical* user interface is a blind polymath who speed-reads braille. They don't "see" things; they read descriptions of things. Ideally, *structural* descriptions. When you realize this, the way we currently force agents to interact with web apps is absurd.
 
 ## The Status Quo: Guessing the Floorplan from Street View
 
@@ -18,7 +18,7 @@ My mental model of an AI agent navigating a UI is a blind polymath who speed-rea
 
 Most agents still interact with browsers through Playwright scripts, CDP, or visual screenshot loops. They treat the web page as an opaque, external artifact. They are either trying to "see" pixels—which requires jumping through heavy WebRTC security hoops and dealing with visual noise—or they are reverse-engineering an unholy mess of mutated HTML nodes.
 
-If you've ever tried to extract semantics from the DOM using the console, you know it's a nightmare. This is why tools like my [haltija](https://www.npmjs.com/package/haltija) library exist: to help agents translate the DOM into highly optimized tokens. But it's still fundamentally a hack. You are forcing the agent to play text-based archaeology on a rendered page.
+If you've ever tried to extract semantics from the DOM via the console, you know it's a nightmare. This is why tools like my [haltija](https://www.npmjs.com/package/haltija) library exist: to help agents translate the what's displayed into highly optimized tokens. But it's still fundamentally a hack. You are forcing the agent to play text-based archaeology on a rendered page.
 
 The industry noticed. **WebMCP**—a W3C proposal from Google and Microsoft—lets a page hand agents typed, callable tools directly, and it's real: a public Chrome origin trial, `document.modelContext`, default-on across Shopify storefronts and any site behind Cloudflare.
 
@@ -32,7 +32,7 @@ To solve the 3D UI problem, I realized we could just build UIs in SVG, bridge th
 
 <img alt="tosijs 3d virtual table scrolling" src="https://firebasestorage.googleapis.com/v0/b/liquid-force-425209-g2.appspot.com/o/blog%2Ftosijs-3d-virtual-table-scrolling.gif?alt=media&token=07fcf905-9472-4619-b452-facc195962f7" style="width: 678px; aspect-ratio: 678 / 324;">
 
-> tosijs-3d is implementing a unified user interface using SVG that works across the DOM, "flat" 3D surfaces, and in VR.
+> tosijs-3d implements a *unified user interface* using SVG that works across the DOM, "flat" 3D surfaces, and in VR. And it leverages the declarative binding logic of tosijs.
 
 Suddenly, debugging went into overdrive. Because I was giving the agent *what's actually there and matters* instead of a pixel screenshot or a messy DOM tree, the agent understood exactly what it was looking at.
 
@@ -57,25 +57,19 @@ export const userButton = () => elements.button(
 
 In `tosijs`, if `app.user.name` changes, the button updates automatically. But more importantly, `tosijs` *remembers this mapping*. It maintains a live, two-way map from state to the DOM, and from the DOM to event handlers.
 
-Because `tosijs` has this internal map, it can draw a schematic map of the app—filtering out cosmetics and showing exactly where data is coming from and what actions are available.
+Because `tosijs` has this internal map, it can draw a schematic map of the app—skipping cosmetics—showing exactly where data is coming from and what actions are available.
 
 ## Nobody Hand-Writes This Anymore. That's Not the Same as Getting It Free.
 
-Everyone is converging on the same instinct, from different directions—and it's worth being precise about the differences, because they're not stylistic.
+Everyone is converging on the same instinct from different directions.
 
-**Crawlers** scan a site with a headless browser and emit tool definitions from what they find. **Platform packs**, like Cloudflare's, bolt a library of pre-built tools onto any site at the edge. **Shopify** switched WebMCP on for every storefront: catalog, cart, checkout, no merchant asked. **Angular** can derive a tool schema from a Signal Form you opt in per form. All of these beat hand-writing a tool per button.
+**Cloudflare** takes what it can *see* of your site and turns it into something an agent finds easier to comprehend. **Shopify** actually solved it for their case—every storefront gets catalog, cart and checkout, no merchant asked—but that's Shopify's domain model, not yours, and it stops describing reality the moment a merchant customizes hard enough. **Angular** takes the usual approach: more boilerplate, one opt-in at a time.
 
-But sort them by a different question—*what does this description cost to keep true?*—and they separate sharply.
+All of this beats hand-writing a tool per button. But every one of them is a *second artifact*—another description of your app, maintained beside it. It's the difference between adding online help and fixing your user interface.
 
-A crawler is reading rendered output, which means it's making an educated guess, and the guess decays exactly as fast as your markup churns. That's the same position screen readers are in, and it's worth noting that accessibility surveys this year report page structure getting **worse for the first time in six years**. Building on that foundation is building on subsiding ground.
+Which is a problem every developer already recognizes wearing different clothes. **It's the documentation problem.** Two descriptions of one system, kept in step by a promise—and that promise is always kept for a while and never kept forever. We already know the only fix: stop maintaining the second copy and generate it from the first.
 
-Shopify is the interesting case, and I want to be fair to it, because it's the strongest thing in the field. That isn't scraping—they're a **leaf-node API consumer** exposing their own commerce domain model. They *know* what a cart is, and they describe it better than any derivation could: better names, better descriptions, more stable across a merchant's refactors. **For a fixed, known domain, a curated pack beats a derived surface.** No argument.
-
-What it isn't is a *discipline*—nothing about it generalizes to your app, because your app isn't a storefront. And it isn't a **free facet of a single source of truth**. It's a second artifact, maintained beside the app, covering exactly what somebody decided to cover. Customize a storefront until checkout no longer behaves the way the pack says, and the pack still ships, still confident, still wrong.
-
-Which is a problem every developer already recognizes, wearing different clothes. **This is the documentation problem.** Two descriptions of one system, kept in step by a promise. The promise is always kept for a while and never kept forever. We already know the only fix that works: stop maintaining the second copy, and *generate it from the first*.
-
-An agent surface is the same shape. Every approach above maintains a second description of your app—by hand, by crawler, or by platform—and inherits the drift that guarantees. If instead you derive it from the wiring the framework already holds, the failure mode changes completely. The map can't quietly go stale, because it isn't a copy. If it's wrong, the app is wrong—and *that*, someone notices.
+An agent surface is the same shape. Derive it from the wiring the framework already holds and the map can't quietly go stale, because it isn't a copy. If it's wrong, the app is wrong—and *that*, someone notices.
 
 ## Handing Agents the Floorplan and the Wiring Diagram
 
