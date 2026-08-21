@@ -171,8 +171,18 @@ package's own repository (it went stale once across the rename already).
 - [ ] tosijs#24's attribute type-mismatch path still coerces, contrary to its
       own error message: `el.mode = false` on a string-declared attribute reads
       back the truthy string `"false"`, so the motivating bug still holds.
-- [ ] `settings.quiet` is honoured in ~2 of ~20 warning sites. Route every
-      advisory through one gated helper, or narrow the published doc comment.
+- [x] **DONE (1.8.x, post-rc.1) — did BOTH, because "route every advisory" was
+      the wrong instruction.** Most of those ~20 sites report that something is
+      WRONG (a binding threw, a contract was violated from a binding, a
+      blueprint source was refused by policy, a WebMCP tool name was lost), and
+      a flag called `quiet` must never be the reason nobody heard about one.
+      So: the ADVISORY families now honour it — `warnDeprecated` (the largest,
+      one function covering every deprecation) and the `on<Event>` collision
+      advice, joining the posture notices and the slim-entry check — and the
+      published doc comment now enumerates exactly what is silenced and what
+      deliberately is not. Deprecations stay LATCHED while quiet, so turning
+      the flag off mid-session does not replay warnings for things that already
+      happened. Two tests, one per half of that contract.
 
 **DRYness — four hand-duplicated lists, three of which have already drifted:**
 
