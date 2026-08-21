@@ -108,14 +108,28 @@ package's own repository (it went stale once across the rename already).
       (the event shipped in rc.1 with no docs and no tests, so every dispatch
       was unverifiable) and pinned by two tests, one of which was checked
       against the unfixed code to be sure it fails for the right reason.
-- [ ] `agent.write()` scans every bound element on every uncurated write
-      (~12µs per 1000 elements). `setElementContract` is the single
-      registration point — a module-level count enables an O(1) early return.
+- [x] **DONE (1.8.x, post-rc.1).** `anyInlineContracts()` — a monotonic count
+      bumped at `setElementContract`, the single registration point — gives an
+      O(1) early return for the common case where nobody declared an inline
+      contract. **Measured on a 2000-element page: 44.9µs → 7.3µs per uncurated
+      write, a 6× cut.** Monotonic on purpose: a WeakMap cannot say when an
+      element is collected, and an undercount would skip a check someone asked
+      for.
 - [ ] A contracted root deep-clones the whole root (JSON round-trip) per
       sub-path write. Copy-on-write spine: clone root→leaf, share siblings.
-- [ ] `refreshSecretPaths()` still runs a full-document `querySelectorAll` per
-      `read()` (already batched for `changes()`). Gate on a DOM-change dirty
-      flag or memoize per microtask; hoist the duplicate scan out of `when()`.
+- [x] **DONE (1.8.x, post-rc.1) — and the win is smaller than the finding
+      implied, recorded honestly.** Cached against a `bindingGeneration()`
+      counter bumped on binding registration and on observed insertion.
+      **Measured: 5.4µs → 4.1µs per read on a 2000-element page — 24%**, not a
+      transformation, because the selector is narrow by design and matches
+      almost nothing. Kept because it is free at steady state and a real
+      browser's document query over a large tree is likely worse than
+      happy-dom's. **It is an optimisation inside a SECURITY path**, so the
+      bump signal is deliberately generous (removals never bump — the secret
+      set only grows) and two tests pin what matters: a secret bound *after* an
+      earlier read, and one bound while DETACHED then inserted — the case a
+      naive dirty flag misses, since bind-time scanning cannot see an
+      off-document element.
 - [ ] `contractViolation` allocates two arrays per call via `warnIfFailsOpen`
       on the Component value-setter hot path — memoize on the schema object
       with a WeakSet; schemas are stable declarations.
