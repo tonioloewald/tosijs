@@ -116,7 +116,39 @@ package's own repository (it went stale once across the rename already).
       element is collected, and an undercount would skip a check someone asked
       for.
 - [ ] A contracted root deep-clones the whole root (JSON round-trip) per
-      sub-path write. Copy-on-write spine: clone root→leaf, share siblings.
+      sub-path write. **Copy-on-write was BUILT, MEASURED, and REVERTED —
+      deliberately. Do not re-attempt without reading this.**
+
+      The win is real: on a 200-doc root with 2 kB bodies, a sub-path write
+      went **0.17ms → 0.04ms, a 4.3× cut**, and in a word-processor-shaped app
+      that cost is per keystroke-equivalent.
+
+      It was reverted because structural sharing changes **what a contract
+      sees**, and that is not a thing to change casually in the release whose
+      headline feature is contracts. Verified empirically: with the spine
+      clone, a sibling `Date` reaches `check()` as a real `Date` and a sibling
+      method reaches it as a live `function`. The JSON round-trip had been
+      normalizing both away — a `Date` arrived as an ISO string, a function
+      not at all.
+
+      Both directions of that are defensible, which is exactly why it needs a
+      decision rather than a perf commit:
+      - *Truthful* — a contract validating a JSON-mangled fiction is arguably
+        the bug, and `{type:'string'}` should fail against a `Date`.
+      - *Compatible* — a root containing an action (which is normal: actions
+        live under roots) would newly present a `function` to a JSON-Schema
+        validator, so a schema with `additionalProperties: false` starts
+        rejecting a root it used to accept.
+
+      It also introduces an inconsistency worth resolving at the same time:
+      `read()` still serializes, so a contract would see richer data than any
+      reader of the same path.
+
+      **Do it in 2.0, with the tjs schema-islands work** (tjs-lang#27), where
+      the proposal shape is being reconsidered anyway and enforcement moves
+      into the proxy — at which point "what does the validator see" is a
+      first-class design question rather than a side effect. The spine-clone
+      implementation is in the history if wanted.
 - [x] **DONE (1.8.x, post-rc.1) — and the win is smaller than the finding
       implied, recorded honestly.** Cached against a `bindingGeneration()`
       counter bumped on binding registration and on observed insertion.
