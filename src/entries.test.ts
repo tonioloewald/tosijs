@@ -182,6 +182,26 @@ describe('entry points', () => {
   // FALSE for five exports (getByPath/setByPath/deleteByPath/pathParts/id),
   // which shipped public from tosijs/state and nowhere else — and no test
   // asked, because only core ⊆ full was pinned (round-3 review, M7).
+  // index.ts is now `index-browser + index-agent`, so this holds structurally.
+  // The test stays because the failure it guards is re-adding an export to
+  // index.ts directly: that silently omits it from the CDN artifact — the
+  // most-loaded thing this project publishes — and nothing else would say so.
+  test('the browser/CDN entry is exactly the full entry minus the agent surface', async () => {
+    const full = await import('./index')
+    const browser = await import('./index-browser')
+    const agentEntry = await import('./index-agent')
+
+    // nothing in the CDN build is missing from the full build
+    expect(Object.keys(browser).filter((n) => !(n in full))).toEqual([])
+
+    // and everything the full build adds is agent-surface, nothing else
+    const extras = Object.keys(full)
+      .filter((n) => !(n in browser))
+      .sort()
+    const agentNames = Object.keys(agentEntry).sort()
+    expect(extras).toEqual(agentNames)
+  })
+
   test('the full entry is a SUPERSET of tosijs/state — the subset claim holds', async () => {
     const full = await import('./index')
     const state = await import('./index-state')

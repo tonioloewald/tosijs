@@ -185,8 +185,16 @@ package's own repository (it went stale once across the rename already).
       Verified the budget gate still FIRES by setting an impossible budget:
       `module.js is 40928 gzipped, over its 100 budget`, exit 1. A gate nobody
       has watched fail is a gate you do not have.
-- [ ] `index-browser.ts` hand-duplicates `index.ts`'s non-core export list.
-      Invert the composition, or assert `full − agent === browser`.
+- [x] **DONE (1.8.x, post-rc.1).** Inverted the composition: `index.ts` is now
+      `export * from './index-browser'` + `export * from './index-agent'`, so
+      the subset relation is structural — the CDN artifact cannot fall behind,
+      because it is what the full entry is built from. Both did the same, and
+      `entries.test.ts` asserts `full − browser === agent` anyway, because the
+      failure it guards is someone re-adding an export to `index.ts` directly:
+      that silently omits it from the most-loaded artifact this project
+      publishes, and nothing else would say so. Verified the IIFE is still
+      agent-free (`dist/index.js` does not contain `enableAgentInterface`) and
+      unchanged in size.
 - [ ] The "superseded by curation" predicate is written twice, in `describe()`
       and `write()` — the two places whose own comment says they must never
       disagree ("the worst possible defect").
