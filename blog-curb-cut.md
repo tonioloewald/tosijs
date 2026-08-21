@@ -1,6 +1,7 @@
 <!-- as-of: 2026-08-21 | blog draft: WebMCP/Chrome status, who has shipped agent
-     exposure (Shopify/Cloudflare/Angular/crawlers), and the measured size of
-     the tosijs agent surface. Re-check all four before publishing. -->
+     exposure (Shopify/Cloudflare/Angular/crawlers), the "a11y structure got
+     worse for the first time in six years" survey finding, and the measured
+     size of the tosijs agent surface. Re-check all five before publishing. -->
 
 <img alt="person on escooter using curb cut" src="https://firebasestorage.googleapis.com/v0/b/liquid-force-425209-g2.appspot.com/o/blog%2Fperson-on-escooter-using-curb-cut?alt=media&token=017c594f-58d2-4cbb-929f-f79ec7a245bd" style="width: 1174px; aspect-ratio: 1174 / 1174;">
 
@@ -94,6 +95,8 @@ And it runs in a direction a scraper structurally cannot. tosijs ships an access
 That audit is only possible because the map holds *both sides*—what you declared the thing to be, and what it actually rendered as. A tool reading only the rendered page has nothing to compare against; it inherits your accessibility bugs and faithfully reports them as facts. **An integration absorbs discrepancies. An intrinsic surface prosecutes them.**
 
 So this isn't "we remembered to think about accessibility too." The mechanism that serves agents *is* the mechanism that finds the accessibility bugs. Same records, same pass.
+
+Which matters more than it used to, because accessibility is currently *losing*. Surveys this year report page structure getting worse for the first time in six years—and that same structure is what agents read. So the curb cut cuts both ways: semantics stop being a compliance checkbox somebody defers, and become load-bearing for a feature the business actually wants. Two reasons to fix it instead of one. Then the library has to hold up its end and make the fix cheap—declare a role and a description once on a component and they materialize as real ARIA, and the audit tells you which ones you still owe.
 
 Instead of doing extra, siloed work to support agents, the work pays dividends across the board.
 
