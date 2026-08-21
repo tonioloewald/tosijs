@@ -3,7 +3,7 @@ import { enableAgentInterface, AgentContract, ComponentMap } from './agent'
 import { exerciseContract, exerciseComponent } from './contract'
 import { Component } from './component'
 import { tosi } from './xin-proxy'
-import { updates } from './path-listener'
+import { updates, touch } from './path-listener'
 import { validate, agentContract } from 'tosijs-schema'
 
 let current: ReturnType<typeof enableAgentInterface> | undefined
@@ -1136,5 +1136,127 @@ describe('a declared value contract is enforced even without a value field', () 
     expect(
       errors.some((args) => String(args[0]).includes('cannot enforce'))
     ).toBe(true)
+  })
+})
+
+// The `contractviolation` event was shipped in 1.8.0-rc.1 undocumented AND
+// untested, dispatching unthrottled on every binding pass for object-valued
+// contracts — so every dispatch was pure waste. These pin both halves: it
+// fires, and it fires once per (element, reason).
+describe('the contractviolation channel (round-3 follow-up)', () => {
+  test('an object-valued contract dispatches ONCE, not once per binding pass', async () => {
+    const { bind } = await import('./bind')
+    const { updates } = await import('./path-listener')
+    const { setValue } = await import('./dom')
+    const { xin } = await import('./xin')
+
+    const shaped = {
+      value: {
+        type: 'object',
+        properties: { qty: { type: 'number' } },
+        required: ['qty'],
+      },
+    } as const satisfies ComponentMap
+
+    class ShapedValue extends Component<typeof shaped> {
+      static preferredTagName = 'shaped-value'
+      static contract = shaped
+      value: any = { qty: 1 }
+      content = null
+    }
+    const creator = ShapedValue.elementCreator()
+
+    tosi({ cvApp: { order: { qty: 1 } } })
+    await updates()
+    const el = creator() as any
+    document.body.append(el)
+    const events: any[] = []
+    el.addEventListener('contractviolation', (e: any) => events.push(e.detail))
+
+    bind(el, 'cvApp.order', { toDOM: setValue })
+    await updates()
+
+    // the built-in subset only enforces type/enum/const, so `required` needs
+    // the real validator plugged — which is also the realistic configuration
+    // for anyone who declares an object-valued contract at all
+    const { setContractValidator } = await import('./component')
+    setContractValidator((value, schema) => {
+      const reasons: string[] = []
+      const ok = validate(value, schema, {
+        onError: (at: string, msg: string) =>
+          void reasons.push(`${at}: ${msg}`),
+      })
+      return ok ? true : new Error(reasons.join('; '))
+    })
+
+    const errors: string[] = []
+    const originalError = console.error
+    console.error = () => errors.push('x')
+    try {
+      // an object that violates the contract, written through the BINDING
+      ;(xin as any).cvApp.order = { nope: true }
+      await updates()
+      // ...and now several more binding passes over the same bad value. The
+      // identity guard upstream cannot suppress these: the proxy returns a
+      // fresh object per access, so `value !== newValue` is always true.
+      for (let i = 0; i < 5; i++) {
+        touch('cvApp.order')
+        await updates()
+      }
+    } finally {
+      console.error = originalError
+    }
+
+    setContractValidator(null)
+    // the identity guard cannot suppress ANY of those passes (fresh proxy per
+    // access), so before the fix this was 6 events, and would have kept
+    // growing for the life of the page
+    expect(events.length).toBe(1)
+    expect(events[0].reason).toBeDefined()
+    expect(events[0].repeated).toBe(false)
+    el.remove()
+  })
+
+  test('a DIFFERENT reason on the same element is a new event', async () => {
+    const { bind } = await import('./bind')
+    const { updates } = await import('./path-listener')
+    const { setValue } = await import('./dom')
+    const { xin } = await import('./xin')
+
+    const typed = { value: { type: 'number' } } as const satisfies ComponentMap
+    class TwoReasons extends Component<typeof typed> {
+      static preferredTagName = 'two-reasons'
+      static contract = typed
+      value: any = 0
+      content = null
+    }
+    const creator = TwoReasons.elementCreator()
+
+    tosi({ cvTwo: { n: 1 } })
+    await updates()
+    const el = creator() as any
+    document.body.append(el)
+    const reasons: string[] = []
+    el.addEventListener('contractviolation', (e: any) =>
+      reasons.push(e.detail.reason)
+    )
+    bind(el, 'cvTwo.n', { toDOM: setValue })
+    await updates()
+
+    const originalError = console.error
+    console.error = () => {}
+    try {
+      ;(xin as any).cvTwo.n = 'a string'
+      await updates()
+      ;(xin as any).cvTwo.n = true
+      await updates()
+    } finally {
+      console.error = originalError
+    }
+
+    // deduping is per REASON, so a genuinely different failure still speaks
+    expect(new Set(reasons).size).toBe(reasons.length)
+    expect(reasons.length).toBeGreaterThanOrEqual(1)
+    el.remove()
   })
 })

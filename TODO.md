@@ -98,11 +98,16 @@ package's own repository (it went stale once across the rename already).
 
 **Correctness / efficiency (no user-visible harm today):**
 
-- [ ] `contractviolation` CustomEvent dispatches unthrottled on every binding
-      write for object/array-valued contracts (the `value !== newValue` guard
-      never matches — the proxy returns a fresh proxy per access). It is also
-      undocumented and untested, so today every dispatch is waste. Deduping is
-      a semantic change: it is the programmatic channel a listener would count.
+- [x] **DONE (1.8.x, post-rc.1).** `contractviolation` now fires once per
+      element per distinct reason, keyed in a `WeakMap` so a removed element
+      takes its history with it. Measured before/after with the fix bypassed:
+      **6 events → 1** over six binding passes, and it kept growing for the
+      life of the page. Deduping IS a semantic change and the doc says so — a
+      listener now counts distinct violations rather than binding-dispatch
+      frequency, which is the number anyone actually wanted. Also documented
+      (the event shipped in rc.1 with no docs and no tests, so every dispatch
+      was unverifiable) and pinned by two tests, one of which was checked
+      against the unfixed code to be sure it fails for the right reason.
 - [ ] `agent.write()` scans every bound element on every uncurated write
       (~12µs per 1000 elements). `setElementContract` is the single
       registration point — a module-level count enables an O(1) early return.

@@ -486,6 +486,26 @@ preview.append(widgetSlot, div(moveBtn, backBtn), frame)
   background: #fff;
 }
 </code></pre>
+<h3>The <code>contractviolation</code> event</h3>
+<p>When a component declares <code>contract.value</code> and a <strong>binding</strong> writes a value
+that violates it, the write is applied and reported rather than thrown — state
+is authoritative on that path, and throwing inside the binding-dispatch loop
+would strand every element bound after this one. Alongside the one-time
+<code>console.error</code>, the component dispatches a bubbling <code>contractviolation</code> event
+so an app can react programmatically:</p>
+<pre><code>el.addEventListener(&#39;contractviolation&#39;, (event) =&gt; {
+  const { reason, value, schema } = event.detail
+  telemetry.record(&#39;contract&#39;, { tag: el.tagName, reason })
+})
+</code></pre>
+<p><strong>It fires once per element per distinct reason</strong>, not once per binding pass.
+That matters more than it sounds: for an object- or array-valued contract the
+upstream <code>value !== newValue</code> guard never matches, because the proxy returns a
+fresh object on every access — so an unthrottled dispatch fired on every pass,
+for the life of the page. A listener therefore counts <em>distinct violations</em>,
+not binding-dispatch frequency, which is the number you actually wanted.</p>
+<p>A <strong>direct</strong> write (<code>el.value = bad</code>) still throws instead — no event, because
+the caller is right there to catch it.</p>
 <h3>Component static properties</h3>
 <h4><code>static preferredTagName?: string</code></h4>
 <p>Sets the desired tag name for the custom element. If omitted, it is derived

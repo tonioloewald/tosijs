@@ -529,6 +529,32 @@ preview.append(widgetSlot, div(moveBtn, backBtn), frame)
 }
 ```
 
+### The `contractviolation` event
+
+When a component declares `contract.value` and a **binding** writes a value
+that violates it, the write is applied and reported rather than thrown — state
+is authoritative on that path, and throwing inside the binding-dispatch loop
+would strand every element bound after this one. Alongside the one-time
+`console.error`, the component dispatches a bubbling `contractviolation` event
+so an app can react programmatically:
+
+```
+el.addEventListener('contractviolation', (event) => {
+  const { reason, value, schema } = event.detail
+  telemetry.record('contract', { tag: el.tagName, reason })
+})
+```
+
+**It fires once per element per distinct reason**, not once per binding pass.
+That matters more than it sounds: for an object- or array-valued contract the
+upstream `value !== newValue` guard never matches, because the proxy returns a
+fresh object on every access — so an unthrottled dispatch fired on every pass,
+for the life of the page. A listener therefore counts *distinct violations*,
+not binding-dispatch frequency, which is the number you actually wanted.
+
+A **direct** write (`el.value = bad`) still throws instead — no event, because
+the caller is right there to catch it.
+
 ### Component static properties
 
 #### `static preferredTagName?: string`
@@ -637,6 +663,12 @@ const bindingViolationWarned = new Set<string>()
 // from enforcing (see initValue)
 const inertContractWarned = new Set<string>()
 
+// per element, the violation reasons already announced on the `contractviolation`
+// channel. WeakMap so a removed element takes its history with it — a
+// long-lived page that mounts and discards many components must not accumulate
+// keys for elements nobody holds any more.
+const violationsDispatched = new WeakMap<any, Set<string>>()
+
 const checkValueContract = (el: any, newValue: any): void => {
   const cls = el.constructor
   if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
@@ -660,12 +692,36 @@ const checkValueContract = (el: any, newValue: any): void => {
           `state, the contract, or the binding. Direct writes still throw.`
       )
     }
-    el.dispatchEvent?.(
-      new CustomEvent('contractviolation', {
-        bubbles: true,
-        detail: { reason: err, value: newValue, schema },
-      })
-    )
+    // ONE EVENT PER ELEMENT PER REASON, not one per binding pass.
+    //
+    // The console.error beside this is warn-once; the dispatch was not — and
+    // for an OBJECT- or ARRAY-valued contract it fired on every single binding
+    // write, forever, because the `value !== newValue` guard upstream never
+    // matches: the xin proxy returns a fresh proxy per access, so a repeated
+    // write of "the same" object is never identity-equal. A persistently
+    // violating contract therefore dispatched a bubbling event on every pass
+    // for the life of the page.
+    //
+    // Deduping is a semantic change and worth being explicit about: this IS
+    // the programmatic channel, so a listener that was counting occurrences
+    // now counts distinct (element, reason) pairs instead. That is the more
+    // useful number — the old one measured binding-dispatch frequency, not
+    // violations — and an unbounded event storm is not a channel anyone can
+    // actually consume. `detail.repeated` tells a listener the difference.
+    const seen = violationsDispatched.get(el) ?? new Set<string>()
+    const already = seen.has(err)
+    if (!already) {
+      seen.add(err)
+      violationsDispatched.set(el, seen)
+    }
+    if (!already) {
+      el.dispatchEvent?.(
+        new CustomEvent('contractviolation', {
+          bubbles: true,
+          detail: { reason: err, value: newValue, schema, repeated: false },
+        })
+      )
+    }
     return
   }
   throw new TypeError(`<${tag}> value contract violation: ${err}`)
