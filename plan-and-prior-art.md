@@ -287,6 +287,62 @@ absorbing them — `auditAccessibility` over the same map, `contract.role` and
 `description` materializing as real ARIA. An integration absorbs discrepancies;
 an intrinsic surface prosecutes them.
 
+**The axis that actually separates these approaches: is the agent surface a
+SECOND ARTIFACT, or a facet of the one you already maintain?**
+
+Ordering the field by *where the knowledge comes from* is useful but incomplete
+— it invites an argument about whose intent counts. The sharper question is
+what the surface **costs to keep true**, and it sorts everything cleanly:
+
+| | where knowledge comes from | what it costs to keep true |
+| --- | --- | --- |
+| a11y-tree agents, crawlers (`webmcp-core`) | reconstructed from rendered output | nothing to maintain, because it is a **guess** — and it decays as the markup does |
+| platform packs (Cloudflare) | a pre-built library, bolted on at the edge | maintained by the platform, knows nothing about your app |
+| platform-as-API-consumer (Shopify) | the platform's **own** domain model — real knowledge, well used | a **separate thing**, built and maintained beside the app |
+| declarative form API, Angular Signal Forms | a declaration you wrote **for that purpose** | a second declaration per form, kept in step by hand |
+| tosijs | records the framework already holds, because it created the bindings | **nothing** — it is a projection of the one truth |
+
+Shopify is the instructive case, and the one that would be easy to
+mis-characterise. It is not post-hoc scraping: they are a **leaf-node API
+consumer** exposing their own commerce surface, and they have the information
+to do that part *well* — better names, better descriptions, more stable across
+a merchant's refactors than anything derived could be. **For a fixed, known
+domain, a curated pack beats a derived surface**, and it is worth conceding
+that plainly.
+
+What it is not is a **discipline** — nothing about it generalises to the next
+app, because the next app is not a storefront. And it is not a **free facet of
+a single source of truth**: it is a second artifact, so it can drift from the
+app it describes, and it covers exactly what somebody decided to cover. A
+customised storefront whose checkout no longer behaves like the pack says still
+publishes the pack. Better than post-hoc, and a long way from a surface that
+cannot lie about the wiring because it *is* the wiring.
+
+**This is the documentation problem wearing different clothes.** The house rule
+for docs is: don't promise to keep a second copy in step — delete it and
+generate it from the first (see `tosijs-coding-practices` →
+`documentation-surface.md`). An agent surface is the same shape. Every approach
+above except the last maintains a second description of the app, by hand or by
+platform, and inherits the drift that guarantees. Ours is generated from the
+wiring, which means the failure mode is not "the description went stale" but
+"the app stopped working" — and that is a failure someone notices.
+
+Two consequences follow structurally, not from being ahead:
+
+- **Consumption-level decays; intention-level cannot.** Anything downstream of
+  rendered output rests on an artifact that is, by the 2026 accessibility
+  surveys, getting *worse* for the first time in six years. Records read from
+  bindings cannot drift from the app, because the app stops working if they do.
+- **Only intention-level can PROSECUTE defects.** A scraper inherits whatever
+  a11y sins the DOM contains; it has nothing to compare them against. Holding
+  both sides — declared intent (contract, binding, role) and realised output
+  (the DOM) — is what makes `auditAccessibility` possible at all, and it is
+  structurally unavailable to anything reading only the output. This is the
+  whole content of "an integration absorbs discrepancies, an intrinsic surface
+  prosecutes them", and it is the curb-cut claim in its strongest form: not
+  "we thought of accessibility too", but *the mechanism that serves agents is
+  the mechanism that finds the a11y bugs.*
+
 **Strategic consequence.** Targeting WebMCP first was right and is now clearly
 right — a real origin trial with default-on deployments, not a proposal. But
 the window narrowed: "derived agent surface" is being approached from the
