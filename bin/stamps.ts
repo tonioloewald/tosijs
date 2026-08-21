@@ -8,7 +8,10 @@
  * tosijs-coding-practices → documentation-surface.md, move 5). A stamp is only
  * useful if you can FIND it later, so it has one machine-readable spelling:
  *
- *     <!-- as-of: 2026-08-21 | what this covers, briefly -->
+ *     <!-- as-of: YYYY-MM-DD | what this covers, briefly -->
+ *
+ * (spelled with the placeholder on purpose — a real date here would make this
+ * scanner report its own documentation as a claim, which it did)
  *
  * Then `bun run stamps` answers "what have we asserted that is now old?" in
  * one place, instead of relying on someone remembering which pages contain
@@ -40,8 +43,14 @@ const files = listed.stdout
   .toString()
   .split('\n')
   .filter((f) => /\.(md|ts|tsx|js|mjs|html|txt|json)$/.test(f))
-  // docs/ is generated (buildSite rm -rf's it) — stamps there are copies
-  .filter((f) => !f.startsWith('docs/') && !f.startsWith('dist/'))
+  // GENERATED TREES HOLD COPIES, and a stamp reported twice is a stamp you
+  // "fix" in the artifact instead of the source. docs/ and dist/ are rebuilt
+  // wholesale; demo/docs.json is the doc corpus serialized for the site, so it
+  // carries every stamp the markdown does.
+  .filter(
+    (f) =>
+      !f.startsWith('docs/') && !f.startsWith('dist/') && f !== 'demo/docs.json'
+  )
 
 const today = new Date()
 const stamps: Stamp[] = []
