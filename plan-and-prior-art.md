@@ -184,118 +184,113 @@ the eval lane should treat as a variable, not a constant.
   vs. incidental, and how the schema versions, should be decided _before_ fifty
   tests depend on the accidental shape — much cheaper than after.
 
-## Prior art & the window (surveyed 2026-07-28, **re-surveyed 2026-08-21**)
+## Prior art & the window — **all facts below are as of 2026-08-21**
 
-> **Three and a half weeks moved this a lot.** The transport slot went from
-> "shipping in Canary" to *default-on across Shopify storefronts and
-> Cloudflare-fronted sites*, and derivation — the thing this plan claimed was
-> unclaimed — is now being attempted from three directions at once. The core
-> delta survives, but **one of the five claims below had to be restated, not
-> just re-dated.** Corrections from this pass are marked ⚠️.
+> **This section is a snapshot, not a maintained page.** Everything in it —
+> browser versions, who has shipped what, which competitor exists — is
+> external state we do not control and cannot generate, so it is stamped
+> rather than promised. **Do not read it as current; read it as dated.** If
+> the date is old and the answer matters, re-survey and re-stamp. It has
+> already moved twice: the first survey was 2026-07-28, three and a half weeks
+> before this one, and one of the five claims below had to be rewritten in
+> that gap.
 
 - **WebMCP** (`document.modelContext`): a W3C WebML CG standard from Google +
-  Microsoft, announced 2026-02-10; the explainer dates to August 2025 and the
-  current Draft Community Group Report to 2026-07-21. ⚠️ Not "Chrome 146
-  Canary" any more — it is a **public origin trial in Chrome 149**;
-  `navigator.modelContext` is deprecated in Chrome 150 in favour of
-  `document.modelContext`, and **Chrome 153** can withdraw a tool without
-  cancelling in-flight executions. It remains a page-registers-tools API.
-- ⚠️ **Unregistration exists, and we were not asking for it.** The spec's path
-  is `registerTool(tool, { signal })` + `controller.abort()`. Our adapter
-  probed only for a returned handle and for `unregisterTool`, found neither on
-  the one browser that ships WebMCP, and fell back to overwriting tools with
-  refusing stubs — pretend revocation where real revocation was available. Now
-  supported and feature-probed (`supportsAbortSignal`). **This also cancels the
-  upstream issue we were about to file.**
-- ⚠️ **Platform auto-exposure arrived, from the platform layer.** Shopify
-  switched WebMCP on for every Liquid storefront (Hydrogen in developer
-  preview) on **2026-08-05** — catalog, cart, checkout, policy lookup, no
-  merchant asked, opt out with `webMcp={false}`. Cloudflare followed on
-  **08-06**: any site behind Cloudflare, dashboard toggle, no redeploy. Read
-  the mechanism before reading the threat: Cloudflare ships **two pre-defined
-  tool packs** (Content Credentials, and a proxy to an existing server-side MCP
-  server), and Shopify ships **commerce primitives it already knows**. Neither
-  derives anything from *your* application.
-- ⚠️ **A declarative HTML API now synthesizes tools from `<form>`s.** Annotate
-  with `toolname` / `tooldescription` / `toolparamdescription` and the browser
-  builds the tool. Forms only, and annotation is still declaration — but it is
+  Microsoft, announced 2026-02-10; explainer first published August 2025,
+  current Draft Community Group Report 2026-07-21. A **public origin trial in
+  Chrome 149**; `navigator.modelContext` deprecated in Chrome 150 in favour of
+  `document.modelContext`; **Chrome 153** withdraws a tool without cancelling
+  in-flight executions. A page-registers-tools API.
+- **Unregistration** is `registerTool(tool, { signal })` + `controller.abort()`.
+  Worth stating because we got it wrong: our adapter probed for a returned
+  handle and for `unregisterTool`, found neither, and inferred the capability
+  was missing — shipping register-once semantics and revoke-by-refusing-stub to
+  compensate for a gap that did not exist. Now feature-probed and used.
+- **Platform auto-exposure, from the platform layer.** Shopify switched WebMCP
+  on for every Liquid storefront (Hydrogen in developer preview) on 2026-08-05
+  — catalog, cart, checkout, policy lookup, no merchant asked, opt out with
+  `webMcp={false}`. Cloudflare followed on 08-06: any site behind Cloudflare,
+  dashboard toggle, no redeploy. Read the mechanism before reading the threat:
+  Cloudflare ships **two pre-defined tool packs** (Content Credentials, and a
+  proxy to an existing server-side MCP server), Shopify ships **commerce
+  primitives it already knows**. Neither derives anything from *your* app.
+- **A declarative HTML API synthesizes tools from `<form>`s** — annotate with
+  `toolname` / `tooldescription` / `toolparamdescription` and the browser
+  builds the tool. Forms only, and annotation is still declaration, but it is
   the first standards-track derivation.
-- ⚠️ **`webmcp-core`** (keak-ai): a **build-time Playwright crawler** — BFS the
+- **`webmcp-core`** (keak-ai): a **build-time Playwright crawler** — BFS the
   site, snapshot the DOM, record network calls, cluster them into tools, emit
-  TS/React/HTML/JSON. Works across Next/React/Vue/Svelte/Astro/Shopify. This is
-  the closest thing to "derived", and its epistemic position is the point: it
+  TS/React/HTML/JSON, across Next/React/Vue/Svelte/Astro/Shopify. The closest
+  thing to "derived", and its epistemic position is the point: it
   **reconstructs** intent from rendered output, exactly like a11y-tree
-  scraping, only moved to build time. Unannotated forms are guessed at from
+  scraping, moved to build time. Unannotated forms are guessed at from
   `aria-label` / `<label>` / headings.
-- **Framework integrations, still hand-registered per tool:**
-  `@mcp-b/react-webmcp` (a hook per tool, Zod schemas by hand);
-  GoogleChromeLabs `use-webmcp-tool`. ⚠️ **Angular's function is
-  `provideExperimentalWebMcpTools()`**, not `provideWebMcpTools()`, and it is
-  experimental across all versions ("APIs are subject to change even outside of
-  major versions"). Signal Forms do auto-derive a JSON schema from the form's
-  data model — but **per form, on opt-in** via `experimentalWebMcpTool`. Still
-  the most interesting prior art, and still scoped to forms.
-- **Playwright MCP / Operator / Computer Use / Mariner:** unchanged in kind —
-  a11y-tree + vision + synthesized input, impersonating the human user.
-  **Scope honesty, unchanged:** their value is working on *arbitrary* sites.
-  This plan doesn't do that for free; it makes it unnecessary for apps you
-  control. ⚠️ One external datum now argues our side: accessibility surveys in
-  2026 report the structure agents depend on **getting worse for the first time
-  in six years** — a11y-tree scraping is building on subsiding ground.
-- **Phoenix LiveView / Hotwire:** unchanged — real prior art for the inversion,
-  but opaque process state, no agent interface, one embodiment.
-- **HATEOAS / hypermedia:** unchanged — the philosophical ancestor of
-  `describe()`, done for REST twenty years early.
-- **llms.txt:** unchanged — static self-description; the agent surface is its
-  runtime sibling.
+- **Framework integrations, hand-registered per tool:** `@mcp-b/react-webmcp`
+  (a hook per tool, Zod schemas by hand); GoogleChromeLabs `use-webmcp-tool`.
+  Angular's is `provideExperimentalWebMcpTools()`, experimental across all
+  versions ("APIs are subject to change even outside of major versions").
+  Signal Forms auto-derive a JSON schema from the form's data model — **per
+  form, on opt-in** via `experimentalWebMcpTool`. The most interesting prior
+  art, and still scoped to forms.
+- **Playwright MCP / Operator / Computer Use / Mariner:** a11y-tree + vision +
+  synthesized input, impersonating the human user. **Scope honesty:** their
+  value is working on *arbitrary* sites. This plan doesn't do that for free; it
+  makes it unnecessary for apps you control. One external datum argues our
+  side: accessibility surveys in 2026 report the structure agents depend on
+  getting worse for the first time in six years — a11y-tree scraping is
+  building on subsiding ground.
+- **Phoenix LiveView / Hotwire:** real prior art for the inversion (app lives
+  server-side, DOM is a projection) — but opaque process state, no agent
+  interface, one embodiment.
+- **HATEOAS / hypermedia:** the philosophical ancestor of `describe()` — the
+  interface advertising its own affordances — done for REST twenty years early.
+- **llms.txt:** static self-description for sites (we ship it); the agent
+  surface is its runtime sibling.
 
-**What remains unclaimed — the tosijs delta, re-checked:**
+**What remains unclaimed — the tosijs delta:**
 
-1. **State, not just tools.** ✅ **Holds, and the spec confirms it.** WebMCP is
-   tools-only: no MCP `resources`, no readable/writable state. Its own open
-   questions list multimodal I/O, `outputSchema` and service workers — state is
-   not on the list. Nobody exposes a path-addressable, writable, observable
-   model.
-2. ⚠️ **Derived, not declared — RESTATED.** The old wording ("every integration
-   hand-registers tools") is now **false**, and shipping it would be an
-   own-goal: Shopify and Cloudflare register nothing by hand, the declarative
-   API synthesizes from markup, and `webmcp-core` crawls. The honest claim is
-   about *where the knowledge comes from*, and it is a sharper claim than the
-   one it replaces:
+1. **State, not just tools.** The spec confirms it: WebMCP is tools-only, with
+   no MCP `resources` and no readable/writable state. Its own open questions
+   list multimodal I/O, `outputSchema` and service workers — state is not among
+   them. Nobody exposes a path-addressable, writable, observable model.
+2. **Derived from records you already hold — not declared, annotated, packed or
+   crawled.** The blunt version of this claim ("everyone hand-registers") died
+   between the two surveys, and the replacement is sharper. The question is
+   *where the knowledge comes from*:
    - platform packs (Shopify, Cloudflare) know **their** domain, not your app;
-   - the declarative API and Angular's Signal Forms derive from a **declaration
-     you wrote for that purpose** (an attribute, an opt-in flag), and only for
+   - the declarative API and Angular's Signal Forms derive from **a declaration
+     written for that purpose** — an attribute, an opt-in flag — and only for
      forms;
-   - `webmcp-core` and the a11y-tree agents **reconstruct** intent from
-     rendered output — a guess, however good, and one that decays as markup
-     does;
-   - tosijs **reads records it already holds** because it created the
-     bindings. Not a guess, not an annotation, not a pack. Still nobody else's
-     claim, because no other mainstream framework has a wiring record to read.
-3. **One-truth propagation.** ✅ Holds. An agent write updates the human's UI
-   because both observe the same registry. Every integration surveyed routes
-   through a tool `execute()` and relies on the author to sync.
-4. **Push observation.** ✅ **Holds, and the gap is now documented upstream.**
-   The only event in the API is `toolchange` — the *tool list* changed, not the
-   *state*. `observe(path)` remains a channel nobody offers.
-5. **Embodiment independence.** ✅ Holds. Headless app + vended UI still has no
-   equivalent in the agent-web space.
+   - crawlers and a11y-tree agents **reconstruct** intent from rendered output:
+     a guess, however good, that decays as markup does;
+   - tosijs **reads records it already holds**, because it created the
+     bindings. Not a guess, not an annotation, not a pack — and still nobody
+     else's claim, because no other mainstream framework has a wiring record to
+     read.
+3. **One-truth propagation.** An agent write updates the human's UI because
+   both observe the same registry. Every integration surveyed routes through a
+   tool `execute()` and relies on the author to remember to sync.
+4. **Push observation.** The only event in the API is `toolchange` — the *tool
+   list* changed, not the *state*. `observe(path)` remains a channel nobody
+   offers.
+5. **Embodiment independence.** Headless app + vended UI has no equivalent in
+   the agent-web space.
 
-⚠️ **The curb-cut framing itself is no longer novel** — it is now mainstream
-(the a11y tree as the thing agents read; a W3C CG document disambiguating
-"WAI-ARIA" from "Agent-ARIA"). Claim the **mechanism**, not the metaphor: what
-is ours is that the surface is derived from the framework's own records and
-therefore **prosecutes** a11y defects rather than absorbing them —
-`auditAccessibility` over the same map, and `contract.role`/`description`
-materializing as real ARIA. An integration absorbs discrepancies; an intrinsic
-surface prosecutes them.
+**On the curb-cut framing itself:** it is no longer novel — the a11y tree as
+the thing agents read is now a mainstream observation, down to a W3C CG
+document disambiguating "WAI-ARIA" from "Agent-ARIA". Claim the **mechanism**,
+not the metaphor. What is ours is that the surface is derived from the
+framework's own records and therefore **prosecutes** a11y defects rather than
+absorbing them — `auditAccessibility` over the same map, `contract.role` and
+`description` materializing as real ARIA. An integration absorbs discrepancies;
+an intrinsic surface prosecutes them.
 
-**Strategic consequence (updated).** Targeting WebMCP first was right and is
-now clearly right — it is a real origin trial with default-on deployments, not
-a proposal. But **the window narrowed**: "derived agent surface" is being
-approached from the platform layer, the markup layer and the crawler layer
-simultaneously. None of them reach the app's own records, and that is the
-defensible ground — so the framing to ship is *derived from what the framework
-already knows*, contrasted explicitly against packs, annotations and crawls.
-The parts nobody is near — **state, propagation, observation, embodiment** —
-are the durable delta, and they are where the next phase should spend.
+**Strategic consequence.** Targeting WebMCP first was right and is now clearly
+right — a real origin trial with default-on deployments, not a proposal. But
+the window narrowed: "derived agent surface" is being approached from the
+platform layer, the markup layer and the crawler layer at once. None of them
+reach the app's own records, and that is the defensible ground — so the framing
+to ship is *derived from what the framework already knows*, contrasted
+explicitly against packs, annotations and crawls. The parts nobody is near —
+**state, propagation, observation, embodiment** — are the durable delta, and
+they are where the next phase should spend.

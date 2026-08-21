@@ -225,7 +225,7 @@ interface HostRegistrations {
 }
 
 // hosts that provide NO unregistration path (no handle.unregister, no
-// unregisterTool — Chrome Canary's registerTool today) get REGISTER-ONCE
+// unregisterTool, and ignoring the { signal } option) get REGISTER-ONCE
 // semantics per tool name: re-registering a held name is a console error on
 // the host side and would strand a stale closure on ours. Skip names the
 // host already holds — paired with enableAgentInterface's live-bound

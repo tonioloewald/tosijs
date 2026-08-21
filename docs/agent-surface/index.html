@@ -56,8 +56,8 @@ set write itself from an ordinary little app:</p>
 <code>webmcpTools(agent)</code> <strong>generates</strong> them: the introspection pair
 (<code>tosi_describe</code>, <code>tosi_surface</code>), the read pair (<code>tosi_read</code>,
 <code>tosi_changes</code>), <code>tosi_write</code>, and one <em>named</em> tool per action the registry
-already holds. With a WebMCP host present (Chrome&#39;s origin trial — 149+,
-<code>document.modelContext</code>),
+already holds. With a WebMCP host present (<code>document.modelContext</code> — a
+Chrome origin trial as of 2026-08),
 <code>enableAgentInterface()</code> registers them <strong>automatically at enable time</strong>
 (<code>agent.webmcp</code> carries the receipt; <code>webmcp: false</code> opts out); without a
 host, you see exactly what would register.</p>
