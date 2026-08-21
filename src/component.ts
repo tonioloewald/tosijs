@@ -629,6 +629,7 @@ user-interfaces.
 */
 import { css } from './css'
 import { XinStyleSheet } from './css-types'
+import { settings } from './settings'
 import { deepClone } from './deep-clone'
 import {
   appendContentToElement,
@@ -1462,6 +1463,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       // longer hijacked — passing a function through the creator assigns the
       // member. The name still can't carry event sugar, though, so the
       // warning says exactly what happens and what to rename to.
+      // ADVISORY — it reports a naming CHOICE, not a defect — so it honours
+      // settings.quiet, unlike the console.errors in this file that report
+      // something actually wrong.
+      if (settings.quiet === true) return
       console.warn(
         `<${tag}> defines ${list} — on<Event>-shaped member name(s), which ` +
           `collide with the elements factory's event-handler sugar. Since ` +

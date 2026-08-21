@@ -314,3 +314,69 @@ describe('entry points', () => {
     }
   })
 })
+
+// settings.quiet promised to silence "advisory warnings and friends" while
+// being honoured at 2 of ~20 sites. The fix was to route the ADVISORY families
+// through it and narrow the promise — not to gate all 20, because most of the
+// rest report that something is wrong.
+describe('settings.quiet silences advice, never defect reports', () => {
+  test('deprecation warnings honour it, and stay latched', async () => {
+    const { warnDeprecated, _resetDeprecationWarnings } = await import(
+      './metadata'
+    )
+    const { settings } = await import('./settings')
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    try {
+      _resetDeprecationWarnings()
+      settings.quiet = true
+      warnDeprecated('quiet-probe', 'this should not be heard')
+      expect(warnings).toEqual([])
+
+      // latched even while quiet: flipping the flag off must not replay
+      // warnings for things that already happened
+      settings.quiet = false
+      warnDeprecated('quiet-probe', 'this should not be heard')
+      expect(warnings).toEqual([])
+
+      // …but a NEW deprecation still speaks
+      warnDeprecated('quiet-probe-2', 'this SHOULD be heard')
+      expect(warnings.length).toBe(1)
+    } finally {
+      console.warn = original
+      settings.quiet = false
+      _resetDeprecationWarnings()
+    }
+  })
+
+  test('a defect report is NOT silenced by quiet', async () => {
+    const { settings } = await import('./settings')
+    const { blueprintSrcRefusal } = (await import('./blueprint-loader')) as any
+    if (typeof blueprintSrcRefusal !== 'function') return
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    try {
+      settings.quiet = true
+      // a refused blueprint source is a DEFECT REPORT — quiet must not hide it.
+      // NB the <tosi-loader> wrapper is load-bearing: hydration runs from the
+      // LOADER's connectedCallback, so a bare <tosi-blueprint> does nothing at
+      // all — which is the same defect this release fixed in the scaffolder,
+      // and it caught this test too.
+      const loader = document.createElement('tosi-loader')
+      const el = document.createElement('tosi-blueprint')
+      el.setAttribute('tag', 'quiet-probe-thing')
+      el.setAttribute('src', 'javascript:alert(1)')
+      loader.append(el)
+      document.body.append(loader)
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      loader.remove()
+    } finally {
+      console.error = original
+      settings.quiet = false
+    }
+    // the refusal is announced regardless of quiet
+    expect(errors.some((e) => e.includes('refused'))).toBe(true)
+  })
+})

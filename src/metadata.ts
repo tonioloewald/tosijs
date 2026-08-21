@@ -64,6 +64,7 @@ import {
   XinEventHandler,
   Unboxed,
 } from './xin-types'
+import { settings } from './settings'
 import { deepClone } from './deep-clone'
 import { getXinProxy } from './registry'
 
@@ -159,8 +160,10 @@ const deprecationWarnings = new Set<string>()
  */
 export function warnDeprecated(key: string, message: string): void {
   if (!deprecationWarnings.has(key)) {
-    console.warn(message)
+    // still LATCHED when quiet, so turning the flag off mid-session does not
+    // suddenly replay warnings for things that already happened
     deprecationWarnings.add(key)
+    if (settings.quiet !== true) console.warn(message)
   }
 }
 
