@@ -108,6 +108,9 @@ export interface XinEventBindings {
 }
 export declare const elementToHandlers: WeakMap<Element, XinEventBindings>;
 export declare const elementToBindings: WeakMap<Element, DataBindings>;
+export declare const anyInlineContracts: () => boolean;
+export declare const bindingGeneration: () => number;
+export declare const noteBindingChange: () => void;
 export declare const setElementContract: (element: Element, schema: Record<string, any>) => void;
 export declare const elementContract: (element: Element) => Record<string, any> | undefined;
 interface ElementMetadata {

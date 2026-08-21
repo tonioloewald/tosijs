@@ -312,6 +312,7 @@ import {
   XIN_VALUE,
   TAKE_DESCRIPTOR,
   applyDataBinding,
+  noteBindingChange,
   resolveTakePaths,
   tosiPath,
 } from './metadata'
@@ -407,6 +408,9 @@ function reportBindingError(
 }
 
 export function hydrateInsertedSubtree(node: Element): void {
+  // an inserted subtree can bring already-bound elements into the document,
+  // which is the other way a document-wide walk's answer changes
+  noteBindingChange()
   // getElementsByClassName (class-bucket index) over querySelectorAll
   // (whole-tree walk): same descendant set, measured faster; snapshot to
   // an array because touchElement → toDOM may mutate the DOM mid-scan.
@@ -642,6 +646,7 @@ function bindTake<T extends Element>(
   if (dataBindings == null) {
     dataBindings = []
     elementToBindings.set(element, dataBindings)
+    noteBindingChange()
   }
 
   // the descriptor becomes DATA on each entry (see DataBinding.take): the
@@ -742,6 +747,7 @@ export function bind<T extends Element = Element>(
   if (dataBindings == null) {
     dataBindings = []
     elementToBindings.set(element, dataBindings)
+    noteBindingChange()
   }
   dataBindings.push({
     path,

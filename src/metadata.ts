@@ -319,10 +319,53 @@ export const elementToBindings: WeakMap<Element, DataBindings> = new WeakMap()
 // top-level curation (expose.contract) overrides them.
 const elementContracts: WeakMap<Element, Record<string, any>> = new WeakMap()
 
+/**
+ * How many inline element contracts have EVER been declared on this page.
+ *
+ * `agent.write()` has to ask "does any element declare a contract for this
+ * path?", and the answer is found by scanning the live bound elements — a
+ * deliberate choice, because a path→element index thrashes under virtual
+ * lists (the DOM is the registry). But the overwhelmingly common case is that
+ * NOBODY declared an inline contract, and then the scan is pure waste on every
+ * uncurated write.
+ *
+ * A monotonic count answers that case in O(1). It only ever grows — a
+ * WeakMap cannot tell us when an element is collected, and an undercount
+ * would skip a real check — so this is "have we ever seen one", not "are
+ * there any now". Over-scanning is the safe direction; under-scanning would
+ * silently stop enforcing a declared contract.
+ */
+let inlineContractCount = 0
+
+export const anyInlineContracts = (): boolean => inlineContractCount > 0
+
+/**
+ * Bumped whenever something could have made a NEW (element, binding) pair
+ * visible in the document — a data binding being registered, or a subtree
+ * being inserted. Consumers that derive a fact from "walk the bound elements"
+ * cache against this instead of re-deriving on every call.
+ *
+ * SECURITY-RELEVANT, so the signal is deliberately generous. The agent
+ * surface's secret-path scan reads it, and a missed bump there is an
+ * under-redaction — a leak — while a spurious bump costs one extra
+ * `querySelectorAll` over a selector that matches almost nothing. Bump
+ * eagerly; the asymmetry is not close.
+ *
+ * Removals deliberately do NOT bump: the secret-path set only ever grows, so
+ * losing an element can never require a rescan.
+ */
+let domBindingGeneration = 0
+
+export const bindingGeneration = (): number => domBindingGeneration
+export const noteBindingChange = (): void => {
+  domBindingGeneration++
+}
+
 export const setElementContract = (
   element: Element,
   schema: Record<string, any>
 ): void => {
+  if (!elementContracts.has(element)) inlineContractCount++
   elementContracts.set(element, schema)
 }
 

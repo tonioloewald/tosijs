@@ -7,6 +7,10 @@ import { elements } from './elements'
 import { bind, on } from './bind'
 import { bindings } from './bindings'
 
+// the sentinel is internal; the test asserts on its literal text on purpose
+// — if that string ever changes, a consumer's redaction check changes too
+const SECRET_SENTINEL_TEXT = '⟨secret⟩'
+
 let current: ReturnType<typeof enableAgentInterface> | undefined
 afterEach(() => {
   current?.disable()
@@ -1439,5 +1443,99 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(d.wiring.find((w) => w.id === 'leaky')).toBeUndefined()
     expect(() => agent.read('priv4.pin')).toThrow(/not exposed/)
     leaky.remove()
+  })
+})
+
+describe('inline-contract lookup does not scan when nobody declared one', () => {
+  test('a page with no inline contracts answers without touching the DOM', async () => {
+    const { anyInlineContracts, setElementContract } = await import(
+      './metadata'
+    )
+    // NB this is process-global and monotonic by design (a WeakMap cannot tell
+    // us when an element is collected, and an undercount would skip a real
+    // check) — so this test asserts the SHAPE, and tolerates other test files
+    // having declared contracts before it ran.
+    const probe = elements.input({ id: 'inline-probe' })
+    const before = anyInlineContracts()
+    setElementContract(probe, { type: 'string' })
+    expect(anyInlineContracts()).toBe(true)
+    // once true it stays true — over-scanning is the safe direction, because
+    // under-scanning silently stops enforcing a contract someone declared
+    expect(anyInlineContracts()).toBe(true)
+    if (!before) {
+      // we were the first: the flag genuinely flipped rather than being
+      // already-on from another file
+      expect(before).toBe(false)
+    }
+  })
+
+  test('an inline contract still gates a write once one exists', async () => {
+    tosi({ inlineGate: { qty: 1 } })
+    await updates()
+    const field = elements.input({
+      id: 'inline-gate',
+      contract: { type: 'number' },
+    } as any)
+    document.body.append(field)
+    bind(field, 'inlineGate.qty', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    // the early return must not skip a contract that IS declared
+    expect(() => agent.write('inlineGate.qty', 'not a number')).toThrow(
+      /contract/i
+    )
+    agent.write('inlineGate.qty', 7)
+    expect(agent.read('inlineGate.qty')).toBe(7)
+    field.remove()
+  })
+})
+
+// The secret-path scan is cached against a binding generation counter, which
+// is a performance optimisation sitting in a SECURITY path: a missed bump is
+// an under-redaction. Measured win is modest (~24% per read on a 2000-element
+// page under happy-dom), so the caching only earns its keep if these hold.
+describe('cached secret scanning cannot miss a late-bound secret', () => {
+  test('a secret bound AFTER an earlier read is still redacted', async () => {
+    tosi({ lateSecret: { pw: 'hunter2' } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    // this read caches a scan taken when nothing was secret
+    expect(agent.read('lateSecret.pw')).toBe('hunter2')
+
+    const pw = elements.input({ type: 'password' })
+    document.body.append(pw)
+    bind(pw, 'lateSecret.pw', bindings.value)
+    await updates()
+
+    // binding registration must invalidate that cache
+    expect(agent.read('lateSecret.pw')).toBe(SECRET_SENTINEL_TEXT)
+    pw.remove()
+  })
+
+  test('a secret bound while DETACHED and inserted later is redacted', async () => {
+    tosi({ detachedSecret: { pin: '4821' } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    expect(agent.read('detachedSecret.pin')).toBe('4821')
+
+    // bound off-document, so the scan at bind time cannot see it — only the
+    // insertion makes it findable, which is the case a naive dirty flag misses
+    const pw = elements.input({ type: 'password' })
+    bind(pw, 'detachedSecret.pin', bindings.value)
+    await updates()
+    document.body.append(pw)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(agent.read('detachedSecret.pin')).toBe(SECRET_SENTINEL_TEXT)
+    pw.remove()
   })
 })

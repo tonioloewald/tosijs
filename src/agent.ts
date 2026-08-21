@@ -61,6 +61,8 @@ import {
   getElementBindings,
   elementToHandlers,
   elementContract,
+  anyInlineContracts,
+  bindingGeneration,
   tosiValue,
   tosiPath,
 } from './metadata'
@@ -657,8 +659,16 @@ const SECRET_CONTROL_SELECTOR = [
   ),
 ].join(',')
 
+let secretScanGeneration = -1
+
 const refreshSecretPaths = (): void => {
   if (typeof document === 'undefined') return
+  // nothing has bound or been inserted since the last scan, so a rescan would
+  // re-learn exactly the same facts. `read()` calls this every time — a
+  // 200-path drain used to mean 200 identical document queries.
+  const generation = bindingGeneration()
+  if (generation === secretScanGeneration) return
+  secretScanGeneration = generation
   let candidates: Element[]
   try {
     // Array.from, not for-of: the lib target types NodeListOf without
@@ -798,6 +808,9 @@ const describeElement = (el: Element): AgentWiringRecord => {
 // scanned from the live bound elements at write time — deliberately NOT a
 // path→element index (virtual lists thrash those; the DOM is the registry)
 const inlineSchemaFor = (path: string): Record<string, any> | undefined => {
+  // the common case, answered without touching the DOM: no element on this
+  // page has ever declared an inline contract, so there is nothing to find
+  if (!anyInlineContracts()) return undefined
   const doc = (globalThis as any).document
   if (doc?.getElementsByClassName == null) return undefined
   for (const el of Array.from(
