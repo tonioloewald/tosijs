@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-tosijs (formerly xinjs) is a lightweight path-based state management library for web applications (~26kB gzipped from a script tag, ~24kB for `tosijs/core`, ~16kB for the DOM-free `tosijs/state`; the full ESM entry is ~36kB with the opt-in agent surface, which tree-shakes away if unused). It uses proxy-based observers to eliminate binding boilerplate, similar to Redux but simpler. Works with vanilla JS/TS, web components, and integrates with React via react-tosijs.
+tosijs (formerly xinjs) is a lightweight path-based state management library for web applications. **Sizes are generated into README's `<!-- sizes -->` block by `bun run build` — read them there, don't restate them here.** The agent surface is opt-in and shakes away if unimported (measured 6.7 kB gz), but 1.8.0 is NOT size-neutral against 1.7.x: an identical non-agent consumer app measured +2.9 kB gz (+13.7%) vs 1.7.9, because the contract seam and path guards sit on the ordinary path. It uses proxy-based observers to eliminate binding boilerplate, similar to Redux but simpler. Works with vanilla JS/TS, web components, and integrates with React via react-tosijs.
 
 **Key characteristics:**
 

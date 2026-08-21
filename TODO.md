@@ -234,11 +234,24 @@ package's own repository (it went stale once across the rename already).
 
 **Docs / packaging:**
 
-- [ ] Documented bundle sizes are below what the build's own gate measures, in
-      five places (README ×3, CLAUDE.md, llms.txt). Have the budget loop emit
-      the figures the docs quote. **Note:** README's "tree-shakes to about
-      1.7.x's size" has two contradictory measurements in the report —
-      measure before editing.
+- [x] **DONE (1.8.x, post-rc.1), and one claim was outright FALSE.** The
+      figures are now generated: `bun run build` rewrites a
+      `<!-- sizes:start -->` block in README from the same measurements the
+      budget gate takes, and CLAUDE.md points at it instead of restating it.
+      llms.txt regenerates from `tosijs-site.config.ts`, corrected at source.
+      Stated 26/24/16/36 kB against a measured 27/25/16/40.
+
+      **The false one:** README claimed the release "tree-shakes to about
+      1.7.x's size when you don't use it". The round-3 review had two
+      contradictory measurements and said to measure before editing, so I did —
+      an identical consumer app touching no agent API, built against each
+      version: **20,995 → 23,862 bytes gzipped, +2.9 kB, +13.7%.** The agent
+      surface *does* shake away (6.7 kB measured), but the contract seam, the
+      path-segment guard and the binding bookkeeping sit on the ordinary path,
+      so 1.8.0 is not size-neutral. README now says so and points minimalists
+      at `tosijs/core`. **The "1.8.0 nets out at 1.7.x's size" release framing
+      is falsified — do not repeat it.**
+
 - [ ] "The agent surface tree-shakes away if unused" is claimed in five places
       with **no gate**, and `package.json` declares no `sideEffects` (removed
       deliberately — it shipped broken bundles once). Add a gate that bundles a

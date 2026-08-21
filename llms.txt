@@ -1,6 +1,6 @@
 # tosijs v1.8.0-rc.1
 
-Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer.
+Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM. ~27kB gzipped from a script tag, ~16kB for the DOM-free state layer.
 
 - Docs: https://tosijs.net
 - Source: https://github.com/tonioloewald/tosijs
@@ -84,7 +84,7 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/xin-proxy/ — tosi, xin, and xinProxy
   Background on the tosijs observer proxies: how tosi() and xinProxy() relate to xin and boxed, plus tosiUnique() for per-instance state.
 - https://tosijs.net/ — tosijs
-  tosijs is a path-based state-management library for web apps. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic.
+  tosijs is a path-based state-management library for web apps. ~27kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic.
 - https://tosijs.net/history/ — tosijs history
   The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.
 - https://tosijs.net/index-agent/ — tosijs/agent
