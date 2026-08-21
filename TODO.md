@@ -176,10 +176,15 @@ package's own repository (it went stale once across the rename already).
 
 **DRYness — four hand-duplicated lists, three of which have already drifted:**
 
-- [ ] The published-bundle manifest is written four times in `buildLibrary()`
-      (three `Bun.build` loops, `keepJs`, the smoke loop, `budgets`). Declare
-      the artifacts once and derive all four. (M6's minimum — the CJS smoke
-      probe — is done.)
+- [x] **DONE (1.8.x, post-rc.1).** One `BUNDLES` declaration in
+      `buildLibrary()`; the three build loops, `keepJs`, the execution gate and
+      the size budgets all derive from it (**-31 lines net**). Each entry
+      carries its own `probe` — `load` / `import` / `require` — because the
+      three formats cannot be checked the same way, which is precisely why
+      `main.js` had been built, kept and budgeted but never executed.
+      Verified the budget gate still FIRES by setting an impossible budget:
+      `module.js is 40928 gzipped, over its 100 budget`, exit 1. A gate nobody
+      has watched fail is a gate you do not have.
 - [ ] `index-browser.ts` hand-duplicates `index.ts`'s non-core export list.
       Invert the composition, or assert `full − agent === browser`.
 - [ ] The "superseded by curation" predicate is written twice, in `describe()`

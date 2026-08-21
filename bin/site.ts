@@ -129,99 +129,136 @@ async function buildLibrary() {
 
   await buildCli()
 
-  const targets = [
-    // the IIFE cannot tree-shake, so it gets the slim entry (no agent
-    // surface); ESM/CJS carry everything and consumers shake what they skip
+  // THE PUBLISHED ARTIFACTS, DECLARED ONCE.
+  //
+  // This list used to exist four times — three `Bun.build` loops, `keepJs`,
+  // the smoke loop, and the size budgets — and the copies had already drifted:
+  // `main.js` was built, kept and budgeted but never executed, so a repeat of
+  // the `sideEffects` defect this gate exists to catch would have shipped
+  // fully green in the CJS artifact. Everything below derives from BUNDLES,
+  // so adding an entry point cannot leave one gate behind.
+  //
+  // `probe` picks how the artifact is executed, because the three formats
+  // cannot be checked the same way: an IIFE has no ESM exports (loading
+  // without throwing IS the assertion — that is the failure mode a shaken-away
+  // definition produces), CJS needs `require()`, ESM needs `import()`.
+  //
+  // Budgets are a DECISION, not a measurement: ~1 kB of headroom, so ordinary
+  // work fits and the next feature has to be argued for. They were raised
+  // deliberately twice — in the round-2 review commit, and for the 1.8.0
+  // security pass (+~1.7 kB on module.js: the path-segment guard at the
+  // setByPath sink, path-level secret redaction, the write/read posture split,
+  // arrow neutralisation, escaped id lookups, contract-validator locking and
+  // the WebMCP revocation bookkeeping). The gate caught both on its first run,
+  // which is the gate working.
+  const BUNDLES = [
     {
       naming: 'index.js',
       format: 'iife' as const,
+      // the IIFE cannot tree-shake, so it gets the slim entry (no agent
+      // surface); ESM/CJS carry everything and consumers shake what they skip
       entry: './src/index-browser.ts',
+      budget: 29_000,
+      probe: 'load' as const,
+      stage: 'main' as const,
     },
-    { naming: 'module.js', format: 'esm' as const, entry: './src/index.ts' },
-    { naming: 'main.js', format: 'cjs' as const, entry: './src/index.ts' },
+    {
+      naming: 'module.js',
+      format: 'esm' as const,
+      entry: './src/index.ts',
+      budget: 42_000,
+      probe: 'import' as const,
+      stage: 'main' as const,
+    },
+    {
+      naming: 'main.js',
+      format: 'cjs' as const,
+      entry: './src/index.ts',
+      budget: 42_500,
+      probe: 'require' as const,
+      stage: 'main' as const,
+    },
+    // the alternate entries: tosijs/core (slim — no blueprint machinery, no
+    // share/sync/hotReload) and tosijs/state (DOM-free state layer, tosijs#18)
+    {
+      naming: 'core.js',
+      format: 'esm' as const,
+      entry: './src/index-core.ts',
+      budget: 26_500,
+      probe: 'import' as const,
+      stage: 'alt' as const,
+    },
+    {
+      naming: 'state.js',
+      format: 'esm' as const,
+      entry: './src/index-state.ts',
+      budget: 17_500,
+      probe: 'import' as const,
+      stage: 'alt' as const,
+    },
+    // EXPERIMENTAL tjs-built entries (tosijs/debug, tosijs/safe). They ship
+    // complete per-function __tjs metadata, hence the ~12 kB over module.js —
+    // that overhead is the POINT, so the budget is generous; it exists to
+    // catch it doubling. They were published with no gate at all until the
+    // 1.8.0 security pass (SEC-15): the two bundles built by the least-trusted
+    // toolchain were the two nobody executed.
+    {
+      naming: 'module.debug.js',
+      format: 'esm' as const,
+      entry: './tjs-out/index-debug.js',
+      budget: 56_000,
+      probe: 'import' as const,
+      stage: 'tjs' as const,
+    },
+    {
+      naming: 'module.safe.js',
+      format: 'esm' as const,
+      entry: './tjs-out/index-safe.js',
+      budget: 56_000,
+      probe: 'import' as const,
+      stage: 'tjs' as const,
+    },
   ]
-  for (const { naming, format, entry } of targets) {
+
+  const buildBundle = async (bundle: (typeof BUNDLES)[number]) => {
     const result = await Bun.build({
-      entrypoints: [entry],
-      format,
+      entrypoints: [bundle.entry],
+      format: bundle.format,
       outdir: DIST,
       target: 'browser',
       sourcemap: 'linked',
       minify: MINIFY,
-      naming,
+      naming: bundle.naming,
     })
     if (!result.success) {
-      console.error(`library ${naming} build failed`)
+      console.error(`library ${bundle.naming} build failed`)
       for (const m of result.logs) console.error(m)
-      throw new Error('library build failed')
+      throw new Error(`library build failed: ${bundle.naming}`)
     }
+  }
+
+  for (const bundle of BUNDLES.filter((b) => b.stage !== 'tjs')) {
+    await buildBundle(bundle)
   }
 
   const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
-  // the alternate entries: tosijs/core (slim — no blueprint machinery, no
-  // share/sync/hotReload) and tosijs/state (DOM-free state layer, tosijs#18)
-  for (const { entry, naming } of [
-    { entry: './src/index-core.ts', naming: 'core.js' },
-    { entry: './src/index-state.ts', naming: 'state.js' },
-  ]) {
-    const result = await Bun.build({
-      entrypoints: [entry],
-      format: 'esm',
-      outdir: DIST,
-      target: 'browser',
-      sourcemap: 'linked',
-      minify: MINIFY,
-      naming,
-    })
-    if (!result.success) {
-      console.error(`${naming} build failed`)
-      for (const m of result.logs) console.error(m)
-      throw new Error('alternate entry build failed')
-    }
-  }
-
   await $`rm -rf ${TJS_OUT}`
   await $`mkdir -p ${TJS_OUT}`
   await $`bun tjs convert src/ -o ${TJS_OUT}/`
   await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
   await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
 
-  const tjsTargets = [
-    { entry: './tjs-out/index-debug.js', naming: 'module.debug.js' },
-    { entry: './tjs-out/index-safe.js', naming: 'module.safe.js' },
-  ]
-  for (const { entry, naming } of tjsTargets) {
-    const result = await Bun.build({
-      entrypoints: [entry],
-      format: 'esm',
-      outdir: DIST,
-      target: 'browser',
-      sourcemap: 'linked',
-      minify: MINIFY,
-      naming,
-    })
-    if (!result.success) {
-      console.error(`tjs ${naming} build failed`)
-      for (const m of result.logs) console.error(m)
-      throw new Error('tjs variant build failed')
-    }
+  for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
+    await buildBundle(bundle)
   }
 
   // Strip the per-file tsc-emitted .js (kept only so generate-css could
   // resolve `tosijs` mid-buildSite) — the published library is only the
-  // five bundled outputs above. .d.ts files are kept.
-  const keepJs = new Set([
-    'index.js',
-    'module.js',
-    'main.js',
-    'module.debug.js',
-    'module.safe.js',
-    'core.js',
-    'state.js',
-    // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs
-    // it as ESM without a package-level "type": "module", which would
-    // break main.js's CJS consumers)
-  ])
+  // bundled outputs above. .d.ts files are kept.
+  // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs it as
+  // ESM without a package-level "type": "module", which would break main.js's
+  // CJS consumers.)
+  const keepJs = new Set(BUNDLES.map((b) => b.naming))
   const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {
     if (name.endsWith('.js') && !keepJs.has(name)) {
@@ -232,89 +269,45 @@ async function buildLibrary() {
     }
   }
 
-  // SMOKE-IMPORT EVERY PUBLISHED BUNDLE. A sideEffects array once produced
+  // EXECUTE EVERY PUBLISHED BUNDLE. A `sideEffects` array once produced
   // bundles that exported names whose definitions had been shaken away
   // ("H6 is not declared") — green tests, green tsc, green lint, broken
-  // package. Only executing the artifact catches that class of defect.
-  // module.debug/module.safe are PUBLISHED entry points (tosijs/debug,
-  // tosijs/safe) and were absent from this loop and from the size budgets —
-  // the two bundles built by the least-trusted toolchain (tjs convert) were
-  // the two nobody executed before publishing (1.8.0 security pass, SEC-15).
-  for (const bundle of [
-    'module.js',
-    'core.js',
-    'state.js',
-    'index.js',
-    'module.debug.js',
-    'module.safe.js',
-  ]) {
-    const probe = Bun.spawnSync(
-      [
-        'bun',
-        '-e',
-        `const { Window } = await import('happy-dom')
-         const w = new Window()
-         globalThis.window = w
-         for (const k of Object.getOwnPropertyNames(w)) {
-           if (globalThis[k] === undefined) {
-             try { globalThis[k] = w[k] } catch {}
-           }
-         }
-         const m = await import('${DIST}/${bundle}')
-         // an IIFE has no ESM exports by design — for it, LOADING without
-         // throwing is the whole assertion (that is the failure mode a
-         // shaken-away definition produces). Module builds must also have
-         // every export defined.
-         if ('${bundle}' !== 'index.js') {
-           if (Object.keys(m).length === 0) throw new Error('no exports')
-           for (const [name, value] of Object.entries(m)) {
-             if (value === undefined) throw new Error(name + ' is undefined')
-           }
-         }`,
-      ],
-      { stderr: 'pipe', stdout: 'pipe' }
-    )
-    if (probe.exitCode !== 0) {
-      console.error(`smoke import FAILED for dist/${bundle}:`)
-      console.error(probe.stderr.toString().slice(0, 800))
-      throw new Error(`dist/${bundle} does not import cleanly`)
-    }
-  }
-  // main.js is the CJS artifact: built, published and BUDGETED, but the ESM
-  // probe above cannot reach it, so it was the one bundle nobody executed.
-  // A repeat of the `sideEffects` defect this gate exists for would have
-  // shipped fully green in it. require(), not import().
-  const cjsProbe = Bun.spawnSync(
-    [
-      'bun',
-      '-e',
-      `const { Window } = await import('happy-dom')
+  // package. Only running the artifact catches that class of defect.
+  const DOM_SHIM = `const { Window } = await import('happy-dom')
        const w = new Window()
        globalThis.window = w
        for (const k of Object.getOwnPropertyNames(w)) {
          if (globalThis[k] === undefined) {
            try { globalThis[k] = w[k] } catch {}
          }
-       }
-       const { createRequire } = await import('node:module')
-       const require = createRequire('${DIST}/')
-       const m = require('${DIST}/main.js')
-       if (Object.keys(m).length === 0) throw new Error('no exports')
+       }`
+  const ASSERT_EXPORTS = `if (Object.keys(m).length === 0) throw new Error('no exports')
        for (const [name, value] of Object.entries(m)) {
          if (value === undefined) throw new Error(name + ' is undefined')
-       }`,
-    ],
-    { stderr: 'pipe', stdout: 'pipe' }
-  )
-  if (cjsProbe.exitCode !== 0) {
-    console.error('smoke require FAILED for dist/main.js:')
-    console.error(cjsProbe.stderr.toString().slice(0, 800))
-    throw new Error('dist/main.js does not require cleanly')
+       }`
+  for (const { naming, probe } of BUNDLES) {
+    const body =
+      probe === 'load'
+        ? `await import('${DIST}/${naming}')`
+        : probe === 'require'
+        ? `const { createRequire } = await import('node:module')
+       const require = createRequire('${DIST}/')
+       const m = require('${DIST}/${naming}')
+       ${ASSERT_EXPORTS}`
+        : `const m = await import('${DIST}/${naming}')
+       ${ASSERT_EXPORTS}`
+    const result = Bun.spawnSync(['bun', '-e', `${DOM_SHIM}\n       ${body}`], {
+      stderr: 'pipe',
+      stdout: 'pipe',
+    })
+    if (result.exitCode !== 0) {
+      console.error(`smoke ${probe} FAILED for dist/${naming}:`)
+      console.error(result.stderr.toString().slice(0, 800))
+      throw new Error(`dist/${naming} does not ${probe} cleanly`)
+    }
   }
-
   console.log(
-    'smoke import: module.js, core.js, state.js, index.js, module.debug.js, ' +
-      'module.safe.js all load; main.js requires (CJS)'
+    `smoke: ${BUNDLES.map((b) => `${b.naming} (${b.probe})`).join(', ')}`
   )
 
   // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom
@@ -348,35 +341,11 @@ async function buildLibrary() {
   // SIZE BUDGETS, where the artifacts exist. The suite's copy can't run
   // during a build (buildSite wipes dist before the tests), so a regression
   // would ship green and only trip on the next developer's local run.
+  // The figures live on BUNDLES above, beside the entry they measure — they
+  // were a fifth copy of the artifact list until the round-3 DRY pass.
   const { gzipSync } = await import('node:zlib')
-  // Budgets are a DECISION, not a measurement: ~1 kB of headroom, so
-  // ordinary work fits and the next feature has to be argued for. Raised
-  // deliberately in the round-2 review commit (restored public API for
-  // compat, the manifest/password/teardown fixes, and the path helpers that
-  // make tosijs/state a true subset) — the gate caught it on its first run,
-  // which is the gate working.
-  // RAISED DELIBERATELY for the 1.8.0 security pass (+~1.7 kB on module.js):
-  // the path-segment guard at the setByPath sink, path-level secret
-  // redaction, the write/read posture split, arrow neutralization, escaped
-  // id lookups, contract-validator locking and the WebMCP revocation
-  // bookkeeping — plus the doc-block prose that explains them. The gate
-  // caught it on the first run after the fixes, which is the gate working.
-  const budgets: Record<string, number> = {
-    'index.js': 29_000, // the <script>/CDN artifact — no tree-shaking
-    'module.js': 42_000, // everything; ESM consumers shake it
-    'main.js': 42_500, // CJS — also cannot shake
-    'core.js': 26_500,
-    'state.js': 17_500,
-    // the tjs-built EXPERIMENTAL entries (tosijs/debug, tosijs/safe). They
-    // ship complete per-function __tjs metadata, hence the ~12 kB over
-    // module.js — that overhead is the POINT, so the budget is generous;
-    // it exists to catch it doubling, not to hold it down. They were
-    // published with no gate at all before the 1.8.0 security pass.
-    'module.debug.js': 56_000,
-    'module.safe.js': 56_000,
-  }
   const sizes: string[] = []
-  for (const [file, budget] of Object.entries(budgets)) {
+  for (const { naming: file, budget } of BUNDLES) {
     const bytes = gzipSync(await Bun.file(`${DIST}/${file}`).bytes()).length
     sizes.push(
       `${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`
