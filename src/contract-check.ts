@@ -44,6 +44,27 @@ hot reload, must not trip the lock).
 > hostile replacement can do is a downgrade, not a bypass.
 */
 
+/**
+ * A class's OWN `static contract`, or undefined.
+ *
+ * OWN, not inherited, and that is the whole point: `static` members reach a
+ * subclass through the prototype chain, so `class Fancy extends Counter {}`
+ * would otherwise silently wear Counter's claims — its parts map, its value
+ * schema, its declared tests — and then fail them, or worse, pass them while
+ * describing something it is not. The same reasoning that made
+ * `_elementCreator` an own-property check.
+ *
+ * This was copy-pasted at six sites across four modules, with the rationale
+ * re-written at four of them and the sites already differing in what they did
+ * next. Callers that want a fallback (the agent surface's post-hoc
+ * `components[tag]` map, `makeComponent`'s spec-level fill) layer it on top of
+ * this, deliberately and visibly.
+ */
+export const ownContract = (cls: any): any =>
+  cls != null && Object.prototype.hasOwnProperty.call(cls, 'contract')
+    ? cls.contract
+    : undefined
+
 export type ContractValidator = (
   value: any,
   schema: Record<string, any>

@@ -66,7 +66,7 @@ import {
   tosiValue,
   tosiPath,
 } from './metadata'
-import { contractViolation } from './contract-check'
+import { contractViolation, ownContract } from './contract-check'
 import { bindings } from './bindings'
 import { propBindingKey } from './elements'
 import { webmcpAdapter, WebMCPAdapterOptions } from './webmcp'
@@ -1290,11 +1290,9 @@ export function enableAgentInterface(
           // control — the class's own declaration always wins.
           if (record.tag.includes('-')) {
             const cls = (globalThis as any).customElements?.get?.(record.tag)
-            if (
-              cls != null &&
-              Object.prototype.hasOwnProperty.call(cls, 'contract')
-            ) {
-              record.component = (cls as any).contract
+            const own = ownContract(cls)
+            if (own !== undefined) {
+              record.component = own
             } else if (components?.[record.tag] != null) {
               record.component = components[record.tag]
             }

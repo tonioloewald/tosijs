@@ -643,7 +643,11 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
-import { contractViolation, setContractValidator } from './contract-check'
+import {
+  contractViolation,
+  setContractValidator,
+  ownContract,
+} from './contract-check'
 import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
@@ -671,8 +675,7 @@ const violationsDispatched = new WeakMap<any, Set<string>>()
 
 const checkValueContract = (el: any, newValue: any): void => {
   const cls = el.constructor
-  if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
-  const schema = (cls as any).contract?.value
+  const schema = ownContract(cls)?.value
   if (schema == null) return
   const err = contractViolation(newValue, schema)
   if (err == null) return
@@ -928,13 +931,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * - no contract involvement → classic initAttributes, unchanged.
    */
   static _resolveInitAttributes(): Record<string, any> | undefined {
-    const ownContract = Object.prototype.hasOwnProperty.call(this, 'contract')
-      ? (this as any).contract
-      : undefined
+    const declaredContract = ownContract(this)
     const ownInit = Object.prototype.hasOwnProperty.call(this, 'initAttributes')
       ? this.initAttributes
       : undefined
-    if (ownContract?.attributes != null) {
+    if (declaredContract?.attributes != null) {
       if (ownInit != null) {
         throw new Error(
           `${this.name} declares BOTH static initAttributes AND ` +
@@ -947,7 +948,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       if (cached != null) return cached
       const derived: Record<string, any> = {}
       const missingDefaults: string[] = []
-      for (const [name, schema] of Object.entries(ownContract.attributes)) {
+      for (const [name, schema] of Object.entries(
+        declaredContract.attributes
+      )) {
         if (schema != null && 'default' in (schema as any)) {
           derived[name] = (schema as any).default
         } else {
@@ -982,7 +985,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     }
     if (
       ownInit != null &&
-      ownContract != null &&
+      declaredContract != null &&
       !attributeNudgeGiven.has(this)
     ) {
       attributeNudgeGiven.add(this)
@@ -1240,10 +1243,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       // anyway, so the map advertised a rule nothing enforced: exactly the
       // failure mode this release exists to make impossible.
       const cls = this.constructor as any
-      const declaresValueContract =
-        Object.prototype.hasOwnProperty.call(cls, 'contract') &&
-        cls.contract?.value != null
-      if (!declaresValueContract) return
+      if (ownContract(cls)?.value == null) return
 
       let inherited: PropertyDescriptor | undefined
       for (
@@ -1781,9 +1781,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // varies per instance while a class-level description does not.
     {
       const cls = this.constructor as any
-      const contract = Object.prototype.hasOwnProperty.call(cls, 'contract')
-        ? cls.contract
-        : undefined
+      const contract = ownContract(cls)
       const description = contract?.description
       if (
         typeof description === 'string' &&

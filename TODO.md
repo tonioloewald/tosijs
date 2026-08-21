@@ -201,8 +201,14 @@ package's own repository (it went stale once across the rename already).
       guarding: an inline schema under a curated root is absent from
       `describe().contract` AND unenforced by `write()`, while an uncurated one
       is both published and enforced.
-- [ ] The own-`static contract` lookup is copy-pasted at six sites across four
-      modules, and they already differ in fallback. Export one `ownContract(cls)`.
+- [x] **DONE (1.8.x, post-rc.1).** One `ownContract(cls)` in `contract-check.ts`
+      (zero-dependency, no cycles), used by all six sites. Kept INTERNAL — it
+      is not re-exported from any entry, so this consolidation added no public
+      API. Callers that legitimately want a fallback still layer it on
+      visibly: the agent surface's post-hoc `components[tag]` map, and
+      `makeComponent`'s spec-level fill. Added the test the rule never had —
+      a subclass declaring nothing inherits neither the parent's value gate nor
+      its description, while the parent still honours its own.
 
 **Coverage:**
 

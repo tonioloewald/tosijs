@@ -29,6 +29,7 @@ to choose the `tagName` of the custom-element.
 */
 
 import { Color } from './color'
+import { ownContract } from './contract-check'
 import { Component } from './component'
 import { vars, varDefault } from './css'
 import { XinStyleSheet } from './css-types'
@@ -124,10 +125,7 @@ export async function makeComponent<T = PartsMap>(
   // Set static properties from blueprint spec before calling elementCreator
   ;(type as any).preferredTagName = tag
   // spec-level contract fills; a class's OWN static contract wins
-  if (
-    spec.contract != null &&
-    !Object.prototype.hasOwnProperty.call(type, 'contract')
-  ) {
+  if (spec.contract != null && ownContract(type) === undefined) {
     ;(type as any).contract = spec.contract
   }
   const lightStyle = spec.lightStyleSpec ?? spec.styleSpec

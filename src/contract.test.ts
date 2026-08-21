@@ -1322,3 +1322,53 @@ describe('every schema describe() publishes is one write() actually enforces', (
     freeField.remove()
   })
 })
+
+// The own-not-inherited rule behind `ownContract()`. It was copy-pasted at six
+// sites across four modules with the rationale re-written at four of them, and
+// the sites had already begun to differ in what they did next.
+describe('a subclass does not wear its parent contract (ownContract)', () => {
+  test('an inherited contract governs neither the value gate nor the map', async () => {
+    const parentMap = {
+      description: 'the parent',
+      value: { type: 'number' },
+    } as const satisfies ComponentMap
+
+    class ContractParent extends Component<typeof parentMap> {
+      static preferredTagName = 'contract-parent'
+      static contract = parentMap
+      value: any = 0
+      content = null
+    }
+    ContractParent.elementCreator()
+
+    // declares NOTHING of its own — `static` reaches it through the prototype
+    // chain, which is exactly the trap
+    class ContractChild extends ContractParent {
+      static preferredTagName = 'contract-child'
+    }
+    const childCreator = ContractChild.elementCreator()
+
+    const child = childCreator() as any
+    document.body.append(child)
+    await child.whenHydrated
+
+    // the parent's value schema must NOT be enforced on the child…
+    child.value = 'not a number'
+    expect(child.value).toBe('not a number')
+
+    // …and the parent's description must not be stamped on it either, or the
+    // map would announce the child as something it never claimed to be
+    expect(child.getAttribute('aria-description')).not.toBe('the parent')
+
+    // while the parent itself still honours its own declaration
+    const parent = (ContractParent as any)._elementCreator() as any
+    document.body.append(parent)
+    await parent.whenHydrated
+    expect(() => {
+      parent.value = 'not a number'
+    }).toThrow(/contract/i)
+
+    child.remove()
+    parent.remove()
+  })
+})

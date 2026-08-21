@@ -35,6 +35,7 @@ the whole conformance suite, shippable over the wire.
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 import { AgentInterface, ComponentMap, ComponentTestStep } from './agent'
+import { ownContract } from './contract-check'
 import { updates } from './path-listener'
 
 export interface ContractTrial {
@@ -209,11 +210,7 @@ export const exerciseComponent = async (
   // OWN static only — statics inherit through the prototype chain, and a
   // subclass must not silently wear its parent's claims
   const cls = element.constructor as any
-  const declared: ComponentMap | undefined =
-    map ??
-    (Object.prototype.hasOwnProperty.call(cls, 'contract')
-      ? cls.contract
-      : undefined)
+  const declared: ComponentMap | undefined = map ?? ownContract(cls)
   const trials: ComponentTrial[] = []
   if (declared == null) {
     return {
