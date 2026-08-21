@@ -217,14 +217,49 @@ value setter inside the global binding-dispatch loop, stranding every
 element bound after it — with refusal as a value, that class of defect stops
 existing.
 
-### ✅ RESOLVED — Post-eval reconfiguration seam for `globalThis.__tjs`
+### 🛑 HOLD — everything tjs-lang waits for **0.13.0 stable**
 
-**Issue:** https://github.com/tonioloewald/tjs-lang/issues/23 (CLOSED)
+**Maintainer decision, 2026-08-21.** tjs-lang is at **0.13.0-rc.1**, and 0.13.0
+is not an increment: the language was **reoriented to be TypeScript plus
+obvious improvements**, rather than to fight TypeScript idioms and muscle
+memory. That changes the shape of every question below — what `tjs convert`
+emits, what a native-TJS module looks like, and how much of the 2.0 port's
+recorded friction still exists. Resolving tjs-lang items against 0.10.1, or
+chasing 0.12.0 to satisfy a peer range, would be work done against a target
+that is about to move.
+
+So, deliberately, for 1.8.0:
+
+- **`tjs-lang` stays pinned at `0.10.1`.** The debug/safe bundles it builds are
+  EXPERIMENTAL and inert (every TS-converted function is marked `unsafe` by
+  design), so nothing user-facing rides on the version.
+- **`tosijs-ui` stays pinned at `1.9.4`** even though 1.10.0 closes five issues
+  filed from here (#49, #51, #70, #71, #72), because 1.10.0 peers
+  `tjs-lang ^0.12.0`. Adopting it means resolving that peer against a version
+  we are about to skip. The cost of waiting is visible and bounded: the
+  10-entry `watchPaths` array duplicating `docPaths` is the #49 workaround, and
+  it stays until we bump. **Revisit as one move when 0.13.0 ships** — bump
+  tjs-lang, bump tosijs-ui, delete the duplicated block, re-run the lanes.
+- **The `tosijs-2.0` port branch stays on hold** (it already was). When it
+  resumes, the 0.13.0 ergonomics ARE the experiment: re-walk `by-path.tjs`
+  against the branch's `TJS-PORT-DX.md` friction log as the BEFORE.
+
+### 🚧 FIXED UPSTREAM, NOT ADOPTED — post-eval reconfiguration seam for `globalThis.__tjs`
+
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/23 (closed
+2026-08-06 — but tjs-lang's last publish before that close was 0.12.0 on
+2026-07-20, and we pin 0.10.1, so **no version we can install carries the
+fix**). Marked ✅ RESOLVED here while its own body still said the workaround was
+mandatory; the round-3 review caught the contradiction, and the risk is
+specific: a future 2.0 session reads RESOLVED, deletes the `configure-tjs-*`
+import-order guard as obsolete, and the debug/safe bundles silently configure
+nothing — which is exactly the H-4 defect, paid a second time.
+
 Converted modules capture `globalThis.__tjs?.createRuntime?.()` at eval time, so
 config set after the library's `export *` has evaluated configures nothing — the
-`configure-tjs-*` import-order workaround compensates for this. Needs either a
-post-eval reconfiguration path or an explicit "config must precede the first
-converted-module import" contract with a guard/warning. Will be a live footgun
-when 2.0 turns enforcement on. **File before the stable 2.0 work resumes.**
+`configure-tjs-*` import-first workaround compensates, **and must stay until a
+version carrying the fix is actually installed and the guard is proven
+unnecessary.** Verify against 0.13.0 stable.
+
 (There is also a related, already-filed ring-buffer ask on the `tosijs-2.0`
 branch's UPSTREAM.md — tjs-lang#17.)

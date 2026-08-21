@@ -40,12 +40,15 @@ package's own repository (it went stale once across the rename already).
 
 **Needs a decision from the maintainer before the rc publishes:**
 
-- [ ] **E1 — the build host is six versions stale.** `tosijs-ui@1.9.4` vs
-      1.10.0, which closes five issues filed from here (#49, #51, #70, #71,
-      #72). The 10-entry `watchPaths` array duplicating `docPaths` **is** the
-      #49 workaround. Adoption is not free: 1.10.0 peers `tjs-lang ^0.12.0`
-      while we pin 0.10.1. Either bump + resolve the peer + delete the
-      duplication, or write down why the pin stays for 1.8.0.
+- [x] **E1 — DECIDED (2026-08-21): the `tosijs-ui@1.9.4` pin stays for 1.8.0.**
+      1.10.0 closes five issues filed from here (#49, #51, #70, #71, #72), but
+      it peers `tjs-lang ^0.12.0` — and tjs-lang is at **0.13.0-rc.1**, a
+      reorientation of the language toward *TypeScript plus obvious
+      improvements* rather than fighting TS idioms. Resolving a peer against
+      0.12.0 is work aimed at a target that is about to move. **Bump both as
+      one move when 0.13.0 ships**, then delete the `watchPaths` block (it is
+      the #49 workaround) and re-run the lanes. Recorded in `UPSTREAM.md`
+      § tjs-lang. Cost of waiting is bounded and visible: one duplicated array.
 - [ ] **E2 — file the WebMCP unregistration-seam issue upstream.** `registerTool`
       returns no handle and there is no `unregisterTool`, so a page cannot
       withdraw a tool it registered; this release ships ~80 lines compensating
@@ -192,11 +195,13 @@ package's own repository (it went stale once across the rename already).
       `docs/`. This repo's reports live at the root, which is right, but it was
       reached by ignoring the practice rather than correcting it. Change the KB
       to `reviews/<version>-<slug>.md` and state the constraint.
-- [ ] **E5** — `UPSTREAM.md` marks tjs-lang#23 "✅ RESOLVED" while its body says
-      the workaround is still mandatory and no published version carries the
-      fix. Downgrade to 🚧 FIXED-UPSTREAM / NOT-ADOPTED before a 2.0 session
-      reads RESOLVED and deletes the `configure-tjs-*` import-order guard —
-      that is the H-4 defect, paid twice.
+- [x] **E5 — DONE.** tjs-lang#23 is now 🚧 FIXED-UPSTREAM / NOT-ADOPTED in
+      `UPSTREAM.md`, naming the dates: the issue closed 2026-08-06, tjs-lang's
+      last publish before that was 0.12.0 (2026-07-20), and we pin 0.10.1 — so
+      no installable version carries the fix and the `configure-tjs-*`
+      import-first guard stays. Verify against 0.13.0 stable. The stale
+      RESOLVED marker was one 2.0 session away from deleting that guard and
+      re-paying the H-4 defect.
 - [ ] **E6** — `tosijs-schema` is a caret dep against a package we filed a
       "validation tightening in a MINOR" issue against, and 1.7.0 is already
       published. Pin exactly or narrow to `~1.6.0` and record why.
