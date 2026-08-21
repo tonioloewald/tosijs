@@ -483,7 +483,7 @@ requirement. Hosting an app you built with it is unaffected.
 ## History & credits
 
 `tosijs` descends from **b8rjs → xinjs → tosijs** — see [tosijs history](/history/)
-for the full lineage. **Upgrading?** See [Migration](/migration/) — 1.8.0
+for the full lineage. **Upgrading?** See [Migration](/Migration/) — 1.8.0
 removes the deprecations that named it, keeps the rest working with warnings,
 and relicenses to Apache-2.0. Developed with [bun](https://bun.sh/); logo animation by
 [@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).

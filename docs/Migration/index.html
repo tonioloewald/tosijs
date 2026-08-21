@@ -167,12 +167,13 @@ string for <code>type=date</code>).</li>
 directly and expected a string</strong>, coerce explicitly (<code>String(getValue(el))</code>), or
 read <code>el.value</code>. If you bound a <code>type=date</code> input and stored the ISO string, note
 the stored value is now a <code>Date</code> — bind to string state and it keeps the control&#39;s
-ISO string (see <a href="/dom/">dom</a> H-6 two-layer coercion).</p>
+ISO string (the H-6 two-layer coercion, in <code>src/dom.ts</code> — <code>getValue</code>
+reads typed controls natively, and <code>handleChange</code> coerces on the way back).</p>
 <h2><code>Component</code> <code>change</code> events now bubble (and compose)</h2>
 <p>A component&#39;s <code>change</code> event (fired when its <code>value</code> changes) now bubbles and
 crosses shadow boundaries — matching how native <code>&lt;input&gt;</code> <code>change</code> events behave.
 This makes a shadow-DOM component bindable <strong>like an <code>&lt;input&gt;</code></strong> (bind its
-<code>value</code>; see the <a href="/building-apps/">Building Apps</a> shadow-DOM section).</p>
+<code>value</code>; see the <a href="/Building-Apps/">Building Apps</a> shadow-DOM section).</p>
 <p><strong>If you have a <code>change</code> listener on an ancestor</strong> of a tosijs component, it will
 now fire for the component&#39;s changes where before it did not. If that causes
 double-handling, scope the listener (check <code>event.target</code>) or use capture-phase

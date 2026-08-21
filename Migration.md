@@ -107,14 +107,15 @@ Bound numeric state now _stays_ numeric across edits. **If you read `getValue()`
 directly and expected a string**, coerce explicitly (`String(getValue(el))`), or
 read `el.value`. If you bound a `type=date` input and stored the ISO string, note
 the stored value is now a `Date` — bind to string state and it keeps the control's
-ISO string (see [dom](/dom/) H-6 two-layer coercion).
+ISO string (the H-6 two-layer coercion, in `src/dom.ts` — `getValue`
+reads typed controls natively, and `handleChange` coerces on the way back).
 
 ## `Component` `change` events now bubble (and compose)
 
 A component's `change` event (fired when its `value` changes) now bubbles and
 crosses shadow boundaries — matching how native `<input>` `change` events behave.
 This makes a shadow-DOM component bindable **like an `<input>`** (bind its
-`value`; see the [Building Apps](/building-apps/) shadow-DOM section).
+`value`; see the [Building Apps](/Building-Apps/) shadow-DOM section).
 
 **If you have a `change` listener on an ancestor** of a tosijs component, it will
 now fire for the component's changes where before it did not. If that causes

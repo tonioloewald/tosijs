@@ -257,9 +257,21 @@ package's own repository (it went stale once across the rename already).
       deliberately — it shipped broken bundles once). Add a gate that bundles a
       two-line consumer and asserts gz size, or soften the claim and point
       minimalists at `tosijs/core`, which is the guarantee we actually ship.
-- [ ] `/migration/` links 404 on the deployed site (case-sensitive host, no
-      `docs/404.html`); companions at `Migration.md:101,108`. Add a build-time
-      link check against the slug map `buildSite` already computes.
+- [x] **DONE (1.8.x, post-rc.1).** Fixed `/migration/` → `/Migration/` (README
+      and history.md), `/building-apps/` → `/Building-Apps/`, and `/dom/` —
+      which had no target at all, since `src/dom.ts` generates no page — is now
+      prose naming the module. **Gated**, which is the durable half: the build
+      checks every `](/slug/)` in the markdown docPaths and in `src/*.ts` doc
+      blocks against the slugs `buildSite` actually just wrote, so the list
+      cannot drift the way a hand-kept one would. Verified it fires by
+      re-breaking a link: exit 1, with the offending file and the known-slug
+      list printed.
+      **Why these survived:** slugs are case-sensitive on GitHub Pages and not
+      on APFS, so a case error looks perfect locally — and README is the site's
+      home page, so one of them was a 404 from the front door.
+      Still open: there is no `docs/404.html`, so a bad link lands on the SPA
+      fallback rather than saying so. That needs buildSite support (upstream).
+
 - [ ] Tarball unpacked size grew 3.1 MB → 5.4 MB, 4.36 MB of it source maps —
       1.68 MB for the two EXPERIMENTAL, inert debug/safe bundles. Drop those
       maps from `files`; add a package-payload budget beside the gzip gate.

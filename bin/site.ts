@@ -375,6 +375,71 @@ const config = {
 // rebuild must regenerate it, or the page's /iife.js 404s into the SPA fallback
 // ("loads as html"). buildLibrary() (tests + tjs variants) is only needed for
 // publishing, so the watch build skips it for speed.
+
+/**
+ * INTERNAL LINK CHECK, against the slugs the site actually generated.
+ *
+ * Three `](/slug/)` links pointed at pages that do not exist — `/migration/`,
+ * `/building-apps/` and `/dom/`. Two were case errors, invisible locally
+ * because APFS is case-insensitive while GitHub Pages is not, and there is no
+ * `docs/404.html` to make the failure loud. README is the site's home page,
+ * so one of them was a 404 from the front door.
+ *
+ * The slug set is whatever `buildSite` just wrote, so this cannot drift from
+ * the real site the way a hand-kept list would.
+ */
+async function checkInternalLinks(): Promise<void> {
+  const fs = await import('fs/promises')
+  const docsDir = path.resolve(PROJECT_ROOT, 'docs')
+  let slugs: Set<string>
+  try {
+    const entries = await fs.readdir(docsDir, { withFileTypes: true })
+    slugs = new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name))
+  } catch {
+    return // no docs/ yet: nothing to check
+  }
+  // Set: README.md is normally in docPaths already, and reporting the same
+  // broken link twice makes a short list look like a big problem
+  const sources = new Set<string>([
+    ...siteConfig.docPaths.filter((p: string) => p.endsWith('.md')),
+    'README.md',
+  ])
+  const broken: string[] = []
+  for (const rel of sources) {
+    let text: string
+    try {
+      text = await Bun.file(path.resolve(PROJECT_ROOT, rel)).text()
+    } catch {
+      continue
+    }
+    for (const match of text.matchAll(/\]\(\/([A-Za-z0-9._-]+)\/\)/g)) {
+      const slug = match[1]
+      if (!slugs.has(slug)) broken.push(`${rel} → /${slug}/`)
+    }
+  }
+  // source-file doc blocks generate slugs too, so also sweep src/*.ts prose
+  const srcFiles = await fs.readdir(path.resolve(PROJECT_ROOT, 'src'))
+  for (const name of srcFiles) {
+    if (!name.endsWith('.ts') || name.endsWith('.test.ts')) continue
+    const text = await Bun.file(path.resolve(PROJECT_ROOT, 'src', name)).text()
+    for (const match of text.matchAll(/\]\(\/([A-Za-z0-9._-]+)\/\)/g)) {
+      const slug = match[1]
+      if (!slugs.has(slug)) broken.push(`src/${name} → /${slug}/`)
+    }
+  }
+  if (broken.length > 0) {
+    console.error('BROKEN INTERNAL LINKS (these 404 on the deployed site):')
+    for (const b of broken) console.error(`  ${b}`)
+    console.error(
+      `  known slugs: ${[...slugs].sort().join(', ')}\n` +
+        '  NB slugs are case-SENSITIVE on GitHub Pages but not on APFS, so a ' +
+        'case error looks fine locally.'
+    )
+    throw new Error(`${broken.length} broken internal link(s)`)
+  }
+  console.log(`internal links: ${slugs.size} slugs, no 404s`)
+}
+
 const rebuild = async () => {
   if (!(await buildSite(config))) throw new Error('site build failed')
   await buildDocsBundle()
@@ -382,6 +447,8 @@ const rebuild = async () => {
 
 const ok = await buildSite(config)
 if (!ok) process.exit(1)
+
+await checkInternalLinks()
 
 await buildLibrary()
 await buildDocsBundle()
