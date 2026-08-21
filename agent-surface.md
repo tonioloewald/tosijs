@@ -14,7 +14,8 @@ Every existing WebMCP integration authors its tools by hand.
 (`tosi_describe`, `tosi_surface`), the read pair (`tosi_read`,
 `tosi_changes`), `tosi_write`, and one _named_ tool per action the registry
 already holds. With a WebMCP host present (`document.modelContext` — a
-Chrome origin trial as of 2026-08),
+Chrome origin trial as of 2026-08<!-- as-of: 2026-08-21 | WebMCP host
+availability + API location -->),
 `enableAgentInterface()` registers them **automatically at enable time**
 (`agent.webmcp` carries the receipt; `webmcp: false` opts out); without a
 host, you see exactly what would register.

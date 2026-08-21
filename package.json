@@ -57,7 +57,8 @@
     "test:browser": "playwright test",
     "latest": "rm -rf node_modules && bun update",
     "tunnel": "tosijs-tunnel",
-    "deploy": "tosijs-deploy"
+    "deploy": "tosijs-deploy",
+    "stamps": "bun bin/stamps.ts"
   },
   "author": "Tonio Loewald",
   "license": "Apache-2.0",

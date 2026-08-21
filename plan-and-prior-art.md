@@ -186,6 +186,8 @@ the eval lane should treat as a variable, not a constant.
 
 ## Prior art & the window — **all facts below are as of 2026-08-21**
 
+<!-- as-of: 2026-08-21 | WebMCP spec + Chrome versions, who has shipped auto-exposure (Shopify/Cloudflare), competing derivation approaches, the five unclaimed-delta claims -->
+
 > **This section is a snapshot, not a maintained page.** Everything in it —
 > browser versions, who has shipped what, which competitor exists — is
 > external state we do not control and cannot generate, so it is stamped

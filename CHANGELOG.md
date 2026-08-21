@@ -30,7 +30,8 @@ tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
   / `log`, installs `globalThis.tosiAgent`, and (where the browser provides
   `document.modelContext`) **auto-registers a generated WebMCP tool set** —
   verified registering _and executing_ in Chrome Canary 153 (as of
-  2026-08). Nothing new is
+  2026-08<!-- as-of: 2026-08-21 | which Chrome verified WebMCP end-to-end -->).
+  Nothing new is
   recorded: `describe()` assembles the picture from the registry, the
   binding metadata, and the handler wiring the framework already had.
   ~11 KB gzipped for the whole surface (agent + WebMCP + schematic +

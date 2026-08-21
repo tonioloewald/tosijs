@@ -272,9 +272,18 @@ downloads browsers (`bunx playwright install chromium firefox`). The haltija
 doc-fence lane (`bun bin/site.ts --test`) still exists for local living-docs, but is
 not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` path
    delegates to Playwright anyway).
-5. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
-6. `git push` and `git push --tags`.
-7. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).
+5. `bun run stamps --max-age 60` — **re-survey the perishable claims.** Facts about
+   the outside world (browser versions, what a competitor ships, a spec's status) are
+   stamped `<!-- as-of: YYYY-MM-DD | … -->` rather than continuously maintained, because
+   nothing in the build can generate or check them. This lists them by age and exits
+   non-zero if any is older than the limit. Re-survey and rewrite, or re-stamp
+   deliberately if you checked and nothing moved. **Do not write the update as a diff
+   against the previous survey** — rewrite it as a fresh statement and let git hold the
+   history. (Deliberately NOT a `bun run build` gate: a stale doc is not a broken build,
+   and failing the build over it would train everyone to bypass it.)
+6. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
+7. `git push` and `git push --tags`.
+8. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).
    For a **prerelease**, `npm publish --tag beta` (or `rc`) so `latest` is not moved.
 
 ## Session Completion ("Landing the Plane")
