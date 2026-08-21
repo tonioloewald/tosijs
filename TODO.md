@@ -69,11 +69,32 @@ package's own repository (it went stale once across the rename already).
 - [ ] **E4 — comment on haltija#16 and tosijs-ui#59.** Both are gated on
       "tosijs ships the agent surface" / "tosijs 1.8.0 beta-rc"; the condition
       is met. Same reasoning as E3 — post when the rc actually publishes.
-- [ ] **E8 — run the three internal consumers' suites against the rc.** Static
-      evidence is good (zero hits for `data-ref|xin-slot|xin-blueprint|
-      xin-loader|xinSlot|blueprintLoader` across all six dependents; no
-      tosijs-ui component declares an `on<Event>` member), but "probably fine"
-      is not a fact. Also bump react-tosijs/ngx-tosijs off `^1.0.6`.
+- [x] **E8 — DONE for the two consumers present locally (2026-08-21).** Packed
+      the rc tarball and ran each against it, restoring `node_modules`
+      afterwards:
+      - **tosijs-ui** (pins tosijs `1.7.8` exactly): `bun test` →
+        **1003 pass / 0 fail**, 60 files.
+      - **tosijs-3d** (`^1.7.8`): `bun run build` → exit 0, 117 static pages.
+      - **react-tosijs**: *not checked out locally, so untested.* The residual
+        risk is low for a specific reason rather than by hope: it ships state
+        hooks with no DOM surface, and every removal in 1.8.0 is DOM-side
+        (`data-ref`, `<xin-slot>`, the blueprint tags) or component-side (the
+        `on<Event>` precedence flip). Verify before it adopts 1.8.0 anyway.
+      - Still open: bump react-tosijs / ngx-tosijs off `^1.0.6` in their next
+        releases — a range that wide is exposure to changes nobody reviewed.
+
+- [ ] **Test a consumer with its TEST command, never its BUILD.** Learned doing
+      E8: tosijs-3d has no test script, so I ran `bun run build` — which wiped
+      and regenerated its **tracked** `docs/` (4,938 changes) and rewrote part
+      of its uncommitted `dist/`. I restored `docs/` to committed state and
+      left nothing untracked behind, but 17 `dist/` files that were dirty
+      beforehand now match HEAD again, because my run regenerated them. No loss
+      — every one is reproducible by running their build — but it is a change
+      to another repo's working tree that I caused, and "file, don't fix" is
+      supposed to mean not touching it at all. **Fix the shape:** ask
+      tosijs-3d upstream for a `test` or `typecheck` script so a consumer check
+      never has to invoke a site build, and use a throwaway clone if one is
+      ever needed again.
 
 **Correctness / efficiency (no user-visible harm today):**
 

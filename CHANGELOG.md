@@ -12,6 +12,20 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 > removals, the two behaviour changes that shipped without a prior
 > deprecation warning, and the Apache-2.0 relicense.
 
+> **This release deviates from semver, and it should say so.** A minor version
+> is supposed to be additive, and most of 1.8.0 is. But it also **removes**
+> `data-ref` (the only removal that was pre-announced with a version),
+> **removes** `<xin-slot>` markup handling, reduces `<xin-blueprint>` and
+> `<xin-loader>` to inert warning tombstones, and **flips two behaviours** —
+> `on<Event>` member precedence, and what happens on a type-contradicting
+> attribute write — neither of which carried a prior deprecation warning. A
+> consumer on `^1.7.9` receives all of it on a routine update. The deprecated
+> *exports* (`xinSlot`, `blueprint`, `blueprintLoader`) were restored as
+> working aliases naming 2.0, so nothing breaks at import; the markup path and
+> the two behaviour flips are the real exposure. We judged one honest note
+> better than a 2.0 nobody is ready for — but you are entitled to know which
+> promise was bent.
+
 **One source of truth for state, UI, and AI.** An app's affordances — what
 exists, what it's bound to, what it does — have always been recorded by
 tosijs in order to _run_ the app. 1.8.0 lets you ask for them.

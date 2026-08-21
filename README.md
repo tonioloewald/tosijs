@@ -463,7 +463,10 @@ You'll need to install [bun](https://bun.sh/) and then run `bun install`.
 ## License
 
 [Apache-2.0](./LICENSE) as of 1.8.0 (BSD-3-Clause through 1.7.x) — the
-change adds an explicit patent grant and a patent-retaliation clause.
+change adds an explicit patent grant and a patent-retaliation clause. If you
+**redistribute** a build containing tosijs, Apache-2.0 §4(d) asks you to carry
+the [`NOTICE`](./NOTICE) text in your attribution notices; BSD-3 had no such
+requirement. Hosting an app you built with it is unaffected.
 
 ## History & credits
 

@@ -58,6 +58,15 @@ let an agent change it. Nothing changes for apps that never call it.
 1.7.x) — adding an explicit patent grant and a patent-retaliation clause.
 Apache-2.0 cannot be combined with **GPLv2-only** code; GPLv3+ is fine.
 
+**One new obligation, easy to miss because semver cannot express it.**
+Apache-2.0 §4(d) requires that redistributors carry the `NOTICE` text. If you
+ship a build containing tosijs to anyone else, include the contents of our
+`NOTICE` file (it also credits the vendored schematic renderer) in your
+attribution notices — a THIRD-PARTY-NOTICES file, an about screen, or
+alongside your own licence text. BSD-3-Clause imposed no equivalent duty, so
+this is genuinely new for existing users, and it applies to *redistribution*
+— using tosijs to build something you host yourself is unaffected.
+
 # Upgrading to 1.7.0
 
 1.7.0 is the **correctness release** — a large batch of bug fixes. Most are pure

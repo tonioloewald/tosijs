@@ -127,6 +127,14 @@ let an agent change it. Nothing changes for apps that never call it.</p>
 <p><strong>License:</strong> tosijs is <strong>Apache-2.0</strong> as of 1.8.0 (BSD-3-Clause through
 1.7.x) — adding an explicit patent grant and a patent-retaliation clause.
 Apache-2.0 cannot be combined with <strong>GPLv2-only</strong> code; GPLv3+ is fine.</p>
+<p><strong>One new obligation, easy to miss because semver cannot express it.</strong>
+Apache-2.0 §4(d) requires that redistributors carry the <code>NOTICE</code> text. If you
+ship a build containing tosijs to anyone else, include the contents of our
+<code>NOTICE</code> file (it also credits the vendored schematic renderer) in your
+attribution notices — a THIRD-PARTY-NOTICES file, an about screen, or
+alongside your own licence text. BSD-3-Clause imposed no equivalent duty, so
+this is genuinely new for existing users, and it applies to <em>redistribution</em>
+— using tosijs to build something you host yourself is unaffected.</p>
 <h1>Upgrading to 1.7.0</h1>
 <p>1.7.0 is the <strong>correctness release</strong> — a large batch of bug fixes. Most are pure
 fixes (things that were broken now work), but a few are <strong>observable behavior
