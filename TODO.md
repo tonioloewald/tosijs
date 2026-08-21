@@ -272,9 +272,17 @@ package's own repository (it went stale once across the rename already).
       Still open: there is no `docs/404.html`, so a bad link lands on the SPA
       fallback rather than saying so. That needs buildSite support (upstream).
 
-- [ ] Tarball unpacked size grew 3.1 MB → 5.4 MB, 4.36 MB of it source maps —
-      1.68 MB for the two EXPERIMENTAL, inert debug/safe bundles. Drop those
-      maps from `files`; add a package-payload budget beside the gzip gate.
+- [x] **DONE (1.8.x, post-rc.1). 5.48 MB → 3.81 MB unpacked** (packed 1.54 →
+      1.17 MB). Dropped the source maps for `module.debug.js` and
+      `module.safe.js` from `files`: 1.64 MB of maps for two bundles that are
+      EXPERIMENTAL and currently inert. The other five keep theirs, because a
+      consumer debugging `module.js` genuinely wants one.
+      **Gated too**, beside the gzip budgets — those police what a consumer
+      EXECUTES and nothing policed what they DOWNLOAD. Measured by actually
+      packing, since summing `dist/` would quietly disagree with what npm
+      ships. Verified it fires by setting an impossible budget: exit 1, "the
+      published tarball is 3.81 MB unpacked, over its 1 MB budget".
+
 - [ ] `PartsOf<T>` intersects with `PartsMap`, so `this.parts.readuot`
       typechecks and throws at runtime. Keep the intersection (lazy parts need
       it) but say so where "the declaration is the type" is sold.

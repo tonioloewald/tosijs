@@ -294,6 +294,32 @@ async function buildLibrary() {
   }
   console.log('gzip budgets:', sizes.join(', '))
 
+  // PACKAGE PAYLOAD BUDGET. The gzip budgets above police what a consumer
+  // EXECUTES; nothing policed what they DOWNLOAD. The tarball had reached
+  // 5.48 MB unpacked, 4.3 MB of it source maps — 1.64 MB for the two
+  // EXPERIMENTAL, admittedly-inert tjs bundles, whose maps are excluded from
+  // `files` for exactly that reason. Measured by packing, because summing
+  // dist/ would quietly disagree with whatever npm actually ships.
+  const packDir = path.resolve(PROJECT_ROOT, '.pack-probe')
+  await $`rm -rf ${packDir}`
+  await $`mkdir -p ${packDir}`
+  const packed = await $`bun pm pack --destination ${packDir}`.text()
+  await $`rm -rf ${packDir}`
+  const unpackedMatch = packed.match(/Unpacked size:\s*([\d.]+)\s*MB/)
+  if (unpackedMatch != null) {
+    const unpackedMb = Number(unpackedMatch[1])
+    const PAYLOAD_BUDGET_MB = 4.5
+    console.log(`package payload: ${unpackedMb} MB unpacked`)
+    if (unpackedMb > PAYLOAD_BUDGET_MB) {
+      throw new Error(
+        `the published tarball is ${unpackedMb} MB unpacked, over its ` +
+          `${PAYLOAD_BUDGET_MB} MB budget. Source maps are usually the cause — ` +
+          'check what `files` in package.json is admitting, and whether a new ' +
+          'bundle brought a map nobody needs.'
+      )
+    }
+  }
+
   // WRITE THE FIGURES THE DOCS QUOTE, rather than trusting prose to keep up.
   // README advertised 26/24/16/36 kB while the build measured 27/25/16/40, and
   // claimed the release "tree-shakes to about 1.7.x's size" — which measured

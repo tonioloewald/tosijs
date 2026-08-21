@@ -89,6 +89,8 @@
     "/dist",
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
+    "!/dist/module.safe.js.map",
+    "!/dist/module.debug.js.map",
     "/LICENSE",
     "/NOTICE",
     "/README.md",
