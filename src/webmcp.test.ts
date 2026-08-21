@@ -526,3 +526,69 @@ describe('SEC-12: a name you did not get is a name someone else answers', () => 
     expect(none).toEqual([])
   })
 })
+
+// Chrome shipped `registerTool(tool, { signal })` + `controller.abort()` as
+// THE unregistration path (and since 153 it withdraws a tool without breaking
+// in-flight executions). We probed only for a returned handle and for
+// `unregisterTool`, found neither on the one browser that ships WebMCP, and
+// fell through to best-effort stubbing — so revocation was pretend when it
+// could have been real. Found by re-surveying the landscape, 2026-08-21.
+describe('AbortSignal unregistration (the shape Chrome actually shipped)', () => {
+  const specHost = () => {
+    const live = new Map<string, any>()
+    return {
+      live,
+      registerTool(tool: any, options?: { signal?: AbortSignal }) {
+        live.set(tool.name, tool)
+        options?.signal?.addEventListener('abort', () => live.delete(tool.name))
+        // no return value, no unregisterTool — exactly Chrome's shape
+      },
+      getTools: () => Array.from(live.values()),
+    }
+  }
+
+  test('a spec-shaped host really loses the tools on unregister', async () => {
+    tosi({ abortApp: { n: 1 } })
+    await updates()
+    const host = specHost()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: false,
+    }))
+    const reg = webmcpAdapter(agent, { modelContext: host as any })
+    expect(reg).toBeDefined()
+    expect(host.live.size).toBeGreaterThan(0)
+    // the probe tool must not linger in the host's menu
+    expect(
+      host.getTools().some((t: any) => t.name.includes('abort_probe'))
+    ).toBe(false)
+    reg!.unregister()
+    expect(host.live.size).toBe(0)
+  })
+
+  test('a host that ignores the options argument still gets the stub fallback', async () => {
+    tosi({ abortLegacy: { n: 1 } })
+    await updates()
+    const live = new Map<string, any>()
+    // register-once, options ignored — the pre-153 shape we already handled
+    const legacyHost = {
+      registerTool(tool: any) {
+        live.set(tool.name, tool)
+      },
+      getTools: () => Array.from(live.values()),
+    }
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: false,
+    }))
+    const reg = webmcpAdapter(agent, { modelContext: legacyHost as any })
+    const before = live.size
+    expect(before).toBeGreaterThan(0)
+    reg!.unregister()
+    // nothing was withdrawn — which is the truth on such a host, and is why
+    // the revoke-by-stub path exists
+    expect(live.size).toBe(before)
+  })
+})

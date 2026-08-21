@@ -13,7 +13,8 @@ Every existing WebMCP integration authors its tools by hand.
 `webmcpTools(agent)` **generates** them: the introspection pair
 (`tosi_describe`, `tosi_surface`), the read pair (`tosi_read`,
 `tosi_changes`), `tosi_write`, and one _named_ tool per action the registry
-already holds. With a WebMCP host present (Chrome Canary),
+already holds. With a WebMCP host present (Chrome's origin trial — 149+,
+`document.modelContext`),
 `enableAgentInterface()` registers them **automatically at enable time**
 (`agent.webmcp` carries the receipt; `webmcp: false` opts out); without a
 host, you see exactly what would register.

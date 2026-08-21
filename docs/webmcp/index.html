@@ -46,7 +46,8 @@
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>webmcp (EXPERIMENTAL)</h1>
-<p>The WebMCP standard (<code>navigator.modelContext</code>, migrating to <code>document</code>) lets a
+<p>The WebMCP standard (<code>document.modelContext</code> — <code>navigator.modelContext</code> is
+deprecated as of Chrome 150, and this adapter still probes it) lets a
 page expose typed, callable <strong>tools</strong> to browser agents — but every existing
 integration hand-writes those tools. tosijs doesn&#39;t have to: the agent surface
 already knows the app&#39;s state roots, wiring, and actions, so <strong>the tool set is

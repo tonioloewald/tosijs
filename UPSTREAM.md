@@ -192,15 +192,24 @@ which would otherwise have ridden into `describe().contract`.
 
 ## WebMCP (the standard, not a repo)
 
-### 🚧 (to file) No unregistration seam in the host API
+### ❌ WITHDRAWN — "no unregistration seam" was OUR probe's blind spot, not a gap
 
-Chrome Canary's `document.modelContext.registerTool` returns no handle and
-there is no `unregisterTool`, so a page cannot withdraw a tool it
-registered. tosijs compensates with register-once semantics per host
-(`registeredOnHost`, `src/webmcp.ts`) — deliberate and tested, but it means
-a surface that re-enables cannot refresh its tool set, and a host that
-rejects a tool must not be treated as holding it (fixed here after the
-1.8.0 review). File against the spec discussion once the shape settles.
+**Do not file this.** It was the last `(to file)` entry here, and the
+2026-08-21 re-survey killed it: WebMCP's unregistration path is
+`registerTool(tool, { signal })` + `controller.abort()`, and since **Chrome
+153** it withdraws a tool *without* cancelling in-flight executions. Our
+adapter probed for a returned handle and for `unregisterTool`, found neither,
+and concluded the capability was missing — then shipped register-once
+semantics plus revoke-by-refusing-stub to compensate for a gap that did not
+exist. `src/webmcp.ts` now feature-probes the signal path
+(`supportsAbortSignal`) and uses it, keeping the stub fallback for hosts that
+ignore the options argument.
+
+**The lesson is the reusable part:** we inferred the ABSENCE of an API from a
+probe that never asked for it, wrote the inference into a doc as fact, and
+queued a public filing on a standards repo against it. When a capability
+appears missing, check the spec text before the object shape — and never file
+"X doesn't exist" without having tried X's documented spelling.
 
 ## tjs-lang
 

@@ -2,7 +2,8 @@
 /*#
 # webmcp (EXPERIMENTAL)
 
-The WebMCP standard (`navigator.modelContext`, migrating to `document`) lets a
+The WebMCP standard (`document.modelContext` — `navigator.modelContext` is
+deprecated as of Chrome 150, and this adapter still probes it) lets a
 page expose typed, callable **tools** to browser agents — but every existing
 integration hand-writes those tools. tosijs doesn't have to: the agent surface
 already knows the app's state roots, wiring, and actions, so **the tool set is
@@ -244,6 +245,52 @@ const hostRegistrations = (mc: object): HostRegistrations => {
 }
 
 /**
+ * Does this host honour `registerTool(tool, { signal })`?
+ *
+ * There is no capability flag to read, and guessing wrong in either direction
+ * is bad: assume support and revocation silently does nothing; assume none and
+ * we stub tools on a host that would have withdrawn them properly. So ASK the
+ * host — register a throwaway tool with an aborted-able signal, abort it, and
+ * see whether the name disappears from getTools(). Done once per host and
+ * cached, because it costs a registration.
+ *
+ * A host that cannot answer (no getTools, or it throws) is treated as NOT
+ * supporting it — the conservative direction, since the fallback still works.
+ */
+const abortSupport = new WeakMap<object, boolean>()
+
+function supportsAbortSignal(mc: any): boolean {
+  const known = abortSupport.get(mc)
+  if (known !== undefined) return known
+  let supported = false
+  try {
+    if (
+      typeof AbortController === 'function' &&
+      typeof mc.getTools === 'function'
+    ) {
+      const probeName = 'tosi__abort_probe'
+      const controller = new AbortController()
+      mc.registerTool(
+        {
+          name: probeName,
+          description: 'capability probe; ignore',
+          inputSchema: { type: 'object', properties: {} },
+          execute: async () => 'probe',
+        },
+        { signal: controller.signal }
+      )
+      controller.abort()
+      const names = (mc.getTools() ?? []).map((t: any) => t?.name)
+      supported = !names.includes(probeName)
+    }
+  } catch (_e) {
+    supported = false
+  }
+  abortSupport.set(mc, supported)
+  return supported
+}
+
+/**
  * Best-effort revocation on a host with no unregisterTool: overwrite the
  * name with a stub that refuses and says why. A register-once host rejects
  * the overwrite — and then the ORIGINAL tool is still callable, so the only
@@ -322,11 +369,32 @@ export const webmcpAdapter = (
       if (held.foreign.has(tool.name)) continue // lost to another script
       const canUnregister = typeof mc.unregisterTool === 'function'
       try {
-        const handle = mc.registerTool(tool)
+        // ABORTSIGNAL IS THE SHAPE CHROME ACTUALLY SHIPPED, and we were not
+        // asking for it. `registerTool(tool, { signal })` + `controller.abort()`
+        // is the spec's unregistration path (and since Chrome 153 it withdraws
+        // a tool without cancelling in-flight executions). We probed only for a
+        // returned handle and for `unregisterTool`, found neither, and fell
+        // through to remembering the name as unrevocable — so on the one
+        // browser that shipped WebMCP, every revocation was best-effort
+        // stubbing when real revocation was available.
+        //
+        // Feature-detected rather than assumed: a host that ignores the
+        // options argument simply never fires the abort, and the checks below
+        // still apply. AbortController is not universal in the exotic
+        // environments this adapter tolerates, hence the typeof guard.
+        const controller =
+          typeof AbortController === 'function'
+            ? new AbortController()
+            : undefined
+        const handle = controller
+          ? mc.registerTool(tool, { signal: controller.signal })
+          : mc.registerTool(tool)
         if (handle != null && typeof handle.unregister === 'function') {
           undo.push(() => handle.unregister())
         } else if (canUnregister) {
           undo.push(() => mc.unregisterTool(tool.name))
+        } else if (controller != null && supportsAbortSignal(mc)) {
+          undo.push(() => controller.abort())
         } else {
           held.ours.add(tool.name) // no way back: remember it's registered
         }

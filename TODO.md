@@ -49,13 +49,17 @@ package's own repository (it went stale once across the rename already).
       one move when 0.13.0 ships**, then delete the `watchPaths` block (it is
       the #49 workaround) and re-run the lanes. Recorded in `UPSTREAM.md`
       § tjs-lang. Cost of waiting is bounded and visible: one duplicated array.
-- [ ] **E2 — file the WebMCP unregistration-seam issue upstream.** `registerTool`
-      returns no handle and there is no `unregisterTool`, so a page cannot
-      withdraw a tool it registered; this release ships ~80 lines compensating
-      (register-once WeakMap, revoke-by-stub, three-shape `canUnregister`
-      probe). This is a public filing on a standards repo
-      (webmachinelearning/webmcp), so it wants a human's sign-off on tone and
-      timing. Replaces the last `(to file)` marker in `UPSTREAM.md`.
+- [x] **E2 — MOOT, do not file (2026-08-21 re-survey).** The seam we were about
+      to ask for already shipped: `registerTool(tool, { signal })` +
+      `controller.abort()`, and since Chrome 153 it withdraws a tool without
+      cancelling in-flight executions. We had probed only for a returned handle
+      and for `unregisterTool` — neither of which the one browser that ships
+      WebMCP provides — and fell back to overwriting tools with refusing stubs.
+      So the compensation code was working around a gap that was not there.
+      Now feature-probed and used (`supportsAbortSignal` in `src/webmcp.ts`),
+      with the stub path kept for hosts that ignore the options argument.
+      **Lesson: we inferred the absence of an API from a probe that never asked
+      for it.** Filing would have been publicly wrong on a standards repo.
 - [ ] **E3 — close #18, #22, #23, #24 naming v1.8.0** (all fixed by this
       release, all still open), and record a STILL-OPEN disposition for #26,
       #17, #16, #9. Deliberately NOT done yet: closing them announces a
