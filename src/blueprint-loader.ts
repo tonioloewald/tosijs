@@ -50,9 +50,37 @@ of component **blueprints**. It will load its `<tosi-blueprint>`s in parallel.
 </swiss-clock>
 ```
 
-> The legacy names `<xin-blueprint>` and `<xin-loader>` still work but emit a
-> one-time deprecation warning. New code should use `<tosi-blueprint>` and
-> `<tosi-loader>`.
+> The legacy names `<xin-blueprint>` and `<xin-loader>` were removed in 1.8.0 —
+> use `<tosi-blueprint>` and `<tosi-loader>`.
+
+### ⚠️ These tags execute code
+
+`<tosi-blueprint src="…">` **runs the module it names**. That is the whole
+feature — but it means the tag is an arbitrary-script-execution sink, and a
+custom element can arrive through `innerHTML` like any other markup. So:
+
+- **Strip `<tosi-blueprint>` and `<tosi-loader>` from any HTML you did not
+  write.** A sanitizer that passes unknown custom elements through (a denylist
+  sanitizer, or `DOMPurify` configured with `CUSTOM_ELEMENT_HANDLING`) will
+  hand an injected `src` straight to `import()`. Allowlist sanitizers —
+  DOMPurify and `sanitize-html` in their default configurations — already drop
+  these tags.
+- `javascript:`, `data:` and `vbscript:` URLs are **refused unconditionally**;
+  no honest blueprint uses one.
+- Everything else loads by default, because loading a blueprint from a CDN is
+  the point. If your app doesn't need that, narrow it with
+  `settings.blueprintSrcCheck` — return `false` and the load is refused with a
+  `console.error` naming the URL:
+
+```
+import { settings } from 'tosijs'
+
+settings.blueprintSrcCheck = (src, el) =>
+  new URL(src, location.href).origin === location.origin
+```
+
+> The default may become same-origin in 2.0. Setting the hook now is
+> forward-compatible either way.
 
 ### `<tosi-blueprint>` Attributes
 
@@ -236,18 +264,57 @@ The blueprint function can be `async`, so you can use async import inside it to 
 */
 
 import { Component } from './component'
+import { warnDeprecated } from './metadata'
+import { settings } from './settings'
 import {
   makeComponent,
   TosiBlueprint,
   TosiPackagedComponent,
 } from './make-component'
-import { warnDeprecated } from './metadata'
 
 const HIDDEN_STYLE = { ':host': { display: 'none' } }
 
 const loadedBlueprints: { [key: string]: Promise<TosiPackagedComponent> } = {}
 
 let loadModule = (src: string): Promise<any> => import(src)
+
+// A blueprint EXECUTES the module its `src` names, and <tosi-blueprint> can
+// arrive through innerHTML — so HTML injection reaches this sink on any page
+// that doesn't strip the tag. These schemes are refused unconditionally
+// because none of them can be an honest module URL, so refusing them breaks
+// nobody. Everything else is allowed by default: CDN-hosted blueprints are the
+// documented use case, and `settings.blueprintSrcCheck` is how an app that
+// doesn't want them says so. (2.0 candidate: flip the default to same-origin —
+// see TODO.md.)
+const REFUSED_SCHEMES = ['javascript', 'data', 'vbscript']
+
+// Browsers ignore ASCII whitespace and control characters inside a scheme, so
+// `java\tscript:x` and `\n javascript:x` both execute — strip them before
+// matching or the refusal is one tab away from being bypassed.
+function schemeOf(src: string): string {
+  // the control characters ARE the bypass, not an accident: a \s-only strip
+  // still lets 'java\x00script:' through.
+  // eslint-disable-next-line no-control-regex
+  const stripped = src.replace(/[\u0000-\u0020]/g, '')
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(stripped)
+  return match ? match[1].toLowerCase() : ''
+}
+
+/**
+ * Why a blueprint `src` was refused, or `null` if it's allowed. Exported for
+ * testing and for apps that want to pre-flight a URL through the same rules.
+ */
+export function blueprintSrcRefusal(src: string, el?: Element): string | null {
+  const scheme = schemeOf(src)
+  if (REFUSED_SCHEMES.includes(scheme)) {
+    return `${scheme}: is never an honest blueprint module`
+  }
+  const check = settings.blueprintSrcCheck
+  if (typeof check === 'function' && check(src, el as Element) === false) {
+    return 'settings.blueprintSrcCheck returned false'
+  }
+  return null
+}
 
 /**
  * Replace the module loader (mainly for testing failure/retry paths — the
@@ -296,13 +363,26 @@ export class Blueprint extends Component {
     const { tag, src, property } = this
     const signature = `${tag}.${property}:${src}`
     if (!this.loaded) {
+      // checked BEFORE the cache is consulted or written, so a refused src
+      // never occupies a signature slot
+      const refusal = blueprintSrcRefusal(src, this)
+      if (refusal !== null) {
+        const why =
+          `<tosi-blueprint> refused "${src}" — ${refusal}. These tags EXECUTE ` +
+          `the module they name: strip them from user-supplied HTML, or set ` +
+          `settings.blueprintSrcCheck to allow this source.`
+        console.error(why)
+        throw new Error(why)
+      }
       if (loadedBlueprints[signature] === undefined) {
         loadedBlueprints[signature] = loadModule(src).then((imported) => {
           const bp = imported[property] as TosiBlueprint
           return makeComponent(tag, bp)
         })
       } else {
-        console.log(`using cached ${tag} with signature ${signature}`)
+        if (settings.debug) {
+          console.log(`using cached ${tag} with signature ${signature}`)
+        }
       }
       try {
         this.loaded = await loadedBlueprints[signature]
@@ -328,7 +408,7 @@ export class BlueprintLoader extends Component {
   allLoaded = () => {}
 
   private async load() {
-    await settleBlueprints(this, 'tosi-blueprint, xin-blueprint', 'tosi-loader')
+    await settleBlueprints(this, 'tosi-blueprint', 'tosi-loader')
     this.allLoaded()
   }
 
@@ -340,45 +420,67 @@ export class BlueprintLoader extends Component {
 
 export const tosiLoader = BlueprintLoader.elementCreator()
 
-// --- Deprecated classes (xin-*) ---
-
-class DeprecatedBlueprint extends Blueprint {
-  static preferredTagName = 'xin-blueprint'
+// The xin-* markup names were deprecated through 1.7 and their CREATORS
+// (`blueprint`, `blueprintLoader`) are gone from the public API in 1.8.0 —
+// those break loudly at import, which is the point.
+//
+// The MARKUP path cannot break loudly by itself: an unregistered custom
+// element is simply inert — no hydration, no console output, no exception —
+// and a page using `<xin-blueprint src=…>` has no import statement to fail.
+// The 1.8.0 pre-release review found exactly that silent path. So the tags
+// stay registered for one more cycle as TOMBSTONES: they render nothing and
+// say precisely what to rename, once per tag. They go for real in 2.0.
+class TombstoneElement extends Component {
   static lightStyleSpec = HIDDEN_STYLE
+  content = null
 
-  constructor() {
-    super()
-    warnDeprecated(
-      'xin-blueprint',
-      '<xin-blueprint> is deprecated. Use <tosi-blueprint> instead.'
-    )
-  }
-}
-
-export const blueprint = DeprecatedBlueprint.elementCreator()
-
-class DeprecatedLoader extends Component {
-  static preferredTagName = 'xin-loader'
-  static lightStyleSpec = HIDDEN_STYLE
-  allLoaded = () => {}
-
-  constructor() {
-    super()
-    warnDeprecated(
-      'xin-loader',
-      '<xin-loader> is deprecated. Use <tosi-loader> instead.'
-    )
-  }
-
-  private async load() {
-    await settleBlueprints(this, 'xin-blueprint', 'xin-loader')
-    this.allLoaded()
-  }
-
-  connectedCallback() {
+  connectedCallback(): void {
     super.connectedCallback()
-    this.load()
+    const tag = this.tagName.toLowerCase()
+    const replacement = tag.replace('xin-', 'tosi-')
+    warnDeprecated(
+      tag,
+      `<${tag}> was removed in tosijs 1.8.0 and does NOTHING — this element ` +
+        `will not hydrate. Rename it to <${replacement}> (same attributes, ` +
+        `same behaviour). Deprecated since 1.7; the tag is registered only ` +
+        `so this message can exist, and goes away in 2.0.`
+    )
   }
 }
 
-export const blueprintLoader = DeprecatedLoader.elementCreator()
+class RemovedBlueprint extends TombstoneElement {
+  static preferredTagName = 'xin-blueprint'
+}
+RemovedBlueprint.elementCreator()
+
+class RemovedLoader extends TombstoneElement {
+  static preferredTagName = 'xin-loader'
+}
+RemovedLoader.elementCreator()
+
+/**
+ * @deprecated Use `tosiBlueprint()`. 1.7's warning never named a removal
+ * version, so this stays through 1.x; it now creates a `<tosi-blueprint>`,
+ * which is the element that actually hydrates. Removed in 2.0.
+ */
+export const blueprint: typeof tosiBlueprint = (...args) => {
+  warnDeprecated(
+    'blueprint',
+    'blueprint() is deprecated and will be REMOVED IN 2.0 — use ' +
+      'tosiBlueprint(). It now creates a <tosi-blueprint>, the element that ' +
+      'hydrates; <xin-blueprint> is an inert tombstone.'
+  )
+  return tosiBlueprint(...args)
+}
+
+/**
+ * @deprecated Use `tosiLoader()`. Same reasoning as `blueprint` above.
+ */
+export const blueprintLoader: typeof tosiLoader = (...args) => {
+  warnDeprecated(
+    'blueprintLoader',
+    'blueprintLoader() is deprecated and will be REMOVED IN 2.0 — use ' +
+      'tosiLoader(). It now creates a <tosi-loader>.'
+  )
+  return tosiLoader(...args)
+}

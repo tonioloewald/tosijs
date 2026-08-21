@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
+  <title>The Derived Surface — tosijs</title>
+  <meta name="description" content="The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." />
+  <link rel="canonical" href="https://tosijs.net/derived-surface/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="The Derived Surface — tosijs" />
+  <meta property="og:description" content="The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." />
+  <meta property="og:url" content="https://tosijs.net/derived-surface/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The Derived Surface","description":"The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live.","url":"https://tosijs.net/derived-surface/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>The Derived Surface</h1>
+<!--{ "parent": "One User Interface", "order": 1, "description": "The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live." }-->
+
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — why the agent surface derives from what tosijs already knows.</em></p>
+<p>Your app already wrote its own agent map — every binding and handler tosijs
+records is a line in it. Below: a todo list built the ordinary way, and the
+<strong>schematic</strong> — the map, drawn — growing as you add items.</p>
+<h2>The map, drawn: a schematic embodiment (live)</h2>
+<pre><code class="language-css">.preview.split-view {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  gap: 8px;
+}
+
+/* app above map on narrow displays */
+@media (max-width: 600px) {
+  .preview.split-view {
+    grid-template-columns: 100%;
+  }
+}
+</code></pre>
+<pre><code class="language-js">import {
+  elements,
+  tosi,
+  enableAgentInterface,
+  schematicSVG,
+  rasterizeSVG,
+  getListItem,
+} from &#39;tosijs&#39;
+import { tosiTabs, icons } from &#39;tosijs-ui&#39;
+
+const { mapDemo } = tosi({
+  mapDemo: {
+    newItem: &#39;&#39;,
+    items: [
+      { id: 1, text: &#39;draw the map&#39;, done: true },
+      { id: 2, text: &#39;add more todos&#39;, done: false },
+    ],
+    addItem() {
+      const text = mapDemo.newItem.value.trim()
+      if (!text) return
+      mapDemo.items.push({ id: Math.random(), text, done: false })
+      mapDemo.newItem = &#39;&#39;
+    },
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+const { div, input, button, ul, pre, img } = elements
+
+// an ordinary todo list — each row&#39;s checkbox and label are WIRED, so every
+// item is part of the map, and the map grows as the list does
+preview.append(
+  div(
+    input({
+      placeholder: &#39;add a todo…&#39;,
+      bindValue: mapDemo.newItem,
+      // Enter COMMITS the field — change fires after the binding writes
+      // state, so addItem acts on committed state, mutates atomically, and
+      // the UI catches up on its own. (Acting on keydown instead means
+      // racing the commit — the classic clear-that-doesn&#39;t.) The PROXY form:
+      // resolves live by path, and the map names it just like the string
+      onChange: mapDemo.addItem,
+    }),
+    &#39; &#39;,
+    // another PRECONDITION: nothing to add = nothing to press (an
+    // observant transform — the button follows the field)
+    button(&#39;add&#39;, {
+      onClick: &#39;mapDemo.addItem&#39;,
+      disabled: mapDemo.newItem.tosi.take((text) =&gt; text.trim() === &#39;&#39;),
+    }),
+    ul(
+      { style: { maxHeight: &#39;10em&#39;, overflow: &#39;auto&#39;, margin: 0 } },
+      ...mapDemo.items.listBinding(
+        ({ li, input: check, span, button }, item) =&gt;
+          li(
+            check({ type: &#39;checkbox&#39;, bindValue: item.done }),
+            &#39; &#39;,
+            span(item.text),
+            &#39; &#39;,
+            // an icon-only affordance: `title` gives it its NAME (harvested
+            // the way a screen reader reads it), and an observant transform
+            // makes checked-ness a PRECONDITION — watch the delete button
+            // fade in and out of the map as you toggle its todo
+            button(icons.x(), {
+              title: &#39;delete&#39;,
+              disabled: item.done.tosi.take((done) =&gt; !done),
+              onClick(event) {
+                const row = getListItem(event.target.closest(&#39;li&#39;))
+                mapDemo.items.listRemove((i) =&gt; i.id, row.id)
+              },
+            })
+          ),
+        { idPath: &#39;id&#39; }
+      )
+    )
+  )
+)
+
+// four live views in tabs — the selected one redraws on every state
+// change: the map follows the app, hands off
+const detail = pre({ style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+const pane = (name) =&gt;
+  div({ name, style: { overflow: &#39;auto&#39;, height: &#39;100%&#39; } })
+const panes = [
+  // what an agent&#39;s vision encoder receives: map -&gt; SVG -&gt; raster, 2× —
+  // the default view, because it&#39;s the one that has to stand alone
+  pane(&#39;image&#39;),
+  // scoped by HIERARCHY: this demo&#39;s subtree (a within-rect is REGIONAL)
+  pane(&#39;schematic&#39;),
+  // the camera: what the USER sees right now, in screen coordinates
+  pane(&#39;screen&#39;),
+  // the atlas: the ENTIRE host app, chrome and all (best maximized)
+  pane(&#39;whole page&#39;),
+]
+const tabs = tosiTabs(
+  { style: { flex: &#39;1 1 auto&#39;, minHeight: &#39;160px&#39; } },
+  ...panes
+)
+
+// display fit + click-to-inspect (the image is an index: data-record links
+// each box to its JSON record)
+const show = (target, d) =&gt; {
+  target.innerHTML = schematicSVG(d, { index: true })
+  const svg = target.querySelector(&#39;svg&#39;)
+  if (svg) {
+    svg.setAttribute(&#39;width&#39;, &#39;100%&#39;)
+    svg.removeAttribute(&#39;height&#39;)
+  }
+  target.onclick = (event) =&gt; {
+    const g = event.target.closest(&#39;[data-record]&#39;)
+    if (g) {
+      detail.textContent = JSON.stringify(
+        d.wiring[Number(g.dataset.record)],
+        null,
+        2
+      )
+    }
+  }
+}
+
+let rasterBusy = false
+const render = [
+  async () =&gt; {
+    if (rasterBusy) return // rasterization is async — never overlap ticks
+    rasterBusy = true
+    try {
+      const d = agent.describe({ styles: true, scope: preview })
+      const svg = schematicSVG(d, { index: true })
+      const blob = await rasterizeSVG(svg, { scale: 2 })
+      // update the ONE img in place — the old frame stays up until the new
+      // src decodes, so the view never flickers
+      let shot = panes[0].querySelector(&#39;img&#39;)
+      if (!shot) {
+        shot = img({ style: { maxWidth: &#39;100%&#39; } })
+        panes[0].append(shot)
+      }
+      const prior = shot.src
+      shot.src = URL.createObjectURL(blob)
+      if (prior) URL.revokeObjectURL(prior)
+    } finally {
+      rasterBusy = false
+    }
+  },
+  () =&gt; show(panes[1], agent.describe({ styles: true, scope: preview })),
+  () =&gt; show(panes[2], agent.describe({ styles: true, view: &#39;viewport&#39; })),
+  () =&gt; show(panes[3], agent.describe({ styles: true })),
+]
+// no polling: the drawing is an OBSERVER — any state change (or focus
+// move, which state can&#39;t see) redraws the selected view, debounced a beat
+const redraw = { timer: 0 }
+const requestRedraw = () =&gt; {
+  clearTimeout(redraw.timer)
+  redraw.timer = setTimeout(() =&gt; {
+    if (tabs.isConnected) render[tabs.value ?? 0]()
+  }, 100)
+}
+const off = agent.observe(/./, requestRedraw)
+document.addEventListener(&#39;focusin&#39;, requestRedraw)
+tabs.addEventListener(&#39;change&#39;, requestRedraw)
+const cleanup = setInterval(() =&gt; {
+  if (!tabs.isConnected) {
+    off()
+    document.removeEventListener(&#39;focusin&#39;, requestRedraw)
+    clearInterval(cleanup)
+  }
+}, 2000)
+requestRedraw()
+// side by side: the app IS the left pane, its map the right — same state,
+// two renderings (the JSON inspector runs full width below)
+preview.classList.add(&#39;split-view&#39;)
+detail.style.gridColumn = &#39;1 / -1&#39;
+preview.append(tabs, detail)
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface, schematicSVG, rasterizeSVG, elements, tosi, updates } from &#39;tosijs&#39;
+
+test(&#39;the full pipeline: map -&gt; SVG string -&gt; PNG blob (real browsers only)&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+  const svg = schematicSVG(agent.describe({ styles: true }))
+  expect(svg.includes(&#39;&lt;svg xmlns=&#39;)).toBe(true)
+  expect(svg.includes(&#39;data-record=&#39;)).toBe(true)
+  // rasterization needs a real rendering engine — the exact capability a
+  // unit DOM cannot fake, which is why this lives in the browser tier
+  const blob = await rasterizeSVG(svg, { scale: 2 })
+  expect(blob.type).toBe(&#39;image/png&#39;)
+  expect(blob.size &gt; 0).toBe(true)
+})
+
+test(&#39;the delete affordance: named by its title, gated by checked-ness&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+  // build our OWN rows: a doc test must not depend on another fence&#39;s DOM
+  // (the runner executes fences in isolated frames, in no fixed order)
+  const { ul, li, button } = elements
+  const { delFence } = tosi({
+    delFence: { rows: [{ id: 1, done: true }, { id: 2, done: false }] },
+  })
+  const list = ul(
+    ...delFence.rows.listBinding(
+      ({ li: row, button: btn }, item) =&gt;
+        row(
+          btn(&#39;x&#39;, {
+            title: &#39;delete-fence&#39;,
+            bind: {
+              value: item.done,
+              binding: (el, done) =&gt; {
+                el.disabled = !done
+              },
+            },
+            onClick() {},
+          })
+        ),
+      { idPath: &#39;id&#39; }
+    )
+  )
+  preview.append(list)
+  await updates()
+
+  const dels = agent
+    .describe()
+    .wiring.filter((w) =&gt; w.label === &#39;delete-fence&#39;)
+  expect(dels.length).toBe(2)
+  // the checked row&#39;s delete is live; the unchecked one is disabled —
+  // a PRECONDITION, visible in the map (and faded in the schematic)
+  expect(dels.some((w) =&gt; w.disabled === true)).toBe(true)
+  expect(dels.some((w) =&gt; w.disabled == null)).toBe(true)
+  list.remove()
+})
+</code></pre>
+<p>One rectangle per wired element, at its <strong>actual position and size</strong>, wearing
+the app&#39;s own colors (<code>describe({ styles: true })</code>) — and since <code>bounds</code> is
+plain data, a <em>remote</em> agent can draw a page nobody is looking at.</p>
+<p>Above — a todo list, because a list&#39;s map <strong>changes shape as you use it</strong>:
+every item you add is new wired elements and the map grows with them, hands
+off. Each row&#39;s icon-only delete button is <em>named</em> by its <code>title</code> and
+<em>gated</em> by its checkbox — toggle a todo and watch its delete button fade in
+and out of the map, hands off: the drawing observes the same state it draws
+(plus focus moves, which state can&#39;t see). Type in the input and watch the caption
+change from italic hint to held value; check a box and watch the glyph flip.
+The <strong>schematic</strong> tab is scoped <strong>by hierarchy</strong> — <code>agent.describe({ scope: preview })</code> walks only this demo&#39;s subtree, so the map is the same whether
+the example is inline or maximized. (Spatial scoping — <code>schematicSVG(map, { within: rect })</code> — also exists, but a region includes whatever <em>overlaps</em> it,
+occluded or not; use it for viewport maps, not app parts.) <strong>whole page</strong>
+drops the scope for the full reveal; click any rectangle for its JSON record:</p>
+<p><strong>SVG vs. bitmap, per consumer.</strong> For an LLM, SVG <em>source</em> is the worst
+encoding of the three: same information as the JSON plus 2–4× markup overhead,
+through the same text channel with the same no-perception problem (models
+compute &quot;x:340 is right of x:120&quot;; they don&#39;t <em>see</em> it — and they&#39;re famously
+poor at mentally rendering SVG). The division of labor: <strong>JSON for text
+reasoning</strong> (minimal, precise), <strong>rasterized PNG for vision encoders</strong> (the
+only channel where adjacency/containment/alignment are perceived, and where
+the ~10× visual token compression lives — rasterize at 2× so labels land
+≥ 12px effective and OCR is near-lossless), <strong>SVG as the master artifact</strong> for
+humans and tools (deterministic, diffable, clickable — the index). The helper
+this implies: <code>schematicSVG(description) → string</code>, a pure DOM-free function
+(bounds is plain data, so the headless embodiment can vend its own schematic
+and a remote agent can draw a page nobody is viewing), plus a rasterize step —
+canvas in-browser, <code>@resvg/resvg-js</code> under bun (already a devDep for ePub
+covers).</p>
+<p><strong>The grammar</strong> (explicit, so &quot;can I act here?&quot; never needs guessing):
+<strong>bold outline</strong> = wired to act (has handlers) · an <code>↔</code> badge at the right
+edge = editable here · caption ending <code>*</code> = required · a <strong>red corner
+flag</strong> (top-left) = invalid <em>right now</em> — live ValidityState, the same
+truth <code>:invalid</code> styles · toggle state is drawn, live (an <code>✕</code>
+fills a checked box; radios are circles with a dot when selected) · a
+<strong>double outline</strong> = keyboard focus, where the user is right now · <em>italic</em> =
+placeholder hint, <strong>not</strong> content · <strong>faded</strong> = disabled right now (it beats
+bold: a disabled button is not an affordance) · plain solid = display ·
+faint dotted = structure, including list <em>containers</em> (subtle on purpose —
+the ground, not the figure: a list&#39;s items are the affordances; the
+container is where they live, and its wiring stays in the JSON record).</p>
+<h2>The audit: findings, not vibes</h2>
+<p>Every rule below is one the map makes obvious — <em>every element with handlers
+should have a name, a role, and enough contrast and size to use</em> — and
+because the map is the framework&#39;s own record of its wiring, a finding is a
+real defect rather than a scraper&#39;s guess. <code>auditFlags()</code> turns the report
+into schematic <code>flags</code>, so the drawing shows you where they are.</p>
+<pre><code class="language-js">import {
+  enableAgentInterface,
+  auditAccessibility,
+  auditFlags,
+  schematicSVG,
+  elements,
+} from &#39;tosijs&#39;
+
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+const { div, button, pre } = elements
+
+// a deliberately bad little UI — an anonymous div-button with faint text
+const bad = div(
+  { style: { display: &#39;flex&#39;, gap: &#39;8px&#39;, alignItems: &#39;center&#39; } },
+  div({
+    onClick() {},
+    style: {
+      color: &#39;#bbb&#39;,
+      background: &#39;white&#39;,
+      padding: &#39;2px 6px&#39;,
+      cursor: &#39;pointer&#39;,
+    },
+    textContent: &#39;delete&#39;,
+  }),
+  div({ onClick() {} }) // no name at all
+)
+
+const out = pre({ style: { maxHeight: &#39;10em&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+preview.append(
+  bad,
+  button(&#39;audit this demo&#39;, {
+    onClick() {
+      const map = agent.describe({ styles: true, scope: preview })
+      const report = auditAccessibility(map)
+      out.textContent =
+        `${report.failed} error(s), ${report.findings.length} finding(s)\n\n` +
+        report.findings
+          .map((f) =&gt; `[${f.severity}] ${f.rule}\n  ${f.message}`)
+          .join(&#39;\n\n&#39;) +
+        (report.skipped.length
+          ? `\n\nskipped: ${report.skipped.join(&#39;; &#39;)}`
+          : &#39;&#39;)
+    },
+  }),
+  out
+)
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface, auditAccessibility } from &#39;tosijs&#39;
+
+test(&#39;the audit finds real defects in a real page&#39;, () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+  const report = auditAccessibility(agent.describe({ styles: true }))
+  // shape, not score: this page is a live document, its findings will vary
+  expect(Array.isArray(report.findings)).toBe(true)
+  expect(typeof report.failed).toBe(&#39;number&#39;)
+  // styles WERE supplied, so the rule must not skip for lack of them…
+  expect(
+    report.skipped.some((s) =&gt; s.includes(&#39;no computed styles&#39;))
+  ).toBe(false)
+  // …though it may honestly report that transparent backgrounds can&#39;t be
+  // measured from the map alone (the effective ancestor colour is unknown)
+  expect(
+    report.skipped.every((s) =&gt; s.startsWith(&#39;contrast:&#39;))
+  ).toBe(true)
+})
+</code></pre>
+<h2>Kitchen sink: the truth test</h2>
+<p>Every &quot;obvious&quot; rendering claim, verifiable at a glance — one of everything,
+drawn live (250ms) with <code>index: true</code>, so each box wears its wiring index and
+the legend below maps numbers to records (the raster form of
+<code>data-record</code>: a vision consumer reads the number off the image and looks up
+the JSON). Interact with anything on the left; the map must never disagree:</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface, schematicSVG } from &#39;tosijs&#39;
+
+const { sink } = tosi({
+  sink: {
+    text: &#39;&#39;,
+    email: &#39;&#39;,
+    qty: 3,
+    volume: 7,
+    flavor: &#39;mango&#39;,
+    terms: true,
+    spam: false,
+    size: &#39;medium&#39;,
+    pick(event) {
+      sink.size = event.target.value
+    },
+    submit() {},
+  },
+})
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+const { div, label, input, select, option, button, span, pre } = elements
+
+const radio = (value) =&gt;
+  label(
+    input({
+      type: &#39;radio&#39;,
+      name: &#39;sink-size&#39;,
+      value,
+      checked: sink.size.value === value,
+      onChange: &#39;sink.pick&#39;,
+    }),
+    &#39; &#39;,
+    value
+  )
+
+const controls = div(
+  { style: { display: &#39;flex&#39;, flexDirection: &#39;column&#39;, gap: &#39;4px&#39; } },
+  input({ placeholder: &#39;type here…&#39;, bindValue: sink.text }),
+  // required + empty = INVALID right now: the map reads live ValidityState
+  // (red corner flag + asterisk) — type a real address and watch it clear
+  input({
+    type: &#39;email&#39;,
+    required: true,
+    placeholder: &#39;email (required)&#39;,
+    bindValue: sink.email,
+  }),
+  label(
+    input({ type: &#39;number&#39;, bindValue: sink.qty, style: { width: &#39;4em&#39; } }),
+    &#39; qty&#39;
+  ),
+  label(
+    input({ type: &#39;range&#39;, min: 0, max: 10, bindValue: sink.volume }),
+    &#39; volume&#39;
+  ),
+  label(input({ type: &#39;checkbox&#39;, bindValue: sink.terms }), &#39; terms&#39;),
+  label(input({ type: &#39;checkbox&#39;, bindValue: sink.spam }), &#39; spam me&#39;),
+  div(radio(&#39;small&#39;), radio(&#39;medium&#39;), radio(&#39;large&#39;)),
+  select({ bindValue: sink.flavor }, option(&#39;mango&#39;), option(&#39;lime&#39;)),
+  // contenteditable surfaces AS an input: the agent cares that the region
+  // EXISTS and which path feeds it (it writes state, not keystrokes)
+  div(
+    {
+      contenteditable: &#39;true&#39;,
+      ariaPlaceholder: &#39;editable region…&#39;,
+      style: {
+        border: &#39;1px dashed gray&#39;,
+        padding: &#39;2px 4px&#39;,
+        minHeight: &#39;1.2em&#39;,
+      },
+    },
+    &#39;edit me&#39;
+  ),
+  div(
+    button(&#39;submit&#39;, { onClick: &#39;sink.submit&#39; }),
+    &#39; &#39;,
+    button(&#39;disabled&#39;, { disabled: true, onClick: &#39;sink.submit&#39; })
+  ),
+  // a DISPLAY affordance: bound text, colored — mapped, but neither bold
+  // nor badged (you can read it, not act on it)
+  span({
+    title: &#39;flavor&#39;,
+    textContent: sink.flavor,
+    style: {
+      background: &#39;rgb(0, 128, 96)&#39;,
+      color: &#39;white&#39;,
+      padding: &#39;2px 6px&#39;,
+      alignSelf: &#39;flex-start&#39;,
+    },
+  })
+)
+
+const drawing = div({ style: { flex: &#39;1 1 auto&#39;, overflow: &#39;auto&#39; } })
+const legend = pre({
+  style: { maxHeight: &#39;9em&#39;, overflow: &#39;auto&#39;, margin: 0, fontSize: &#39;10px&#39; },
+})
+const draw = () =&gt; {
+  const d = agent.describe({ styles: true, scope: preview })
+  drawing.innerHTML = schematicSVG(d, { index: true })
+  const svg = drawing.querySelector(&#39;svg&#39;)
+  if (svg) {
+    svg.setAttribute(&#39;width&#39;, &#39;100%&#39;)
+    svg.removeAttribute(&#39;height&#39;)
+  }
+  legend.textContent = d.wiring
+    .map(
+      (w, i) =&gt;
+        `${i} ${w.tag}${w.type ? &#39;:&#39; + w.type : &#39;&#39;}` +
+        `${w.disabled === true ? &#39; (disabled)&#39; : &#39;&#39;}` +
+        `${w.required === true ? &#39; (required)&#39; : &#39;&#39;}` +
+        `${w.invalid === true ? &#39; (invalid)&#39; : &#39;&#39;} ` +
+        `${w.label ?? w.placeholder ?? w.text ?? w.value ?? &#39;&#39;}`
+    )
+    .join(&#39;\n&#39;)
+}
+// state changes redraw (the map is an observer); focus moves too, since
+// state can&#39;t see them
+const redraw = { timer: 0 }
+const requestRedraw = () =&gt; {
+  clearTimeout(redraw.timer)
+  redraw.timer = setTimeout(() =&gt; {
+    if (drawing.isConnected) draw()
+  }, 100)
+}
+const off = agent.observe(/./, requestRedraw)
+document.addEventListener(&#39;focusin&#39;, requestRedraw)
+const cleanup = setInterval(() =&gt; {
+  if (!drawing.isConnected) {
+    off()
+    document.removeEventListener(&#39;focusin&#39;, requestRedraw)
+    clearInterval(cleanup)
+  }
+}, 2000)
+requestRedraw()
+
+preview.append(
+  div(
+    { style: { display: &#39;flex&#39;, gap: &#39;8px&#39;, height: &#39;100%&#39; } },
+    controls,
+    div(
+      {
+        style: {
+          flex: &#39;1 1 auto&#39;,
+          display: &#39;flex&#39;,
+          flexDirection: &#39;column&#39;,
+          overflow: &#39;hidden&#39;,
+        },
+      },
+      drawing,
+      legend
+    )
+  )
+)
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface, schematicSVG, updates } from &#39;tosijs&#39;
+
+test(&#39;kitchen sink: the map never disagrees with the controls&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+  const d = agent.describe({ styles: true })
+  // toggle state is harvested live, both ways
+  const checks = d.wiring.filter((w) =&gt; w.type === &#39;checkbox&#39;)
+  expect(checks.some((w) =&gt; w.checked === true)).toBe(true)
+  expect(checks.some((w) =&gt; w.checked === false)).toBe(true)
+  // exactly one radio in the group is checked
+  const radios = d.wiring.filter((w) =&gt; w.type === &#39;radio&#39;)
+  expect(radios.filter((w) =&gt; w.checked === true).length).toBe(1)
+  // a placeholder is a hint field, never the label
+  const hinted = d.wiring.find((w) =&gt; w.placeholder === &#39;type here…&#39;)
+  expect(hinted != null).toBe(true)
+  expect(hinted.label).toBe(undefined)
+  // disabled is a record fact
+  expect(
+    d.wiring.some((w) =&gt; w.tag === &#39;button&#39; &amp;&amp; w.disabled === true)
+  ).toBe(true)
+  // contenteditable: an affordance in itself, live text as value
+  const ce = d.wiring.find((w) =&gt; w.contentEditable === true)
+  expect(ce != null).toBe(true)
+  expect(ce.value).toBe(&#39;edit me&#39;)
+  // required + empty email = invalid, live (ValidityState is map truth)
+  const email = d.wiring.find((w) =&gt; w.type === &#39;email&#39;)
+  expect(email != null).toBe(true)
+  expect(email.required).toBe(true)
+  expect(email.invalid).toBe(true)
+  // and the drawing carries all of it
+  const svg = schematicSVG(d, { index: true })
+  expect(svg.includes(&#39;&lt;line&#39;)).toBe(true) // the checked box&#39;s ✕
+  expect(svg.includes(&#39;&lt;circle&#39;)).toBe(true) // radios are circles
+  expect(svg.includes(&#39;font-style=&quot;italic&quot;&#39;)).toBe(true) // the hint
+  expect(svg.includes(&#39;opacity=&quot;0.4&quot;&#39;)).toBe(true) // the disabled button
+  expect(svg.includes(&#39;#d32f2f&#39;)).toBe(true) // the invalid corner flag
+  expect(svg.includes(&#39; *&#39;)).toBe(true) // the required asterisk
+  // the agent types: the value must replace the hint
+  agent.write(&#39;sink.text&#39;, &#39;actual content&#39;)
+  await updates()
+  const after = schematicSVG(agent.describe({ styles: true }))
+  expect(after.includes(&#39;actual content&#39;)).toBe(true)
+  agent.write(&#39;sink.text&#39;, &#39;&#39;) // leave the demo as found
+})
+</code></pre>
+<p><strong>Why the map beats pixels:</strong></p>
+<ul>
+<li><strong>Layout is free structure</strong> — containment says nesting, adjacency says
+order, arrows say direction; none of it spends a token on syntax
+(the DeepSeek-OCR result, applied to UI).</li>
+<li><strong>The image is an index</strong> — every rectangle links to its JSON record:
+glance at the picture, zoom into the one subtree you need.</li>
+<li><strong>Three encodings, one wiring</strong> — JSON, DOM, schematic; a diff invisible in
+one is glaring in another (a schematic diff is a regression a human <em>sees</em>).</li>
+<li><strong>It&#39;s the demo of the thesis</strong> — a map that draws itself from a page that
+never declared one. Every tosijs demo can end with the reveal.</li>
+</ul>
+<p><strong>The raster economics</strong> (encoders normalize the long edge, so cost is capped
+by construction — the budget is <em>aspect ratio</em>, not bytes):</p>
+<table>
+<thead>
+<tr>
+<th>what you rasterize</th>
+<th>vision tokens</th>
+<th>labels readable?</th>
+<th>role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>viewport render</strong> (<code>view: &#39;viewport&#39;</code>, ≈16:10)</td>
+<td>~700–1100</td>
+<td><strong>yes</strong> — the frame pages are designed for</td>
+<td><strong>the user&#39;s-eye glance</strong></td>
+</tr>
+<tr>
+<td>whole page (≈1300×6500)</td>
+<td>~650–800</td>
+<td>no (crushed ~4×)</td>
+<td>the atlas — topology + structure</td>
+</tr>
+<tr>
+<td>region map, ≤3:1 (<code>scope</code>/<code>within</code>)</td>
+<td>~600–1500</td>
+<td>yes</td>
+<td><strong>the zoom</strong> — full fidelity</td>
+</tr>
+<tr>
+<td>JSON map, 60-control app (haltija&#39;s measurement)</td>
+<td>~1,567 (text)</td>
+<td>exact</td>
+<td>the reasoning form</td>
+</tr>
+</tbody></table>
+<p>Compression and index are the same design: the glance is cheap <em>because</em> the
+zoom exists to recover what it discarded.</p>
+<p>The schematic above is ~60 lines of vanilla SVG generation over <code>describe()</code>
+output — no layout engine, no rendering, no screenshots. <strong>This code and the
+thinking belong in haltija too</strong>: a test driver that can draw the schematic of
+any page it&#39;s driving has a map view humans can check at a glance and a
+compressed overview a vision model can ingest — the natural shared artifact
+between the agent surface and the test harness (they are, after all, the same
+interface).</p>
+<h2>Proof: the harvest, assembled live</h2>
+<p>The UI below is built with ordinary element sugar — a labeled filter input
+(two-way bound), a read-only total (one-way prop binding), and a button whose
+handler is attached <em>by path</em>. There is not one agent-specific declaration in
+it. Click <strong>describe()</strong> and the affordance graph is assembled on demand — and
+because this page runs in introspection mode, the graph is the <em>whole page&#39;s</em>:
+the <a href="/one-user-interface/">two-actors demo</a>, the doc site&#39;s own chrome, and the very button you
+clicked to ask.</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
+
+const { harvest } = tosi({
+  harvest: {
+    filter: &#39;&#39;,
+    total: 3,
+    restock() {
+      harvest.total = harvest.total.value + 1
+    },
+  },
+})
+
+// reuse the page&#39;s surface if one is already installed
+const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+const { div, input, span, button, pre } = elements
+
+// output as a DIRECT preview child: height 100% is a no-op inline and
+// fills the box when the example is maximized
+const out = pre({ style: { height: &#39;100%&#39;, overflow: &#39;auto&#39;, margin: 0 } })
+// an ordinary UI — no agent-specific declarations anywhere
+preview.append(
+  div(
+    input({ placeholder: &#39;filter stock…&#39;, bindValue: harvest.filter }),
+    &#39; &#39;,
+    span({ title: &#39;items in stock&#39;, textContent: harvest.total }),
+    &#39; &#39;,
+    button(&#39;restock&#39;, { onClick: &#39;harvest.restock&#39; }),
+    &#39; &#39;,
+    button(&#39;describe()&#39;, {
+      onClick() {
+        const d = agent.describe()
+        const summary = [
+          `exposure: ${d.exposure}`,
+          `roots: ${Object.keys(d.roots).join(&#39;, &#39;)}`,
+          `actions: ${d.actions.join(&#39;, &#39;)}`,
+          `wired elements: ${d.wiring.length}`,
+        ].join(&#39;\n&#39;)
+        out.textContent = summary + &#39;\n\n&#39; + JSON.stringify(d.wiring, null, 2)
+      },
+    })
+  ),
+  out
+)
+</code></pre>
+<pre><code class="language-test">import {
+  elements,
+  tosi,
+  enableAgentInterface,
+  bind,
+  bindings,
+  updates,
+} from &#39;tosijs&#39;
+
+test(&#39;describe() harvests the affordance join from ordinary declarations&#39;, async () =&gt; {
+  const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: &#39;all&#39; })
+  tosi({ harvestTest: { q: &#39;&#39; } })
+  const input = elements.input({ placeholder: &#39;harvest-test…&#39; })
+  preview.append(input)
+  bind(input, &#39;harvestTest.q&#39;, bindings.value)
+  await updates()
+  const d = agent.describe()
+  // a placeholder is a HINT: its own field, never conflated with label
+  const record = d.wiring.find((w) =&gt; w.placeholder === &#39;harvest-test…&#39;)
+  expect(record != null).toBe(true)
+  expect(record.label).toBe(undefined)
+  // the two-way arrow ⟷ marks a user-writable affordance, provenance inline
+  expect(String(record.value).includes(&#39;⟷ harvestTest.q&#39;)).toBe(true)
+  // geometry rides in the map — in a real browser the input has real bounds
+  // (this line is exactly what happy-dom cannot assert: it reports zero-size)
+  expect(record.bounds.width &gt; 0).toBe(true)
+  input.remove()
+})
+</code></pre>
+<p>Read what it prints. Records are <strong>flat</strong> — the semantically visible facts sit
+at the top level, sized for an LLM to scan. The input&#39;s record joins its
+<code>placeholder</code> hint to its live value and its path in one string:
+<code>value: &quot;⟷ harvest.filter&quot;</code> — the two-way arrow means <em>user-writable
+affordance</em>. The total is the same idea, one-way: <code>text: &quot;3 ⟵ harvest.total&quot;</code>
+(current value, display-only; a plain <code>text: &quot;restock&quot;</code> with no arrow is
+static). The restock button&#39;s handler is not an anonymous <code>ƒ</code> but a <em>name</em> —
+<code>on: { click: &quot;harvest.restock&quot; }</code> — and the same path appears under
+<code>actions</code>. That is the affordance descriptor from the table above: harvested,
+joined, and serialized, authored by nobody.</p>
+<h2>The part nobody else can offer: the wiring diagram is already recorded</h2>
+<p>Here is the b8r inheritance paying off. In b8r it was the norm to put state
+<em>and</em> event handlers in the registry. tosijs kept that affordance
+(<code>onClick: &#39;app.doThing&#39;</code> binds a handler <strong>by path</strong>) but also allows the
+ergonomic shortcut (<code>onClick: (event) =&gt; { … }</code>) — and crucially, <strong>the shortcut
+still passes through tosijs</strong>. Every handler attached via element sugar or
+<code>on()</code> is recorded. Every data binding records element ↔ path. The framework
+doesn&#39;t just hold the model — it holds the complete map of <em>which widget is
+wired to what</em>, as a side effect of normal operation.</p>
+<p>That means an introspection surface costs the programmer <strong>nothing</strong>. Today,
+with shipped exports:</p>
+<table>
+<thead>
+<tr>
+<th>Question an agent asks</th>
+<th>Answer, today</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>What state exists?</td>
+<td><code>xin</code> / <code>boxed</code> — plain serializable objects (this is what <code>hotReload</code> already relies on)</td>
+</tr>
+<tr>
+<td>What is the value at a path?</td>
+<td><code>boxed[path].value</code></td>
+</tr>
+<tr>
+<td>Change it (and update the UI)</td>
+<td><code>xin[path] = value</code> — observers fire, DOM updates surgically</td>
+</tr>
+<tr>
+<td>Tell me when it changes</td>
+<td><code>observe(path, cb)</code> — and <code>unobserve</code> to hang up</td>
+</tr>
+<tr>
+<td>Which elements are data-bound?</td>
+<td><code>document.getElementsByClassName(BOUND_CLASS)</code> — the marker class <strong>is</strong> the enumerable index</td>
+</tr>
+<tr>
+<td>What is <em>this</em> element wired to?</td>
+<td><code>getElementBindings(el)</code> → its data bindings (paths + binding types) <strong>and</strong> its event handlers <em>(one <code>export</code> away from public)</em></td>
+</tr>
+<tr>
+<td>Which datum does this row render?</td>
+<td><code>getListItem(el)</code> — DOM → model, including virtual list rows</td>
+</tr>
+<tr>
+<td>What actions exist?</td>
+<td>Functions in the registry (<code>app.addItem</code>) — addressable, callable, and already supported as by-path event handlers</td>
+</tr>
+<tr>
+<td>What happened while I watched?</td>
+<td>The path-touch stream — the <code>connectDevTools</code> pattern (every touch is <code>{path, snapshot}</code>)</td>
+</tr>
+</tbody></table>
+<p>The React/Angular worlds cannot produce this table without becoming tosijs: it
+requires a universal addressing scheme, a central observable registry, stable
+DOM, and recorded wiring — which is simply a description of the observant model.
+This is the &quot;two steps beyond&quot; claim, made concrete.</p>
+<p>A useful subtlety: <strong>shadow-DOM components are already agent-shaped.</strong> A shadow
+component is bound like an <code>&lt;input&gt;</code> — its <code>value</code> is the interface and its
+internals are private by design. That&#39;s precisely the affordance/implementation
+split an agent needs: it should set the date-picker&#39;s <em>value</em>, not fumble with
+its internal buttons. (Closed shadow roots stay closed — for agents too.)</p>
+<h2>The opportunistic harvest</h2>
+<p>The wiring table above is what tosijs records <em>deliberately</em>. There is a second,
+larger layer it can harvest <em>opportunistically</em> — metadata that exists only
+because developers use elementCreators and their syntax sugar. Every prop passed
+to <code>div({…})</code>, every <code>initAttributes</code>, every <code>listBinding</code> flows through one
+chokepoint (<code>elementSet</code> / the creator machinery), and almost all of it persists
+somewhere recoverable (the element&#39;s attributes, the binding WeakMaps, the
+component class). Nothing new needs recording — <code>describe()</code> computes the
+harvest <strong>on demand</strong> from what&#39;s already there:</p>
+<table>
+<thead>
+<tr>
+<th>The developer wrote (for their own reasons)</th>
+<th>What it tells an agent, free</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>onClick: (e) =&gt; {…}</code></td>
+<td>this element is interactive; event type known</td>
+</tr>
+<tr>
+<td><code>onClick: &#39;app.doThing&#39;</code> — or <code>onClick: app.doThing</code> (a proxy IS a path: <code>on()</code> normalizes it at registration)</td>
+<td>the action is <em>addressable and nameable</em> — a tool with a path; a named plain function leaves a breadcrumb (<code>ƒ addThing</code> — dev-mode value only, minification scrambles it); anonymous maps as <code>ƒ</code></td>
+</tr>
+<tr>
+<td><code>bindValue: app.filter</code> (binding has <code>fromDOM</code>)</td>
+<td><strong>this path is user-writable</strong> — an input affordance</td>
+</tr>
+<tr>
+<td><code>textContent: app.total</code> (prop binding is <code>toDOM</code>-only)</td>
+<td>this path is <em>displayed</em> — read-only output</td>
+</tr>
+<tr>
+<td><code>bindEnabled: app.cart.valid</code></td>
+<td>a <strong>precondition</strong>: the guarded action&#39;s availability depends on this path</td>
+</tr>
+<tr>
+<td><code>listBinding(template, { idPath: &#39;id&#39; })</code></td>
+<td><code>app.items</code> is a collection keyed by <code>id</code>; the template&#39;s relative (<code>^.field</code>) bindings enumerate <strong>which fields of each item the UI presents</strong>, and per-row handlers are per-row actions</td>
+</tr>
+<tr>
+<td><code>aria-label(ledby)</code>, <code>title</code>, <code>placeholder</code>, <code>alt</code></td>
+<td><strong>the accessible name, resolved</strong> — what a screen reader would say, harvested at the source</td>
+</tr>
+<tr>
+<td><code>aria-describedby</code>, <code>aria-disabled</code>/<code>disabled</code>, <code>aria-required</code></td>
+<td>the author&#39;s own explanation + live affordance state (<code>description</code>, <code>disabled</code>, <code>required</code> on the record)</td>
+</tr>
+<tr>
+<td><code>aria-hidden</code></td>
+<td>hidden from assistive tech = hidden from the agent — the map reads the page the way a screen reader does</td>
+</tr>
+<tr>
+<td><code>aria-description</code> / <code>aria-describedby</code></td>
+<td>the author&#39;s own explanation, read back into the record — and a component&#39;s <code>contract.description</code> is <em>stamped</em> here (a description is not a name: it never touches <code>aria-label</code>)</td>
+</tr>
+<tr>
+<td><code>&lt;a href&gt;</code></td>
+<td><strong>links are affordances</strong> — mapped bindings-or-not; <code>href</code> is a distinct fact from the text (&quot;says X&quot; is not &quot;goes to Y&quot;), captions nameless links, and always rides the legend</td>
+</tr>
+<tr>
+<td><code>contenteditable</code></td>
+<td><strong>surfaces as an input field</strong>, mapped even before bindings attach: live text as its value, <code>aria-placeholder</code> as its hint, ↔ unbid — what an agent needs is that the region <em>exists</em> and which path feeds it (it writes state, not keystrokes)</td>
+</tr>
+<tr>
+<td><code>input({ type: &#39;email&#39; })</code>, <code>required</code>, <code>min</code>/<code>max</code>/<code>pattern</code></td>
+<td>value types and validation constraints, straight from the markup sugar</td>
+</tr>
+<tr>
+<td><code>part: &#39;searchBox&#39;</code></td>
+<td>the developer&#39;s <em>own name</em> for the affordance</td>
+</tr>
+<tr>
+<td><code>contract: { type: &#39;integer&#39;, examples: [1, 42] }</code></td>
+<td>an <strong>inline contract</strong>, declared at the element: rides the record, aggregates into <code>describe().contract</code> under the bound path, gates agent writes, and its examples are executable — see <a href="/agent-surface/">The Agent Surface</a></td>
+</tr>
+<tr>
+<td><code>static initAttributes = { count: 0, live: false }</code></td>
+<td>a <strong>typed per-component attribute schema</strong> — types already inferred from defaults at runtime (<code>typeof</code> branch in the attribute machinery)</td>
+</tr>
+<tr>
+<td>component <code>value</code> + <code>formAssociated</code></td>
+<td>the component&#39;s value surface and its form contract</td>
+</tr>
+</tbody></table>
+<p>Two compounding effects make this more than a list of facts:</p>
+<ul>
+<li><strong>The join.</strong> Because everything is declared <em>on the same element through the
+same call</em>, tosijs can join what no one else can: <code>role=&quot;search&quot;</code> ×
+<code>bindValue: app.filter</code> × <code>onKeydown: app.submit</code> on one element is a complete
+<strong>affordance descriptor</strong> — semantic label, writable state, and action,
+co-located. The a11y-tree agents get the label but not the path; API tools get
+the action but not the label. tosijs stands in the middle when all three are
+declared, and the DOM + WeakMaps preserve the join for on-demand assembly.</li>
+<li><strong>The behavioral harvest.</strong> At runtime, the audit stream adds provenance:
+<code>call(&#39;app.addItem&#39;)</code> → touches observed on <code>app.items</code> teaches the agent the
+<strong>causal graph</strong> (which actions affect which paths) purely by watching.
+<code>describe()</code> gets richer the longer the app runs, with zero developer effort.</li>
+<li><strong>Triangulated typing without schema.</strong> <code>typeof</code> the state at the path ∧ the
+input&#39;s declared <code>type</code> ∧ <code>initAttributes</code> defaults: three independent
+signals agree on a field&#39;s type before tosijs-schema is even introduced —
+and flag a smell when they disagree.</li>
+</ul>
+<p>The punchline is the same as the wiring table&#39;s, one octave up: the WebMCP
+world asks developers to <em>author</em> tool schemas by hand; in tosijs, the app&#39;s
+ordinary construction <strong>is</strong> the authoring. The sugar was designed for
+ergonomics; it turns out to have been designing an agent interface all along.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link current" href="../derived-surface/" aria-current="page">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js"></script>
+</body>
+</html>

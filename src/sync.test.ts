@@ -101,9 +101,7 @@ describe('sync', () => {
 
     const allMessages = transport.sent.flat()
     // The observer may fire at s4 or s4.a depending on touch propagation
-    const msg = allMessages.find(
-      (m) => m.path === 's4.a' || m.path === 's4'
-    )
+    const msg = allMessages.find((m) => m.path === 's4.a' || m.path === 's4')
     expect(msg).toBeDefined()
   })
 

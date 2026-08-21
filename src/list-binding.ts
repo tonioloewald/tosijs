@@ -1062,9 +1062,7 @@ interface VirtualListSlice {
 }
 
 function updateRelativeBindings(element: Element, path: string): void {
-  const boundElements = Array.from(
-    element.getElementsByClassName(BOUND_CLASS)
-  )
+  const boundElements = Array.from(element.getElementsByClassName(BOUND_CLASS))
   // getElementsByClassName covers descendants only — prepend the element itself
   // if it too is bound (classList.contains, not matches(): no selector to parse)
   if (element.classList.contains(BOUND_CLASS)) {

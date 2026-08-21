@@ -1,4 +1,5 @@
 # React and tosijs
+
 <!--{ "pin": "bottom", "order": 300, "description": "Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp." }-->
 
 A lot of developers are using React — and `tosijs` is very much relevant to them. The
@@ -70,13 +71,15 @@ nothing at all:
 ```typescript
 import { typedTosi, persist, connectDevTools } from 'react-tosijs'
 
-type AppState = { app: { count: number; todos: { id: string; text: string }[] } }
+type AppState = {
+  app: { count: number; todos: { id: string; text: string }[] }
+}
 const { useTosi } = typedTosi<AppState>()
-const [text] = useTosi('app.todos[0].text')  // string
-const [oops] = useTosi('app.cuont')           // compile error
+const [text] = useTosi('app.todos[0].text') // string
+const [oops] = useTosi('app.cuont') // compile error
 
-persist('app.todos')                 // localStorage, coalesced writes
-connectDevTools({ roots: ['app'] })  // Redux DevTools tap
+persist('app.todos') // localStorage, coalesced writes
+connectDevTools({ roots: ['app'] }) // Redux DevTools tap
 ```
 
 ## Observant, not reactive

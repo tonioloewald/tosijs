@@ -1,6 +1,6 @@
-# tosijs v1.7.9
+# tosijs v1.8.0-rc.1
 
-Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM, ~15kB gzipped.
+Path-based state management for web apps — proxy-based observers, no JSX, no virtual DOM. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer.
 
 - Docs: https://tosijs.net
 - Source: https://github.com/tonioloewald/tosijs
@@ -19,8 +19,12 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 
 ## Pages
 
+- https://tosijs.net/agent/ — agent (EXPERIMENTAL)
+  EXPERIMENTAL agent interface: expose a tosijs app's state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface.
 - https://tosijs.net/Angular/ — Angular and tosijs
   Use tosijs state in Angular with tosiSignal — a real, writable Angular signal bound to a path, zoneless-first, no NgRx/RxJS boilerplate — and treat Angular as an off-ramp.
+- https://tosijs.net/audit/ — audit (EXPERIMENTAL)
+  EXPERIMENTAL accessibility audit over the agent surface's own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size.
 - https://tosijs.net/bind/ — Binding
   bind() syncs application state to DOM elements via path-based observers. Plus on() for event handlers and touchElement() for forced updates.
 - https://tosijs.net/list-binding/ — binding arrays
@@ -33,10 +37,16 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   How to think about building applications with tosijs: state in a proxy, UI built with live bindings, list bindings for collections. Read this first.
 - https://tosijs.net/color/ — color
   The Color class: parse CSS colors, do color math (brighten, saturate, blend, mix), convert between HSL and RGB, generate contrasting colors.
+- https://tosijs.net/contract/ — contract harness (EXPERIMENTAL)
+  EXPERIMENTAL contract harness: exercise an agent surface's declared contract — schema examples must be accepted, counterexamples refused — through the real surface.
+- https://tosijs.net/contract-check/ — contract validation
+  shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike.
 - https://tosijs.net/elements/ — Creating Elements
   The elements proxy: build DOM elements with live bindings and event handlers in plain JS, no JSX or transpilation required.
 - https://tosijs.net/css/ — CSS
   Utilities for writing CSS as JS objects, generating stylesheets, and working with CSS variables and themes via css(), vars, and varDefault().
+- https://tosijs.net/headless-embodiment/ — Headless Embodiment
+  The inversion: server-side rendering of an MCP — a tosijs app running as its abstract self, vending UI on demand (elementsSSR, live).
 - https://tosijs.net/hot-reload/ — hotReload
   hotReload() persists matching tosijs state paths to localStorage so application state survives page reloads.
 - https://tosijs.net/make-component/ — makeComponent
@@ -46,17 +56,27 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/metadata/ — metadata
   Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely.
 - https://tosijs.net/Migration/ — Migrating from xinjs to tosijs
-  Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings.
+  Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.
 - https://tosijs.net/more-math/ — more-math
   Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants.
+- https://tosijs.net/one-user-interface/ — One User Interface
+  One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels.
 - https://tosijs.net/path-listener/ — path-listener
   The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system.
+- https://tosijs.net/plan-and-prior-art/ — Plan & Prior Art
+  Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta.
 - https://tosijs.net/React/ — React and tosijs
   Use tosijs state in React with the useTosi hook (useState-shaped, works outside React), render web components via reactWebComponents, and treat React as an off-ramp.
+- https://tosijs.net/schematic/ — schematic (EXPERIMENTAL)
+  EXPERIMENTAL schematic renderer: draw an agent-surface description as SVG — the app's affordance map at its true geometry, DOM-free.
 - https://tosijs.net/share/ — share
   share() synchronizes tosijs state across browser tabs and windows using BroadcastChannel and IndexedDB.
 - https://tosijs.net/sync/ — sync
   sync() synchronizes tosijs state across the network in real-time via a pluggable transport (websocket, fetch, or your own).
+- https://tosijs.net/agent-surface/ — The Agent Surface
+  enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap.
+- https://tosijs.net/derived-surface/ — The Derived Surface
+  The wiring diagram tosijs already records, the metadata harvest from element sugar, and describe() assembling the affordance graph — live.
 - https://tosijs.net/xin/ — The tosi proxy
   How the tosi observer proxy works: an object wrapped in a proxy that surgically updates bound DOM elements when its properties change.
 - https://tosijs.net/throttle/ — throttle & debounce
@@ -64,12 +84,22 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/xin-proxy/ — tosi, xin, and xinProxy
   Background on the tosijs observer proxies: how tosi() and xinProxy() relate to xin and boxed, plus tosiUnique() for per-instance state.
 - https://tosijs.net/ — tosijs
-  tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic.
+  tosijs is a path-based state-management library for web apps. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic.
 - https://tosijs.net/history/ — tosijs history
   The lineage behind tosijs — b8rjs → xinjs → tosijs: what changed, why, and how to migrate.
+- https://tosijs.net/index-agent/ — tosijs/agent
+  tosijs/agent — the agent surface, the schematic renderer, the contract harnesses and the accessibility audit, in one opt-in subpath.
+- https://tosijs.net/index-core/ — tosijs/core (slim entry)
+  tosijs/core — the slim entry: everything except the blueprint loader and the multi-window leaves, for consumers who choose minimalism.
+- https://tosijs.net/index-state/ — tosijs/state (DOM-free)
+  tosijs/state — the DOM-free state layer: observable path-addressed state importable anywhere, including plain Node.
+- https://tosijs.net/trust-and-transports/ — Trust & Transports
+  The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances.
 - https://tosijs.net/utilities/ — Utilities
   Lightweight helper libraries used internally by tosijs and exposed for general use: more-math, throttle, debounce, hotReload, share, and sync.
 - https://tosijs.net/form-validation/ — Validation
   Form validation for tosijs form-associated custom elements via ElementInternals: validity, validation messages, and constraint helpers.
 - https://tosijs.net/component/ — Web-Components
   The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association.
+- https://tosijs.net/webmcp/ — webmcp (EXPERIMENTAL)
+  EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records.

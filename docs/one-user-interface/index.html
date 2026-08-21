@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
+  <title>One User Interface — tosijs</title>
+  <meta name="description" content="One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." />
+  <link rel="canonical" href="https://tosijs.net/one-user-interface/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="One User Interface — tosijs" />
+  <meta property="og:description" content="One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." />
+  <meta property="og:url" content="https://tosijs.net/one-user-interface/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"One User Interface","description":"One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels.","url":"https://tosijs.net/one-user-interface/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>One User Interface</h1>
+<!--{ "pin": "bottom", "order": 320, "description": "One source of truth for state, UI — and AI. tosijs apps expose a described, observable, path-addressed surface to agents and test harnesses: the same interface humans use, minus the pixels." }-->
+
+<p><em>One source of truth for state, UI — and AI.</em></p>
+<blockquote>
+<p><strong>Status: shipping in tosijs 1.8.0.</strong> The surface
+(<code>enableAgentInterface</code> → <code>tosiAgent</code>), the schematic pipeline
+(<code>schematicSVG</code> / <code>rasterizeSVG</code>, from
+<a href="https://github.com/tonioloewald/tosijs-floorplan">tosijs-floorplan</a>), the
+contract harnesses and the accessibility audit are real, tested code —
+every proof on these pages runs on the code you can install. They live
+behind <code>tosijs/agent</code> (the same file, narrower types), and they are still
+marked <strong>EXPERIMENTAL</strong>: the shapes have survived two producers and a
+nine-lens review, but this is a first release and names may still move.
+<code>enableAgentInterface()</code> is <strong>read-only by default</strong> — see
+<a href="/trust-and-transports/">Trust &amp; Transports</a> for the exposure ladder.</p>
+</blockquote>
+<h2>The thesis, in five claims</h2>
+<p>Every app now has three kinds of user — <strong>humans</strong> (rendered DOM), <strong>code</strong>
+(state), and <strong>agents</strong>, who today are forced to <em>impersonate humans</em>:
+screenshot, guess, forge clicks. tosijs never needed the workaround:</p>
+<ul>
+<li><strong>State lives in one registry, addressed by paths</strong> — <code>app.cart.items[id=123].qty</code>
+is a serializable, LLM-friendly <em>string</em>. No DOM required to name a thing.</li>
+<li><strong>Writes are legitimate from any entry point</strong> — assign to a path and every
+bound widget updates, exactly as if the human had done it.</li>
+<li><strong>The DOM is persistent</strong> — bindings wire real elements once; nothing is
+rebuilt out from under an observer, human or agent.</li>
+<li><strong>Observation is push, not poll</strong> — <code>observe(path, …)</code> replaces screenshot
+diffing with notifications.</li>
+<li>Therefore: <strong>an agent is just another observer with a different intelligence
+behind it.</strong> We don&#39;t extend the architecture to serve AI — we <em>describe</em> it.</li>
+</ul>
+<p><strong>And the description is under oath.</strong> The agent surface couldn&#39;t be a
+separate package even if we wanted one — it reads the framework&#39;s own
+records (the registry, the binding metadata, the handler wiring), so when
+the map looks wrong, something <em>real</em> is wrong: the renderer lied, or the
+framework did. There is no adapter layer to absorb the discrepancy, which is
+exactly what makes the map an instrument. One truth-test page found defects
+in four different strata in a day — a harvest lying about accessible names,
+a missing piece of the accessible-name algorithm, a <strong>core binding bug</strong>
+that had shipped silently for two minor versions (fixed on npm within
+hours of the map looking slightly off), and a coding pattern that needed
+writing down. An integration absorbs discrepancies; an intrinsic surface
+prosecutes them. The curb cut doesn&#39;t just serve the new users — <em>building
+it audits the sidewalk.</em></p>
+<h2>Proof: two users, one interface (live)</h2>
+<p>The human side is ordinary bound UI. The agent side never touches the DOM —
+paths, actions, and push observation only. Add items from either side: both
+stay in sync because <strong>there is nothing to sync</strong>, and the log shows the agent
+being notified of your edits.</p>
+<pre><code class="language-js">import { elements, tosi, enableAgentInterface } from &#39;tosijs&#39;
+
+const { oneUI } = tosi({
+  oneUI: {
+    list: [{ id: 1, text: &#39;try the input →&#39; }],
+    addItem(text) {
+      if (!text.trim()) return
+      oneUI.list.push({ id: Math.random(), text })
+    },
+  },
+})
+
+// The PRODUCTION posture, not the dev one: this manifest names exactly what
+// the agent side below touches. A bare enableAgentInterface() is read-only
+// introspection — describe and read work, call and write refuse — so the
+// demo would only be half a demo. (Also installs globalThis.tosiAgent.)
+const agent = enableAgentInterface({
+  expose: { roots: [&#39;oneUI&#39;], actions: [&#39;oneUI.addItem&#39;] },
+})
+const { div, h4, ul, input, button, pre } = elements
+
+// THE HUMAN SIDE — an ordinary bound UI
+preview.append(
+  div(
+    h4(&#39;Human (widgets)&#39;),
+    ul(
+      { style: { maxHeight: &#39;8em&#39;, overflow: &#39;auto&#39;, margin: 0 } },
+      ...oneUI.list.listBinding(({ li }, item) =&gt; li(item.text), {
+        idPath: &#39;id&#39;,
+      })
+    ),
+    input({
+      placeholder: &#39;add an item, hit Enter&#39;,
+      onKeydown(event) {
+        if (event.key === &#39;Enter&#39;) {
+          oneUI.addItem(event.target.value)
+          event.target.value = &#39;&#39;
+        }
+      },
+    })
+  )
+)
+
+// THE AGENT SIDE — no DOM access: paths, actions, observation only.
+// The log is a direct preview child so it grows when the example is maximized.
+const log = pre({
+  style: { height: &#39;100%&#39;, minHeight: &#39;5em&#39;, overflow: &#39;auto&#39;, margin: 0 },
+})
+agent.observe(&#39;oneUI&#39;, (path) =&gt; log.append(`observed: ${path}\n`))
+preview.append(
+  div(
+    h4(&#39;Agent (paths only)&#39;),
+    button(&#39;call(&quot;oneUI.addItem&quot;, …)&#39;, {
+      onClick() {
+        agent.call(&#39;oneUI.addItem&#39;, &#39;added by the agent&#39;)
+      },
+    }),
+    &#39; &#39;,
+    button(&#39;read(&quot;oneUI.list&quot;)&#39;, {
+      onClick() {
+        log.append(JSON.stringify(agent.read(&#39;oneUI.list&#39;)) + &#39;\n&#39;)
+      },
+    })
+  ),
+  log
+)
+</code></pre>
+<pre><code class="language-test">import { enableAgentInterface } from &#39;tosijs&#39;
+
+// The page&#39;s own demo is the release&#39;s headline proof, and it was a plain
+// ```js fence — so when the default posture became read-only, this page kept
+// calling call() on a surface that refuses it and NOTHING went red. This
+// fence is the guard: it runs in Chromium and Firefox on every release.
+test(&#39;the manifesto demo posture can actually do what the demo does&#39;, () =&gt; {
+  const agent = enableAgentInterface({
+    expose: { roots: [&#39;oneUI&#39;], actions: [&#39;oneUI.addItem&#39;] },
+  })
+  const before = agent.read(&#39;oneUI.list&#39;).length
+  agent.call(&#39;oneUI.addItem&#39;, &#39;from the test&#39;)
+  expect(agent.read(&#39;oneUI.list&#39;).length).toBe(before + 1)
+  // …and the manifest is still a manifest: nothing outside it is reachable
+  // (the doc-fence expect() is a small shim — no toThrow, so catch by hand)
+  let refused = false
+  try {
+    agent.read(&#39;somethingElse&#39;)
+  } catch (e) {
+    refused = true
+  }
+  expect(refused).toBe(true)
+})
+</code></pre>
+<p><strong>Open the console — you are the second user</strong>: <code>tosiAgent.describe()</code>,
+<code>tosiAgent.call(&#39;oneUI.addItem&#39;, &#39;from the console&#39;)</code>, <code>tosiAgent.changes()</code>.
+An agentic browser gets the same deal: no extension, no vision, no selectors.</p>
+<h2>The full argument, in five parts</h2>
+<p>This page is the thesis and its live proof. The detail lives in five child
+documents:</p>
+<ol>
+<li><strong><a href="/derived-surface/">The Derived Surface</a></strong> — the wiring diagram tosijs
+already records, the opportunistic harvest, and <code>describe()</code> assembling the
+whole page&#39;s affordance graph — live.</li>
+<li><strong><a href="/agent-surface/">The Agent Surface</a></strong> — the launch toggle, the
+protocol-neutral surface, push-and-drain observation, and the exposure
+tiers — where the <strong>schema-declared surface is the product</strong> and the
+automatic map is the discovery tool. Plus ComponentMap.</li>
+<li><strong><a href="/trust-and-transports/">Trust &amp; Transports</a></strong> — the honest section: constraint
+bypass, capability scoping, secrets, prompt injection, audit — and the
+three distances an agent can stand at (in-page, bridged, remote peer).</li>
+<li><strong><a href="/headless-embodiment/">Headless Embodiment</a></strong> — the inversion:
+&quot;server-side rendering of an MCP&quot; — the app running as its abstract self,
+vending UI on demand, with <code>elementsSSR</code> proven live.</li>
+<li><strong><a href="/plan-and-prior-art/">Plan &amp; Prior Art</a></strong> — phases 0–5, the open questions,
+and why the window is real (WebMCP is standardizing the transport slot
+<em>right now</em>; the core idea remains unclaimed).</li>
+</ol>
+<hr>
+<p><em>The observant model, stated for 2026: the framework watches state and updates
+the UI. A human is an observer with eyes. An agent is an observer with a model.
+Neither needs a special interface, because there is only one.</em></p>
+<!-- toc -->
+<ul>
+<li><a href="/derived-surface/">The Derived Surface</a></li>
+<li><a href="/agent-surface/">The Agent Surface</a></li>
+<li><a href="/trust-and-transports/">Trust &amp; Transports</a></li>
+<li><a href="/headless-embodiment/">Headless Embodiment</a></li>
+<li><a href="/plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+</ul>
+<!-- /toc -->
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details open><summary><a class="doc-link current" href="../one-user-interface/" aria-current="page">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js"></script>
+</body>
+</html>

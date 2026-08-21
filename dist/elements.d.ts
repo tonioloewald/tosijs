@@ -1,5 +1,6 @@
-import { ElementProps, ElementCreator } from './xin-types';
+import { ElementProps, ElementCreator, XinBinding } from './xin-types';
 import { type ElementsProxy } from './elements-types';
+export declare const propBindingKey: (binding: XinBinding) => string | undefined;
 export declare const elementSet: (elt: HTMLElement, key: string, value: any) => void;
 /**
  * elements is a proxy that produces ElementCreators, e.g.

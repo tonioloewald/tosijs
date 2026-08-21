@@ -312,6 +312,24 @@ export const elementToHandlers: WeakMap<Element, XinEventBindings> =
   new WeakMap()
 export const elementToBindings: WeakMap<Element, DataBindings> = new WeakMap()
 
+// inline element contracts — a JSON-Schema-shaped description of the value
+// an element binds, declared AT THE ELEMENT (`input({ bindValue, contract })`)
+// and stored here beside the other binding metadata (never on the DOM). The
+// agent surface harvests these into describe() and enforces them on write();
+// top-level curation (expose.contract) overrides them.
+const elementContracts: WeakMap<Element, Record<string, any>> = new WeakMap()
+
+export const setElementContract = (
+  element: Element,
+  schema: Record<string, any>
+): void => {
+  elementContracts.set(element, schema)
+}
+
+export const elementContract = (
+  element: Element
+): Record<string, any> | undefined => elementContracts.get(element)
+
 interface ElementMetadata {
   eventBindings?: XinEventBindings
   dataBindings?: DataBindings
@@ -330,12 +348,34 @@ export const cloneWithBindings = (element: Node): Node => {
     const dataBindings = elementToBindings.get(element as Element)
     const eventHandlers = elementToHandlers.get(element as Element)
     if (dataBindings != null) {
-      // @ts-expect-error deepClone returns compatible type
-      elementToBindings.set(cloned, deepClone(dataBindings))
+      // Copy the ENTRIES, share the BINDING objects. A binding is a
+      // stateless spec (`{toDOM, fromDOM}`) and its identity is meaningful:
+      // the agent surface names a bound prop by looking the binding up in
+      // the shared `bindings` collection, so a deep-cloned binding turned
+      // every list row's `value: "x ⟷ path"` into an anonymous `detail[]`
+      // entry — rows were legible to the framework but not to the map.
+      // What must be per-row is the path, the options, and a take()'s input
+      // paths (rewritten per row at instantiation).
+      elementToBindings.set(
+        cloned,
+        dataBindings.map((entry) => ({
+          ...entry,
+          options: entry.options != null ? { ...entry.options } : undefined,
+          take:
+            entry.take != null
+              ? { ...entry.take, paths: [...entry.take.paths] }
+              : undefined,
+        }))
+      )
     }
     if (eventHandlers != null) {
       // @ts-expect-error deepClone returns compatible type
       elementToHandlers.set(cloned, deepClone(eventHandlers))
+    }
+    // contracts are declarative and shared — the clone wears the same one
+    const schema = elementContracts.get(element as Element)
+    if (schema != null) {
+      elementContracts.set(cloned, schema)
     }
   }
   // For a <template>, children live in (and must be cloned into) .content:

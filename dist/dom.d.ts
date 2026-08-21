@@ -1,5 +1,6 @@
 import { ContentType, ValueElement } from './xin-types';
 export declare const dispatch: (target: Element, type: string, { bubbles, composed }?: EventInit) => void;
+export declare const isBindingWrite: () => boolean;
 export declare const setValue: (element: Element, newValue: any) => void;
 export declare const getValue: (element: ValueElement) => any;
 export declare const resizeObserver: ResizeObserver | {

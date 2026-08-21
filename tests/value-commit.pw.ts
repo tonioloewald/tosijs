@@ -39,17 +39,12 @@ test('change handler committing input:checked into this.value sticks (tosijs#21)
       content = ({ div, label, input }: any) =>
         div(
           { part: 'options' },
-          label(
-            input({ type: 'radio', name: 'seg', value: 'yes' }),
-            'yes'
-          ),
+          label(input({ type: 'radio', name: 'seg', value: 'yes' }), 'yes'),
           label(input({ type: 'radio', name: 'seg', value: 'no' }), 'no')
         )
 
       handleChange = () => {
-        const input = (this.parts as any).options.querySelector(
-          'input:checked'
-        )
+        const input = (this.parts as any).options.querySelector('input:checked')
         this.value = input ? input.value : ''
       }
 

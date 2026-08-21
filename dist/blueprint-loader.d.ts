@@ -1,6 +1,11 @@
 import { Component } from './component';
 import { TosiPackagedComponent } from './make-component';
 /**
+ * Why a blueprint `src` was refused, or `null` if it's allowed. Exported for
+ * testing and for apps that want to pre-flight a URL through the same rules.
+ */
+export declare function blueprintSrcRefusal(src: string, el?: Element): string | null;
+/**
  * Replace the module loader (mainly for testing failure/retry paths — the
  * default uses dynamic `import()`, which tests cannot intercept).
  */
@@ -34,27 +39,13 @@ export declare class BlueprintLoader extends Component {
     connectedCallback(): void;
 }
 export declare const tosiLoader: import("./xin-types").ElementCreator<BlueprintLoader>;
-declare class DeprecatedBlueprint extends Blueprint {
-    static preferredTagName: string;
-    static lightStyleSpec: {
-        ':host': {
-            display: string;
-        };
-    };
-    constructor();
-}
-export declare const blueprint: import("./xin-types").ElementCreator<DeprecatedBlueprint>;
-declare class DeprecatedLoader extends Component {
-    static preferredTagName: string;
-    static lightStyleSpec: {
-        ':host': {
-            display: string;
-        };
-    };
-    allLoaded: () => void;
-    constructor();
-    private load;
-    connectedCallback(): void;
-}
-export declare const blueprintLoader: import("./xin-types").ElementCreator<DeprecatedLoader>;
-export {};
+/**
+ * @deprecated Use `tosiBlueprint()`. 1.7's warning never named a removal
+ * version, so this stays through 1.x; it now creates a `<tosi-blueprint>`,
+ * which is the element that actually hydrates. Removed in 2.0.
+ */
+export declare const blueprint: typeof tosiBlueprint;
+/**
+ * @deprecated Use `tosiLoader()`. Same reasoning as `blueprint` above.
+ */
+export declare const blueprintLoader: typeof tosiLoader;

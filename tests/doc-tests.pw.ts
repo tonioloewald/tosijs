@@ -40,7 +40,41 @@ test('every inline doc test passes (the whole ```test tier)', async ({
   )) as DocTestResults
 
   const ran = results.passed + results.failed
-  expect(ran, 'no inline doc tests ran — the runner never started').toBeGreaterThan(0)
+  expect(
+    ran,
+    'no inline doc tests ran — the runner never started'
+  ).toBeGreaterThan(0)
+
+  // `ran > 0` alone is not a gate: drop a page from docPaths, or mistype one
+  // fence language tag, and the corpus silently shrinks while both CI lanes
+  // stay green. These pages carry the ONLY real-browser coverage of the agent
+  // surface, so each must contribute at least one passing test by name, and
+  // the total is pinned so a loss anywhere has to be acknowledged deliberately.
+  // matched as substrings: markdown pages key by filename, but a doc block
+  // inside a source file keys by its own slug, and pinning the exact form
+  // would just be a second thing to keep in sync
+  const REQUIRED_PAGES = [
+    'agent-surface',
+    'one-user-interface',
+    'derived-surface',
+    'bind',
+  ]
+  const pageKeys = Object.keys(results.pages)
+  for (const page of REQUIRED_PAGES) {
+    expect(
+      pageKeys.some((key) => key.includes(page)),
+      `no inline doc tests ran for "${page}" (saw: ${pageKeys.join(', ')}) — ` +
+        'was it dropped from docPaths, or did a fence language tag get mistyped?'
+    ).toBe(true)
+  }
+
+  const MINIMUM_CORPUS = 16
+  expect(
+    ran,
+    `the inline doc-test corpus shrank to ${ran} (expected at least ` +
+      `${MINIMUM_CORPUS}). If that is deliberate, lower MINIMUM_CORPUS in the ` +
+      'same commit; otherwise a page or a fence went missing.'
+  ).toBeGreaterThanOrEqual(MINIMUM_CORPUS)
 
   if (results.failed > 0) {
     const detail = Object.entries(results.pages)

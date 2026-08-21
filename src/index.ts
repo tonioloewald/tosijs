@@ -1,76 +1,33 @@
-export { bind, on, touchElement } from './bind'
-export { bindings } from './bindings'
-export {
-  css,
-  invertLuminance,
-  initVars,
-  vars,
-  varDefault,
-  StyleSheet,
-  onStylesheetChange,
-  getThemePreferences,
-  onThemePreferencesChange,
-} from './css'
-export type { ColorScheme, ContrastPreference, ThemePreferences } from './css'
-export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
-export { Color } from './color'
-export { Component, tosiSlot, xinSlot } from './component'
-export {
-  validateAgainstConstraints,
-  type FormValidation,
-} from './form-validation'
-export { elements, svgElements, mathML, bindParts } from './elements'
-export type { ElementsProxy } from './elements-types'
-export { getCssVar } from './get-css-var'
-export { hotReload } from './hot-reload'
-export { share } from './share'
-export { sync } from './sync'
-export type { SyncTransport, SyncMessage, SyncOptions } from './sync'
-export {
-  xinPath,
-  xinValue,
-  tosiPath,
-  tosiValue,
-  tosiSetValue,
-  tosiAccessor,
-  TOSI_ACCESSOR,
-  TAKE_DESCRIPTOR,
-  BOUND_CLASS,
-  BOUND_SELECTOR,
-  deprecated,
-  warnDeprecated,
-} from './metadata'
-export {
-  getListInstance,
-  getListItem,
-  getListBinding,
-  deleteListItem,
-  scrollListItemIntoView,
-} from './list-binding'
-export { makeComponent } from './make-component'
-export type {
-  TosiBlueprint,
-  TosiFactory,
-  TosiPackagedComponent,
-  TosiComponentSpec,
-  // deprecated Xin* aliases (kept for backward compatibility)
-  XinBlueprint,
-  XinFactory,
-  XinPackagedComponent,
-  XinComponentSpec,
-} from './make-component'
-export { MoreMath } from './more-math'
-export { settings } from './settings'
-export { throttle, debounce } from './throttle'
-export { version } from './version'
-export { xin, boxed, observe, unobserve, touch, updates } from './xin'
+/*{ "parent": "utilities", "description": "the tosijs entry point — the full library. See `tosijs/core` for the slim entry and `tosijs/state` for the DOM-free state layer." }*/
+export * from './index-core-exports'
+
+// --- in `tosijs`, NOT in `tosijs/core` (see index-core.ts for the why) ---
+
+// blueprint machinery: registers custom elements at import, because
+// blueprints hydrate from MARKUP — no import statement protects them, so a
+// shaken registration would fail silently
 export {
   tosiBlueprint,
   tosiLoader,
-  blueprint,
   Blueprint,
-  blueprintLoader,
   BlueprintLoader,
+  // deprecated aliases — 1.7 never named a removal version for these, so
+  // they survive 1.x with a warning that names 2.0
+  blueprint,
+  blueprintLoader,
 } from './blueprint-loader'
-export * from './xin-types'
-export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'
+export { makeComponent } from './make-component'
+
+// multi-window and dev-time leaves: pure and shakeable, included by default
+export { share } from './share'
+export { sync } from './sync'
+export type { SyncTransport, SyncMessage, SyncOptions } from './sync'
+export { hotReload } from './hot-reload'
+
+// The agent surface ships from the main entry so there is exactly ONE
+// runtime copy of the registry: a separately-bundled `tosijs/agent` gave
+// the agent its own registry and it described an empty app (caught by
+// executing the artifact, not by any test). `tosijs/agent` is the same
+// file with a narrower TYPE surface; ESM consumers who never import it
+// tree-shake it away, and the IIFE — which cannot shake — omits it.
+export * from './index-agent'

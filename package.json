@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.7.9",
+  "version": "1.8.0-rc.1",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
@@ -21,6 +21,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/module.safe.js",
       "default": "./dist/module.safe.js"
+    },
+    "./core": {
+      "types": "./dist/index-core.d.ts",
+      "import": "./dist/core.js",
+      "default": "./dist/core.js"
+    },
+    "./state": {
+      "types": "./dist/index-state.d.ts",
+      "import": "./dist/state.js",
+      "default": "./dist/state.js"
+    },
+    "./agent": {
+      "types": "./dist/index-agent.d.ts",
+      "import": "./dist/module.js",
+      "default": "./dist/module.js"
     }
   },
   "homepage": "https://tosijs.net",
@@ -42,10 +57,11 @@
     "test:browser": "playwright test",
     "latest": "rm -rf node_modules && bun update",
     "tunnel": "tosijs-tunnel",
-    "deploy": "tosijs-deploy"
+    "deploy": "tosijs-deploy",
+    "stamps": "bun bin/stamps.ts"
   },
   "author": "Tonio Loewald",
-  "license": "BSD-3-CLAUSE",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@happy-dom/global-registrator": "^20.11.1",
@@ -58,10 +74,13 @@
     "chokidar": "^4.0.3",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
+    "haltija": "^1.11.2",
     "marked": "^16.4.2",
     "prettier": "^2.8.8",
     "tjs-lang": "0.10.1",
     "tosijs": "file:.",
+    "tosijs-floorplan": "0.3.0",
+    "tosijs-schema": "^1.6.0",
     "tosijs-ui": "1.9.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
@@ -71,6 +90,7 @@
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
     "/LICENSE",
+    "/NOTICE",
     "/README.md",
     "/CHANGELOG.md",
     "/llms.txt"
@@ -92,5 +112,8 @@
   },
   "overrides": {
     "brace-expansion": ">=5.0.9"
+  },
+  "bin": {
+    "tosijs": "dist/cli.mjs"
   }
 }

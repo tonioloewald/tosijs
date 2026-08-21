@@ -82,17 +82,36 @@ const timeStringToMs = (value: string): number => {
   )
 }
 
+// True while a BINDING is writing state into the DOM (bindings.value.toDOM
+// === setValue). A contract violation on this path must be REPORTED, never
+// thrown: the throw lands inside the global dispatch loop and strands every
+// element bound after it — and under the documented bind-before-data
+// pattern it fires with no user error present at all (setValue writes '' or
+// undefined while state hasn't arrived). Direct programmatic writes still
+// throw: that IS the developer's own mistake, caught immediately.
+let bindingWriteDepth = 0
+export const isBindingWrite = (): boolean => bindingWriteDepth > 0
+
 export const setValue = (element: Element, newValue: any): void => {
+  bindingWriteDepth++
+  try {
+    setValueInner(element, newValue)
+  } finally {
+    bindingWriteDepth--
+  }
+}
+
+const setValueInner = (element: Element, newValue: any): void => {
   const type = valueType(element)
   switch (type) {
     case 'radio':
       // String() the state side: numeric state 5 must check value="5"
-      (element as HTMLInputElement).checked =
+      ;(element as HTMLInputElement).checked =
         newValue != null &&
         (element as HTMLInputElement).value === String(newValue)
       break
     case 'checkbox':
-      (element as HTMLInputElement).checked = !!newValue
+      ;(element as HTMLInputElement).checked = !!newValue
       break
     case 'date':
     case 'datetime-local':
@@ -152,7 +171,7 @@ export const setValue = (element: Element, newValue: any): void => {
     default:
       // binding before the data exists must render an empty control, not
       // the literal string "undefined"
-      (element as HTMLInputElement).value = newValue == null ? '' : newValue
+      ;(element as HTMLInputElement).value = newValue == null ? '' : newValue
   }
 }
 
@@ -185,8 +204,7 @@ export const getValue = (element: ValueElement): any => {
     case 'week': {
       const input = element as HTMLInputElement
       const d =
-        input.valueAsDate ??
-        (input.value !== '' ? new Date(input.value) : null)
+        input.valueAsDate ?? (input.value !== '' ? new Date(input.value) : null)
       return d != null && !Number.isNaN(d.getTime()) ? d : input.value
     }
     case 'time': {
@@ -208,7 +226,6 @@ export const getValue = (element: ValueElement): any => {
       return element.value
   }
 }
-
 
 const { ResizeObserver } = globalThis
 export const resizeObserver =

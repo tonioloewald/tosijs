@@ -30,15 +30,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>Migrating from xinjs to tosijs</title>
-  <meta name="description" content="Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings." />
+  <meta name="description" content="Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
   <link rel="canonical" href="https://tosijs.net/Migration/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="Migrating from xinjs to tosijs" />
-  <meta property="og:description" content="Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings." />
+  <meta property="og:description" content="Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
   <meta property="og:url" content="https://tosijs.net/Migration/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Migrating from xinjs to tosijs","description":"Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings.","url":"https://tosijs.net/Migration/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Migrating from xinjs to tosijs","description":"Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.","url":"https://tosijs.net/Migration/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -46,7 +46,7 @@
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>Migrating from <code>xinjs</code> to <code>tosijs</code></h1>
-<!--{ "pin": "bottom", "description": "Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 <p>In a nutshell:</p>
 <ol>
@@ -59,6 +59,82 @@ should be the module names.</p>
 <blockquote>
 <p>Please <a href="https://discord.gg/ramJ9rgky5">let me know</a> if there are any issues.</p>
 </blockquote>
+<h1>Upgrading to 1.8.0</h1>
+<p><strong>Removed.</strong> Only one deprecation named 1.8.0 in its 1.7 warning, and it is
+the only thing actually removed:</p>
+<table>
+<thead>
+<tr>
+<th>was</th>
+<th>now</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data-ref=&quot;thing&quot;</code></td>
+<td><code>part=&quot;thing&quot;</code> (bare CSS-selector refs still work)</td>
+</tr>
+<tr>
+<td><code>&lt;xin-blueprint&gt;</code>, <code>&lt;xin-loader&gt;</code> markup</td>
+<td><code>&lt;tosi-blueprint&gt;</code>, <code>&lt;tosi-loader&gt;</code>. The old tags are <strong>tombstones</strong>: still registered, render nothing, and log exactly what to rename</td>
+</tr>
+<tr>
+<td><code>&lt;xin-slot&gt;</code> element</td>
+<td><code>&lt;tosi-slot&gt;</code> (the rewrite produces it automatically)</td>
+</tr>
+</tbody></table>
+<p><strong>Deprecated but still working</strong> (their 1.7 warnings named no version, so
+they survive 1.x and now warn naming <strong>2.0</strong>):</p>
+<table>
+<thead>
+<tr>
+<th>still works</th>
+<th>prefer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>xinSlot()</code></td>
+<td><code>tosiSlot()</code></td>
+</tr>
+<tr>
+<td><code>blueprint()</code></td>
+<td><code>tosiBlueprint()</code></td>
+</tr>
+<tr>
+<td><code>blueprintLoader()</code></td>
+<td><code>tosiLoader()</code></td>
+</tr>
+</tbody></table>
+<p><strong>Behaviour changes worth checking even if you use no removed names</strong> —
+neither had a prior deprecation warning:</p>
+<ul>
+<li><strong>A component member named <code>on&lt;Event&gt;</code> now wins over the event sugar.</strong> If
+your component holds a <em>function</em> under, say, <code>onClose</code>, then
+<code>creator({ onClose: fn })</code> now <strong>assigns the member</strong> instead of attaching
+a <code>close</code> listener; previously the sugar won and your member was shadowed.
+Rename to <code>handle&lt;Event&gt;</code> if you want the event channel. (A member left
+<code>undefined</code>/<code>null</code> still gets event sugar.)</li>
+<li><strong>A type-contradicting attribute write is applied and reported, not
+silently discarded.</strong> Writing <code>false</code> to an attribute declared
+<code>&#39;on&#39; | &#39;off&#39;</code> used to <em>remove</em> the attribute — so the default read back
+and a feature you turned off stayed on. It now lands as written, with one
+<code>console.error</code> naming both types.</li>
+</ul>
+<p><strong>New, and opt-in:</strong> the agent surface (<code>enableAgentInterface()</code>) defaults
+to <strong>read-only</strong> introspection — <code>write()</code> and <code>call()</code> refuse until you
+declare <code>expose: { roots, actions }</code> (production) or <code>expose: &#39;all&#39;</code>
+(development). A manifest scopes what may be <strong>seen</strong>; add <code>write: true</code> to
+let an agent change it. Nothing changes for apps that never call it.</p>
+<p><strong>License:</strong> tosijs is <strong>Apache-2.0</strong> as of 1.8.0 (BSD-3-Clause through
+1.7.x) — adding an explicit patent grant and a patent-retaliation clause.
+Apache-2.0 cannot be combined with <strong>GPLv2-only</strong> code; GPLv3+ is fine.</p>
+<p><strong>One new obligation, easy to miss because semver cannot express it.</strong>
+Apache-2.0 §4(d) requires that redistributors carry the <code>NOTICE</code> text. If you
+ship a build containing tosijs to anyone else, include the contents of our
+<code>NOTICE</code> file (it also credits the vendored schematic renderer) in your
+attribution notices — a THIRD-PARTY-NOTICES file, an about screen, or
+alongside your own licence text. BSD-3-Clause imposed no equivalent duty, so
+this is genuinely new for existing users, and it applies to <em>redistribution</em>
+— using tosijs to build something you host yourself is unaffected.</p>
 <h1>Upgrading to 1.7.0</h1>
 <p>1.7.0 is the <strong>correctness release</strong> — a large batch of bug fixes. Most are pure
 fixes (things that were broken now work), but a few are <strong>observable behavior
@@ -145,15 +221,33 @@ never operated there — bind the component by its <code>value</code> instead).<
     </details></li>
     <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
     <li><a class="doc-link current" href="../Migration/" aria-current="page">Migrating from xinjs to tosijs</a></li>
     <li><a class="doc-link" href="../history/">tosijs history</a></li>
   </ul>

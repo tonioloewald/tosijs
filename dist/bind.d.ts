@@ -1,5 +1,6 @@
 import { XinEventHandler, XinTouchableType, XinBinding, XinBindingSpec, TakeDescriptor, EventType } from './xin-types';
 export declare const touchElement: (element: Element, changedPath?: string) => void;
+export declare function hydrateInsertedSubtree(node: Element): void;
 interface BindingOptions {
     [key: string]: any;
 }

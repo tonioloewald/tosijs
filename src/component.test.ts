@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll } from 'bun:test'
-import { Component, tosiSlot, xinSlot } from './component'
+import { Component, tosiSlot } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
 import { _resetDeprecationWarnings } from './metadata'
@@ -457,17 +457,31 @@ describe('tosiSlot', () => {
   })
 })
 
-describe('xinSlot (deprecated)', () => {
-  test('creates xin-slot element', () => {
-    const slot = xinSlot()
-    expect(slot.tagName.toLowerCase()).toBe('xin-slot')
-  })
-
-  test('accepts name attribute', () => {
-    const slot = xinSlot({ name: 'test-slot' })
-    document.body.appendChild(slot)
-    expect(slot.getAttribute('name')).toBe('test-slot')
+describe('xinSlot (deprecated, removed in 2.0)', () => {
+  test('it still works, warns, and creates a tosi-slot', async () => {
+    const api = (await import('./index')) as Record<string, any>
+    expect(typeof api.xinSlot).toBe('function')
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let slot: any
+    try {
+      slot = api.xinSlot({ name: 'top' })
+    } finally {
+      console.warn = original
+    }
+    expect(slot.tagName.toLowerCase()).toBe('tosi-slot')
+    document.body.append(slot) // attrs drain on connect
+    expect(slot.getAttribute('name')).toBe('top')
     slot.remove()
+    expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
+    // the legacy TAG is registered as a TOMBSTONE. Leaving it unregistered
+    // while hydrate still queried for it was the worst of both worlds: an
+    // unupgraded <xin-slot> had no `.name`, filed under slotMap[undefined],
+    // and dropped its children onto the host — silently (round-3 review).
+    expect(customElements.get('xin-slot')).toBeDefined()
   })
 })
 
@@ -891,9 +905,7 @@ describe('deprecated elementCreator options', () => {
     const style = document.getElementById('legacy-style-test-component')
     expect(style).not.toBeNull()
     expect(
-      warnings.some(
-        (w) => w.includes('deprecated') && w.includes('styleSpec')
-      )
+      warnings.some((w) => w.includes('deprecated') && w.includes('styleSpec'))
     ).toBe(true)
     el.remove()
   })
@@ -905,7 +917,11 @@ describe('content array with ElementProps on host', () => {
     class ClickHostComponent extends Component {
       static preferredTagName = 'click-host-test'
       content = ({ div }: typeof elements) => [
-        { onClick: () => { clicked = true } },
+        {
+          onClick: () => {
+            clicked = true
+          },
+        },
         div('child'),
       ]
     }
@@ -938,7 +954,12 @@ describe('content array with ElementProps on host', () => {
     class MergePropsComponent extends Component {
       static preferredTagName = 'merge-props-test'
       content = ({ div }: typeof elements) => [
-        { class: 'first', onClick: () => { count++ } },
+        {
+          class: 'first',
+          onClick: () => {
+            count++
+          },
+        },
         div('child'),
         { class: 'second' },
       ]
@@ -975,10 +996,7 @@ describe('content array with ElementProps on host', () => {
   test('content array with no ElementProps works as before', () => {
     class PlainArrayComponent extends Component {
       static preferredTagName = 'plain-array-test'
-      content = ({ div, span }: typeof elements) => [
-        div('one'),
-        span('two'),
-      ]
+      content = ({ div, span }: typeof elements) => [div('one'), span('two')]
     }
     const creator = PlainArrayComponent.elementCreator()
     const el = creator()
@@ -1001,7 +1019,10 @@ describe('constructor must not gain attributes', () => {
   ): { result: T; calls: Array<[string, string]> } {
     const calls: Array<[string, string]> = []
     const orig = HTMLElement.prototype.setAttribute
-    HTMLElement.prototype.setAttribute = function (name: string, value: string) {
+    HTMLElement.prototype.setAttribute = function (
+      name: string,
+      value: string
+    ) {
       if (match(this)) calls.push([name, String(value)])
       return orig.call(this, name, value)
     }
@@ -1506,7 +1527,7 @@ describe('component change event bubbles (bound like a native input)', () => {
   })
 })
 
-test('parts finds elements by data-ref, as documented (medium backlog)', () => {
+test('data-ref is REMOVED in 1.8.0 — part="…" is the only ref attribute', () => {
   class DataRefComp extends Component {
     static preferredTagName = 'data-ref-comp'
     content = ({ div, span }: typeof elements) => [
@@ -1517,7 +1538,10 @@ test('parts finds elements by data-ref, as documented (medium backlog)', () => {
   const el = DataRefComp.elementCreator()() as any
   document.body.append(el)
   expect(el.parts.byPart.textContent).toBe('part target')
-  expect(el.parts.byRef.textContent).toBe('ref target') // docs promised this
+  // the deprecation promised removal in 1.8.0 and 1.8.0 keeps it: a
+  // data-ref-only element no longer resolves as a part (it throws, the
+  // same as any ref that never resolved)
+  expect(() => el.parts.byRef).toThrow()
   el.remove()
 })
 
@@ -1536,7 +1560,9 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     class OuterA extends Component {
       static preferredTagName = 'cap-outer-a'
       static initAttributes = { role: 'group' }
-      content = ({ div }: typeof elements) => [capSlotWrap(div({ part: 'inner' }, 'OWN'))]
+      content = ({ div }: typeof elements) => [
+        capSlotWrap(div({ part: 'inner' }, 'OWN')),
+      ]
     }
     OuterA.elementCreator()
     const el = new OuterA()
@@ -1551,7 +1577,10 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     class NodeC extends Component {
       static preferredTagName = 'cap-node'
       static initAttributes = { role: 'group' }
-      content = ({ div }: typeof elements) => [div({ part: 'x' }, 'OWN'), div({ part: 'body' })]
+      content = ({ div }: typeof elements) => [
+        div({ part: 'x' }, 'OWN'),
+        div({ part: 'body' }),
+      ]
     }
     NodeC.elementCreator()
     const outer = new NodeC()
@@ -1613,13 +1642,14 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     el.remove()
   })
 
-  test('deprecated data-ref still resolves (with a warning) during its deprecation cycle', () => {
+  test('a bare CSS-selector ref still resolves (data-ref is gone; selectors stay)', () => {
     class RefC extends Component {
       static preferredTagName = 'cap-ref'
       static initAttributes = { role: 'group' }
       content = () => {
         const d = document.createElement('div')
-        d.setAttribute('data-ref', 'legacy')
+        d.setAttribute('data-ref', 'legacy') // now inert metadata
+        d.className = 'legacy-target'
         d.textContent = 'REF'
         return [d]
       }
@@ -1627,14 +1657,10 @@ describe('parts proxy — pre-hydration ownership capture', () => {
     RefC.elementCreator()
     const el = new RefC()
     document.body.append(el)
-    const warnings: string[] = []
-    const orig = console.warn
-    console.warn = (...a: any[]) => warnings.push(a.map(String).join(' '))
-    try {
-      expect((el.parts as any).legacy.textContent).toBe('REF') // data-ref fallback works
-    } finally {
-      console.warn = orig
-    }
+    // data-ref no longer resolves…
+    expect(() => (el.parts as any).legacy).toThrow()
+    // …but the bare-selector fallback is untouched
+    expect((el.parts as any)['.legacy-target'].textContent).toBe('REF')
     el.remove()
   })
 })
@@ -1659,7 +1685,9 @@ describe('parts capture — lazy hydration', () => {
     expect(w.tagName).toBe('CAP-INNER-W')
     expect(w.isConnected).toBe(true)
     // its own (lazy) hydration ran, and the captured ref points at the hydrated node
-    expect(w.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe('hydrated')
+    expect(w.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe(
+      'hydrated'
+    )
     expect((host.parts as any).widget).toBe(w) // identity stable across reads
     host.remove()
   })
@@ -1791,5 +1819,89 @@ describe('parts proxy — detached part with no replacement (tosijs#21)', () => 
     no.dispatchEvent(new Event('change', { bubbles: true }))
     expect(el.value).toBe('no') // the commit must stick — was stale on 1.7.7
     el.remove()
+  })
+})
+
+describe('papercuts fixed in 1.8.0 (tosijs#22, #24)', () => {
+  test('#24: a type-contradicting attribute write is applied AND reported, never silently dropped', () => {
+    class OnOffComp extends Component {
+      static preferredTagName = 'on-off-comp'
+      static initAttributes = { pointerEvents: 'on' }
+      content = null
+    }
+    const creator = OnOffComp.elementCreator()
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    let el: any
+    try {
+      // the tosijs-3d call site: a legacy boolean written to a string attr.
+      // Before 1.8.0 this REMOVED the attribute and the default read back —
+      // the feature the author turned off stayed on, silently.
+      el = creator({ pointerEvents: false })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.pointerEvents).not.toBe('on') // the write was NOT discarded
+    expect(errors.some((e) => e.includes('pointerEvents'))).toBe(true)
+    expect(errors.some((e) => e.includes('tosijs#24'))).toBe(true)
+    el.remove()
+  })
+
+  test('#24: a correctly-typed write is silent and works', () => {
+    class OnOffOk extends Component {
+      static preferredTagName = 'on-off-ok'
+      static initAttributes = { pointerEvents: 'on' }
+      content = null
+    }
+    const creator = OnOffOk.elementCreator()
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
+    let el: any
+    try {
+      el = creator({ pointerEvents: 'off' })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.pointerEvents).toBe('off')
+    expect(errors).toEqual([])
+    el.remove()
+  })
+
+  test('#22: a component METHOD named on<Event> is assigned, not hijacked as event sugar', () => {
+    let methodCalls = 0
+    let assigned: any = null
+    class SceneComp extends Component {
+      static preferredTagName = 'scene-comp'
+      content = null
+      onSceneAddition(): void {
+        methodCalls++
+      }
+    }
+    const creator = SceneComp.elementCreator()
+    const replacement = () => {
+      assigned = 'mine'
+    }
+    const el = creator({ onSceneAddition: replacement }) as any
+    document.body.append(el)
+    // the method was REPLACED (what an OO author means), not turned into a
+    // 'sceneaddition' event listener
+    expect(el.onSceneAddition).toBe(replacement)
+    el.onSceneAddition()
+    expect(assigned).toBe('mine')
+    expect(methodCalls).toBe(0)
+    el.remove()
+  })
+
+  test('#22: ordinary event sugar on plain elements is untouched', () => {
+    let clicks = 0
+    const button = elements.button('go', { onClick: () => clicks++ })
+    document.body.append(button)
+    button.click()
+    expect(clicks).toBe(1)
+    button.remove()
   })
 })

@@ -396,30 +396,30 @@ tosijs takes the one really valuable feature of shadow DOM components —
 - **Lighter weight.** No shadow root overhead per instance.
 - **Slot composition.** tosijs rewrites `<slot>` elements in light DOM components.
 
-#### How `<xin-slot>` works
+#### How `<tosi-slot>` works
 
 Native `<slot>` elements only work inside a shadow root. tosijs solves this
 by automatically replacing any `<slot>` in a light DOM component with an
-`<xin-slot>` custom element that provides the same composition behavior:
+`<tosi-slot>` custom element that provides the same composition behavior:
 children with a matching `slot="name"` attribute get moved into the
-corresponding `<xin-slot name="name">`, and unslotted children go into the
-default (unnamed) `<xin-slot>`.
+corresponding `<tosi-slot name="name">`, and unslotted children go into the
+default (unnamed) `<tosi-slot>`.
 
 This happens during hydration — you write `<slot>` in your `content()` and
-tosijs handles the rewrite transparently. You can also use `xinSlot()`
+tosijs handles the rewrite transparently. You can also use `tosiSlot()`
 directly from the `elements` proxy if you need to set attributes like
 `class` or `style` on the slot container (plain `<slot>` elements lose
 non-`name` attributes during the rewrite).
 
 ```
 class CardLayout extends Component {
-  content = ({ h3, xinSlot }) => [
+  content = ({ h3, tosiSlot }) => [
     h3('Header'),
-    xinSlot({ name: 'top', style: { background: '#eee' } }),
+    tosiSlot({ name: 'top', style: { background: '#eee' } }),
     h3('Body'),
-    xinSlot(), // default slot
+    tosiSlot(), // default slot
     h3('Footer'),
-    xinSlot({ name: 'bottom' }),
+    tosiSlot({ name: 'bottom' }),
   ]
 }
 ```
@@ -427,9 +427,9 @@ class CardLayout extends Component {
 Two things to keep in mind:
 
 - **`:slotted` doesn't apply** — there's no shadow DOM, so style slotted
-  children with normal CSS selectors. You can use `xin-slot` as a selector.
+  children with normal CSS selectors. You can use `tosi-slot` as a selector.
 - **The rewrite is one-way.** Once hydration runs, the DOM contains
-  `<xin-slot>` elements. If you inspect the DOM, you'll see `<xin-slot>`,
+  `<tosi-slot>` elements. If you inspect the DOM, you'll see `<tosi-slot>`,
   not `<slot>`.
 
 Components declare their styles via static properties:
@@ -448,7 +448,7 @@ Use light DOM unless you know _exactly_ why you need shadow DOM.
 When you do, the mental model is:
 
 - **Light DOM** (default): bindings flow through naturally.
-- **Shadow DOM**: the component is a *custom input*. Think of it exactly like
+- **Shadow DOM**: the component is a _custom input_. Think of it exactly like
   an `<input>` or `<textarea>`: **its `value` is the binding surface**. Bind
   the component itself (e.g. `bindings.value`) from outside; setting `value`
   automatically queues `render()` and emits `change`, so implement `render()`
@@ -514,9 +514,19 @@ const { demo } = tosi({ demo: { rating: 3 } })
 
 preview.append(
   // the widget: bound by VALUE, like an input
-  elements.starRating({ bind: { value: 'demo.rating', binding: bindings.value } }),
+  elements.starRating({
+    bind: { value: 'demo.rating', binding: bindings.value },
+  }),
   // a plain number input on the SAME path — they stay in sync
-  label(' rating: ', input({ type: 'number', min: 0, max: 5, bind: { value: 'demo.rating', binding: bindings.value } }))
+  label(
+    ' rating: ',
+    input({
+      type: 'number',
+      min: 0,
+      max: 5,
+      bind: { value: 'demo.rating', binding: bindings.value },
+    })
+  )
 )
 ```
 
@@ -634,7 +644,7 @@ and call `touch()` once at the end — one notification instead of N:
 | `key` prop on lists       | `idPath` on list bindings           |
 | Virtual DOM diffing       | path-based direct DOM updates       |
 | Component re-render       | individual binding updates          |
-| ~45kB gzipped             | ~15kB gzipped (core)                |
+| ~45kB gzipped             | ~24kB gzipped (`tosijs/core`)       |
 
 The fundamental difference: React asks "what changed?" after every state update
 and works backwards to figure out the minimum DOM update. tosijs knows exactly

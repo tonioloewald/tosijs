@@ -409,7 +409,12 @@ import {
 } from './xin-types'
 import { camelToKabob } from './string-case'
 import { processProp } from './css'
-import { tosiPath, warnDeprecated, TAKE_DESCRIPTOR } from './metadata'
+import {
+  tosiPath,
+  warnDeprecated,
+  TAKE_DESCRIPTOR,
+  setElementContract,
+} from './metadata'
 import { MATH, SVG, type ElementsProxy } from './elements-types'
 
 const templates: { [key: string]: Element } = {}
@@ -459,7 +464,34 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
       observedAttrs?.includes(key) || observedAttrs?.includes(attr)
 
     if (isObservedAttr) {
-      if (typeof value === 'boolean') {
+      // tosijs#24: only treat a boolean VALUE as an HTML boolean attribute
+      // when the attribute is actually boolean-TYPED. Writing `false` to an
+      // attribute declared `'on' | 'off'` used to land here and REMOVE the
+      // attribute, so the element silently read back its default — a
+      // feature explicitly turned off stayed on.
+      //
+      // The type must come from a DECLARATION, never from the property's
+      // current value: a third-party element whose `count` initialises to
+      // `null` would otherwise look "object-typed" (typeof null === 'object'),
+      // and every numeric write would be routed away from the attribute —
+      // its attributeChangedCallback would never fire and it would render
+      // nothing. Only tosijs Components declare attribute types, so only
+      // they get the mismatch routing.
+      const declaredAttrs = (
+        elt.constructor as unknown as {
+          _resolveInitAttributes?: () => Record<string, any> | undefined
+        }
+      )._resolveInitAttributes?.()
+      const declaredDefault = declaredAttrs?.[key] ?? declaredAttrs?.[attr]
+      const typeMismatch =
+        declaredDefault !== undefined &&
+        declaredDefault !== null &&
+        value !== null &&
+        value !== undefined &&
+        typeof value !== typeof declaredDefault
+      if (typeMismatch) {
+        ;(elt as { [key: string]: any })[key] = value
+      } else if (typeof value === 'boolean') {
         if (value) {
           elt.setAttribute(attr, '')
         } else {
@@ -528,6 +560,14 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
 }
 
 const propBindingCache: Record<string, XinBinding> = {}
+// reverse lookup: which element prop does this (cached) prop binding drive?
+// used by the agent surface to name bindings in describe() output
+export const propBindingKey = (binding: XinBinding): string | undefined => {
+  for (const key of Object.keys(propBindingCache)) {
+    if (propBindingCache[key] === binding) return key
+  }
+  return undefined
+}
 const elementPropBinding = (key: string): XinBinding => {
   if (!propBindingCache[key]) {
     propBindingCache[key] = {
@@ -542,9 +582,31 @@ const elementPropBinding = (key: string): XinBinding => {
 export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   if (key === 'apply') {
     value(elt)
+  } else if (key === 'contract') {
+    // inline contract: declared where the element is built, harvested by the
+    // agent surface, curated/overridden at enableAgentInterface if desired
+    setElementContract(elt, value)
   } else if (key.match(/^on[A-Z]/) != null) {
-    const eventType = key.substring(2).toLowerCase()
-    on(elt, eventType as EventType, value)
+    // tosijs#22: the on<Event> sugar is for CONFIG KEYS, not for a
+    // component's own methods. `onSceneAddition` is ordinary OO naming for
+    // "what to do when a scene addition happens", and a component author
+    // has no reason to expect the framework to claim that namespace — so
+    // when the element already defines a FUNCTION under this name (its own
+    // method or class field), assigning it is what the caller meant.
+    // A non-function value (the usual `onClick: () => …`) is event sugar,
+    // as always. Custom elements only: plain DOM `onclick`-style props are
+    // functions too, and those ARE the event channel.
+    const existing = (elt as { [key: string]: any })[key]
+    if (
+      elt.tagName.includes('-') &&
+      typeof existing === 'function' &&
+      typeof value === 'function'
+    ) {
+      ;(elt as { [key: string]: any })[key] = value
+    } else {
+      const eventType = key.substring(2).toLowerCase()
+      on(elt, eventType as EventType, value)
+    }
   } else if (key === 'bind') {
     const binding =
       typeof value.binding === 'string'

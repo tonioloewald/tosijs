@@ -1,18 +1,62 @@
 # tosijs
 
-<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~15kB gzipped. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~26kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 
-[![tosijs is on NPM](https://badge.fury.io/js/tosijs.svg)](https://www.npmjs.com/package/tosijs)
-[![tosijs is about 15kB gzipped](https://deno.bundlejs.com/?q=tosijs&badge=)](https://bundlejs.com/?q=tosijs&badge=)
-[![tosijs on jsdelivr](https://data.jsdelivr.com/v1/package/npm/tosijs/badge)](https://www.jsdelivr.com/package/npm/tosijs)
+<!-- lazy: third-party badge servers must not block the page load event
+     (badge.fury.io latency was intermittently timing out the browser-lane
+     tests — and any visitor's load — via the rendered home page) -->
+
+<a href="https://www.npmjs.com/package/tosijs"><img loading="lazy" alt="tosijs is on NPM" src="https://badge.fury.io/js/tosijs.svg"></a>
+<a href="https://bundlejs.com/?q=tosijs&badge="><img loading="lazy" alt="tosijs bundle size" src="https://deno.bundlejs.com/?q=tosijs&badge="></a>
+<a href="https://www.jsdelivr.com/package/npm/tosijs"><img loading="lazy" alt="tosijs on jsdelivr" src="https://data.jsdelivr.com/v1/package/npm/tosijs/badge"></a>
 
 <div style="text-align: center; margin: 20px">
   <tosi-lottie style="display: inline-block; width: 280px; height: 280px; background: #da1167; border-radius: 40px" src="/tosi.json">
     <img style="width: 280px" alt="tosijs logo" src="https://tosijs.net/favicon.svg">
   </tosi-lottie>
 </div>
+
+## Entry points
+
+| import                  | what you get                                                                                                             | gz    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----- |
+| `tosijs`                | everything, agent surface included — bundlers shake what you don't import                                                | 36 KB |
+| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) — **EXPERIMENTAL**   | —     |
+| `tosijs/core`           | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface                                                     | 24 KB |
+| `tosijs/state`          | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths                                                            | 16 KB |
+| `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | 26 KB |
+
+`tosijs/agent` resolves to the same file as `tosijs` **on purpose**: a
+separately-bundled agent surface would carry its own copy of the state
+registry and describe an empty app. One runtime copy, always.
+
+`tosijs/core` is opt-in rather than automatic because blueprints hydrate
+from _markup_, so no import statement protects them — shaking the
+registration would fail silently. Slim core is present, so it can speak: in
+dev it warns if the page contains blueprint elements it cannot hydrate.
+
+## Scaffolding
+
+```
+bunx tosijs create app my-app              # a runnable app (bun index.html)
+bunx tosijs create component my-widget     # a component — blueprint form (default)
+bunx tosijs create component my-widget --bare  # …plain class form
+bunx tosijs create blueprint my-widget     # a publishable blueprint package
+```
+
+Everything scaffolded is **agent-ready**: components are born with a
+`contract` (description, value schema, parts map, and a declared test), so
+they self-describe on the agent surface and pass `exerciseComponent()` from
+their first minute. The blueprint form is the default because blueprints
+are consumable **directly from markup** — no build step on the consumer's
+side:
+
+```
+<tosi-blueprint tag="my-widget" src="https://cdn.jsdelivr.net/npm/my-widget/dist/index.js"></tosi-blueprint>
+<my-widget></my-widget>
+```
 
 ## Better apps with less code
 
@@ -33,7 +77,7 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   nodes out — works in plain JavaScript or TypeScript.
 - **No lock-in.** State is a plain observable object graph, not a framework you
   marry; bind it to vanilla DOM, web-components, React, or Angular.
-- **~15kB gzipped, zero runtime dependencies.**
+- **Zero runtime dependencies.** ~26kB gzipped from a script tag, ~24kB for `tosijs/core`, ~16kB for the DOM-free `tosijs/state`; the full ESM entry is ~36kB with the agent surface included and tree-shakes to about 1.7.x's size when you don't use it.
 
 On top of that you get the conveniences you'd actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and
@@ -168,16 +212,16 @@ and are natively supported by all modern browsers.
 on its own; together they let you build almost anything without leaving web
 standards behind.
 
-| Project | What it is |
-| --- | --- |
-| **tosijs** | This library — the path-based _observant_ state core everything else is built on. |
-| **[tosijs-ui](https://ui.tosijs.net)** | _Just enough_ extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments. |
-| **[tjs-lang](https://tjs-platform.web.app)** | TypeScript that _really_ transpiles in the browser (no server, no "just strip the types" fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely **safe `eval`** (ship the logic, not a container to run it in). |
-| **[react-tosijs](https://react.tosijs.net)** | Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React. |
-| **[ngx-tosijs](https://angular.tosijs.net)** | The same for Angular (signals, zoneless-first). |
+| Project                                                            | What it is                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **tosijs**                                                         | This library — the path-based _observant_ state core everything else is built on.                                                                                                                                                                                                                                                      |
+| **[tosijs-ui](https://ui.tosijs.net)**                             | _Just enough_ extra web-components to build any interface — it complements the native elements that already work rather than replacing them. Also ships the documentation-site system that renders these very docs: literate programming with live, editable examples pulled straight from Markdown and source comments.               |
+| **[tjs-lang](https://tjs-platform.web.app)**                       | TypeScript that _really_ transpiles in the browser (no server, no "just strip the types" fake) — and a better JavaScript: types that survive to runtime as contracts, safety boundaries, inline tests, and a gas-metered VM for genuinely **safe `eval`** (ship the logic, not a container to run it in).                              |
+| **[react-tosijs](https://react.tosijs.net)**                       | Dramatically simplify state management in React apps, integrate React with other frameworks or web-components, or give yourself an off-ramp from React.                                                                                                                                                                                |
+| **[ngx-tosijs](https://angular.tosijs.net)**                       | The same for Angular (signals, zoneless-first).                                                                                                                                                                                                                                                                                        |
 | **[tosijs-schema](https://github.com/tonioloewald/tosijs-schema)** | Foundational, slightly bleeding-edge plumbing: a _type-by-example_ JSON-Schema engine with arguably the strongest performance / flexibility / architecture story of any JSON-Schema implementation — and increasingly so as it grows computed predicates. Most people won't need to think about it; the rest of the stack leans on it. |
-| **[tosijs-product](https://product.tosijs.net)** | Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML. |
-| **[tosijs-3d](https://3d.tosijs.net)** | Declarative 3D / VR / XR as web components, built on Babylon.js (WIP). |
+| **[tosijs-product](https://product.tosijs.net)**                   | Cinematic, scroll-linked product pages (Lottie, video, 3D, maps) authored in plain HTML.                                                                                                                                                                                                                                               |
+| **[tosijs-3d](https://3d.tosijs.net)**                             | Declarative 3D / VR / XR as web components, built on Babylon.js (WIP).                                                                                                                                                                                                                                                                 |
 
 ## What `tosijs` does
 
@@ -416,9 +460,18 @@ You'll need to install [bun](https://bun.sh/) and then run `bun install`.
     bun run format             # lint and format (ESLint + Prettier)
     bun pack                   # create local package tarball
 
+## License
+
+[Apache-2.0](./LICENSE) as of 1.8.0 (BSD-3-Clause through 1.7.x) — the
+change adds an explicit patent grant and a patent-retaliation clause. If you
+**redistribute** a build containing tosijs, Apache-2.0 §4(d) asks you to carry
+the [`NOTICE`](./NOTICE) text in your attribution notices; BSD-3 had no such
+requirement. Hosting an app you built with it is unaffected.
+
 ## History & credits
 
 `tosijs` descends from **b8rjs → xinjs → tosijs** — see [tosijs history](/history/)
-for the full lineage and migration notes (coming from `xinjs`? old names still
-work). Developed with [bun](https://bun.sh/); logo animation by
+for the full lineage. **Upgrading?** See [Migration](/migration/) — 1.8.0
+removes the deprecations that named it, keeps the rest working with warnings,
+and relicenses to Apache-2.0. Developed with [bun](https://bun.sh/); logo animation by
 [@anicoremotion](https://pro.fiverr.com/freelancers/anicoremotion).

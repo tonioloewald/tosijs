@@ -2,6 +2,26 @@ import { XinStyleSheet } from './css-types';
 import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
+import { setContractValidator } from './contract-check';
+import type { ComponentMap } from './agent';
+export { setContractValidator };
+/** tag-name literal → element type, for parts declared in a component contract */
+type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[T] : Element;
+/**
+ * Resolve the `parts` type from the Component generic. Two shapes are
+ * accepted in the same slot:
+ *
+ * - a classic PartsMap (`{ readout: HTMLSpanElement }`) — used as-is;
+ * - `typeof <contract>` (declare the contract `as const` so tags stay
+ *   literal) — parts derive from `contract.parts` tag names, so THE
+ *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
+ *   exerciseComponent(), and this.parts typing.
+ */
+export type PartsOf<T> = T extends {
+    parts: infer P extends Record<string, string>;
+} ? {
+    [K in keyof P]: TagToElement<P[K]>;
+} & PartsMap : T extends Record<string, Element> ? T : T extends ComponentMap ? PartsMap : T;
 interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
     styleSpec?: XinStyleSheet;
@@ -31,6 +51,15 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Set the form value. Call this when your component's value changes.
      */
     setFormValue(value: File | string | FormData | null, state?: File | string | FormData | null): void;
+    /**
+     * The attribute map the machinery actually uses. `contract.attributes`
+     * (with `default`s) SUBSUMES `static initAttributes`:
+     * - both declared on the same class → throw (one source of truth);
+     * - initAttributes beside a contract that lacks attributes → warn once,
+     *   pointing at the ideal;
+     * - no contract involvement → classic initAttributes, unchanged.
+     */
+    static _resolveInitAttributes(): Record<string, any> | undefined;
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;
@@ -56,7 +85,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private initValue;
     private _parts?;
     private _partsCache;
-    get parts(): T;
+    get parts(): PartsOf<T>;
     /**
      * Native web component callback for attribute changes.
      * Only called for attributes declared in static observedAttributes.
@@ -133,14 +162,11 @@ declare class TosiSlot extends Component<SlotParts> {
     static replaceSlot(slot: HTMLSlotElement): void;
 }
 export declare const tosiSlot: ElementCreator<TosiSlot>;
-declare class XinSlot extends Component<SlotParts> {
-    static preferredTagName: string;
-    static initAttributes: {
-        name: string;
-    };
-    content: null;
-    constructor();
-    static replaceSlot: typeof TosiSlot.replaceSlot;
-}
-export declare const xinSlot: ElementCreator<XinSlot>;
-export {};
+/**
+ * @deprecated Use `tosiSlot()`. Kept because 1.7's warning never named a
+ * removal version — only `data-ref` did — so removing it outright in a
+ * MINOR would have broken code that was promised nothing. It now creates a
+ * `<tosi-slot>` (composition is identical; only the tag name differs, which
+ * matters solely if you wrote CSS against `xin-slot`). Removed in 2.0.
+ */
+export declare const xinSlot: typeof tosiSlot;

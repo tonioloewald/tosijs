@@ -4,9 +4,18 @@
 These are lightweight but powerful general useful things. They're used internally so you might as well have access to them.
 
 <!-- toc -->
+- [agent (EXPERIMENTAL)](/agent/)
+- [audit (EXPERIMENTAL)](/audit/)
+- [contract harness (EXPERIMENTAL)](/contract/)
+- [contract validation](/contract-check/)
 - [hotReload](/hot-reload/)
 - [more-math](/more-math/)
+- [schematic (EXPERIMENTAL)](/schematic/)
 - [share](/share/)
 - [sync](/sync/)
 - [throttle & debounce](/throttle/)
+- [tosijs/agent](/index-agent/)
+- [tosijs/core (slim entry)](/index-core/)
+- [tosijs/state (DOM-free)](/index-state/)
+- [webmcp (EXPERIMENTAL)](/webmcp/)
 <!-- /toc -->

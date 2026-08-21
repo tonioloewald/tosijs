@@ -221,6 +221,10 @@ export interface ElementProps<T = Element> {
     style?: XinStyleRule;
     class?: XinClassSpec;
     apply?: (element: Element) => void | Promise<void>;
+    /** inline contract: JSON-Schema-shaped description of the element's bound
+     *  value — harvested into the agent surface's map, enforced on agent
+     *  writes, overridable by top-level curation (expose.contract) */
+    contract?: Record<string, any>;
     [key: string]: any;
 }
 export interface StringMap {

@@ -4,10 +4,10 @@ import {
   BlueprintLoader,
   tosiBlueprint,
   tosiLoader,
-  blueprint,
-  blueprintLoader,
   setModuleLoader,
+  blueprintSrcRefusal,
 } from './blueprint-loader'
+import { settings } from './settings'
 import {
   makeComponent,
   TosiBlueprint,
@@ -98,47 +98,15 @@ describe('tosi-blueprint (canonical)', () => {
   })
 })
 
-describe('xin-blueprint (deprecated)', () => {
-  test('creates xin-blueprint element', () => {
-    const el = blueprint()
-    expect(el.tagName.toLowerCase()).toBe('xin-blueprint')
-  })
-
-  test('has display: none style via global stylesheet', () => {
-    const el = blueprint()
-    document.body.appendChild(el)
-    const globalStyle = document.head.querySelector('#xin-blueprint-component')
-    expect(globalStyle).not.toBeNull()
-    expect(globalStyle?.textContent).toContain('display')
-    expect(globalStyle?.textContent).toContain('none')
-    el.remove()
-  })
-
-  test('initializes with default attribute values', () => {
-    const el = blueprint() as any
-    expect(el.tag).toBe('anon-elt')
-    expect(el.src).toBe('')
-    expect(el.property).toBe('default')
-  })
-
-  test('emits deprecation warning once', () => {
-    const warns: string[] = []
-    const origWarn = console.warn
-    console.warn = (msg: string) => warns.push(msg)
-    try {
-      _resetDeprecationWarnings()
-      const el1 = blueprint()
-      document.body.appendChild(el1)
-      const el2 = blueprint()
-      document.body.appendChild(el2)
-      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
-      expect(deprecationWarns.length).toBe(1)
-      expect(deprecationWarns[0]).toContain('tosi-blueprint')
-      el1.remove()
-      el2.remove()
-    } finally {
-      console.warn = origWarn
-    }
+describe('xin-* blueprint tags (inert in 1.8.0)', () => {
+  test('the working implementation is gone; the tags are tombstones', async () => {
+    const api = (await import('./index')) as Record<string, unknown>
+    expect('tosiBlueprint' in api).toBe(true)
+    expect('tosiLoader' in api).toBe(true)
+    // the TAGS remain registered — as tombstones, so the markup path can
+    // say what happened instead of failing silently (see the tombstone
+    // tests below). What's gone is the working implementation behind them.
+    expect(customElements.get('tosi-blueprint')).toBeDefined()
   })
 })
 
@@ -204,7 +172,7 @@ describe('tosi-loader (canonical)', () => {
     el.remove()
   })
 
-  test('finds both tosi-blueprint and xin-blueprint children', async () => {
+  test('settles all tosi-blueprint children', async () => {
     let loadedCalled = false
     const el = tosiLoader(
       {
@@ -213,7 +181,7 @@ describe('tosi-loader (canonical)', () => {
         },
       },
       tosiBlueprint({ tag: 'no-src-a' }),
-      blueprint({ tag: 'no-src-b' })
+      tosiBlueprint({ tag: 'no-src-b' })
     ) as InstanceType<typeof BlueprintLoader>
     document.body.appendChild(el)
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -298,52 +266,188 @@ describe('tosi-loader (canonical)', () => {
   })
 })
 
-describe('xin-loader (deprecated)', () => {
-  test('creates xin-loader element', () => {
-    const el = blueprintLoader()
-    expect(el.tagName.toLowerCase()).toBe('xin-loader')
-  })
-
-  test('has display: none style via global stylesheet', () => {
-    const el = blueprintLoader()
-    document.body.appendChild(el)
-    const globalStyle = document.head.querySelector('#xin-loader-component')
-    expect(globalStyle).not.toBeNull()
-    expect(globalStyle?.textContent).toContain('display')
-    expect(globalStyle?.textContent).toContain('none')
-    el.remove()
-  })
-
-  test('calls allLoaded when no blueprints present', async () => {
-    let loadedCalled = false
-    const el = blueprintLoader({
-      allLoaded() {
-        loadedCalled = true
-      },
-    }) as InstanceType<typeof BlueprintLoader>
-    document.body.appendChild(el)
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(loadedCalled).toBe(true)
-    el.remove()
-  })
-
-  test('emits deprecation warning once', () => {
-    const warns: string[] = []
-    const origWarn = console.warn
-    console.warn = (msg: string) => warns.push(msg)
+describe('blueprint src policy (SEC-6)', () => {
+  const withSilencedError = async (fn: () => Promise<void>) => {
+    const errors: string[] = []
+    const origError = console.error
+    console.error = (...args: any[]) => errors.push(args.map(String).join(' '))
     try {
-      _resetDeprecationWarnings()
-      const el1 = blueprintLoader()
-      document.body.appendChild(el1)
-      const el2 = blueprintLoader()
-      document.body.appendChild(el2)
-      const deprecationWarns = warns.filter((w) => w.includes('deprecated'))
-      expect(deprecationWarns.length).toBe(1)
-      expect(deprecationWarns[0]).toContain('tosi-loader')
-      el1.remove()
-      el2.remove()
+      await fn()
     } finally {
-      console.warn = origWarn
+      console.error = origError
+    }
+    return errors
+  }
+
+  // a minimal blueprint module, so an ALLOWED src actually packages
+  const stubModule = {
+    default: ((_tag, { Component: C, elements: e }) => {
+      class PolicyStub extends C {
+        content = () => e.div('stub')
+      }
+      return { type: PolicyStub }
+    }) as TosiBlueprint,
+  }
+
+  const attempt = async (src: string, tag = 'policy-tag') => {
+    let attempts = 0
+    setModuleLoader(async () => {
+      attempts++
+      return stubModule
+    })
+    let error: any = null
+    const errors = await withSilencedError(async () => {
+      const el = tosiBlueprint({ tag, src }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el)
+      await el.packaged().catch((e) => {
+        error = e
+      })
+      el.remove()
+    })
+    setModuleLoader((s: string) => import(s))
+    return { attempts, error, errors }
+  }
+
+  test('javascript: is refused unconditionally', async () => {
+    const { attempts, error, errors } = await attempt(
+      'javascript:window.PWNED=true'
+    )
+    expect(attempts).toBe(0)
+    expect(String(error)).toContain('refused')
+    expect(errors.join('\n')).toContain('javascript:window.PWNED=true')
+  })
+
+  test('data: is refused unconditionally', async () => {
+    const { attempts, error } = await attempt(
+      'data:text/javascript,window.PWNED=true'
+    )
+    expect(attempts).toBe(0)
+    expect(String(error)).toContain('refused')
+  })
+
+  test('vbscript: is refused unconditionally', async () => {
+    const { attempts } = await attempt('vbscript:msgbox(1)')
+    expect(attempts).toBe(0)
+  })
+
+  test('control characters and whitespace do not smuggle a scheme past the check', async () => {
+    for (const src of [
+      '  javascript:x=1',
+      'java\tscript:x=1',
+      'java\nscript:x=1',
+      ' javascript:x=1',
+      'JavaScript:x=1',
+    ]) {
+      expect(blueprintSrcRefusal(src)).not.toBeNull()
+    }
+  })
+
+  test('ordinary http(s) and relative sources are allowed by default (CDN blueprints are the feature)', async () => {
+    expect(blueprintSrcRefusal('https://cdn.example.com/bp.js')).toBeNull()
+    expect(blueprintSrcRefusal('./local-blueprint.js')).toBeNull()
+    expect(blueprintSrcRefusal('/abs/blueprint.js?data:no')).toBeNull()
+    const { attempts, error } = await attempt(
+      'https://cdn.example.com/ok.js',
+      'policy-ok'
+    )
+    expect(attempts).toBe(1)
+    expect(error).toBeNull()
+  })
+
+  test('settings.blueprintSrcCheck refuses a source, and the error says how to allow it', async () => {
+    settings.blueprintSrcCheck = (src) => src.startsWith('/')
+    try {
+      const { attempts, error, errors } = await attempt(
+        'https://evil.example/x.js',
+        'policy-hooked'
+      )
+      expect(attempts).toBe(0)
+      expect(String(error)).toContain('refused')
+      expect(errors.join('\n')).toContain('blueprintSrcCheck')
+      expect(errors.join('\n')).toContain('https://evil.example/x.js')
+    } finally {
+      delete settings.blueprintSrcCheck
+    }
+  })
+
+  test('settings.blueprintSrcCheck sees the element and can allow', async () => {
+    let seen: Element | null = null
+    settings.blueprintSrcCheck = (_src, el) => {
+      seen = el
+      return true
+    }
+    try {
+      const { attempts, error } = await attempt(
+        'https://cdn.example.com/allowed.js',
+        'policy-allowed'
+      )
+      expect(attempts).toBe(1)
+      expect(error).toBeNull()
+      expect((seen as unknown as Element)?.tagName.toLowerCase()).toBe(
+        'tosi-blueprint'
+      )
+    } finally {
+      delete settings.blueprintSrcCheck
+    }
+  })
+
+  test('a refused src is not cached — allowing it later still loads', async () => {
+    settings.blueprintSrcCheck = () => false
+    let attempts = 0
+    setModuleLoader(async () => {
+      attempts++
+      return stubModule
+    })
+    const origError = console.error
+    console.error = () => {}
+    try {
+      const el1 = tosiBlueprint({
+        tag: 'policy-uncached',
+        src: 'https://cdn.example.com/uncached.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el1)
+      await el1.packaged().catch(() => {})
+      el1.remove()
+      expect(attempts).toBe(0)
+
+      delete settings.blueprintSrcCheck
+      const el2 = tosiBlueprint({
+        tag: 'policy-uncached',
+        src: 'https://cdn.example.com/uncached.js',
+      }) as InstanceType<typeof Blueprint>
+      document.body.appendChild(el2)
+      await el2.packaged().catch(() => {})
+      el2.remove()
+      expect(attempts).toBe(1)
+    } finally {
+      console.error = origError
+      delete settings.blueprintSrcCheck
+      setModuleLoader((s: string) => import(s))
+    }
+  })
+
+  test('a refused blueprint does not wedge its loader', async () => {
+    const origError = console.error
+    console.error = () => {}
+    let loadedCalled = false
+    try {
+      const el = tosiLoader(
+        {
+          allLoaded() {
+            loadedCalled = true
+          },
+        },
+        tosiBlueprint({
+          tag: 'policy-in-loader',
+          src: 'javascript:window.PWNED=true',
+        })
+      ) as InstanceType<typeof BlueprintLoader>
+      document.body.appendChild(el)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(loadedCalled).toBe(true)
+      el.remove()
+    } finally {
+      console.error = origError
     }
   })
 })
@@ -481,5 +585,62 @@ describe('makeComponent', () => {
 
     const el = pkg.creator()
     expect(el.tagName.toLowerCase()).toBe('async-blueprint-comp')
+  })
+})
+
+describe('xin-* tombstones (1.8.0): removed, but never silent', () => {
+  test('the legacy tags register as tombstones that say what to rename', async () => {
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    // registered — so the message can exist at all
+    expect(customElements.get('xin-blueprint')).toBeDefined()
+    expect(customElements.get('xin-loader')).toBeDefined()
+
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let el: HTMLElement
+    try {
+      el = document.createElement('xin-blueprint')
+      el.setAttribute('tag', 'legacy-thing')
+      el.setAttribute('src', './legacy.js')
+      document.body.append(el)
+    } finally {
+      console.warn = original
+    }
+    // the silent failure the review found is now loud, and actionable
+    const warning = warnings.find((w) => w.includes('xin-blueprint'))
+    expect(warning).toBeDefined()
+    expect(warning).toContain('does NOTHING')
+    expect(warning).toContain('<tosi-blueprint>')
+    // and it does nothing, which is honest: no hydration is attempted
+    expect(customElements.get('legacy-thing')).toBeUndefined()
+    el!.remove()
+  })
+
+  test('the CREATORS survive 1.x as deprecated aliases naming 2.0', async () => {
+    // 1.7 named a removal version for `data-ref` ONLY — these three were
+    // deprecated with no version, so removing them in a MINOR would have
+    // broken code that was promised nothing (1.8.0-rc.1 review, B1).
+    const api = (await import('./index')) as Record<string, any>
+    expect(typeof api.blueprint).toBe('function')
+    expect(typeof api.blueprintLoader).toBe('function')
+    expect(typeof api.xinSlot).toBe('function')
+
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    _resetDeprecationWarnings()
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    let el: any
+    try {
+      el = api.blueprint({ tag: 'aliased-thing', src: './x.js' })
+    } finally {
+      console.warn = original
+    }
+    // they WORK (creating the element that actually hydrates)…
+    expect(el.tagName.toLowerCase()).toBe('tosi-blueprint')
+    // …and they say when they go
+    expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
   })
 })

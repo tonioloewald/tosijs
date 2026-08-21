@@ -1,6 +1,6 @@
 # Migrating from `xinjs` to `tosijs`
 
-<!--{ "pin": "bottom", "description": "Renames and API changes when moving from xinjs to tosijs. Old names continue to work with one-time deprecation warnings." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 In a nutshell:
 
@@ -12,6 +12,60 @@ In a nutshell:
 should be the module names.
 
 > Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.
+
+# Upgrading to 1.8.0
+
+**Removed.** Only one deprecation named 1.8.0 in its 1.7 warning, and it is
+the only thing actually removed:
+
+| was                                      | now                                                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-ref="thing"`                       | `part="thing"` (bare CSS-selector refs still work)                                                                                     |
+| `<xin-blueprint>`, `<xin-loader>` markup | `<tosi-blueprint>`, `<tosi-loader>`. The old tags are **tombstones**: still registered, render nothing, and log exactly what to rename |
+| `<xin-slot>` element                     | `<tosi-slot>` (the rewrite produces it automatically)                                                                                  |
+
+**Deprecated but still working** (their 1.7 warnings named no version, so
+they survive 1.x and now warn naming **2.0**):
+
+| still works         | prefer            |
+| ------------------- | ----------------- |
+| `xinSlot()`         | `tosiSlot()`      |
+| `blueprint()`       | `tosiBlueprint()` |
+| `blueprintLoader()` | `tosiLoader()`    |
+
+**Behaviour changes worth checking even if you use no removed names** —
+neither had a prior deprecation warning:
+
+- **A component member named `on<Event>` now wins over the event sugar.** If
+  your component holds a _function_ under, say, `onClose`, then
+  `creator({ onClose: fn })` now **assigns the member** instead of attaching
+  a `close` listener; previously the sugar won and your member was shadowed.
+  Rename to `handle<Event>` if you want the event channel. (A member left
+  `undefined`/`null` still gets event sugar.)
+- **A type-contradicting attribute write is applied and reported, not
+  silently discarded.** Writing `false` to an attribute declared
+  `'on' | 'off'` used to _remove_ the attribute — so the default read back
+  and a feature you turned off stayed on. It now lands as written, with one
+  `console.error` naming both types.
+
+**New, and opt-in:** the agent surface (`enableAgentInterface()`) defaults
+to **read-only** introspection — `write()` and `call()` refuse until you
+declare `expose: { roots, actions }` (production) or `expose: 'all'`
+(development). A manifest scopes what may be **seen**; add `write: true` to
+let an agent change it. Nothing changes for apps that never call it.
+
+**License:** tosijs is **Apache-2.0** as of 1.8.0 (BSD-3-Clause through
+1.7.x) — adding an explicit patent grant and a patent-retaliation clause.
+Apache-2.0 cannot be combined with **GPLv2-only** code; GPLv3+ is fine.
+
+**One new obligation, easy to miss because semver cannot express it.**
+Apache-2.0 §4(d) requires that redistributors carry the `NOTICE` text. If you
+ship a build containing tosijs to anyone else, include the contents of our
+`NOTICE` file (it also credits the vendored schematic renderer) in your
+attribution notices — a THIRD-PARTY-NOTICES file, an about screen, or
+alongside your own licence text. BSD-3-Clause imposed no equivalent duty, so
+this is genuinely new for existing users, and it applies to *redistribution*
+— using tosijs to build something you host yourself is unaffected.
 
 # Upgrading to 1.7.0
 
@@ -49,7 +103,7 @@ control's native type instead of a string:
   string for `type=date`).
 - `type="time"` → **milliseconds since midnight**.
 
-Bound numeric state now *stays* numeric across edits. **If you read `getValue()`
+Bound numeric state now _stays_ numeric across edits. **If you read `getValue()`
 directly and expected a string**, coerce explicitly (`String(getValue(el))`), or
 read `el.value`. If you bound a `type=date` input and stored the ISO string, note
 the stored value is now a `Date` — bind to string state and it keeps the control's

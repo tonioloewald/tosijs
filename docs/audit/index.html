@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
+  <title>audit (EXPERIMENTAL) — tosijs</title>
+  <meta name="description" content="EXPERIMENTAL accessibility audit over the agent surface&#39;s own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size." />
+  <link rel="canonical" href="https://tosijs.net/audit/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="audit (EXPERIMENTAL) — tosijs" />
+  <meta property="og:description" content="EXPERIMENTAL accessibility audit over the agent surface&#39;s own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size." />
+  <meta property="og:url" content="https://tosijs.net/audit/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"audit (EXPERIMENTAL)","description":"EXPERIMENTAL accessibility audit over the agent surface's own map — anonymous affordances, unnameable actions, missing roles, WCAG contrast, target size.","url":"https://tosijs.net/audit/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>audit (EXPERIMENTAL)</h1>
+<p><code>auditAccessibility(agent.describe({ styles: true }))</code> turns the affordance
+map into findings. It is the lint the map made obvious: <strong>every element with
+handlers should have a name, a role, and enough contrast and size to use</strong> —
+and because the map is the framework&#39;s own record of its wiring, a finding
+here is a real defect, not a scraper&#39;s guess.</p>
+<pre><code>import { enableAgentInterface, auditAccessibility } from &#39;tosijs&#39;
+
+const agent = enableAgentInterface()
+const report = auditAccessibility(agent.describe({ styles: true }))
+report.failed   // 0 when clean
+report.findings // [{ rule, severity, message, record, index }]
+</code></pre>
+<p>Pure over the description — no DOM, so it runs on a map that arrived over a
+wire, in a test, or in CI. Pass <code>styles: true</code> to <code>describe()</code> or the
+contrast rule has nothing to measure and skips itself (it says so).</p>
+<h2>The rules</h2>
+<table>
+<thead>
+<tr>
+<th>rule</th>
+<th>what it catches</th>
+<th>why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>anonymous-affordance</code></td>
+<td>a wired element with no accessible name, text, or value</td>
+<td>a screen reader announces &quot;button&quot;; an agent sees <code>&lt;div&gt;</code></td>
+</tr>
+<tr>
+<td><code>unnameable-action</code></td>
+<td>a handler that is an anonymous function (<code>ƒ</code>)</td>
+<td>nothing can invoke or describe it but a click</td>
+</tr>
+<tr>
+<td><code>missing-role</code></td>
+<td>a non-semantic tag (div/span) wired to act</td>
+<td>assistive tech has no idea it is a control</td>
+</tr>
+<tr>
+<td><code>contrast</code></td>
+<td>text/background below the WCAG AA ratio</td>
+<td>measured with tosijs&#39;s own <code>Color</code>; needs <code>styles: true</code></td>
+</tr>
+<tr>
+<td><code>target-size</code></td>
+<td>interactive element below 24×24 (WCAG 2.5.8)</td>
+<td>too small to hit reliably; toggles exempt</td>
+</tr>
+<tr>
+<td><code>label-hidden-by-placeholder</code></td>
+<td>a control whose only name is its placeholder</td>
+<td>the name vanishes the moment the user types</td>
+</tr>
+</tbody></table>
+<p>Findings carry the record and its index, so a caller can jump straight to
+the element — or hand the pair to <code>schematicSVG</code>&#39;s <code>flags</code> to <em>draw</em> them.</p>
+<blockquote>
+<p><strong>Known divergence (tosijs-floorplan#4).</strong> <code>target-size</code> and &quot;is this
+interactive&quot; are currently implemented <em>twice</em> — here, and in the vendored
+renderer that draws the same map — and the two have drifted: this module
+counts <code>href</code> as interactive and exempts a link named by <code>aria-label</code>; the
+renderer does neither. So an icon-only <code>&lt;a href onClick aria-label=&quot;Buy&quot;&gt;</code>
+at 20×20 audits clean while the drawing flags it, and a nameless 16×16
+<code>&lt;a href&gt;</code> does the reverse. Reconciliation has to happen upstream
+(<code>src/schematic.ts</code> is machine-vendored) — see
+<a href="https://github.com/tonioloewald/tosijs-floorplan/issues/4">tosijs-floorplan#4</a>.
+Until it lands, trust <em>this</em> module&#39;s verdict for <code>target-size</code>: it has
+the accessible name, which the renderer does not.</p>
+</blockquote>
+<blockquote>
+<p><strong>EXPERIMENTAL.</strong> Ships with the agent surface; rules and shapes may change.</p>
+</blockquote>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link current" href="../audit/" aria-current="page">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js"></script>
+</body>
+</html>

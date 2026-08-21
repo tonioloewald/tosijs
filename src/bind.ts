@@ -268,6 +268,36 @@ This is a low-level function for *immediately* updating a bound element. If you 
 want to force a render of an element (versus anything bound to a path), simply call
 `touchElement(element)`. Specifying a `changedPath` will only trigger bindings bound
 to paths staring with the provided path.
+
+## Binding before insertion
+
+You can bind an element that isn't in the document yet — build a view offscreen,
+cache a dialog, detach and re-attach a panel — and it hydrates when it lands. A
+`MutationObserver` on `document.body` catches the insertion and renders every
+bound element in the subtree, **including the inserted node itself**.
+
+```test
+import { elements, tosi, bind, bindings, updates } from 'tosijs'
+
+test('an element bound while detached hydrates when it is inserted', async () => {
+  const { detachedDemo } = tosi({ detachedDemo: { label: 'arrived' } })
+  const panel = elements.div(elements.span())
+  // bound while OUTSIDE the document, and inserted a turn later — only the
+  // MutationObserver can render this, and it must cover the root as well as
+  // the descendants (happy-dom's mutation delivery is too order-dependent to
+  // assert this in the unit tier, so the real engine owns it)
+  bind(panel, 'detachedDemo.label', {
+    toDOM: (el, value) => el.setAttribute('data-label', value),
+  })
+  bind(panel.querySelector('span'), 'detachedDemo.label', bindings.text)
+  await updates()
+  document.body.append(panel)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(panel.getAttribute('data-label')).toBe('arrived')
+  expect(panel.querySelector('span').textContent).toBe('arrived')
+  panel.remove()
+})
+```
 */
 
 import { touch, observe, extendsPath } from './path-listener'
@@ -283,6 +313,7 @@ import {
   TAKE_DESCRIPTOR,
   applyDataBinding,
   resolveTakePaths,
+  tosiPath,
 } from './metadata'
 import {
   XinObject,
@@ -334,18 +365,80 @@ export const touchElement = (element: Element, changedPath?: string): void => {
   }
 }
 
+/**
+ * Hydrate every bound element in a subtree that just entered the document.
+ *
+ * EXPORTED SO IT CAN BE TESTED. It used to be an inline closure inside the
+ * MutationObserver callback, and coverage showed the whole block had never
+ * executed in ANY of the suite's tests — including the isolation try/catch —
+ * while sitting on top of a live defect (below). happy-dom delivers mutation
+ * records unreliably enough that a test written against the observer passes
+ * and fails by run order, which is the same hazard the throttled-handler note
+ * in CLAUDE.md describes: test the function, let the real browser test the
+ * wiring (there is a ```test doc fence for that).
+ */
+/**
+ * Report a binding failure ONCE per (element type, message) pair.
+ *
+ * The per-element try/catch is the right behaviour — one bad binding must not
+ * strand every element after it — but it turned a single abort into an
+ * unthrottled `console.error` per failing element per update, forever, because
+ * the loop no longer stops. 20 failing elements measured 20 errors on the
+ * first touch and 20 on every touch after that. Every other advisory this
+ * release added is warn-once; this one was not.
+ */
+const bindingErrorReported = new Set<string>()
+
+function reportBindingError(
+  what: string,
+  element: Element,
+  error: unknown
+): void {
+  const key = `${what}:${element.tagName}:${(error as Error)?.message ?? error}`
+  if (bindingErrorReported.has(key)) return
+  bindingErrorReported.add(key)
+  console.error(
+    `tosijs: a binding threw while ${what} this element; the rest of the ` +
+      'pass continued. (Reported once per element type and message — fix the ' +
+      'binding, the transform, or the state it reads.)',
+    element,
+    error
+  )
+}
+
+export function hydrateInsertedSubtree(node: Element): void {
+  // getElementsByClassName (class-bucket index) over querySelectorAll
+  // (whole-tree walk): same descendant set, measured faster; snapshot to
+  // an array because touchElement → toDOM may mutate the DOM mid-scan.
+  const inserted = Array.from(node.getElementsByClassName(BOUND_CLASS))
+  // DESCENDANTS ONLY — so an inserted node that is ITSELF bound was never
+  // hydrated. The same-tick bind()-then-append() case is rescued by the async
+  // touch drain, which is why nothing caught this; the trigger is a node bound
+  // while DETACHED and inserted later (a cached dialog, a re-attached view),
+  // which renders empty. list-binding.ts's updateRelativeBindings already
+  // carried this exact fix and comment — classList.contains, not matches():
+  // no selector to parse.
+  if (node.classList.contains(BOUND_CLASS)) {
+    inserted.unshift(node)
+  }
+  inserted.forEach((element) => {
+    // same isolation as the dispatch loop above: a newly-inserted subtree must
+    // hydrate every bound element even if one throws
+    try {
+      touchElement(element)
+    } catch (error) {
+      reportBindingError('hydrating', element, error)
+    }
+  })
+}
+
 // this is just to allow bind to be testable in node
 if (MutationObserver != null) {
   const observer = new MutationObserver((mutationsList) => {
     mutationsList.forEach((mutation) => {
       Array.from(mutation.addedNodes).forEach((node) => {
         if (node instanceof Element) {
-          // getElementsByClassName (class-bucket index) over querySelectorAll
-          // (whole-tree walk): same descendant set, measured faster; snapshot to
-          // an array because touchElement → toDOM may mutate the DOM mid-scan.
-          Array.from(node.getElementsByClassName(BOUND_CLASS)).forEach(
-            (element) => touchElement(element as Element)
-          )
+          hydrateInsertedSubtree(node)
         }
       })
     })
@@ -361,12 +454,26 @@ observe(
     // querySelectorAll (whole-tree walk, O(total DOM)): measured 1.6–2.6× faster
     // in Blink and the gap widens with DOM size. Array.from makes it static so
     // toDOM mutations during dispatch can't perturb a live collection.
+    // no document = state-only environment (tosijs/state, SSR, a Node
+    // script using tosijs purely as a data model): observers still fire,
+    // there is simply nothing bound to update
+    if (globalThis.document == null) return
     const boundElements = Array.from(
       document.getElementsByClassName(BOUND_CLASS)
     )
 
     for (const element of boundElements) {
-      touchElement(element as HTMLElement, changedPath)
+      // ISOLATION: one element's failure must never strand the others. This
+      // loop is the library's hottest scan and every bound element on the
+      // page shares it — an exception thrown by any toDOM (a contract
+      // violation, a bad transform, a component's own render bug) used to
+      // abort the remainder of the pass, leaving later-bound elements stale
+      // while state said otherwise, with only a single listener-level log.
+      try {
+        touchElement(element as HTMLElement, changedPath)
+      } catch (error) {
+        reportBindingError('updating', element as Element, error)
+      }
     }
   }
 )
@@ -468,8 +575,7 @@ const handleChange = (event: Event): void => {
               existing[XIN_PATH] != null
                 ? (existing as XinProps)[XIN_VALUE]
                 : existing
-            let valueActual =
-              value[XIN_PATH] != null ? value[XIN_VALUE] : value
+            let valueActual = value[XIN_PATH] != null ? value[XIN_VALUE] : value
             // State-driven coercion (H-6 layer 2): the type state currently
             // holds is authoritative — DOM controls speak string, state
             // speaks typed values, and the binding layer owns conversion.
@@ -711,6 +817,14 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventType: K,
   eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
+  // normalize at the boundary: a proxy handler IS a path — store it as one,
+  // so dispatch, dedup, and every consumer of the metadata (the agent
+  // surface's map included) treat `onClick: app.doThing` and
+  // `onClick: 'app.doThing'` identically
+  const handlerPath = tosiPath(eventHandler)
+  if (handlerPath != null) {
+    eventHandler = handlerPath as unknown as typeof eventHandler
+  }
   let eventBindings = elementToHandlers.get(element)
   if (eventBindings == null) {
     eventBindings = {}

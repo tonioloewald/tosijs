@@ -106,11 +106,76 @@ function keyToIndex(array: XinObject[], idPath: string, idValue: any): number {
   return idx
 }
 
+/**
+ * Path segments that would escape the object graph into the prototype chain.
+ * A path is untrusted data — it arrives from an agent, a WebMCP host, a
+ * sync server or a peer tab — so a segment must never be able to reach
+ * `Object.prototype`. Rejected at the SINK, which covers every caller at
+ * once: `agent.write()`, its contract proposal clone, `share()` and
+ * `sync()`. (Found by the 1.8.0 security pass: a manifest-scoped
+ * `write('app.cart.__proto__.isAdmin', true)` polluted Object.prototype
+ * origin-wide, left the registry untouched so nothing showed in the map or
+ * the audit ledger, and passed a schema contract — because the polluted
+ * write never appeared in the proposed value being validated.)
+ */
+const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
+
+export class UnsafePathError extends Error {
+  constructor(key: string) {
+    super(
+      `unsafe path segment "${key}": it would escape the object graph into ` +
+        'the prototype chain'
+    )
+    this.name = 'UnsafePathError'
+  }
+}
+
+/**
+ * Throws on a segment that would reach the prototype chain while DESCENDING.
+ * All three names are refused here, because descending through any of them
+ * lands outside the object graph.
+ */
+export function assertSafeKey(key: string): void {
+  if (FORBIDDEN_SEGMENTS.has(key)) throw new UnsafePathError(key)
+}
+
+/**
+ * The same guard for a TERMINAL assignment — deliberately narrower.
+ *
+ * Only `__proto__` is a sink at a leaf: `obj.__proto__ = x` reassigns the
+ * prototype, so it must never be a data key. `constructor` and `prototype` are
+ * ordinary own properties when you merely ASSIGN them — and they are real
+ * data keys in real apps, because dictionaries get keyed by user data (an i18n
+ * table, a cache, a colour-name map). Refusing them at a leaf broke code that
+ * worked in 1.7.9 and bought nothing: descent is where they are dangerous, and
+ * descent still refuses all three (assertSafeKey above, plus byKey's
+ * own-property check).
+ */
+export function assertSafeLeafKey(key: string): void {
+  if (key === '__proto__') throw new UnsafePathError(key)
+}
+
 function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
-  if (obj[key] === undefined && valueToInsert !== undefined) {
+  assertSafeKey(key)
+  // TWO different things are "not a container here", and only one of them is
+  // about ownership:
+  //   - an INHERITED member (toString, valueOf, …) — never ours to descend
+  //     into or overwrite, which is why this asks hasOwnProperty rather than
+  //     `=== undefined`
+  //   - an own property whose VALUE is undefined — ours, but empty
+  // Testing ownership alone conflated them: `{ app: { config: undefined } }`
+  // reported the key as present, so nothing was created and `undefined` came
+  // back for the descent to dereference. That is ordinary state — a TS
+  // placeholder (`user: undefined as User | undefined`, which our own
+  // bind-before-data guidance encourages) or a cleared subtree
+  // (`xin['app.config'] = undefined` writes an own undefined) — so the very
+  // next deep write crashed, and inbound share()/sync() deltas crashed inside
+  // the receive handler.
+  const own = Object.prototype.hasOwnProperty.call(obj, key)
+  if ((!own || obj[key] === undefined) && valueToInsert !== undefined) {
     obj[key] = valueToInsert
   }
-  return obj[key]
+  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined
 }
 
 function byIdPath(
@@ -119,7 +184,8 @@ function byIdPath(
   idValue: string,
   valueToInsert?: any
 ): any {
-  let idx = idPath !== '' ? keyToIndex(array as any[], idPath, idValue) : idValue
+  let idx =
+    idPath !== '' ? keyToIndex(array as any[], idPath, idValue) : idValue
   if (valueToInsert === _delete_) {
     // splice(undefined, 1) coerces to splice(0, 1) — deleting a nonexistent
     // id must be a no-op, not the silent removal of the first item
@@ -230,9 +296,9 @@ function setByPath(
             if ((obj as XinArray)[idx] === val) {
               return false
             }
-            (obj as XinArray)[idx] = val
+            ;(obj as XinArray)[idx] = val
           } else {
-            (obj as XinArray).splice(idx, 1)
+            ;(obj as XinArray).splice(idx, 1)
           }
           return true
         }
@@ -244,12 +310,22 @@ function setByPath(
         if (part.length > 0 || parts.length > 0) {
           // if we're at the end of part.length then we need to insert an array
           obj = byKey(obj as XinObject, key, part.length > 0 ? {} : [])
+          // the OUTER loop guards `obj != null`; this one never did, so a
+          // byKey that legitimately declines to create a container (an
+          // inherited member) reported it as a raw TypeError from library
+          // internals instead of naming the path
+          if (obj == null) {
+            throw new Error(
+              `setByPath failed at "${key}" in "${path}": not a container`
+            )
+          }
         } else {
+          assertSafeLeafKey(key)
           if (val !== _delete_) {
             if ((obj as XinObject)[key] === val) {
               return false
             }
-            (obj as XinObject)[key] = val
+            ;(obj as XinObject)[key] = val
           } else {
             if (!Object.prototype.hasOwnProperty.call(obj, key)) {
               return false

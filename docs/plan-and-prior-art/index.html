@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- NB: the body is NOT hidden until hydration. It used to be (body opacity 0 +
+       a 4s safety-net timeout), because an undefined custom element is
+       display:inline, so the pre-rendered page stacked as bare text and hydration
+       reflowed the whole thing. The cost was a blank screen for as long as the
+       bundle took — ~4.5s on a cheap phone, for content already in the HTML. The
+       tosi-doc-system:not(:defined) rules in the stylesheet now lay the static page
+       out as though the chrome were there, so hydration only ADDS the chrome and
+       nothing moves. Paint immediately; don't hide readable content. -->
+  <!-- Theme, applied BEFORE first paint. Now that we paint the static page rather
+       than hiding it, a dark-mode reader would otherwise get a flash of the light
+       theme until the bundle lands and sets body.darkmode. CSS alone can't do this:
+       an explicit theme choice lives in localStorage. Mirrors applyThemePrefs()
+       (doc-system.ts) — keep the two in step. Fails safe: any error leaves the
+       light default, exactly as before. -->
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
+  <title>Plan &amp; Prior Art — tosijs</title>
+  <meta name="description" content="Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." />
+  <link rel="canonical" href="https://tosijs.net/plan-and-prior-art/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Plan &amp; Prior Art — tosijs" />
+  <meta property="og:description" content="Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." />
+  <meta property="og:url" content="https://tosijs.net/plan-and-prior-art/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Plan & Prior Art","description":"Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta.","url":"https://tosijs.net/plan-and-prior-art/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
+  <article class="doc-content">
+<h1>Plan &amp; Prior Art</h1>
+<!--{ "parent": "One User Interface", "order": 5, "description": "Phases 0–5, open questions, and the prior-art survey: WebMCP, the window, and the unclaimed tosijs delta." }-->
+
+<p><em>Part of <a href="/one-user-interface/">One User Interface</a> — what shipped, what
+remains open, and why the window is real.</em></p>
+<blockquote>
+<p><strong>Where this stands at 1.8.0.</strong> Phases 0–3 <strong>shipped</strong>: the surface, the
+contracts, the drawn map, and the browser bridge (registration <em>and</em>
+invocation verified in Chrome Canary; haltija ships a native tier that
+consumes <code>describe()</code> directly). Phases 4 and 5 are <strong>not built</strong> — they
+are recorded here as direction, and the pages say so. Every &quot;shipped&quot;
+below happened in a shipping browser or a real test lane, not on paper.</p>
+<p>The prior-art survey further down is the part worth reading even if you
+never use the agent surface: it is the only written comparison of the
+WebMCP landscape we know of, and it explains <em>why</em> a framework-native
+map is a different thing from an automation adapter.</p>
+</blockquote>
+<h2>The plan</h2>
+<table>
+<thead>
+<tr>
+<th>phase</th>
+<th>status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0 — prove it</td>
+<td>✅ live demos on every page of this family</td>
+</tr>
+<tr>
+<td>1 — the surface</td>
+<td>✅ shipped in 1.8.0 (<code>tosijs/agent</code>)</td>
+</tr>
+<tr>
+<td>2 — manifests + contracts</td>
+<td>✅ shipped — app, component <strong>and</strong> inline element contracts</td>
+</tr>
+<tr>
+<td>3 — the bridge</td>
+<td>✅ shipped — WebMCP auto-registration; registration <strong>and invocation</strong> verified in Chrome Canary 153; haltija ships a native tier. Open: <a href="https://github.com/tonioloewald/haltija/issues/16">haltija#16</a> bridge design, which 1.8.0 unblocks</td>
+</tr>
+<tr>
+<td>4 — distance</td>
+<td>⬜ not built — design recorded below</td>
+</tr>
+<tr>
+<td>5 — headless embodiment</td>
+<td>⬜ not built — see <a href="/headless-embodiment/">Headless Embodiment</a> for what <em>is</em> real</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>Phase 0 — prove it (no new code).</strong> A doc-site demo: an &quot;agent panel&quot;
+drives the todo example through raw paths while the reader clicks the same
+UI. Two actors, one state, zero sync. <strong>Done — and split across the family:</strong>
+the proofs live as live examples in the <a href="/one-user-interface/">intro</a>
+(two actors), <a href="/derived-surface/">The Derived Surface</a> (describe()), and
+<a href="/headless-embodiment/">Headless Embodiment</a> (elementsSSR) — the manifesto
+demonstrating its own thesis inline.</li>
+<li><strong>Phase 1 — the surface (introspection). Built</strong> — <code>enableAgentInterface()</code>
+with <code>describe</code>/<code>read</code>/<code>write</code>/<code>observe</code>/<code>call</code>/<code>changes</code>/<code>when</code>/<code>log</code>,
+the <code>tosiAgent</code> global, manifest scoping (declared actions are <em>callable,
+not writable</em>), flat geometric records with arrow provenance, plus the
+downstream pure functions (<code>schematicSVG</code>/<code>rasterizeSVG</code>, <code>webmcpTools</code>).
+<strong>Published</strong> as the <code>tosijs/agent</code> subpath (the same file as <code>tosijs</code>
+with narrower types — a separately-bundled surface would carry its own
+copy of the state registry), marked EXPERIMENTAL like <code>tosijs/debug</code>, and
+omitted from the <code>&lt;script&gt;</code>/CDN build, which cannot tree-shake. Still open from the original scope:
+preconditions from enabled-bindings and item schemas from list templates
+(both land naturally with Phase 2&#39;s contracts).</li>
+<li><strong>Phase 2 — manifest + contracts.</strong> <strong>Core shipped</strong> (2026-08-03): the
+zero-dependency contract seam (<code>expose.contract = { check, describe }</code>),
+<code>write()</code> enforcement with audited refusals, <code>describe().contract</code>
+(&quot;what&#39;s legal&quot;), and <strong><code>exerciseContract()</code></strong> — contracts carrying
+<code>examples</code> / <code>$counterexamples</code> are executable specs, the contract
+equivalent of tjs signature tests (see
+<a href="/agent-surface/">The Agent Surface</a>). The blessed adapter now <strong>ships
+FROM tosijs-schema</strong> (1.5.0&#39;s <code>agentContract(schemas)</code>, closing
+tosijs-schema#2) — stricter than our hand-rolled original: it fails
+CLOSED on contracted writes without a proposal, and refuses at
+construction any schema keyword <code>validate</code> doesn&#39;t enforce; our suite
+runs against the published adapter and pins the proposal seam from this
+side (tosijs#25). <strong>ComponentMap
+shipped</strong> (2026-08-03): <code>static contract</code> (one word everywhere) = contract<ul>
+<li>description + test fixture + parts map in one declaration;
+<code>Component&lt;typeof contract&gt;</code> types <code>this.parts</code> from the declared tags —
+THE DECLARATION IS THE TYPE (classic PartsMap still accepted in the same
+slot); <code>describe()</code> harvests own-statics only; <code>exerciseComponent()</code>
+executes parts/methods/value-examples AND declared <code>tests</code> (serializable
+set/click/expect step scripts, updates()+rAF settled). Shipped tests
+travel with the contract; dev-only tests go to tjs <code>test {}</code> blocks
+(stripped) — the native-TJS bridge is a test block calling
+exerciseComponent(). initAttributes subsumption + value-setter enforcement
+BOTH shipped 2026-08-03 (contract.attributes with defaults drives the
+machinery, both-declared throws, nudge-warn toward the ideal; setter
+enforces declared value contracts — native type/enum/const subset +
+pluggable setContractValidator; no contract, no check). Sub-path schema
+routing shipped (2026-08-03): writes at/under a contracted root are judged
+as the whole root they would produce (proposal = clone + hypothetical
+apply; adapters validate roots, core owns paths). Remaining: the AJS
+<code>$exercise</code> future. Feeds directly
+into 2.0&#39;s <code>schematic</code> design rather than duplicating it. <strong>Gate:</strong> state-level validation is a hard prerequisite
+for production <code>write()</code> access (see <a href="/trust-and-transports/">Trust</a>) — until this
+phase lands, production surfaces are read/observe/call-only. <code>agent.when(path, predicate)</code>
+— the episodic agent&#39;s await-a-condition primitive — <strong>shipped early</strong>
+(2026-08-01): immediate-satisfaction check, audit-logged waits invisible to
+the <code>changes()</code> drain, predicate errors reject, <code>disable()</code> rejects pending
+waits.</li>
+</ul>
+</li>
+<li><strong>Phase 3 — the bridge.</strong> <strong>WebMCP adapter prototype shipped</strong> (2026-08-02):
+<code>webmcpTools(agent)</code> generates the tool set pure from <code>describe()</code> (core
+quartet + one named tool per action; <code>tosi_write</code> dev-gated per Trust);
+<code>webmcpAdapter()</code> feature-detects the host and tolerates both registration
+shapes (<code>registerTool</code> / <code>provideContext</code>) while the spec churns — live
+proof in <a href="/agent-surface/">The Agent Surface</a>. <strong>The real-agent e2e has
+RUN</strong> (2026-08-02): haltija shipped <code>hj map</code> with a native <code>tosi-agent</code>
+source that returns <code>describe()</code> <strong>verbatim</strong> (its own decision — reshaping
+would be the lossy reconstruction the tier exists to avoid), and a live
+session drove this very page through the surface — <code>call(&#39;oneUI.addItem&#39;)</code>
+through a private headless haltija, observers fired, the human-facing list
+rendered the agent&#39;s item, the audit log recorded the act. No vision, no
+selectors, no synthesized input. <strong>The WebMCP-host
+registration e2e is CONFIRMED</strong> (2026-08-03, Chrome Canary with the WebMCP
+flags enabled): the live demo detected the host and registered the
+generated tool set — witnessed on the page&#39;s own self-report. <strong>And the INVOCATION
+e2e is done</strong> (2026-08-03, later that night): through Chrome Canary 153&#39;s
+shipped <code>document.modelContext</code> — <code>getTools()</code> listed our five (the
+quartet + <code>tosi_act_mcpDemo_addNote</code>, derived not authored), and
+<code>executeTool(tool, input)</code> ran the derived action through the browser&#39;s
+own execution path: state updated, the human-visible list rendered the
+item, the audit log recorded it. Wire contract learned live:
+<code>executeTool</code> takes the <code>RegisteredTool</code> OBJECT (not a name) and the
+input as a JSON <strong>string</strong>; <code>inputSchema</code> round-trips as a string too.
+Our <code>registerTool</code> path matched the shipped API exactly. Remaining: only
+the bridge-convergence answers on haltija#16.</li>
+<li><strong>Phase 4 — distance.</strong> The <code>SyncTransport</code> MCP peer; AJS capability
+sandboxing for agent-submitted logic; lukko alignment.</li>
+<li><strong>Phase 5 — headless embodiment.</strong> The DOM-free core (tosijs#18) running an
+app server-side as its abstract self; UI vended on demand via the prerender
+pipeline; humans and agents as co-equal session peers. This is the 2.0-era
+horizon — <code>schematic</code> (validated-from-birth state) plus #18 (no DOM at
+import) <em>are</em> its prerequisites, and both are already on the roadmap.</li>
+</ul>
+<p>Sequencing note: phases 0–1 are cheap and demonstrable now; 2 is where the
+<code>schematic</code>/2.0 work and this plan become the same work; 3–4 are ecosystem
+plays (file, don&#39;t fix — designs land as issues on haltija/tjs-lang/lukko);
+5 is where the plan and tosijs 2.0 converge entirely.</p>
+<h3>The empirical lane: LLM-in-the-loop tests (cross-cutting)</h3>
+<p>Every legibility claim in this plan — flat records beat nested, arrows beat
+booleans, PNG schematic beats screenshot beats SVG source, glance-then-zoom
+beats full-dump — is currently an <em>argument</em>. All of them are <strong>measurable</strong>:
+give a model a task battery (find the affordance for X; which action changes
+path Y; complete this flow) against each encoding of the same app (JSON map /
+schematic PNG / raw screenshot / a11y tree), and score task success × token
+cost × turns. Once tjs makes model calls stupidly easy, this becomes a test
+lane like any other — sampled and budgeted rather than per-commit (models are
+slow, priced, and flaky), but <em>regression-shaped</em>: <em>a change to <code>describe()</code>&#39;s
+shape gets a measured delta, not vibes.</em> The earlier design reviews kept
+ending at &quot;the remaining questions are empirical&quot; — this is the lane where
+they get answered. It doubles as the marketing evidence: &quot;agents complete
+tasks N× more reliably against the map than against pixels&quot; is a claim with a
+number in it.</p>
+<p><strong>First number (haltija, 2026-08-02):</strong> on a trivial page JSON wins outright
+(an image&#39;s fixed cost dominates); on a <strong>60-control app the JSON map is
+~1,567 tokens — right at the crossover with an image&#39;s ~1,000–1,600 vision
+tokens</strong>. Above that density the rasterized schematic wins, exactly the
+DeepSeek-OCR curve. So the encoding choice is itself density-dependent, which
+the eval lane should treat as a variable, not a constant.</p>
+<h2>Open questions</h2>
+<ul>
+<li><strong>Naming — SETTLED (2026-08-01): <code>tosiAgent</code>.</strong> Self-describing wins for a
+console-first affordance whose consumers include LLMs; &quot;MCP&quot; stays reserved
+for the adapter that speaks it. <strong><code>pöllö</code></strong> (the owl) is reserved for the
+<strong>schematic viewer</strong> when it becomes a tool — the owl&#39;s-eye view: sees the
+whole territory, in the dark, without rendering it.</li>
+<li><strong>Handler enumeration cost.</strong> Data bindings are enumerable via <code>BOUND_CLASS</code>;
+event wiring is per-element (WeakMap probe during a tree walk on
+<code>describe()</code>). Fine on demand; if it ever needs to be live, the toggle can
+turn on a ledger — never a cost when disabled.</li>
+<li><strong>Element identity across the wire.</strong> <code>describe()</code> needs stable element
+references for remote agents (in-page gets real elements). Candidates:
+generated selector, instanceId, or path-of-binding as the primary key.</li>
+<li><strong><code>describe()</code> freshness.</strong> Snapshot vs. live subscription to wiring changes
+(elements mount/unmount constantly in list bindings). Likely: snapshot +
+&quot;wiring changed&quot; notification, not a live graph.</li>
+<li><strong>Does the manifest belong in <code>tosi()</code> itself?</strong> <code>tosi({...}, { expose })</code>
+would make exposure a property of <em>registration</em> — arguably the most
+tosijs-shaped answer of all.</li>
+<li><strong>Is the map the whole truth?</strong> Time travel, state diffing, and deterministic
+replay come free <em>if the map is the source of truth for state</em>. In tosijs the
+registry is the norm — but apps can and do hold state in closures the map
+only observes after the fact. Worth stating as a discipline (&quot;state lives in
+the registry&quot;) the way zero-trust is stated as one, and worth <code>describe()</code>
+being honest about what it can&#39;t see.</li>
+<li><strong>Wake policy for episodic agents.</strong> <code>when(path, predicate)</code> answers &quot;sleep
+until the world reaches a named condition,&quot; but the general policy question
+remains: which changes justify spending an inference pass? Candidates:
+predicate-gated wake (<code>when</code>), coalesced drains on a cadence, priority
+paths declared in the manifest (&quot;wake me for <code>app.order.*</code>, batch the
+rest&quot;). Probably all three, declared per subscription.</li>
+<li><strong>Versioning the contract.</strong> Once haltija tests and agent workflows script
+against the schema&#39;d surface, its shape is a public API. What&#39;s contractual
+vs. incidental, and how the schema versions, should be decided <em>before</em> fifty
+tests depend on the accidental shape — much cheaper than after.</li>
+</ul>
+<h2>Prior art &amp; the window — <strong>all facts below are as of 2026-08-21</strong></h2>
+<!-- as-of: 2026-08-21 | WebMCP spec + Chrome versions, who has shipped auto-exposure (Shopify/Cloudflare), competing derivation approaches, the five unclaimed-delta claims -->
+
+<blockquote>
+<p><strong>This section is a snapshot, not a maintained page.</strong> Everything in it —
+browser versions, who has shipped what, which competitor exists — is
+external state we do not control and cannot generate, so it is stamped
+rather than promised. <strong>Do not read it as current; read it as dated.</strong> If
+the date is old and the answer matters, re-survey and re-stamp. It has
+already moved twice: the first survey was 2026-07-28, three and a half weeks
+before this one, and one of the five claims below had to be rewritten in
+that gap.</p>
+</blockquote>
+<ul>
+<li><strong>WebMCP</strong> (<code>document.modelContext</code>): a W3C WebML CG standard from Google +
+Microsoft, announced 2026-02-10; explainer first published August 2025,
+current Draft Community Group Report 2026-07-21. A <strong>public origin trial in
+Chrome 149</strong>; <code>navigator.modelContext</code> deprecated in Chrome 150 in favour of
+<code>document.modelContext</code>; <strong>Chrome 153</strong> withdraws a tool without cancelling
+in-flight executions. A page-registers-tools API.</li>
+<li><strong>Unregistration</strong> is <code>registerTool(tool, { signal })</code> + <code>controller.abort()</code>.
+Worth stating because we got it wrong: our adapter probed for a returned
+handle and for <code>unregisterTool</code>, found neither, and inferred the capability
+was missing — shipping register-once semantics and revoke-by-refusing-stub to
+compensate for a gap that did not exist. Now feature-probed and used.</li>
+<li><strong>Platform auto-exposure, from the platform layer.</strong> Shopify switched WebMCP
+on for every Liquid storefront (Hydrogen in developer preview) on 2026-08-05
+— catalog, cart, checkout, policy lookup, no merchant asked, opt out with
+<code>webMcp={false}</code>. Cloudflare followed on 08-06: any site behind Cloudflare,
+dashboard toggle, no redeploy. Read the mechanism before reading the threat:
+Cloudflare ships <strong>two pre-defined tool packs</strong> (Content Credentials, and a
+proxy to an existing server-side MCP server), Shopify ships <strong>commerce
+primitives it already knows</strong>. Neither derives anything from <em>your</em> app.</li>
+<li><strong>A declarative HTML API synthesizes tools from <code>&lt;form&gt;</code>s</strong> — annotate with
+<code>toolname</code> / <code>tooldescription</code> / <code>toolparamdescription</code> and the browser
+builds the tool. Forms only, and annotation is still declaration, but it is
+the first standards-track derivation.</li>
+<li><strong><code>webmcp-core</code></strong> (keak-ai): a <strong>build-time Playwright crawler</strong> — BFS the
+site, snapshot the DOM, record network calls, cluster them into tools, emit
+TS/React/HTML/JSON, across Next/React/Vue/Svelte/Astro/Shopify. The closest
+thing to &quot;derived&quot;, and its epistemic position is the point: it
+<strong>reconstructs</strong> intent from rendered output, exactly like a11y-tree
+scraping, moved to build time. Unannotated forms are guessed at from
+<code>aria-label</code> / <code>&lt;label&gt;</code> / headings.</li>
+<li><strong>Framework integrations, hand-registered per tool:</strong> <code>@mcp-b/react-webmcp</code>
+(a hook per tool, Zod schemas by hand); GoogleChromeLabs <code>use-webmcp-tool</code>.
+Angular&#39;s is <code>provideExperimentalWebMcpTools()</code>, experimental across all
+versions (&quot;APIs are subject to change even outside of major versions&quot;).
+Signal Forms auto-derive a JSON schema from the form&#39;s data model — <strong>per
+form, on opt-in</strong> via <code>experimentalWebMcpTool</code>. The most interesting prior
+art, and still scoped to forms.</li>
+<li><strong>Playwright MCP / Operator / Computer Use / Mariner:</strong> a11y-tree + vision +
+synthesized input, impersonating the human user. <strong>Scope honesty:</strong> their
+value is working on <em>arbitrary</em> sites. This plan doesn&#39;t do that for free; it
+makes it unnecessary for apps you control. One external datum argues our
+side: accessibility surveys in 2026 report the structure agents depend on
+getting worse for the first time in six years — a11y-tree scraping is
+building on subsiding ground.</li>
+<li><strong>Phoenix LiveView / Hotwire:</strong> real prior art for the inversion (app lives
+server-side, DOM is a projection) — but opaque process state, no agent
+interface, one embodiment.</li>
+<li><strong>HATEOAS / hypermedia:</strong> the philosophical ancestor of <code>describe()</code> — the
+interface advertising its own affordances — done for REST twenty years early.</li>
+<li><strong>llms.txt:</strong> static self-description for sites (we ship it); the agent
+surface is its runtime sibling.</li>
+</ul>
+<p><strong>What remains unclaimed — the tosijs delta:</strong></p>
+<ol>
+<li><strong>State, not just tools.</strong> The spec confirms it: WebMCP is tools-only, with
+no MCP <code>resources</code> and no readable/writable state. Its own open questions
+list multimodal I/O, <code>outputSchema</code> and service workers — state is not among
+them. Nobody exposes a path-addressable, writable, observable model.</li>
+<li><strong>Derived from records you already hold — not declared, annotated, packed or
+crawled.</strong> The blunt version of this claim (&quot;everyone hand-registers&quot;) died
+between the two surveys, and the replacement is sharper. The question is
+<em>where the knowledge comes from</em>:<ul>
+<li>platform packs (Shopify, Cloudflare) know <strong>their</strong> domain, not your app;</li>
+<li>the declarative API and Angular&#39;s Signal Forms derive from <strong>a declaration
+written for that purpose</strong> — an attribute, an opt-in flag — and only for
+forms;</li>
+<li>crawlers and a11y-tree agents <strong>reconstruct</strong> intent from rendered output:
+a guess, however good, that decays as markup does;</li>
+<li>tosijs <strong>reads records it already holds</strong>, because it created the
+bindings. Not a guess, not an annotation, not a pack — and still nobody
+else&#39;s claim, because no other mainstream framework has a wiring record to
+read.</li>
+</ul>
+</li>
+<li><strong>One-truth propagation.</strong> An agent write updates the human&#39;s UI because
+both observe the same registry. Every integration surveyed routes through a
+tool <code>execute()</code> and relies on the author to remember to sync.</li>
+<li><strong>Push observation.</strong> The only event in the API is <code>toolchange</code> — the <em>tool
+list</em> changed, not the <em>state</em>. <code>observe(path)</code> remains a channel nobody
+offers.</li>
+<li><strong>Embodiment independence.</strong> Headless app + vended UI has no equivalent in
+the agent-web space.</li>
+</ol>
+<p><strong>On the curb-cut framing itself:</strong> it is no longer novel — the a11y tree as
+the thing agents read is now a mainstream observation, down to a W3C CG
+document disambiguating &quot;WAI-ARIA&quot; from &quot;Agent-ARIA&quot;. Claim the <strong>mechanism</strong>,
+not the metaphor. What is ours is that the surface is derived from the
+framework&#39;s own records and therefore <strong>prosecutes</strong> a11y defects rather than
+absorbing them — <code>auditAccessibility</code> over the same map, <code>contract.role</code> and
+<code>description</code> materializing as real ARIA. An integration absorbs discrepancies;
+an intrinsic surface prosecutes them.</p>
+<p><strong>The axis that actually separates these approaches: is the agent surface a
+SECOND ARTIFACT, or a facet of the one you already maintain?</strong></p>
+<p>Ordering the field by <em>where the knowledge comes from</em> is useful but incomplete
+— it invites an argument about whose intent counts. The sharper question is
+what the surface <strong>costs to keep true</strong>, and it sorts everything cleanly:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>where knowledge comes from</th>
+<th>what it costs to keep true</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>a11y-tree agents, crawlers (<code>webmcp-core</code>)</td>
+<td>reconstructed from rendered output</td>
+<td>nothing to maintain, because it is a <strong>guess</strong> — and it decays as the markup does</td>
+</tr>
+<tr>
+<td>platform packs (Cloudflare)</td>
+<td>a pre-built library, bolted on at the edge</td>
+<td>maintained by the platform, knows nothing about your app</td>
+</tr>
+<tr>
+<td>platform-as-API-consumer (Shopify)</td>
+<td>the platform&#39;s <strong>own</strong> domain model — real knowledge, well used</td>
+<td>a <strong>separate thing</strong>, built and maintained beside the app</td>
+</tr>
+<tr>
+<td>declarative form API, Angular Signal Forms</td>
+<td>a declaration you wrote <strong>for that purpose</strong></td>
+<td>a second declaration per form, kept in step by hand</td>
+</tr>
+<tr>
+<td>tosijs</td>
+<td>records the framework already holds, because it created the bindings</td>
+<td><strong>nothing</strong> — it is a projection of the one truth</td>
+</tr>
+</tbody></table>
+<p>Shopify is the instructive case, and the one that would be easy to
+mis-characterise. It is not post-hoc scraping: they are a <strong>leaf-node API
+consumer</strong> exposing their own commerce surface, and they have the information
+to do that part <em>well</em> — better names, better descriptions, more stable across
+a merchant&#39;s refactors than anything derived could be. <strong>For a fixed, known
+domain, a curated pack beats a derived surface</strong>, and it is worth conceding
+that plainly.</p>
+<p>What it is not is a <strong>discipline</strong> — nothing about it generalises to the next
+app, because the next app is not a storefront. And it is not a <strong>free facet of
+a single source of truth</strong>: it is a second artifact, so it can drift from the
+app it describes, and it covers exactly what somebody decided to cover. A
+customised storefront whose checkout no longer behaves like the pack says still
+publishes the pack. Better than post-hoc, and a long way from a surface that
+cannot lie about the wiring because it <em>is</em> the wiring.</p>
+<p><strong>This is the documentation problem wearing different clothes.</strong> The house rule
+for docs is: don&#39;t promise to keep a second copy in step — delete it and
+generate it from the first (see <code>tosijs-coding-practices</code> →
+<code>documentation-surface.md</code>). An agent surface is the same shape. Every approach
+above except the last maintains a second description of the app, by hand or by
+platform, and inherits the drift that guarantees. Ours is generated from the
+wiring, which means the failure mode is not &quot;the description went stale&quot; but
+&quot;the app stopped working&quot; — and that is a failure someone notices.</p>
+<p>Two consequences follow structurally, not from being ahead:</p>
+<ul>
+<li><strong>Consumption-level decays; intention-level cannot.</strong> Anything downstream of
+rendered output rests on an artifact that is, by the 2026 accessibility
+surveys, getting <em>worse</em> for the first time in six years. Records read from
+bindings cannot drift from the app, because the app stops working if they do.</li>
+<li><strong>Only intention-level can PROSECUTE defects.</strong> A scraper inherits whatever
+a11y sins the DOM contains; it has nothing to compare them against. Holding
+both sides — declared intent (contract, binding, role) and realised output
+(the DOM) — is what makes <code>auditAccessibility</code> possible at all, and it is
+structurally unavailable to anything reading only the output. This is the
+whole content of &quot;an integration absorbs discrepancies, an intrinsic surface
+prosecutes them&quot;, and it is the curb-cut claim in its strongest form: not
+&quot;we thought of accessibility too&quot;, but <em>the mechanism that serves agents is
+the mechanism that finds the a11y bugs.</em></li>
+</ul>
+<p><strong>Strategic consequence.</strong> Targeting WebMCP first was right and is now clearly
+right — a real origin trial with default-on deployments, not a proposal. But
+the window narrowed: &quot;derived agent surface&quot; is being approached from the
+platform layer, the markup layer and the crawler layer at once. None of them
+reach the app&#39;s own records, and that is the defensible ground — so the framing
+to ship is <em>derived from what the framework already knows</em>, contrasted
+explicitly against packs, annotations and crawls. The parts nobody is near —
+<strong>state, propagation, observation, embodiment</strong> — are the durable delta, and
+they are where the next phase should spend.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><a class="doc-link" href="../elements/">Creating Elements</a></li>
+    <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../color/">color</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../tosi/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The tosi proxy</a></li>
+      <li><a class="doc-link" href="../metadata/">metadata</a></li>
+      <li><a class="doc-link" href="../path-listener/">path-listener</a></li>
+      <li><a class="doc-link" href="../xin-proxy/">tosi, xin, and xinProxy</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../bind/">Binding</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../list-binding/">binding arrays</a></li>
+      <li><a class="doc-link" href="../bindings/">bindings</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../component/">Web-Components</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../blueprint-loader/">blueprints</a></li>
+      <li><a class="doc-link" href="../make-component/">makeComponent</a></li>
+      <li><a class="doc-link" href="../form-validation/">Validation</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
+      <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
+      <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../share/">share</a></li>
+      <li><a class="doc-link" href="../sync/">sync</a></li>
+      <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details open><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link current" href="../plan-and-prior-art/" aria-current="page">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js"></script>
+</body>
+</html>

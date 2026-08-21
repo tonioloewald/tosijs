@@ -384,35 +384,35 @@ external styling, and the usual DOM query APIs.</p>
 <li><strong>Lighter weight.</strong> No shadow root overhead per instance.</li>
 <li><strong>Slot composition.</strong> tosijs rewrites <code>&lt;slot&gt;</code> elements in light DOM components.</li>
 </ul>
-<h4>How <code>&lt;xin-slot&gt;</code> works</h4>
+<h4>How <code>&lt;tosi-slot&gt;</code> works</h4>
 <p>Native <code>&lt;slot&gt;</code> elements only work inside a shadow root. tosijs solves this
 by automatically replacing any <code>&lt;slot&gt;</code> in a light DOM component with an
-<code>&lt;xin-slot&gt;</code> custom element that provides the same composition behavior:
+<code>&lt;tosi-slot&gt;</code> custom element that provides the same composition behavior:
 children with a matching <code>slot=&quot;name&quot;</code> attribute get moved into the
-corresponding <code>&lt;xin-slot name=&quot;name&quot;&gt;</code>, and unslotted children go into the
-default (unnamed) <code>&lt;xin-slot&gt;</code>.</p>
+corresponding <code>&lt;tosi-slot name=&quot;name&quot;&gt;</code>, and unslotted children go into the
+default (unnamed) <code>&lt;tosi-slot&gt;</code>.</p>
 <p>This happens during hydration — you write <code>&lt;slot&gt;</code> in your <code>content()</code> and
-tosijs handles the rewrite transparently. You can also use <code>xinSlot()</code>
+tosijs handles the rewrite transparently. You can also use <code>tosiSlot()</code>
 directly from the <code>elements</code> proxy if you need to set attributes like
 <code>class</code> or <code>style</code> on the slot container (plain <code>&lt;slot&gt;</code> elements lose
 non-<code>name</code> attributes during the rewrite).</p>
 <pre><code>class CardLayout extends Component {
-  content = ({ h3, xinSlot }) =&gt; [
+  content = ({ h3, tosiSlot }) =&gt; [
     h3(&#39;Header&#39;),
-    xinSlot({ name: &#39;top&#39;, style: { background: &#39;#eee&#39; } }),
+    tosiSlot({ name: &#39;top&#39;, style: { background: &#39;#eee&#39; } }),
     h3(&#39;Body&#39;),
-    xinSlot(), // default slot
+    tosiSlot(), // default slot
     h3(&#39;Footer&#39;),
-    xinSlot({ name: &#39;bottom&#39; }),
+    tosiSlot({ name: &#39;bottom&#39; }),
   ]
 }
 </code></pre>
 <p>Two things to keep in mind:</p>
 <ul>
 <li><strong><code>:slotted</code> doesn&#39;t apply</strong> — there&#39;s no shadow DOM, so style slotted
-children with normal CSS selectors. You can use <code>xin-slot</code> as a selector.</li>
+children with normal CSS selectors. You can use <code>tosi-slot</code> as a selector.</li>
 <li><strong>The rewrite is one-way.</strong> Once hydration runs, the DOM contains
-<code>&lt;xin-slot&gt;</code> elements. If you inspect the DOM, you&#39;ll see <code>&lt;xin-slot&gt;</code>,
+<code>&lt;tosi-slot&gt;</code> elements. If you inspect the DOM, you&#39;ll see <code>&lt;tosi-slot&gt;</code>,
 not <code>&lt;slot&gt;</code>.</li>
 </ul>
 <p>Components declare their styles via static properties:</p>
@@ -493,9 +493,19 @@ const { demo } = tosi({ demo: { rating: 3 } })
 
 preview.append(
   // the widget: bound by VALUE, like an input
-  elements.starRating({ bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }),
+  elements.starRating({
+    bind: { value: &#39;demo.rating&#39;, binding: bindings.value },
+  }),
   // a plain number input on the SAME path — they stay in sync
-  label(&#39; rating: &#39;, input({ type: &#39;number&#39;, min: 0, max: 5, bind: { value: &#39;demo.rating&#39;, binding: bindings.value } }))
+  label(
+    &#39; rating: &#39;,
+    input({
+      type: &#39;number&#39;,
+      min: 0,
+      max: 5,
+      bind: { value: &#39;demo.rating&#39;, binding: bindings.value },
+    })
+  )
 )
 </code></pre>
 <pre><code class="language-test">const { Component, elements, bindings, tosi, xin, updates } = tosijs
@@ -628,7 +638,7 @@ touch(app.items)  // single update for all mutations
 </tr>
 <tr>
 <td>~45kB gzipped</td>
-<td>~15kB gzipped (core)</td>
+<td>~24kB gzipped (<code>tosijs/core</code>)</td>
 </tr>
 </tbody></table>
 <p>The fundamental difference: React asks &quot;what changed?&quot; after every state update
@@ -670,15 +680,33 @@ React is O(tree size). tosijs is O(bindings on the changed path).</p>
     </details></li>
     <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
     <ul>
+      <li><a class="doc-link" href="../agent/">agent (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../audit/">audit (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract/">contract harness (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../contract-check/">contract validation</a></li>
       <li><a class="doc-link" href="../hot-reload/">hotReload</a></li>
       <li><a class="doc-link" href="../more-math/">more-math</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
       <li><a class="doc-link" href="../share/">share</a></li>
       <li><a class="doc-link" href="../sync/">sync</a></li>
       <li><a class="doc-link" href="../throttle/">throttle &amp; debounce</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+      <li><a class="doc-link" href="../webmcp/">webmcp (EXPERIMENTAL)</a></li>
     </ul>
     </details></li>
     <li><a class="doc-link" href="../React/">React and tosijs</a></li>
     <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+    </ul>
+    </details></li>
     <li><a class="doc-link" href="../Migration/">Migrating from xinjs to tosijs</a></li>
     <li><a class="doc-link" href="../history/">tosijs history</a></li>
   </ul>

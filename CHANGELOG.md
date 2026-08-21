@@ -6,6 +6,234 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.0-rc.1] - 2026-08-17
+
+> Upgrading from 1.7.x? See **[Migration.md](./Migration.md)** — it lists the
+> removals, the two behaviour changes that shipped without a prior
+> deprecation warning, and the Apache-2.0 relicense.
+
+> **This release deviates from semver, and it should say so.** A minor version
+> is supposed to be additive, and most of 1.8.0 is. But it also **removes**
+> `data-ref` (the only removal that was pre-announced with a version),
+> **removes** `<xin-slot>` markup handling, reduces `<xin-blueprint>` and
+> `<xin-loader>` to inert warning tombstones, and **flips two behaviours** —
+> `on<Event>` member precedence, and what happens on a type-contradicting
+> attribute write — neither of which carried a prior deprecation warning. A
+> consumer on `^1.7.9` receives all of it on a routine update. The deprecated
+> *exports* (`xinSlot`, `blueprint`, `blueprintLoader`) were restored as
+> working aliases naming 2.0, so nothing breaks at import; the markup path and
+> the two behaviour flips are the real exposure. We judged one honest note
+> better than a 2.0 nobody is ready for — but you are entitled to know which
+> promise was bent.
+
+**One source of truth for state, UI, and AI.** An app's affordances — what
+exists, what it's bound to, what it does — have always been recorded by
+tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
+
+### Added — the agent surface
+
+> **EXPERIMENTAL.** The agent surface, schematic renderer, audit and
+> contract harnesses are new public API. What 1.x promises: the *record
+> shape* is a versioned contract (`agent.version.surface` plus an
+> enumerable capability list), and we bump it rather than change the shape
+> silently. Names and options may still move in a minor.
+
+
+- **`enableAgentInterface()`** — one call exposes `describe` / `read` /
+  `write` / `observe` / `call` / `changes(cursor)` / `when(path, predicate)`
+  / `log`, installs `globalThis.tosiAgent`, and (where the browser provides
+  `document.modelContext`) **auto-registers a generated WebMCP tool set** —
+  verified registering _and executing_ in Chrome Canary 153 (as of
+  2026-08<!-- as-of: 2026-08-21 | which Chrome verified WebMCP end-to-end -->).
+  Nothing new is
+  recorded: `describe()` assembles the picture from the registry, the
+  binding metadata, and the handler wiring the framework already had.
+  ~11 KB gzipped for the whole surface (agent + WebMCP + schematic +
+  audit + contract harnesses), tree-shakeable if you never import it, and
+  absent entirely from the `<script>`/CDN build.
+- **The map is flat and legible**: one record per wired element, bound props
+  as `"value ⟷ path"` (`⟷` two-way, `⟵` display-only), handlers as
+  `{click: 'app.doThing'}`, plus geometry (`bounds`), live control state
+  (`type`, `checked`, `focused`, `invalid`, `required`, `disabled`),
+  resolved ARIA, `href`, `contentEditable`, and a structural tier
+  (headings/landmarks/containers).
+- **ARIA runs both ways.** `aria-label(ledby)`, `<label>` association,
+  `aria-describedby`/`aria-description`, `disabled`/`required` and
+  `aria-hidden` flow _into_ the map (the agent reads the page the way
+  assistive tech does). Going the other way, a component's contract
+  materializes into the **matching** slots: `description` →
+  `aria-description`, `role` → `role`. It deliberately does **not** touch
+  `aria-label` — a description is not a name, and the name belongs to
+  content and the author (an earlier rc did stamp it, which made components
+  announce developer prose instead of their own text). Describe a component
+  for agents and screen-reader users inherit the description; declare its
+  `role` and the accessibility audit's `missing-role` finding is fixed from
+  the same declaration.
+- **`agent.version`** — `{ surface, tosijs, capabilities[] }` (tosijs#23):
+  ask what a surface _is_ instead of duck-typing it. Rides `describe()`
+  output, and exposed as the `tosi_surface` WebMCP tool.
+- **`auditAccessibility(map)`** — anonymous affordances, unnameable actions,
+  missing roles, WCAG contrast, target size, placeholder-as-label. Pure over
+  the description; `auditFlags()` turns findings into schematic flags so
+  they can be drawn. It skips _loudly_ rather than passing silently whenever
+  it cannot measure — computed styles weren't requested, or a background is
+  transparent so the effective colour is unknown. Known divergence:
+  `target-size` is currently decided twice (here and in the vendored
+  renderer) and the two disagree on named icon-links —
+  [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4).
+
+### Security posture — safe by default
+
+Three modes, and the safest is the one you get for free:
+
+| call                                                             | what it grants                                                                                                                                             |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enableAgentInterface()`                                         | **read-only introspection** — `describe`/`read`/`observe`/`changes`/`when`/`log` over everything; `write()` and `call()` refuse and say how to enable them |
+| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist — scoped **reads** and declared calls, nothing outside it visible                                                    |
+| `enableAgentInterface({ expose: { roots, write: true } })`       | the same allowlist, plus permission to **change** what it scopes                                                                                            |
+| `enableAgentInterface({ expose: 'all' })`                        | everything read/write/call, deliberately, with a warning on every transition into it                                                                       |
+
+**A manifest scopes sight, not reach.** `roots` says what may be seen;
+`write: true` is a separate grant to change it. Without that split the only
+two reachable postures were unscoped-read and scoped-read-_plus-write_, so
+the safest-sounding option granted the most, and "scoped reads, no writes" —
+what a production surface usually wants — was inexpressible.
+`describe().writable` reports which you have. Declared `actions` stay
+callable either way, and a write can no longer land on (or above, or under)
+a declared action, so `write('app', {})` can't wipe the action namespace.
+
+Provenance arrows (`⟷`, `⟵`) are **structure, not content**: values and
+harvested page text that contain them are neutralized to `<->` / `<-`, so a
+string can no longer forge itself a live binding — which the schematic drew
+as a real affordance and the audit reported on. Parsers should split on the
+**last** occurrence. Secrets are a property of the **path**, not of a DOM
+record: a path bound to a password (or hidden, or `autocomplete="cc-*"`, or
+`data-tosi-secret`) control redacts in `read`, `changes`, `when` and inside
+any ancestor read. And `__proto__`/`constructor`/`prototype` are refused as
+path segments at the sink, which covers `agent.write()`, `share()` and
+`sync()` at once.
+
+`tosi_write` now requires **explicit `allowWrites: true`** — being in
+introspection mode is no longer treated as consent to publish an
+unvalidated write endpoint to the browser's tool registry. And
+`bunx tosijs create app` scaffolds the allowlist form with a commented line
+showing how to widen it while developing.
+
+### Added — contracts, at three granularities
+
+- **App level**: `expose.contract = { check, describe }` — a zero-dependency
+  seam (the core knows a _check_, not a schema language). Sub-path writes
+  are **routed, not bypassed**: a write under a contracted root is judged as
+  the whole root it would produce. Refusals throw the _reason_ and land in
+  the audit log. The blessed adapter now ships upstream as
+  tosijs-schema's `agentContract()`.
+- **Component level**: `static contract` (a `ComponentMap`) unifies contract
+  - description + parts map + test fixture. `Component<typeof contract>`
+    types `this.parts` from the declared tags — **the declaration is the
+    type** — and subsumes `initAttributes`. Blueprints carry it too
+    (`TosiComponentSpec.contract`, stamped at hydration).
+- **Element level**: a `contract` prop on any element — declared where you
+  build, aggregated into `describe().contract` by bound path, enforced on
+  agent writes. **Declaration is distributed; curation is central** (a
+  top-level contract supersedes everything beneath it).
+- **Contracts are tests.** `exerciseContract()` writes every `examples:`
+  entry through the real surface (and requires a faithful round-trip),
+  refuses every `$counterexamples:` entry; `exerciseComponent()` verifies
+  declared parts, methods, value examples, and serializable step tests.
+
+### Added — the map, drawn
+
+- **`schematicSVG(map)` / `rasterizeSVG(svg)`** — the affordance map as an
+  SVG at true geometry, with an explicit grammar (bold = wired to act,
+  `↔` = editable, `*` = required, red corner = invalid, `✕`/dot = toggle
+  state, faded = disabled, faint dotted = structure, white-backed number =
+  the record's index). Cramped elements draw bare and point at a legend
+  instead of lying. Implementation lives in **tosijs-floorplan**, vendored
+  at build time — tosijs keeps zero runtime dependencies.
+
+### Added — scaffolding
+
+- **`bunx tosijs create app|component|blueprint`** (`npx` too). Components
+  scaffold in **blueprint form by default** — consumable straight from
+  markup, zero-dependency bundles — with `--bare` for a plain class. Every
+  template is born with a contract and a declared test, and passes
+  `exerciseComponent()` out of the box. Replaces `create-xinjs-blueprint`.
+
+### Added — entry points
+
+- **`tosijs/agent`** — the agent surface, schematic renderer, audit and
+  contract harnesses under one import, with a narrower type surface. It
+  resolves to the _same file_ as `tosijs`: a separately-bundled agent
+  surface carried its own copy of the state registry and described an empty
+  app, so there is exactly one runtime copy, always. ESM consumers who never
+  import it tree-shake it away.
+- **The `<script>`/CDN build omits the agent surface** (~26 KB gz) — an IIFE
+  cannot tree-shake, so it must not carry an opt-in feature. Load the ES
+  module build if you want the agent surface from a script tag.
+- **`tosijs/core`** — the library minus the blueprint loader, `share`/`sync`,
+  `hotReload` and the agent surface (~24 KB gz — _smaller than 1.7.9's
+  entire library_). Opt-in, because blueprints hydrate from _markup_:
+  shaking their registration would fail silently. Slim core warns in dev if
+  the page holds blueprint elements it can't hydrate.
+- **`tosijs/state`** — the **DOM-free** state layer (~16 KB gz), importable
+  in plain Node with no shim. Closes tosijs#18.
+- Per-entry **gzip budgets** are asserted by the test suite, so the next
+  unplanned kilobyte fails a build instead of shipping.
+
+### Changed
+
+- **Relicensed BSD-3-Clause → Apache-2.0**, adding an explicit patent grant
+  and a patent-retaliation clause. (Apache-2.0 is incompatible with
+  GPLv2-_only_ projects; GPLv3+ is fine.)
+- An `on<Event>`-named component **member** is no longer hijacked by the
+  elements factory's event sugar (tosijs#22): on a custom element, when the
+  member already **holds a function** and the passed value is a function,
+  the creator **assigns the member** instead of attaching a listener — and
+  that name then carries no event sugar. A member declared but left
+  undefined/null still gets event sugar (give it a function default if you
+  want the assignment). Plain-element event sugar is unchanged: the
+  platform's own handlers are lowercase (`onclick`), so they never collide
+  with the camelCase sugar.
+- A proxy event handler (`onClick: app.doThing`) is normalized to its path
+  at registration, so it behaves identically to the string form everywhere.
+
+### Fixed
+
+- **A type-contradicting attribute write is no longer silently discarded**
+  (tosijs#24): `false` written to an attribute declared `'on' | 'off'` used
+  to remove the attribute so the _default_ read back — a feature explicitly
+  turned off stayed on. The write now lands as given and reports once.
+- Observers no longer require a DOM: the global binding dispatch returns
+  early when there is no `document` (the state layer's precondition).
+
+### Deprecated (still working; removed in 2.0)
+
+- **`xinSlot()`, `blueprint()`, `blueprintLoader()`** — these were
+  deprecated in 1.7 _without_ a named removal version, so they keep working
+  through 1.x and now warn naming **2.0**. They create the modern elements
+  (`<tosi-slot>`, `<tosi-blueprint>`, `<tosi-loader>`).
+
+### Removed
+
+- **`data-ref`** — the one deprecation whose 1.7 warning explicitly named
+  1.8.0. Use `part="…"` (bare CSS-selector refs still work).
+- **`<xin-slot>`** — the element. `xinSlot()` still works (see Deprecated).
+- **`<xin-blueprint>` and `<xin-loader>` no longer function**, but the tags
+  remain registered for one more cycle as **tombstones**: they render
+  nothing and log exactly what to rename. An unregistered custom element is
+  inert — no hydration, no error, no output — and a page using blueprint
+  _markup_ has no import statement that could fail, so removing the
+  registration outright would have been this release's only silent
+  breakage. They go for real in 2.0.
+
+### Build
+
+- Every published bundle is **smoke-imported** during the build (loaded,
+  with every export asserted defined). A `sideEffects` array — even an
+  accurate one — had produced a bundle exporting names whose definitions
+  were shaken away, with tests, `tsc` and lint all green; only executing the
+  artifact caught it.
+
 ## [1.7.9] - 2026-08-07
 
 ### Fixed
@@ -32,15 +260,15 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 - **A cached part that is detached (with no replacement) no longer makes
   `this.parts` throw (tosijs#21).** 1.7.7's self-healing re-validated cached
   parts with `isConnected` and re-resolved stale ones — but when a part had been
-  *removed from the tree and not replaced* (e.g. `<tosi-segmented>`'s optional
+  _removed from the tree and not replaced_ (e.g. `<tosi-segmented>`'s optional
   `custom` input: a structural rebuild does `options.textContent = ''` and only
   conditionally re-appends it), the re-resolution found nothing and **threw**
   where 1.7.5 had leniently returned the detached node. That throw fired inside
   change handlers that destructure `this.parts` unconditionally, killing the
-  handler *before* it committed `this.value` — the "stale value, correct DOM"
+  handler _before_ it committed `this.value` — the "stale value, correct DOM"
   symptom on Firefox/WebKit. The cache now returns the previously-resolved
   (detached) node when no replacement exists; self-healing still wins when a
-  replacement *is* present; the throw is reserved for refs that never resolved
+  replacement _is_ present; the throw is reserved for refs that never resolved
   at all. **1.7.7 is deprecated on npm.**
   - Verified against tosijs-ui's real `<tosi-segmented>` Playwright lane:
     Firefox went from 2/2 failing to green; WebKit 4/4; Chromium green.
@@ -53,9 +281,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
-- **`this.parts.foo` now resolves your *own* part — by ownership, not structure
+- **`this.parts.foo` now resolves your _own_ part — by ownership, not structure
   (tosijs#20).** A component's `[part]` elements are captured from its content
-  when it hydrates, *before* the content is inserted and before any nested
+  when it hydrates, _before_ the content is inserted and before any nested
   sub-components hydrate or slot. At that moment the tree is exactly what the
   component built, so every `[part]` is unambiguously its own — regardless of how
   deeply it nests, whether it's projected through a `<tosi-slot>`, or whether a
@@ -162,8 +390,8 @@ types, and the documentation overhaul.
   `xin`-era name in the runtime DOM. **Potentially breaking (unlikely):** if you
   were selecting or styling `.-xin-data` (an undocumented internal), use
   `.-tosi-data` — or better, bind your own class. This marker is required and
-  retained (unlike the retired `-xin-event`): data dispatch starts from a *path*
-  and must *enumerate* bound elements, which a WeakMap can't do — the class is the
+  retained (unlike the retired `-xin-event`): data dispatch starts from a _path_
+  and must _enumerate_ bound elements, which a WeakMap can't do — the class is the
   DOM's queryable index. `getElementsByClassName` is class-only (there is no
   attribute equivalent), which is why the marker stays a class rather than moving
   to a `data-*` attribute.
@@ -172,9 +400,9 @@ types, and the documentation overhaul.
 
 - **`BOUND_CLASS` and `BOUND_SELECTOR` are now exported** from the package root.
   They were internal, so any integration referencing the marker had to hardcode
-  the literal — which is the *only* reason the rename above is breaking. Import
+  the literal — which is the _only_ reason the rename above is breaking. Import
   the constant (`import { BOUND_CLASS } from 'tosijs'`) and your code follows any
-  future rename automatically. Use them to *find* bound elements
+  future rename automatically. Use them to _find_ bound elements
   (`document.getElementsByClassName(BOUND_CLASS)`); bind your own class for styling.
 
 ## [1.7.3] - 2026-07-23
@@ -191,7 +419,7 @@ types, and the documentation overhaul.
 
   **Potentially breaking (unlikely):** if you were selecting or styling elements
   via `.-xin-event` (an undocumented internal), that class is gone. Bind your own
-  class instead. The `-xin-data` marker on *data*-bound elements is retained — a
+  class instead. The `-xin-data` marker on _data_-bound elements is retained — a
   `MutationObserver` re-discovers those via `querySelectorAll`, which a WeakMap
   can't provide.
 
@@ -355,6 +583,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
   ```test doc fences through Chromium + Firefox via Playwright (behaviors
   happy-dom can't observe: composed-event retargeting, spec-correct `<template>`
   cloning, `getComputedStyle`-resolved derived CSS vars), gated in CI.
+  ```
 
 ### Changed
 
@@ -375,7 +604,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
   `touch`) left its old key behind: `getByPath('arr[id=2]')` could return a different
   item, and `setByPath('arr[id=2].v', …)` could silently overwrite it. Maps are now
   rebuilt fresh, so removed ids resolve to `undefined`. Relatedly, deleting a
-  nonexistent id no longer removes the *first* item (`splice(undefined, 1)` coerces to
+  nonexistent id no longer removes the _first_ item (`splice(undefined, 1)` coerces to
   `splice(0, 1)`).
 - **`await updates()` could hang forever when an observer wrote state.** A write
   inside an observer callback re-arms the update queue mid-drain, which replaced the
@@ -386,7 +615,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
   in `share()`/`sync()`, whose inbound echo-suppression cleanup waits on `updates()` —
   an orphaned promise left paths suppressed forever, permanently stopping outbound
   sync for that subtree.
-- **A throwing observer *test* function no longer aborts the whole dispatch batch.**
+- **A throwing observer _test_ function no longer aborts the whole dispatch batch.**
   It was rethrown after the touched-path queue had already been cleared, silently
   dropping every remaining notification and hanging `updates()`. Now logged and
   skipped, matching how callback exceptions are handled.
@@ -455,7 +684,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
   TypeScript rejected `div({ class: ['a', 'b'] })` and
   `div({ class: { active: isActive } })` — forcing a cast. The new `XinClassSpec`
   type is `string | false | null | Array<string | false | null | undefined> |
-  Record<string, boolean>` (top-level and array falsy values add no class, matching
+Record<string, boolean>` (top-level and array falsy values add no class, matching
   the runtime). Type-only change.
 
 ### Changed
@@ -466,7 +695,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
   element would have to "gain" the attribute during construction (which the
   custom-elements spec forbids), so a `true` default silently read back as `false`.
   Rather than surprise you, this is now a hard error explaining the fix (`{ foo:
-  false }`, or a string/number attribute or a plain property). A `false` default is
+false }`, or a string/number attribute or a plain property). A `false` default is
   unchanged.
 
 ## [1.6.6] - 2026-07-03
@@ -475,7 +704,7 @@ CI lane and a comprehensive `Migration.md` "Upgrading to 1.7.0" section.
 
 - **Attribute-timing regression** in the constructor `setAttribute` deferral
   (introduced in the 1.6.x line): a value assigned to an `initAttributes`-backed
-  property between `createElement` and a *synchronous* `append` was queued but
+  property between `createElement` and a _synchronous_ `append` was queued but
   not yet reflected to the DOM when a subclass's `connectedCallback` ran. A
   subclass that read the attribute early (e.g. `getAttribute('url')`, or asset
   loading / `sceneReady` logic before calling `super.connectedCallback()`) saw

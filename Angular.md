@@ -1,4 +1,5 @@
 # Angular and tosijs
+
 <!--{ "pin": "bottom", "order": 310, "description": "Use tosijs state in Angular with tosiSignal — a real, writable Angular signal bound to a path, zoneless-first, no NgRx/RxJS boilerplate — and treat Angular as an off-ramp." }-->
 
 `tosijs` is just as relevant to Angular developers. The tiny
@@ -76,13 +77,15 @@ Framework-free — identical to react-tosijs:
 ```typescript
 import { typedTosi, persist, connectDevTools } from 'ngx-tosijs'
 
-type AppState = { app: { count: number; todos: { id: string; text: string }[] } }
+type AppState = {
+  app: { count: number; todos: { id: string; text: string }[] }
+}
 const { tosiSignal } = typedTosi<AppState>()
-const text = tosiSignal('app.todos[0].text')  // TosiSignal<string | undefined>
-const oops = tosiSignal('app.cuont')           // compile error
+const text = tosiSignal('app.todos[0].text') // TosiSignal<string | undefined>
+const oops = tosiSignal('app.cuont') // compile error
 
-persist('app.todos')                 // localStorage, coalesced writes
-connectDevTools({ roots: ['app'] })  // Redux DevTools tap
+persist('app.todos') // localStorage, coalesced writes
+connectDevTools({ roots: ['app'] }) // Redux DevTools tap
 ```
 
 ## The off-ramp, step by step

@@ -185,7 +185,7 @@ you want to give a `<tosi-slot>` attributes (such as `class` or `style`), create
 explicitly (e.g. using `elements.tosiSlot()`) rather than using `<slot>` elements
 and letting them be switched out (because they'll lose any attributes you give them).
 
-> The legacy name `<xin-slot>` still works but emits a deprecation warning.
+> The legacy name `<xin-slot>` was removed in 1.8.0.
 
 Here's a very simple example:
 
@@ -604,7 +604,12 @@ user-interfaces.
 import { css } from './css'
 import { XinStyleSheet } from './css-types'
 import { deepClone } from './deep-clone'
-import { appendContentToElement, dispatch, resizeObserver } from './dom'
+import {
+  appendContentToElement,
+  dispatch,
+  resizeObserver,
+  isBindingWrite,
+} from './dom'
 import { ElementsProxy } from './elements-types'
 import { elements, elementSet } from './elements'
 import { tosiPath } from './metadata'
@@ -612,8 +617,89 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
+import { contractViolation, setContractValidator } from './contract-check'
+import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
+
+// ---------------------------------------------------------------------------
+// component contract enforcement — a contract is an OPT-IN to being held to
+// it: components without one behave exactly as before. The validator itself
+// (structural subset + pluggable full-schema engine) lives in
+// contract-check.ts, shared with inline element contracts on the agent
+// surface — one gate, every declaration site.
+export { setContractValidator }
+
+// warned once per tag+reason about a contract violation arriving via a binding
+const bindingViolationWarned = new Set<string>()
+
+// once per tag: a value contract the component's own accessor prevents us
+// from enforcing (see initValue)
+const inertContractWarned = new Set<string>()
+
+const checkValueContract = (el: any, newValue: any): void => {
+  const cls = el.constructor
+  if (!Object.prototype.hasOwnProperty.call(cls, 'contract')) return
+  const schema = (cls as any).contract?.value
+  if (schema == null) return
+  const err = contractViolation(newValue, schema)
+  if (err == null) return
+  const tag = el.tagName?.toLowerCase()
+  if (isBindingWrite()) {
+    // STATE IS AUTHORITATIVE on this path. Throwing here would abort the
+    // whole binding-dispatch loop and strand every element bound after this
+    // one (and would fire spuriously before data arrives). Report, assign,
+    // and let the app keep running — the DOM must still reflect state.
+    if (newValue == null || newValue === '') return // pre-data, not a defect
+    const key = `${tag}: ${err}`
+    if (!bindingViolationWarned.has(key)) {
+      bindingViolationWarned.add(key)
+      console.error(
+        `<${tag}> value contract violation from a BINDING: ${err}. The value ` +
+          `was applied anyway (state is authoritative on this path) — fix the ` +
+          `state, the contract, or the binding. Direct writes still throw.`
+      )
+    }
+    el.dispatchEvent?.(
+      new CustomEvent('contractviolation', {
+        bubbles: true,
+        detail: { reason: err, value: newValue, schema },
+      })
+    )
+    return
+  }
+  throw new TypeError(`<${tag}> value contract violation: ${err}`)
+}
+
+// contract.attributes subsumes initAttributes: cache the derived map per
+// class (never mutate the class), warn/throw toward the ideal exactly once
+const derivedInitAttributes = new WeakMap<Function, Record<string, any>>()
+const attributeNudgeGiven = new Set<Function>()
+
+/** tag-name literal → element type, for parts declared in a component contract */
+type TagToElement<T> = T extends keyof HTMLElementTagNameMap
+  ? HTMLElementTagNameMap[T]
+  : Element
+
+/**
+ * Resolve the `parts` type from the Component generic. Two shapes are
+ * accepted in the same slot:
+ *
+ * - a classic PartsMap (`{ readout: HTMLSpanElement }`) — used as-is;
+ * - `typeof <contract>` (declare the contract `as const` so tags stay
+ *   literal) — parts derive from `contract.parts` tag names, so THE
+ *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
+ *   exerciseComponent(), and this.parts typing.
+ */
+export type PartsOf<T> = T extends {
+  parts: infer P extends Record<string, string>
+}
+  ? { [K in keyof P]: TagToElement<P[K]> } & PartsMap
+  : T extends Record<string, Element>
+  ? T // classic PartsMap, verbatim
+  : T extends ComponentMap
+  ? PartsMap // a contract with no parts declared — untyped parts
+  : T
 
 function anonElementTag(): string {
   return `custom-elt${(anonymousElementCount++).toString(36)}`
@@ -632,6 +718,8 @@ const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
 
 // Classes already checked for on<Event>-named member collisions (warn once each).
 const handlerCollisionChecked = new WeakSet<new () => Component>()
+// warn once per tag+attribute about a type-contradicting attribute write
+const attrTypeMismatchWarned = new Set<string>()
 
 // Lazy shared MutationObserver for deprecated initAttributes
 let legacyAttributeObserver: MutationObserver | null = null
@@ -775,8 +863,85 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this.internals?.setFormValue(value, state)
   }
 
+  /**
+   * The attribute map the machinery actually uses. `contract.attributes`
+   * (with `default`s) SUBSUMES `static initAttributes`:
+   * - both declared on the same class → throw (one source of truth);
+   * - initAttributes beside a contract that lacks attributes → warn once,
+   *   pointing at the ideal;
+   * - no contract involvement → classic initAttributes, unchanged.
+   */
+  static _resolveInitAttributes(): Record<string, any> | undefined {
+    const ownContract = Object.prototype.hasOwnProperty.call(this, 'contract')
+      ? (this as any).contract
+      : undefined
+    const ownInit = Object.prototype.hasOwnProperty.call(this, 'initAttributes')
+      ? this.initAttributes
+      : undefined
+    if (ownContract?.attributes != null) {
+      if (ownInit != null) {
+        throw new Error(
+          `${this.name} declares BOTH static initAttributes AND ` +
+            `contract.attributes — the contract is the single source of ` +
+            `truth. Move the defaults into contract.attributes ` +
+            `({ name: { type, default } }) and delete initAttributes.`
+        )
+      }
+      const cached = derivedInitAttributes.get(this)
+      if (cached != null) return cached
+      const derived: Record<string, any> = {}
+      const missingDefaults: string[] = []
+      for (const [name, schema] of Object.entries(ownContract.attributes)) {
+        if (schema != null && 'default' in (schema as any)) {
+          derived[name] = (schema as any).default
+        } else {
+          missingDefaults.push(name)
+        }
+      }
+      if (missingDefaults.length > 0) {
+        throw new Error(
+          `${this.name} contract.attributes entries missing 'default': ` +
+            `${missingDefaults.join(', ')} — the attribute machinery infers ` +
+            `each attribute's runtime type from its default, so every ` +
+            `declared attribute needs one.`
+        )
+      }
+      // INHERITANCE: a subclass declaring contract.attributes must not
+      // silently drop the base class's initAttributes. `hasOwnProperty`
+      // skips the same-class BOTH-declared throw for inherited ones, so
+      // without this merge `Child.observedAttributes` lost every inherited
+      // name and reflection was severed in both directions — no throw, no
+      // warning. That is exactly the intended migration shape (add a
+      // contract to a subclass of an initAttributes base), so merge with
+      // the subclass winning per key.
+      const inherited = Object.getPrototypeOf(this) as typeof Component
+      const inheritedAttrs =
+        typeof inherited?._resolveInitAttributes === 'function'
+          ? inherited._resolveInitAttributes()
+          : undefined
+      const merged =
+        inheritedAttrs != null ? { ...inheritedAttrs, ...derived } : derived
+      derivedInitAttributes.set(this, merged)
+      return merged
+    }
+    if (
+      ownInit != null &&
+      ownContract != null &&
+      !attributeNudgeGiven.has(this)
+    ) {
+      attributeNudgeGiven.add(this)
+      console.warn(
+        `${this.name} declares a contract AND a separate static ` +
+          `initAttributes. Ideally attributes live in the contract ` +
+          `(contract.attributes: { name: { type, default } }) so one ` +
+          `declaration feeds the types, the docs, the agents, and the tests.`
+      )
+    }
+    return this.initAttributes
+  }
+
   static get observedAttributes(): string[] {
-    const initAttrs = this.initAttributes
+    const initAttrs = this._resolveInitAttributes()
     if (initAttrs) {
       return ['hidden', ...Object.keys(initAttrs).map(camelToKabob)]
     }
@@ -1000,13 +1165,62 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   private initValue(): void {
     const valueDescriptor = Object.getOwnPropertyDescriptor(this, 'value')
+
     if (
-      valueDescriptor === undefined ||
-      valueDescriptor.get !== undefined ||
-      valueDescriptor.set !== undefined
+      valueDescriptor !== undefined &&
+      (valueDescriptor.get !== undefined || valueDescriptor.set !== undefined)
     ) {
-      return
+      return // the instance already owns an accessor — not ours to replace
     }
+
+    if (valueDescriptor === undefined) {
+      // NO OWN `value` FIELD. Normally that means the component has no value
+      // and there is nothing to install. But if the class DECLARED a value
+      // contract, silence is the wrong answer: the contract check only ever
+      // runs from the accessor installed below, so `static contract = { value:
+      // {...} }` on a class with no `value = …` field was completely inert —
+      // every value accepted, and exerciseComponent reported its examples
+      // green INCLUDING the counterexamples. describe() published the contract
+      // anyway, so the map advertised a rule nothing enforced: exactly the
+      // failure mode this release exists to make impossible.
+      const cls = this.constructor as any
+      const declaresValueContract =
+        Object.prototype.hasOwnProperty.call(cls, 'contract') &&
+        cls.contract?.value != null
+      if (!declaresValueContract) return
+
+      let inherited: PropertyDescriptor | undefined
+      for (
+        let proto = Object.getPrototypeOf(this);
+        proto != null && inherited === undefined;
+        proto = Object.getPrototypeOf(proto)
+      ) {
+        inherited = Object.getOwnPropertyDescriptor(proto, 'value')
+      }
+      if (inherited?.get !== undefined || inherited?.set !== undefined) {
+        // the class implements `value` itself, via a prototype accessor —
+        // shadowing it would break the component, so say so instead of
+        // leaving a contract that quietly means nothing
+        const tag = this.tagName?.toLowerCase()
+        if (!inertContractWarned.has(tag)) {
+          inertContractWarned.add(tag)
+          console.error(
+            `<${tag}> declares contract.value, but implements \`value\` as ` +
+              `its own getter/setter, so tosijs cannot enforce the contract ` +
+              `there — and describe() still publishes it. Call ` +
+              `exerciseComponent in your tests, check the value in your own ` +
+              `setter, or drop contract.value so the map stops advertising a ` +
+              `rule nothing checks.`
+          )
+        }
+        return
+      }
+      // give the declaration something to be load-bearing on
+      ;(this as any).value = this.hasAttribute('value')
+        ? this.getAttribute('value')
+        : undefined
+    }
+
     let value = this.hasAttribute('value')
       ? this.getAttribute('value')
       : deepClone(this.value)
@@ -1018,6 +1232,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       },
       set(newValue: any) {
         if (value !== newValue) {
+          // a declared contract is an opt-in to being held to it — no
+          // contract, no check, no cost
+          checkValueContract(this, newValue)
           value = newValue
           this._valueChanged = true
           this.queueRender(true)
@@ -1026,14 +1243,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     })
   }
 
-  private _parts?: T
+  private _parts?: PartsOf<T>
   // Resolved parts, keyed by ref. Seeded at hydration with this component's OWN
   // [part] elements — captured from the content tree BEFORE it is inserted, so
   // nesting/slotting can't contaminate them (see capturePartsFrom + hydrate) —
   // and filled lazily for anything not declared in content. Shadow and static
   // (cloned) content start empty and resolve entirely via querySelector.
   private _partsCache: Record<string, Element> = Object.create(null)
-  get parts(): T {
+  get parts(): PartsOf<T> {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- the Proxy handler's methods have their own `this`
     const self = this
     if (this._parts == null) {
@@ -1054,19 +1271,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             if (element == null) {
               const root = self.shadowRoot != null ? self.shadowRoot : self
               element = root.querySelector(`[part="${ref}"]`)
-              if (element == null) {
-                // DEPRECATED data-ref="foo" (a React-era "refs" fossil; removed
-                // from the docs, slated for removal in 1.8.0)
-                const legacy = root.querySelector(`[data-ref="${ref}"]`)
-                if (legacy != null) {
-                  warnDeprecated(
-                    'data-ref',
-                    'data-ref is deprecated and will be removed in tosijs 1.8.0 — use part="…" instead.'
-                  )
-                  legacy.removeAttribute('data-ref')
-                  element = legacy
-                }
-              }
+              // (data-ref="foo" — a React-era "refs" fossil — was deprecated
+              // through 1.7 and REMOVED in 1.8.0 as promised. Use part="…".)
               if (element == null) {
                 element = root.querySelector(ref) // bare CSS-selector ref
               }
@@ -1089,7 +1295,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             return element
           },
         }
-      ) as T
+      ) as PartsOf<T>
     }
     return this._parts
   }
@@ -1142,8 +1348,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       this.internals = this.attachInternals()
     }
 
-    // Set up property accessors from static initAttributes
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    // Set up property accessors from static initAttributes (or the
+    // contract.attributes that subsume them)
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (initAttrs) {
       this._setupAttributeAccessors(initAttrs)
     }
@@ -1192,15 +1401,22 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       }
       if (names.size === 0) return
       const list = Array.from(names, (n) => `'${n}'`).join(', ')
+      const example = Array.from(names)[0]
+      // tosijs#22: as of 1.8.0 an on<Event>-named component MEMBER is no
+      // longer hijacked — passing a function through the creator assigns the
+      // member. The name still can't carry event sugar, though, so the
+      // warning says exactly what happens and what to rename to.
       console.warn(
-        `<${tag}> defines ${list}. The elements factory treats on<Event> property ` +
-          `names as event-handler sugar — e.g. creator({ onClick }) attaches a ` +
-          `'click' listener rather than assigning the property — so these members ` +
-          `are shadowed and cannot be set or read via the element creator. Rename ` +
-          `by intent: use 'handle<Event>' for a handler function the component ` +
-          `invokes (e.g. 'handleClick'), or 'add<Event>Listener' for a method that ` +
-          `registers listeners for a synthetic event the component dispatches ` +
-          `(e.g. 'addClickListener').`
+        `<${tag}> defines ${list} — on<Event>-shaped member name(s), which ` +
+          `collide with the elements factory's event-handler sugar. Since ` +
+          `1.8.0, IF the member holds a function when the creator runs, it ` +
+          `wins: creator({ ${example}: fn }) assigns it rather than ` +
+          `attaching a '${example.slice(2).toLowerCase()}' listener ` +
+          `(tosijs#22) — and then that name can no longer carry event sugar. ` +
+          `A member declared but left undefined/null still gets event sugar, ` +
+          `so the meaning depends on initialisation: give it a function ` +
+          `default, or rename to handle<Event> for a component callback / ` +
+          `add<Event>Listener for something that registers a listener.`
       )
     })
   }
@@ -1217,7 +1433,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // (parts proxy couldn't find a `[part="…"]` whose attribute hadn't
     // landed yet) and the spec violation it would have caused is just a
     // Chrome warning — all browsers actually run the code.
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (!initAttrs) return
     const guarded = new Set(Object.keys(initAttrs).map(camelToKabob))
     const queue: Array<['set', string, string] | ['remove', string]> = []
@@ -1376,6 +1594,33 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       },
       set: (value: any) => {
+        // tosijs#24: a write whose TYPE contradicts the declared default is
+        // almost always a stale call site (the classic: `false` written to
+        // an attribute declared `'on' | 'off'` after the tosijs#15
+        // boolean-default migration). It used to be silently discarded —
+        // the attribute was removed and the DEFAULT read back, so a feature
+        // the author explicitly turned off stayed on. Apply the write as
+        // given (coercion would be magic), but say so, loudly, once.
+        if (
+          value != null &&
+          typeof value !== typeof defaultValue &&
+          typeof defaultValue !== 'object'
+        ) {
+          const key = `${this.tagName.toLowerCase()}.${attrName}`
+          if (!attrTypeMismatchWarned.has(key)) {
+            attrTypeMismatchWarned.add(key)
+            console.error(
+              `<${this.tagName.toLowerCase()}>: ${attrName} is declared ` +
+                `${typeof defaultValue} (default ${JSON.stringify(
+                  defaultValue
+                )}), ` +
+                `but was written ${typeof value} ${JSON.stringify(value)}. ` +
+                `The value is applied as given — nothing is coerced — but this ` +
+                `is usually a call site left behind by a type change. ` +
+                `(tosijs#24)`
+            )
+          }
+        }
         if (typeof defaultValue === 'boolean') {
           if (value !== this[attrName]) {
             if (value) {
@@ -1423,7 +1668,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   // descriptor is an accessor again and the check passes it by.
   private _recoverShadowedAttrAccessors(): void {
     const installed = this._installedAttrAccessors
-    const initAttrs = (this.constructor as typeof Component).initAttributes
+    const initAttrs = (
+      this.constructor as typeof Component
+    )._resolveInitAttributes()
     if (installed == null || initAttrs == null) return
     const shadowed: string[] = []
     for (const attrName of installed) {
@@ -1463,6 +1710,49 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     insertGlobalStyles((this.constructor as unknown as Component).tagName)
     this.hydrate()
     if (this.role != null) this.setAttribute('role', this.role)
+    // Curation materializes as accessibility — but into the MATCHING slot.
+    // A contract `description` is a description; it is NOT a name. Stamping
+    // it as aria-label (1.8.0-rc.1) made a role="button" component announce
+    // developer prose instead of its visible text, put a name on shadow
+    // components where ARIA prohibits one, and — worst — silenced our own
+    // audit's `anonymous-affordance` rule, since the harvest reads
+    // aria-label first. The library was grading its own homework.
+    //
+    // ARIA is the DOM's compatibility namespace for facts our contract
+    // already states in its own vocabulary. So: `description` projects to
+    // the description slot, `role` to the role attribute, and the NAME is
+    // left to content and the author — where it belongs, because a name
+    // varies per instance while a class-level description does not.
+    {
+      const cls = this.constructor as any
+      const contract = Object.prototype.hasOwnProperty.call(cls, 'contract')
+        ? cls.contract
+        : undefined
+      const description = contract?.description
+      if (
+        typeof description === 'string' &&
+        description !== '' &&
+        !this.hasAttribute('aria-description') &&
+        !this.hasAttribute('aria-describedby')
+      ) {
+        // aria-description is ARIA 1.3 — support is still uneven, but it is
+        // additive and correct, and the harvest reads it back either way
+        this.setAttribute('aria-description', description)
+      }
+      const declaredRole = contract?.role
+      if (
+        typeof declaredRole === 'string' &&
+        declaredRole !== '' &&
+        // getAttribute, not hasAttribute: the light-DOM convention above
+        // stamps role="" when a component declares no role, and an empty
+        // role is the same as none
+        !this.getAttribute('role')
+      ) {
+        // a declared role fixes the audit's `missing-role` finding in the
+        // same declaration that feeds the map, the types and the tests
+        this.setAttribute('role', declaredRole)
+      }
+    }
     // Form-associated components must be focusable for validation to work
     if (
       (this.constructor as typeof Component).formAssociated &&
@@ -1668,8 +1958,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         appendContentToElement(this as HTMLElement, _content, cloneElements)
         // querySelector returns null (never undefined) when there's no match,
         // so `!== undefined` was always true
-        this.isSlotted =
-          this.querySelector('slot,tosi-slot,xin-slot') !== null
+        this.isSlotted = this.querySelector('slot,tosi-slot,xin-slot') !== null
         const slots = Array.from(this.querySelectorAll('slot'))
         if (slots.length > 0) {
           slots.forEach(TosiSlot.replaceSlot)
@@ -1748,22 +2037,46 @@ class TosiSlot extends Component<SlotParts> {
 
 export const tosiSlot = TosiSlot.elementCreator()
 
-// --- Deprecated xin-slot ---
-
-class XinSlot extends Component<SlotParts> {
+/**
+ * `<xin-slot>` MARKUP, kept working for one more cycle.
+ *
+ * The `xinSlot()` creator was restored as a deprecated alias, but the TAG was
+ * left half-removed: hydrate still queries `'tosi-slot,xin-slot'` and reads
+ * `.name`, while nothing registered the element — so an unupgraded
+ * `<xin-slot>` had `name === undefined`, filed itself under `slotMap[undefined]`,
+ * and its children fell through to the host. No warning, no exception, content
+ * silently in the wrong place: the exact failure mode the blueprint tags got
+ * tombstones for. This subclass composes identically AND says what to rename.
+ * Goes away in 2.0 with the rest of the xin-* markup.
+ */
+class XinSlot extends TosiSlot {
   static preferredTagName = 'xin-slot'
-  static initAttributes = { name: '' }
-  content = null
 
-  constructor() {
-    super()
+  connectedCallback(): void {
+    super.connectedCallback()
     warnDeprecated(
       'xin-slot',
-      '<xin-slot> is deprecated. Use <tosi-slot> instead.'
+      '<xin-slot> is deprecated and will be REMOVED IN 2.0 — rename it to ' +
+        '<tosi-slot> (same attributes, same composition). It is registered ' +
+        'only so your content keeps landing in the right place until you do.'
     )
   }
-
-  static replaceSlot = TosiSlot.replaceSlot
 }
+XinSlot.elementCreator()
 
-export const xinSlot = XinSlot.elementCreator()
+/**
+ * @deprecated Use `tosiSlot()`. Kept because 1.7's warning never named a
+ * removal version — only `data-ref` did — so removing it outright in a
+ * MINOR would have broken code that was promised nothing. It now creates a
+ * `<tosi-slot>` (composition is identical; only the tag name differs, which
+ * matters solely if you wrote CSS against `xin-slot`). Removed in 2.0.
+ */
+export const xinSlot: typeof tosiSlot = (...args) => {
+  warnDeprecated(
+    'xinSlot',
+    'xinSlot() is deprecated and will be REMOVED IN 2.0 — use tosiSlot(). ' +
+      'It now creates a <tosi-slot> (identical composition; the tag name ' +
+      'differs, which only matters if you styled `xin-slot`).'
+  )
+  return tosiSlot(...args)
+}
