@@ -938,6 +938,49 @@ lands it on the release line.
   `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
   or by compiling boolean coercion checks to use `.valueOf()` instead
 
+## 2.0 / tjs — why the port is the bet, not just a rewrite
+
+**Framing recorded 2026-08-21, when tjs-lang hit 0.13.0-rc.1.** Two things
+changed at once, and together they change what the port IS.
+
+**1. The port is the test of tjs's new direction.** 0.13.0 reorients the
+language to *TypeScript plus obvious improvements* — seamless migration from
+TS, up to and including reverting to TS. A claim like that is only worth
+anything if something real migrates, and tosijs is the honest test: ~50
+modules, a proxy-heavy core, a published API with consumers, and a branch
+(`tosijs-2.0`) that already carries a written record of what the OLD ergonomics
+cost (`TJS-PORT-DX.md`). That log is now the **before** measurement. Re-walk
+`by-path.tjs` against 0.13.0 and the delta is evidence, not opinion — the
+user's standing rule: test assumptions against experiment, "is this actually
+easier?"
+
+**2. The port has three consumers, not one.** `tosijs-3d` and `manta-recon`
+both stand to gain more than tosijs does, for a specific reason worth stating
+precisely:
+
+> Their bugs are **structural, not hot**. Malformed data structures in a scene
+> graph or a recon pipeline cost little or nothing at runtime — they don't show
+> up as a slow frame — but they are a **debugging nightmare**, surfacing far
+> from their origin as wrong geometry, wrong transforms, wrong results.
+
+That locates where typing actually pays, and it is not where the instinct says.
+The fear about types in a 3D/compute codebase is runtime cost in hot loops; the
+real win is structural correctness in data that is *expensive to debug and
+cheap to check*. tjs's safety boundaries (`safety inputs` at the edges,
+`safety none` for hot internals) are shaped for exactly that split — check
+where data enters, spend nothing in the loop.
+
+**3. WASM integration is the maximum-payoff item.** Both 3D and recon are
+compute-bound in ways tosijs is not, so a path from typed source to WASM is
+worth more to them than to us. Sequencing follows from that: tosijs proves the
+*migration* story (does a real TS codebase move without pain, and can it move
+back?), and 3D/recon prove the *payoff* story.
+
+**What this does NOT change:** the hold. Nothing starts until 0.13.0 is stable
+— see `UPSTREAM.md` § tjs-lang. And the revert-to-TS escape hatch is what makes
+a three-consumer bet safe to take at all: if the answer is no, the cost is
+bounded.
+
 ## 2.0 / tjs — schema islands enforced from inside the proxy
 
 **The idea (Tonio, 2026-08-17):** applying a schema to *part* of state —
