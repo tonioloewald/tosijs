@@ -9,6 +9,7 @@ Project config lives in tosijs-site.config.ts; the library bundling (esm/cjs/iif
 
 import * as path from 'path'
 import { $ } from 'bun'
+import { BUNDLES, BundleSpec } from './bundles'
 import siteConfig from '../tosijs-site.config'
 import { buildSite, devServer } from 'tosijs-ui/site'
 
@@ -151,76 +152,7 @@ async function buildLibrary() {
   // arrow neutralisation, escaped id lookups, contract-validator locking and
   // the WebMCP revocation bookkeeping). The gate caught both on its first run,
   // which is the gate working.
-  const BUNDLES = [
-    {
-      naming: 'index.js',
-      format: 'iife' as const,
-      // the IIFE cannot tree-shake, so it gets the slim entry (no agent
-      // surface); ESM/CJS carry everything and consumers shake what they skip
-      entry: './src/index-browser.ts',
-      budget: 29_000,
-      probe: 'load' as const,
-      stage: 'main' as const,
-    },
-    {
-      naming: 'module.js',
-      format: 'esm' as const,
-      entry: './src/index.ts',
-      budget: 42_000,
-      probe: 'import' as const,
-      stage: 'main' as const,
-    },
-    {
-      naming: 'main.js',
-      format: 'cjs' as const,
-      entry: './src/index.ts',
-      budget: 42_500,
-      probe: 'require' as const,
-      stage: 'main' as const,
-    },
-    // the alternate entries: tosijs/core (slim — no blueprint machinery, no
-    // share/sync/hotReload) and tosijs/state (DOM-free state layer, tosijs#18)
-    {
-      naming: 'core.js',
-      format: 'esm' as const,
-      entry: './src/index-core.ts',
-      budget: 26_500,
-      probe: 'import' as const,
-      stage: 'alt' as const,
-    },
-    {
-      naming: 'state.js',
-      format: 'esm' as const,
-      entry: './src/index-state.ts',
-      budget: 17_500,
-      probe: 'import' as const,
-      stage: 'alt' as const,
-    },
-    // EXPERIMENTAL tjs-built entries (tosijs/debug, tosijs/safe). They ship
-    // complete per-function __tjs metadata, hence the ~12 kB over module.js —
-    // that overhead is the POINT, so the budget is generous; it exists to
-    // catch it doubling. They were published with no gate at all until the
-    // 1.8.0 security pass (SEC-15): the two bundles built by the least-trusted
-    // toolchain were the two nobody executed.
-    {
-      naming: 'module.debug.js',
-      format: 'esm' as const,
-      entry: './tjs-out/index-debug.js',
-      budget: 56_000,
-      probe: 'import' as const,
-      stage: 'tjs' as const,
-    },
-    {
-      naming: 'module.safe.js',
-      format: 'esm' as const,
-      entry: './tjs-out/index-safe.js',
-      budget: 56_000,
-      probe: 'import' as const,
-      stage: 'tjs' as const,
-    },
-  ]
-
-  const buildBundle = async (bundle: (typeof BUNDLES)[number]) => {
+  const buildBundle = async (bundle: BundleSpec) => {
     const result = await Bun.build({
       entrypoints: [bundle.entry],
       format: bundle.format,

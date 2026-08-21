@@ -215,11 +215,20 @@ package's own repository (it went stale once across the rename already).
 - [ ] `contract-check.ts`'s fail-open warning and `const` branch are untested,
       and the `?case=N` cache-busting import idiom makes its reported coverage
       number meaningless — add a comment saying why.
-- [ ] The built-bundle entry test **self-skips into a green pass** when `dist/`
-      is absent, which during a release build is always. Use `test.skipIf` so
-      the skip is visible, or let the build gate own it outright.
-- [ ] The gzip-budget "test" is three `toContain` string assertions — it passes
-      if the budget loop is gutted while the log strings survive.
+- [x] **DONE (1.8.x, post-rc.1).** `test.skipIf` instead of a silent early
+      `return`. Verified the difference: with `dist/state.js` moved aside the
+      suite now reports **`1 skip`** where it previously reported a pass. A
+      silent skip is the one form that can never be noticed, and during
+      `bun run build` — which wipes dist before the suite — it was permanently
+      a no-op reporting green.
+- [x] **DONE (1.8.x, post-rc.1).** The artifact manifest moved to
+      `bin/bundles.ts` — a module with NO side effects, because `bin/site.ts`
+      executes on import (it starts the dev server), which is why the test was
+      reduced to grepping its source text in the first place. Two real
+      assertions now: every file reachable through `package.json`'s exports map
+      is a declared artifact (so nothing ships with no ceiling and no execution
+      gate), and every built artifact is under its declared budget. Verified by
+      adding a bogus `./bogus` export — the test fails, as it should.
 - [ ] Add a test asserting every schema in `describe().contract` refuses at
       least one value through `write()`.
 

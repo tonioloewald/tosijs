@@ -1,4 +1,5 @@
 import { test, expect, describe } from 'bun:test'
+import { existsSync } from 'node:fs'
 
 // The entry map is a PUBLIC CONTRACT: tosijs (everything), tosijs/core
 // (slim — no blueprint machinery, no multi-window leaves) and tosijs/state
@@ -44,21 +45,20 @@ describe('entry points', () => {
     expect(seen).toEqual(['stateEntry.n'])
   })
 
-  test('the BUILT state bundle imports in plain node — no DOM, no shim (tosijs#18)', async () => {
-    // the acceptance criterion of #18 is environmental, so the test has to
-    // leave this process: happy-dom is already registered here, which would
-    // mask exactly the failure we're pinning
-    const { existsSync } = await import('node:fs')
-    const bundle = 'dist/state.js'
-    // NB: `bun run build` wipes dist BEFORE running the suite, so this is
-    // normally absent here — the REAL gate runs inside buildLibrary() after
-    // the bundle exists (bare node, no happy-dom). This copy is for
-    // developers running `bun test` against an existing build.
-    if (!existsSync(bundle)) {
-      console.log("(state.js absent — the build's dom-free gate covers this)")
-      return
-    }
-    const script = `
+  // test.skipIf, not an early `return`: a silent early return is the one form
+  // of skip that can never be noticed, and during `bun run build` — which
+  // wipes dist BEFORE running the suite — this was PERMANENTLY a no-op that
+  // reported as a pass. The real gate is inside buildLibrary(), after the
+  // bundle exists; this copy serves a developer running `bun test` against an
+  // existing build, and now says out loud when it isn't doing that.
+  test.skipIf(!existsSync('dist/state.js'))(
+    'the BUILT state bundle imports in plain node — no DOM, no shim (tosijs#18)',
+    async () => {
+      // the acceptance criterion of #18 is environmental, so the test has to
+      // leave this process: happy-dom is already registered here, which would
+      // mask exactly the failure we're pinning
+      const bundle = 'dist/state.js'
+      const script = `
       import { tosi, observe, updates, xin } from './${bundle}'
       const { nodeProbe } = tosi({ nodeProbe: { n: 0 } })
       await updates()
@@ -69,19 +69,20 @@ describe('entry points', () => {
       if (seen[0] !== 'nodeProbe.n' || xin['nodeProbe.n'] !== 42) process.exit(2)
       process.exit(0)
     `
-    const result = Bun.spawnSync(
-      ['node', '--input-type=module', '-e', script],
-      {
-        cwd: process.cwd(),
-        stderr: 'pipe',
-        stdout: 'pipe',
-      }
-    )
-    expect({
-      code: result.exitCode,
-      stderr: result.stderr.toString().slice(0, 300),
-    }).toEqual({ code: 0, stderr: expect.any(String) })
-  })
+      const result = Bun.spawnSync(
+        ['node', '--input-type=module', '-e', script],
+        {
+          cwd: process.cwd(),
+          stderr: 'pipe',
+          stdout: 'pipe',
+        }
+      )
+      expect({
+        code: result.exitCode,
+        stderr: result.stderr.toString().slice(0, 300),
+      }).toEqual({ code: 0, stderr: expect.any(String) })
+    }
+  )
 
   test('tosijs/core omits blueprints and the multi-window leaves, keeps the rest', async () => {
     const core = await import('./index-core')
@@ -241,13 +242,55 @@ describe('entry points', () => {
   // where the artifacts actually exist. A copy here could never run during
   // `bun run build` — buildSite() wipes dist BEFORE the suite — so it
   // asserted nothing and a regression would have shipped fully green.
-  test('the gzip budgets are enforced by the BUILD, not by this suite', async () => {
-    const site = await Bun.file('bin/site.ts').text()
-    expect(site).toContain('gzip budgets:')
-    expect(site).toContain('over its')
-    // and the bin is executed as consumers run it (node, the bundle)
-    expect(site).toContain('bin gate: node dist/cli.mjs runs')
+  test('every artifact package.json publishes has a budget and a probe', async () => {
+    // this used to grep bin/site.ts for log strings, which passed happily if
+    // the budget loop were deleted and only the console.log survived. The
+    // manifest is now a side-effect-free module, so the test can assert on the
+    // real thing. (bin/site.ts itself cannot be imported — it executes, and
+    // starts the dev server.)
+    const { BUNDLES } = await import('../bin/bundles')
+    const pkg = JSON.parse(await Bun.file('package.json').text())
+
+    const declared = new Set(BUNDLES.map((b: any) => b.naming))
+    // every file reachable through the exports map must be a declared
+    // artifact — otherwise it ships with no size ceiling and no execution gate
+    const published = new Set<string>()
+    for (const entry of Object.values(pkg.exports as Record<string, any>)) {
+      for (const [condition, target] of Object.entries(
+        entry as Record<string, string>
+      )) {
+        if (condition === 'types' || typeof target !== 'string') continue
+        const file = target.split('/').pop() as string
+        if (file.endsWith('.js')) published.add(file)
+      }
+    }
+    const ungated = [...published].filter((f) => !declared.has(f))
+    expect(ungated).toEqual([])
+
+    for (const bundle of BUNDLES as any[]) {
+      expect(typeof bundle.budget).toBe('number')
+      expect(bundle.budget).toBeGreaterThan(0)
+      expect(['load', 'import', 'require']).toContain(bundle.probe)
+    }
   })
+
+  // measured against the SAME declaration the build gates on, so a budget
+  // that has quietly become meaningless (raised past reality, or attached to
+  // an artifact nobody builds) fails here too
+  test.skipIf(!existsSync('dist/module.js'))(
+    'every built artifact is actually under its declared budget',
+    async () => {
+      const { BUNDLES } = await import('../bin/bundles')
+      const { gzipSync } = await import('node:zlib')
+      const over: string[] = []
+      for (const { naming, budget } of BUNDLES as any[]) {
+        if (!existsSync(`dist/${naming}`)) continue
+        const bytes = gzipSync(await Bun.file(`dist/${naming}`).bytes()).length
+        if (bytes > budget) over.push(`${naming} ${bytes} > ${budget}`)
+      }
+      expect(over).toEqual([])
+    }
+  )
 
   test('slim core warns about blueprint markup it cannot hydrate', async () => {
     await import('./index-core') // installs the dev-mode check
