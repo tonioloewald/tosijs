@@ -6,6 +6,81 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.0-rc.2] - 2026-08-24
+
+No API changes from rc.1 — this is the fix-and-gate pass over it. One
+behaviour change worth reading if you listened to `contractviolation`, and one
+documented claim that turned out to be false.
+
+### Fixed
+
+- **`contractviolation` fired on every binding pass, forever.** The
+  `console.error` beside it is warn-once; the event was not. For an object- or
+  array-valued contract the upstream identity guard never matches — the proxy
+  returns a fresh object per access — so a persistently violating contract
+  dispatched a bubbling event on *every* pass for the life of the page.
+  Measured with the fix bypassed: 6 events over 6 passes, still climbing.
+  **Now once per element per distinct reason.** That changes what a listener
+  counts — distinct violations rather than binding-dispatch frequency — which
+  is the number you wanted; `detail.repeated` distinguishes them. The event is
+  also now documented and tested, both of which it shipped without.
+- **A type-contradicting attribute write now reads back as written**
+  (completes tosijs#24). rc.1 applied and reported the write instead of
+  silently discarding it, but the setter reflects to the attribute as a
+  *string* and the getter prefers the attribute — so `el.mode = false` on a
+  string-declared attribute read back the truthy string `"false"`, which is
+  precisely the bug the error message says it does not have. An external
+  `setAttribute` still wins, and a correctly-typed write clears the override.
+- **A node bound while detached now hydrates when inserted as the root.**
+  `getElementsByClassName` is descendants-only, so an element that was itself
+  bound was skipped. Affects cached dialogs and re-attached views.
+- **`settings.quiet` means something.** It promised to silence "advisory
+  warnings and friends" while being honoured at 2 of ~20 sites. Deprecations
+  and the `on<Event>` collision advice now honour it; everything that reports
+  something *wrong* deliberately does not, and the docs now enumerate both
+  lists.
+- Three internal links that 404 on the deployed site (case-sensitive host,
+  case-insensitive filesystem — they looked fine locally). One was from the
+  README, which is the site's home page.
+
+### Changed
+
+- **The tarball is 5.48 MB → 3.81 MB unpacked** (packed 1.54 → 1.17 MB): the
+  source maps for `module.debug.js` and `module.safe.js` are no longer
+  published, since both bundles are EXPERIMENTAL and currently inert. The
+  other five keep theirs.
+
+### Documentation
+
+- **A size claim was false, not merely stale.** The README said this release
+  "tree-shakes to about 1.7.x's size when you don't use it". Measured: an
+  identical consumer app importing no agent API went **20,995 → 23,862 bytes
+  gzipped, +2.9 kB, +13.7%**. The agent surface genuinely does shake away
+  (6.7 kB), but the contract seam, the path-segment guard and the binding
+  bookkeeping sit on the ordinary path. The README now says so and points
+  minimalists at `tosijs/core`. Size figures are now **generated** by the
+  build rather than hand-maintained in four places.
+
+### Internal — gates and de-duplication
+
+Three gates were reporting green without checking anything: a bundle test that
+skipped via a silent `return` (during `bun run build`, always), a gzip-budget
+"test" that was three string assertions against the build script's source, and
+a browser-tier gate asserting only that *something* ran. All three now fail
+when they should — each verified by making it fail.
+
+The published-artifact list existed five times and had drifted (`main.js` was
+built, kept and budgeted but never executed); it is now one declaration in
+`bin/bundles.ts` that every gate derives from. Same treatment for the
+CDN-entry export list, the curation predicate, and the own-`static contract`
+lookup that was copy-pasted at six sites.
+
+Two measured performance fixes: `agent.write()` no longer scans the document
+when no inline contract exists (**44.9µs → 7.3µs** per write on a
+2000-element page), and the secret-path scan is cached against a binding
+generation (**5.4µs → 4.1µs** per read — smaller than the finding implied,
+recorded honestly).
+
 ## [1.8.0-rc.1] - 2026-08-17
 
 > Upgrading from 1.7.x? See **[Migration.md](./Migration.md)** — it lists the
