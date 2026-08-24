@@ -226,29 +226,40 @@ value setter inside the global binding-dispatch loop, stranding every
 element bound after it — with refusal as a value, that class of defect stops
 existing.
 
-### 🚧 FILED — a Proxy over a boxed primitive can never unwrap (blocks 2.0's boxed scalars)
+### 🚧 FILED — `Eq` and `toBool` bypass the `[tjsEquals]` opt-in that `Is` honours
 
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/33
-0.13.x's `unwrapBoxed` reads the internal slot (`Number.prototype.valueOf.call(v)`)
-so a lying `valueOf` cannot intercept `Is`/`Eq` — correct, and I do not want it
-reverted. But **a Proxy has no such slot**, and slots are not forwarded to the
-target, so `instanceof Number` passes and the slot read then throws
-`thisNumberValue called on incompatible object`; the fail-soft catch returns the
-wrapper unchanged. Verified for all three types.
+**tjs DOES support a computed comparator** — `[tjsEquals]`, then `.Equals` for
+back-compat — dispatched in `goIs` **before** `unwrapBoxed`, with a deliberate
+fail-soft probe / fail-hard invoke split that handles Proxies on purpose. For
+`Is`, tosijs has nothing to ask for: boxed scalars implement `[tjsEquals]` and
+participate correctly.
 
-That is exactly how tosijs 2.0's boxed scalars work: the live value cannot sit in
-the target's slot (the target is made once, the value changes after), so it is
-served from the `get` trap via `valueOf`. Plain JS `==` works and stays live;
-`Eq` does not. Since boxed-only state is 2.0's central design decision, this seam
-decides whether `Eq` is usable on the library's primary data type.
+**`Eq` and `toBool` do not dispatch it.** Both go straight to `unwrapBoxed`,
+which reads the internal slot — and a Proxy has no slot (slots are not
+forwarded to the target), so `instanceof Number` passes, the slot read throws
+`thisNumberValue called on incompatible object`, and the fail-soft catch hands
+back the wrapper. Verified for all three types against the exact targets
+`tosijs-2.0` uses; per-access value-holding targets do not help, because the
+proxy is what gets passed.
 
-Asked for an **opt-in** channel to vend a comparison value — a well-known symbol
-checked only AFTER the slot read fails, which preserves today's semantics exactly
-(the `class Liar extends Number` case still loses, because its slot read succeeds)
-while letting a value that *cannot* have a slot participate. **Re-check before
-resuming the 2.0 port** — the fallback is to avoid `Eq` on boxed scalars in
-tosijs's own source, which works but makes our primary type second-class in the
-language we would be writing in.
+So one value answers correctly through `Is` and incorrectly through `==` and
+through **every `if`** — tjs injects `toBool` at every truthiness site, which
+their own comment notes is far wider reach than `==`. For boxed-only 2.0 state
+that is decisive: `if (app.enabled)` with `enabled === false` reads truthy
+everywhere, silently.
+
+Asked for a single `Symbol.for('tjs.unwrap')` hook consulted inside
+`unwrapBoxed` **after** the slot read fails — preserving today's semantics
+exactly (`class Liar extends Number` succeeds at the slot read and still loses)
+while letting a value that cannot have a slot participate, and making `Is`,
+`Eq` and `toBool` agree.
+
+**MEA CULPA, recorded because it cost a maintainer's attention:** the issue was
+first filed claiming "there is no opt-in channel". There is; I had not read
+`goIs` before filing. Corrected in-thread and retitled. Check the API before
+asserting it is absent — the same rule that caught us on WebMCP's
+unregistration seam, broken again three days later.
 
 ### ✅ HOLD LIFTED — 0.13.0 shipped (now **0.13.2**, 2026-08-21)
 
