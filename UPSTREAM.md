@@ -226,6 +226,38 @@ value setter inside the global binding-dispatch loop, stranding every
 element bound after it — with refusal as a value, that class of defect stops
 existing.
 
+### 🚧 FILED — a Proxy over a boxed primitive can never unwrap (blocks 2.0's boxed scalars)
+
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/33
+0.13.x's `unwrapBoxed` reads the internal slot (`Number.prototype.valueOf.call(v)`)
+so a lying `valueOf` cannot intercept `Is`/`Eq` — correct, and I do not want it
+reverted. But **a Proxy has no such slot**, and slots are not forwarded to the
+target, so `instanceof Number` passes and the slot read then throws
+`thisNumberValue called on incompatible object`; the fail-soft catch returns the
+wrapper unchanged. Verified for all three types.
+
+That is exactly how tosijs 2.0's boxed scalars work: the live value cannot sit in
+the target's slot (the target is made once, the value changes after), so it is
+served from the `get` trap via `valueOf`. Plain JS `==` works and stays live;
+`Eq` does not. Since boxed-only state is 2.0's central design decision, this seam
+decides whether `Eq` is usable on the library's primary data type.
+
+Asked for an **opt-in** channel to vend a comparison value — a well-known symbol
+checked only AFTER the slot read fails, which preserves today's semantics exactly
+(the `class Liar extends Number` case still loses, because its slot read succeeds)
+while letting a value that *cannot* have a slot participate. **Re-check before
+resuming the 2.0 port** — the fallback is to avoid `Eq` on boxed scalars in
+tosijs's own source, which works but makes our primary type second-class in the
+language we would be writing in.
+
+### ✅ HOLD LIFTED — 0.13.0 shipped (now **0.13.2**, 2026-08-21)
+
+The hold below is satisfied: 0.13.0 is published (0.13.0 went out by mistake as a
+non-rc and was superseded by 0.13.1/0.13.2, which also carry review fixes). The
+bump-tjs-lang + bump-tosijs-ui + delete-the-`watchPaths`-duplication move is
+unblocked — do it as ONE change, and re-read issue #33 first, since it may change
+what the port is worth.
+
 ### 🛑 HOLD — everything tjs-lang waits for **0.13.0 stable**
 
 **Maintainer decision, 2026-08-21.** tjs-lang is at **0.13.0-rc.1**, and 0.13.0
