@@ -226,7 +226,7 @@ value setter inside the global binding-dispatch loop, stranding every
 element bound after it — with refusal as a value, that class of defect stops
 existing.
 
-### 🚧 FILED — `Eq` and `toBool` bypass the `[tjsEquals]` opt-in that `Is` honours
+### 🐛 FILED — `Eq`/`NotEq` ignore `[tjsEquals]`, which its own docs say control `==`
 
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/33
 **tjs DOES support a computed comparator** — `[tjsEquals]`, then `.Equals` for
@@ -249,8 +249,21 @@ their own comment notes is far wider reach than `==`. For boxed-only 2.0 state
 that is decisive: `if (app.enabled)` with `enabled === false` reads truthy
 everywhere, silently.
 
-Asked for a single `Symbol.for('tjs.unwrap')` hook consulted inside
-`unwrapBoxed` **after** the slot read fails — preserving today's semantics
+**It is a BUG against their own spec, not a design question** — the symbol's
+docstring reads "Any object can implement `[tjsEquals](other)` to control how
+`==` / `Is()` compares it. Useful for **Proxies that should delegate equality
+to their target**." `==` transpiles to `Eq`; `Eq` never reads the symbol. So the
+doc names two operators, one honours it, and the doc's own motivating example —
+a Proxy — is precisely the case that cannot fall back to the slot read. No test
+asserts `Eq` honours it, which is presumably how the two drifted. Suggested fix
+is small: lift `customEquals` out of `goIs` and call it at the top of `Eq`.
+
+`toBool` is a **separate, weaker ask** and was split out in-thread: the symbol
+says `==`/`Is()`, not truthiness, and `[tjsEquals]` is the wrong hook anyway
+(no `other` to pass). It has the widest blast radius though — `toBool` is
+injected at every truthiness site — so the ask there is a single
+`Symbol.for('tjs.unwrap')` consulted inside `unwrapBoxed` **after** the slot
+read fails — preserving today's semantics
 exactly (`class Liar extends Number` succeeds at the slot read and still loses)
 while letting a value that cannot have a slot participate, and making `Is`,
 `Eq` and `toBool` agree.
