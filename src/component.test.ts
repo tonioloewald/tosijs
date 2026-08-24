@@ -1846,6 +1846,42 @@ describe('papercuts fixed in 1.8.0 (tosijs#22, #24)', () => {
     expect(el.pointerEvents).not.toBe('on') // the write was NOT discarded
     expect(errors.some((e) => e.includes('pointerEvents'))).toBe(true)
     expect(errors.some((e) => e.includes('tosijs#24'))).toBe(true)
+
+    // AND IT READS BACK AS WRITTEN. This is the half that stayed broken
+    // through 1.8.0-rc.1: the setter reflected `false` to the attribute as
+    // the string "false" and the getter preferred the attribute, so
+    // `if (el.pointerEvents)` was still truthy — the very bug the error
+    // message says it does not have ("applied as given — nothing is
+    // coerced"). The message and the behaviour now agree.
+    expect(el.pointerEvents).toBe(false)
+    expect(typeof el.pointerEvents).toBe('boolean')
+    el.remove()
+  })
+
+  test('#24: an EXTERNAL setAttribute still wins over the typed value', () => {
+    class OnOffExternal extends Component {
+      static preferredTagName = 'on-off-external'
+      static initAttributes = { pointerEvents: 'on' }
+      content = null
+    }
+    const creator = OnOffExternal.elementCreator()
+    const original = console.error
+    console.error = () => {}
+    let el: any
+    try {
+      el = creator({ pointerEvents: false })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.pointerEvents).toBe(false)
+    // outside writes must remain observable — that is why the getter prefers
+    // the attribute in the first place
+    el.setAttribute('pointer-events', 'off')
+    expect(el.pointerEvents).toBe('off')
+    // and a correctly-typed property write clears the override for good
+    el.pointerEvents = 'on'
+    expect(el.pointerEvents).toBe('on')
     el.remove()
   })
 

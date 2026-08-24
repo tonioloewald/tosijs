@@ -168,9 +168,19 @@ package's own repository (it went stale once across the rename already).
 - [ ] The `on<Event>` member-assignment rule depends on whether the element has
       been **upgraded**, so identical call sites diverge silently. Decide from
       the class (`customElements.get(tag)` prototype) or re-resolve on upgrade.
-- [ ] tosijs#24's attribute type-mismatch path still coerces, contrary to its
-      own error message: `el.mode = false` on a string-declared attribute reads
-      back the truthy string `"false"`, so the motivating bug still holds.
+- [x] **DONE (1.8.x, post-rc.1) — closes the half of tosijs#24 that stayed
+      broken.** The setter reflected a type-contradicting write to the
+      attribute as a STRING and the getter preferred the attribute, so
+      `el.mode = false` on a string-declared attribute read back the truthy
+      string `"false"` — the exact bug the error message claims not to have
+      ("applied as given — nothing is coerced"). A per-instance typed override
+      now wins for as long as the attribute still holds what we reflected for
+      it, so the message and the behaviour agree.
+      An EXTERNAL `setAttribute` still wins, which is why the getter prefers
+      the attribute at all, and a correctly-typed property write clears the
+      override. Residual ambiguity stated rather than hidden: the DOM stores
+      only strings, so an external `setAttribute('mode', 'false')` cannot be
+      told apart from our own reflection of `false`. Three tests.
 - [x] **DONE (1.8.x, post-rc.1) — did BOTH, because "route every advisory" was
       the wrong instruction.** Most of those ~20 sites report that something is
       WRONG (a binding threw, a contract was violated from a binding, a

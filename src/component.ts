@@ -1554,6 +1554,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   // field-shadow recovery consults (names skipped for other reasons must not
   // be "restored")
   private _installedAttrAccessors?: Set<string>
+  /** attrName → the typed value written and the string it reflected as, so a
+   * type-contradicting write reads back as written (tosijs#24) */
+  private _attrTypedOverride?: Map<string, { reflected: string; value: any }>
 
   private _setupAttributeAccessors(initAttrs: Record<string, any>): void {
     if (!this._attrValues) {
@@ -1645,9 +1648,31 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             return this._attrValues!.get(attrName)
           return false
         } else if (this.hasAttribute(attrKabob)) {
-          return typeof defaultValue === 'number'
-            ? parseFloat(this.getAttribute(attrKabob)!)
-            : this.getAttribute(attrKabob)
+          if (typeof defaultValue === 'number') {
+            return parseFloat(this.getAttribute(attrKabob)!)
+          }
+          // tosijs#24, the half that was still broken: the setter reflects a
+          // type-contradicting write to the attribute as a STRING, and this
+          // getter preferred the attribute — so `el.mode = false` on a
+          // string-declared attribute read back the truthy string "false",
+          // and `if (this.mode)` was still wrong. That is the exact bug the
+          // error message claims not to have ("applied as given — nothing is
+          // coerced"). Hand back the typed value the caller actually wrote,
+          // for as long as the attribute still holds what we reflected for it.
+          //
+          // The attribute still wins for any EXTERNAL setAttribute, which is
+          // what keeps outside writes observable. Residual ambiguity, stated
+          // rather than hidden: the DOM stores only strings, so an external
+          // `setAttribute('mode', 'false')` is indistinguishable from our own
+          // reflection of `false` and keeps the typed value.
+          const override = this._attrTypedOverride?.get(attrName)
+          if (
+            override !== undefined &&
+            override.reflected === this.getAttribute(attrKabob)
+          ) {
+            return override.value
+          }
+          return this.getAttribute(attrKabob)
         } else if (this._attrValues!.has(attrName)) {
           return this._attrValues!.get(attrName)
         } else {
@@ -1699,6 +1724,22 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             this._attrValues!.set(attrName, value)
           }
         } else {
+          // remember a type-contradicting write so the getter can return what
+          // was written rather than its string reflection (see the getter);
+          // any type-agreeing write clears it
+          if (
+            value != null &&
+            typeof value !== typeof defaultValue &&
+            typeof value !== 'object'
+          ) {
+            this._attrTypedOverride ??= new Map()
+            this._attrTypedOverride.set(attrName, {
+              reflected: String(value),
+              value,
+            })
+          } else {
+            this._attrTypedOverride?.delete(attrName)
+          }
           if (
             typeof value === 'object' ||
             `${value as string}` !== `${this[attrName] as string}`

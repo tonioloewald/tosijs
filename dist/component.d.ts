@@ -99,6 +99,9 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Sets up property accessors from static initAttributes.
      */
     private _installedAttrAccessors?;
+    /** attrName → the typed value written and the string it reflected as, so a
+     * type-contradicting write reads back as written (tosijs#24) */
+    private _attrTypedOverride?;
     private _setupAttributeAccessors;
     private _installAttrAccessor;
     private _recoverShadowedAttrAccessors;
