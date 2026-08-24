@@ -226,53 +226,35 @@ value setter inside the global binding-dispatch loop, stranding every
 element bound after it — with refusal as a value, that class of defect stops
 existing.
 
-### 🐛 FILED — `Eq`/`NotEq` ignore `[tjsEquals]`, which its own docs say control `==`
+### ⏳ WAITING ON 0.13.4 — `asCompared`, the real computed comparator
 
-**Issue:** https://github.com/tonioloewald/tjs-lang/issues/33
-**tjs DOES support a computed comparator** — `[tjsEquals]`, then `.Equals` for
-back-compat — dispatched in `goIs` **before** `unwrapBoxed`, with a deliberate
-fail-soft probe / fail-hard invoke split that handles Proxies on purpose. For
-`Is`, tosijs has nothing to ask for: boxed scalars implement `[tjsEquals]` and
-participate correctly.
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/33 (kept open as the
+use-case record)
 
-**`Eq` and `toBool` do not dispatch it.** Both go straight to `unwrapBoxed`,
-which reads the internal slot — and a Proxy has no slot (slots are not
-forwarded to the target), so `instanceof Number` passes, the slot read throws
-`thisNumberValue called on incompatible object`, and the fail-soft catch hands
-back the wrapper. Verified for all three types against the exact targets
-`tosijs-2.0` uses; per-access value-holding targets do not help, because the
-proxy is what gets passed.
+**Resolved by discussion with the tjs-lang maintainer, 2026-08-24.** `goIs`'s
+`[tjsEquals]` dispatch is a DIFFERENT mechanism from what boxed scalars need —
+so both of my readings were wrong, and the fix is neither "add an opt-in
+channel" (one exists, for something else) nor "call `customEquals` from `Eq`".
+The intended answer is a real computed comparator, **`asCompared`**, landing in
+**0.13.4**.
 
-So one value answers correctly through `Is` and incorrectly through `==` and
-through **every `if`** — tjs injects `toBool` at every truthiness site, which
-their own comment notes is far wider reach than `==`. For boxed-only 2.0 state
-that is decisive: `if (app.enabled)` with `enabled === false` reads truthy
-everywhere, silently.
+**Do not act on this until 0.13.4 ships.** What still holds, and what
+`asCompared` has to satisfy for tosijs 2.0:
 
-**It is a BUG against their own spec, not a design question** — the symbol's
-docstring reads "Any object can implement `[tjsEquals](other)` to control how
-`==` / `Is()` compares it. Useful for **Proxies that should delegate equality
-to their target**." `==` transpiles to `Eq`; `Eq` never reads the symbol. So the
-doc names two operators, one honours it, and the doc's own motivating example —
-a Proxy — is precisely the case that cannot fall back to the slot read. No test
-asserts `Eq` honours it, which is presumably how the two drifted. Suggested fix
-is small: lift `customEquals` out of `goIs` and call it at the top of `Eq`.
+- a Proxy has no internal slot and slots are not forwarded to the target, so a
+  slot read can never be the fallback for this shape (verified for String,
+  Number and Boolean against the exact targets `tosijs-2.0` uses);
+- the value must be LIVE — read per access from the registry — so it cannot be
+  baked into a target at construction;
+- `toBool` decides it. tjs injects it at every truthiness site, so a boxed
+  `false` reading truthy in every `if` is what makes or breaks boxed-only state.
 
-`toBool` is a **separate, weaker ask** and was split out in-thread: the symbol
-says `==`/`Is()`, not truthiness, and `[tjsEquals]` is the wrong hook anyway
-(no `other` to pass). It has the widest blast radius though — `toBool` is
-injected at every truthiness site — so the ask there is a single
-`Symbol.for('tjs.unwrap')` consulted inside `unwrapBoxed` **after** the slot
-read fails — preserving today's semantics
-exactly (`class Liar extends Number` succeeds at the slot read and still loses)
-while letting a value that cannot have a slot participate, and making `Is`,
-`Eq` and `toBool` agree.
-
-**MEA CULPA, recorded because it cost a maintainer's attention:** the issue was
-first filed claiming "there is no opt-in channel". There is; I had not read
-`goIs` before filing. Corrected in-thread and retitled. Check the API before
-asserting it is absent — the same rule that caught us on WebMCP's
-unregistration seam, broken again three days later.
+When 0.13.4 lands: test 2.0's boxed scalars against `asCompared` (real consumer,
+real corpus) and only then decide the boxed-only question. **Two lessons already
+paid for here — don't re-learn them:** I twice asserted things about tjs's
+internals from a partial read (first "no opt-in exists", then "`goIs` is the
+right hook"), and both times a maintainer had to correct it. Read the mechanism
+end to end, or ask, before filing.
 
 ### ✅ HOLD LIFTED — 0.13.0 shipped (now **0.13.2**, 2026-08-21)
 
