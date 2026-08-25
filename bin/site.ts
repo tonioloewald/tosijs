@@ -41,6 +41,27 @@ async function writeVersion() {
   console.log('tosijs package version', pkg.version)
 }
 
+/**
+ * May this run rewrite a TRACKED SOURCE FILE?
+ *
+ * Only a real build may. `bun start` must not dirty the tree under the
+ * developer — it makes two contributors' checkouts differ from the same
+ * commit, and it means a dev server started on a feature branch can stamp
+ * generated values measured from uncommitted WIP.
+ *
+ * Both generators that write into tracked sources call this: the schematic
+ * vendoring, which has always had the guard, and the README size block, which
+ * shipped without it in rc.2 and rewrote README.md on every `bun start`.
+ */
+function mayRewriteTrackedSource(what: string, fix: string): boolean {
+  if (buildOnly) return true
+  console.warn(
+    `${what} is out of date. Run \`bun run build\` to regenerate it — the dev ` +
+      `server will not rewrite tracked sources. (${fix})`
+  )
+  return false
+}
+
 async function vendorSchematic() {
   // tosijs-floorplan (devDependency; formerly tosijs-schematic — renamed
   // away from the tosijs-schema near-collision) is the SOURCE OF TRUTH for
@@ -346,7 +367,13 @@ async function buildLibrary() {
     /<!-- sizes:start -->[\s\S]*?<!-- sizes:end -->/,
     sizeBlock
   )
-  if (replaced !== readme) {
+  if (
+    replaced !== readme &&
+    mayRewriteTrackedSource(
+      "README.md's sizes block",
+      'the figures come from the artifacts this build just measured'
+    )
+  ) {
     await Bun.write(readmePath, replaced)
     console.log('README sizes block regenerated')
   }
@@ -426,10 +453,41 @@ async function checkInternalLinks(): Promise<void> {
   }
   // Set: README.md is normally in docPaths already, and reporting the same
   // broken link twice makes a short list look like a big problem
-  const sources = new Set<string>([
-    ...siteConfig.docPaths.filter((p: string) => p.endsWith('.md')),
-    'README.md',
-  ])
+  // EXPAND docPaths THE WAY THE SITE DOES. The first version filtered
+  // docPaths for `.md` and then did a non-recursive, `.ts`-only readdir of
+  // `src` — which missed `src/docs/**` entirely, because docPaths carries the
+  // bare entry `'src'` and buildSite expands that to `src/docs/*.md` as well
+  // as the source doc blocks. 21 links lived in the blind spot, INCLUDING
+  // `src/docs/history.md`, whose `/migration/` case error is the very bug the
+  // commit that added this gate was fixing. A checker with a blind spot over
+  // the thing it was written for is worse than none: it reports "no 404s".
+  const sources = new Set<string>(['README.md'])
+  const addTree = async (dir: string): Promise<void> => {
+    let entries: Awaited<ReturnType<typeof fs.readdir>>
+    try {
+      entries = await fs.readdir(path.resolve(PROJECT_ROOT, dir), {
+        withFileTypes: true,
+      })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) {
+        await addTree(rel)
+      } else if (
+        (entry.name.endsWith('.md') || entry.name.endsWith('.ts')) &&
+        !entry.name.endsWith('.test.ts')
+      ) {
+        sources.add(rel)
+      }
+    }
+  }
+  for (const entry of siteConfig.docPaths as string[]) {
+    if (entry.endsWith('.md')) sources.add(entry)
+    else await addTree(entry) // a bare directory: sweep it recursively
+  }
+
   const broken: string[] = []
   for (const rel of sources) {
     let text: string
@@ -441,16 +499,6 @@ async function checkInternalLinks(): Promise<void> {
     for (const match of text.matchAll(/\]\(\/([A-Za-z0-9._-]+)\/\)/g)) {
       const slug = match[1]
       if (!slugs.has(slug)) broken.push(`${rel} → /${slug}/`)
-    }
-  }
-  // source-file doc blocks generate slugs too, so also sweep src/*.ts prose
-  const srcFiles = await fs.readdir(path.resolve(PROJECT_ROOT, 'src'))
-  for (const name of srcFiles) {
-    if (!name.endsWith('.ts') || name.endsWith('.test.ts')) continue
-    const text = await Bun.file(path.resolve(PROJECT_ROOT, 'src', name)).text()
-    for (const match of text.matchAll(/\]\(\/([A-Za-z0-9._-]+)\/\)/g)) {
-      const slug = match[1]
-      if (!slugs.has(slug)) broken.push(`src/${name} → /${slug}/`)
     }
   }
   if (broken.length > 0) {

@@ -22,7 +22,9 @@ documented claim that turned out to be false.
   Measured with the fix bypassed: 6 events over 6 passes, still climbing.
   **Now once per element per distinct reason.** That changes what a listener
   counts — distinct violations rather than binding-dispatch frequency — which
-  is the number you wanted; `detail.repeated` distinguishes them. The event is
+  is the number you wanted. The latch clears the moment a VALID value
+  arrives, so the event fires on entering a bad state and again on re-entering
+  it after recovery — which is what a validation banner needs. The event is
   also now documented and tested, both of which it shipped without.
 - **A type-contradicting attribute write now reads back as written**
   (completes tosijs#24). rc.1 applied and reported the write instead of

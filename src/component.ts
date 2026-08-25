@@ -695,7 +695,15 @@ const checkValueContract = (el: any, newValue: any): void => {
   const schema = ownContract(cls)?.value
   if (schema == null) return
   const err = contractViolation(newValue, schema)
-  if (err == null) return
+  if (err == null) {
+    // RECOVERY CLEARS THE LATCH. Without this the dedupe below is one-way:
+    // bad → event, valid → nothing, the SAME bad again → silence. An app
+    // showing a validation banner on `contractviolation` could never re-show
+    // it after the user corrected and re-broke the value, which makes the
+    // channel useless for the thing it is most obviously for.
+    violationsDispatched.delete(el)
+    return
+  }
   const tag = el.tagName?.toLowerCase()
   if (isBindingWrite()) {
     // STATE IS AUTHORITATIVE on this path. Throwing here would abort the
@@ -727,18 +735,23 @@ const checkValueContract = (el: any, newValue: any): void => {
     // now counts distinct (element, reason) pairs instead. That is the more
     // useful number — the old one measured binding-dispatch frequency, not
     // violations — and an unbounded event storm is not a channel anyone can
-    // actually consume. `detail.repeated` tells a listener the difference.
+    // actually consume.
+    //
+    // The latch is cleared the moment a VALID value arrives (see the early
+    // return above), so the pair is "fires on entering a bad state, again on
+    // re-entering it after recovery" — which is what a validation banner
+    // needs. There is no `detail.repeated`: it was published as a way to tell
+    // the two apart, but it was hard-coded `false` at the only dispatch site,
+    // so it could never have told anyone anything.
     const seen = violationsDispatched.get(el) ?? new Set<string>()
     const already = seen.has(err)
     if (!already) {
       seen.add(err)
       violationsDispatched.set(el, seen)
-    }
-    if (!already) {
       el.dispatchEvent?.(
         new CustomEvent('contractviolation', {
           bubbles: true,
-          detail: { reason: err, value: newValue, schema, repeated: false },
+          detail: { reason: err, value: newValue, schema },
         })
       )
     }
@@ -1770,14 +1783,35 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         // setAttribute calls remain observable. The fallback covers the
         // window between a property assignment and its (possibly deferred)
         // DOM reflection.
+        // tosijs#24 applies to ALL THREE declared types, not just string.
+        // rc.2 wired the typed override into the string branch only, while
+        // the error message and the CHANGELOG both claimed the fix
+        // unscoped — so `el.count = false` on a number-declared attribute
+        // read back NaN/null, and `el.flag = 'off'` on a boolean-declared
+        // one read back `true`. Worse for the boolean case: 'off' is a
+        // perfectly reasonable thing for a caller to write and it inverted
+        // the meaning. The warning is warn-once per tag+attr, so instances
+        // 2..N got it silently.
+        const typedOverride = (): any => {
+          const override = this._attrTypedOverride?.get(attrName)
+          return override !== undefined &&
+            override.reflected === this.getAttribute(attrKabob)
+            ? { value: override.value }
+            : undefined
+        }
         if (typeof defaultValue === 'boolean') {
-          if (this.hasAttribute(attrKabob)) return true
+          if (this.hasAttribute(attrKabob)) {
+            return typedOverride()?.value ?? true
+          }
           if (this._attrValues!.has(attrName))
             return this._attrValues!.get(attrName)
           return false
         } else if (this.hasAttribute(attrKabob)) {
           if (typeof defaultValue === 'number') {
-            return parseFloat(this.getAttribute(attrKabob)!)
+            return (
+              typedOverride()?.value ??
+              parseFloat(this.getAttribute(attrKabob)!)
+            )
           }
           // tosijs#24, the half that was still broken: the setter reflects a
           // type-contradicting write to the attribute as a STRING, and this
@@ -1808,6 +1842,25 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       },
       set: (value: any) => {
+        // Remember a type-contradicting write so the getter can hand back what
+        // was WRITTEN rather than the string it reflected as. Hoisted above the
+        // per-type branches deliberately: rc.2 recorded this only in the string
+        // branch, which is why the number and boolean cases still coerced while
+        // the message promised they did not. Any type-AGREEING write clears it.
+        if (
+          value != null &&
+          typeof value !== typeof defaultValue &&
+          typeof value !== 'object'
+        ) {
+          this._attrTypedOverride ??= new Map()
+          this._attrTypedOverride.set(attrName, {
+            reflected:
+              typeof defaultValue === 'boolean' && value ? '' : String(value),
+            value,
+          })
+        } else {
+          this._attrTypedOverride?.delete(attrName)
+        }
         // tosijs#24: a write whose TYPE contradicts the declared default is
         // almost always a stale call site (the classic: `false` written to
         // an attribute declared `'on' | 'off'` after the tosijs#15
@@ -1852,22 +1905,6 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             this._attrValues!.set(attrName, value)
           }
         } else {
-          // remember a type-contradicting write so the getter can return what
-          // was written rather than its string reflection (see the getter);
-          // any type-agreeing write clears it
-          if (
-            value != null &&
-            typeof value !== typeof defaultValue &&
-            typeof value !== 'object'
-          ) {
-            this._attrTypedOverride ??= new Map()
-            this._attrTypedOverride.set(attrName, {
-              reflected: String(value),
-              value,
-            })
-          } else {
-            this._attrTypedOverride?.delete(attrName)
-          }
           if (
             typeof value === 'object' ||
             `${value as string}` !== `${this[attrName] as string}`

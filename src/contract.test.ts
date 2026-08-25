@@ -1213,7 +1213,7 @@ describe('the contractviolation channel (round-3 follow-up)', () => {
     // growing for the life of the page
     expect(events.length).toBe(1)
     expect(events[0].reason).toBeDefined()
-    expect(events[0].repeated).toBe(false)
+    expect('repeated' in events[0]).toBe(false)
     el.remove()
   })
 
@@ -1371,4 +1371,51 @@ describe('a subclass does not wear its parent contract (ownContract)', () => {
     child.remove()
     parent.remove()
   })
+})
+
+// Round-4 M1: the dedupe was one-way. bad → event, valid → nothing, the SAME
+// bad again → silence, on both channels. An app showing a validation banner on
+// `contractviolation` could never re-show it after the user corrected and
+// re-broke the value — which is the thing the channel is most obviously for.
+test('the violation latch clears on recovery, so re-entering a bad state fires again', async () => {
+  const { bind } = await import('./bind')
+  const { setValue } = await import('./dom')
+  const { xin } = await import('./xin')
+
+  const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+  class RecoveringValue extends Component<typeof numeric> {
+    static preferredTagName = 'recovering-value'
+    static contract = numeric
+    value: any = 0
+    content = null
+  }
+  const creator = RecoveringValue.elementCreator()
+  const el = creator() as any
+  document.body.append(el)
+  const reasons: string[] = []
+  el.addEventListener('contractviolation', (e: any) =>
+    reasons.push(e.detail.reason)
+  )
+
+  tosi({ recoverApp: { n: 1 } })
+  await updates()
+  bind(el, 'recoverApp.n', { toDOM: setValue })
+  await updates()
+
+  const originalError = console.error
+  console.error = () => {}
+  try {
+    ;(xin as any).recoverApp.n = 'bad'
+    await updates()
+    expect(reasons.length).toBe(1) // entered a bad state
+    ;(xin as any).recoverApp.n = 5
+    await updates()
+    expect(reasons.length).toBe(1) // recovery is not an event
+    ;(xin as any).recoverApp.n = 'bad'
+    await updates()
+    expect(reasons.length).toBe(2) // re-entered — must speak again
+  } finally {
+    console.error = originalError
+  }
+  el.remove()
 })

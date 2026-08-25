@@ -1941,3 +1941,55 @@ describe('papercuts fixed in 1.8.0 (tosijs#22, #24)', () => {
     button.remove()
   })
 })
+
+// Round-4 M3: rc.2 wired the tosijs#24 typed override into the STRING branch
+// only, while the error message and the CHANGELOG claimed the fix unscoped —
+// and the warning is warn-once per tag+attr, so instances 2..N got the wrong
+// value silently. The boolean case is the nastiest: 'off' is a reasonable
+// thing to write and it inverted the meaning.
+describe('#24 covers every declared attribute type, not just string', () => {
+  test('a number-declared attribute written a boolean reads back the boolean', () => {
+    class NumAttr extends Component {
+      static preferredTagName = 'num-attr-24'
+      static initAttributes = { count: 0 }
+      content = null
+    }
+    const creator = NumAttr.elementCreator()
+    const original = console.error
+    console.error = () => {}
+    let el: any
+    try {
+      el = creator({ count: false })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    expect(el.count).toBe(false) // was NaN/null
+    el.count = 7 // a correctly-typed write clears the override
+    expect(el.count).toBe(7)
+    el.remove()
+  })
+
+  test('a boolean-declared attribute written a string reads back the string', () => {
+    class BoolAttr extends Component {
+      static preferredTagName = 'bool-attr-24'
+      static initAttributes = { flag: false }
+      content = null
+    }
+    const creator = BoolAttr.elementCreator()
+    const original = console.error
+    console.error = () => {}
+    let el: any
+    try {
+      el = creator({ flag: 'off' })
+      document.body.append(el)
+    } finally {
+      console.error = original
+    }
+    // 'off' used to read back as `true` — a value that inverts its own meaning
+    expect(el.flag).toBe('off')
+    el.flag = true
+    expect(el.flag).toBe(true)
+    el.remove()
+  })
+})
