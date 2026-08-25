@@ -179,7 +179,7 @@ async function buildLibrary() {
       format: bundle.format,
       outdir: DIST,
       target: 'browser',
-      sourcemap: 'linked',
+      sourcemap: bundle.sourcemap === false ? 'none' : 'linked',
       minify: MINIFY,
       naming: bundle.naming,
     })
@@ -324,21 +324,36 @@ async function buildLibrary() {
   const packDir = path.resolve(PROJECT_ROOT, '.pack-probe')
   await $`rm -rf ${packDir}`
   await $`mkdir -p ${packDir}`
-  const packed = await $`bun pm pack --destination ${packDir}`.text()
+  // --ignore-scripts: `bun pm pack` runs prepack/prepare, and the day someone
+  // adds `"prepare": "bun run build"` this recurses into itself forever.
+  const packed =
+    await $`bun pm pack --ignore-scripts --destination ${packDir}`.text()
   await $`rm -rf ${packDir}`
-  const unpackedMatch = packed.match(/Unpacked size:\s*([\d.]+)\s*MB/)
-  if (unpackedMatch != null) {
-    const unpackedMb = Number(unpackedMatch[1])
-    const PAYLOAD_BUDGET_MB = 4.5
-    console.log(`package payload: ${unpackedMb} MB unpacked`)
-    if (unpackedMb > PAYLOAD_BUDGET_MB) {
-      throw new Error(
-        `the published tarball is ${unpackedMb} MB unpacked, over its ` +
-          `${PAYLOAD_BUDGET_MB} MB budget. Source maps are usually the cause — ` +
-          'check what `files` in package.json is admitting, and whether a new ' +
-          'bundle brought a map nobody needs.'
-      )
-    }
+  // FAIL CLOSED ON A PARSE MISS. This was `if (match != null)` with no else —
+  // so a unit change (KB/GB), a reword of bun's output, or the line going to
+  // stderr silently disabled the budget and the build still exited 0. That is
+  // the same fail-open shape removed from the test suite two commits earlier;
+  // a gate that cannot measure must say so, not pass.
+  const unpackedMatch = packed.match(/Unpacked size:\s*([\d.]+)\s*(KB|MB|GB)/i)
+  if (unpackedMatch == null) {
+    throw new Error(
+      'package payload gate could not parse `bun pm pack` output, so the ' +
+        'tarball budget did not run. Fix the parse rather than removing the ' +
+        `gate — output was:\n${packed.slice(0, 400)}`
+    )
+  }
+  const scale: Record<string, number> = { kb: 1 / 1024, mb: 1, gb: 1024 }
+  const unpackedMb =
+    Number(unpackedMatch[1]) * scale[unpackedMatch[2].toLowerCase()]
+  const PAYLOAD_BUDGET_MB = 4.5
+  console.log(`package payload: ${unpackedMb.toFixed(2)} MB unpacked`)
+  if (unpackedMb > PAYLOAD_BUDGET_MB) {
+    throw new Error(
+      `the published tarball is ${unpackedMb.toFixed(2)} MB unpacked, over ` +
+        `its ${PAYLOAD_BUDGET_MB} MB budget. Source maps are usually the ` +
+        'cause — check what `files` in package.json is admitting, and whether ' +
+        'a new bundle brought a map nobody needs.'
+    )
   }
 
   // WRITE THE FIGURES THE DOCS QUOTE, rather than trusting prose to keep up.

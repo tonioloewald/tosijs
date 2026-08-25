@@ -28,8 +28,40 @@ if (!isPrerelease) {
   process.exit(0)
 }
 
+const channel = version.split('-')[1]?.split('.')[0] ?? 'next'
+
+// WE CAN ONLY ENFORCE WHAT WE CAN OBSERVE.
+//
+// The guard reads `npm_config_tag`, which npm sets when `--tag` is passed.
+// bun does NOT set it — so under `bun publish --tag rc`, a perfectly correct
+// command, this saw `undefined` and refused, advising the user to do the exact
+// thing they had just done. That is worse than the hazard: it teaches people to
+// reach for `--ignore-scripts`, which disables the guard permanently.
+//
+// So: hard-block only where the signal is trustworthy (npm). Under bun, say
+// loudly what cannot be checked and let it through — the release checklist's
+// "verify dist-tags after publishing" step is the backstop, and a reminder that
+// occasionally repeats is cheaper than a gate that blocks correct work.
+const agent = process.env.npm_config_user_agent ?? ''
+const canReadTag = tag != null || !agent.includes('bun')
+
+if (!canReadTag) {
+  console.warn(
+    `\n  ⚠️  ${version} is a PRERELEASE, and bun does not tell this hook which ` +
+      `tag you passed.\n\n` +
+      `  Publishing without \`--tag ${channel}\` puts a release candidate on ` +
+      `\`latest\`,\n  where a bare install picks it up.\n\n` +
+      `  Not blocking, because this cannot be distinguished from a correct ` +
+      `command.\n  VERIFY IMMEDIATELY AFTER:\n\n` +
+      `      npm view ${pkg.name} dist-tags\n\n` +
+      `  and if \`latest\` moved when you did not mean it to:\n\n` +
+      `      npm dist-tag add ${pkg.name}@${version} ${channel}\n` +
+      `      npm dist-tag add ${pkg.name}@<last-stable> latest\n`
+  )
+  process.exit(0)
+}
+
 if (tag == null || tag === 'latest') {
-  const channel = version.split('-')[1]?.split('.')[0] ?? 'next'
   console.error(
     `\n  REFUSING TO PUBLISH: ${version} is a prerelease and would become ` +
       `\`latest\`.\n\n` +

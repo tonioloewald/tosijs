@@ -88,6 +88,7 @@
   },
   "files": [
     "/dist",
+    "!/dist/.*",
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
     "!/dist/module.safe.js.map",

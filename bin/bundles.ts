@@ -23,6 +23,16 @@ export interface BundleSpec {
   probe: BundleProbe
   /** build ordering: tjs entries need `tjs convert` to have run first */
   stage: BundleStage
+  /**
+   * Emit a source map? Default true.
+   *
+   * `false` for a bundle whose map is excluded from `files`: building the map
+   * and then not shipping it leaves a `//# sourceMappingURL=` pointing at a
+   * 404 in the published artifact, which is worse than having no map — a
+   * devtools that finds the comment goes looking. The two are one decision and
+   * belong in one place.
+   */
+  sourcemap?: boolean
 }
 
 export const BUNDLES: BundleSpec[] = [
@@ -83,6 +93,9 @@ export const BUNDLES: BundleSpec[] = [
     budget: 56_000,
     probe: 'import',
     stage: 'tjs',
+    // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
+    // one, or the shipped artifact ends with a sourceMappingURL that 404s
+    sourcemap: false,
   },
   {
     naming: 'module.safe.js',
@@ -91,5 +104,8 @@ export const BUNDLES: BundleSpec[] = [
     budget: 56_000,
     probe: 'import',
     stage: 'tjs',
+    // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
+    // one, or the shipped artifact ends with a sourceMappingURL that 404s
+    sourcemap: false,
   },
 ]
