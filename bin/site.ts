@@ -354,9 +354,11 @@ async function buildLibrary() {
     // started. Making the gate fail closed is right, and it is what exposed
     // this — but a gate that can take down another gate needs its input
     // normalised, not just its failure mode hardened.
-    // eslint-disable-next-line no-control-regex -- stripping ANSI IS the point:
-    // the control characters are the thing being removed, so the rule's
-    // "you probably didn't mean a control character" premise is inverted here
+    // Stripping ANSI IS the point here: the control characters are the thing
+    // being removed, so no-control-regex's "you probably didn't mean this"
+    // premise is inverted. Disable must sit on the line ABOVE the regex —
+    // a wrapped explanatory comment pushed it out of range once already.
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-9;]*m/g, '')
   await $`rm -rf ${packDir}`
   // FAIL CLOSED ON A PARSE MISS. This was `if (match != null)` with no else —
