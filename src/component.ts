@@ -359,6 +359,68 @@ their default values, and their types:
 For non-attribute properties (e.g. objects), just declare them as regular instance
 properties on your class.
 
+##### Computed attributes
+
+`Component.computed(shape)` declares an attribute your class implements itself with
+an ordinary `get`/`set`. tosijs wraps your setter so a change always re-renders — you
+never call `queueRender()` — and the name joins `observedAttributes`, so markup and
+`setAttribute` reach your setter too.
+
+The argument is a **shape**, not a default: `''` for string-valued, `false` for
+presence-valued. There is no number shape, because markup has no numbers — take the
+string and parse it. A getter with no setter is a read-only derived attribute. A
+native DOM property name (`title`, `id`, `hidden`, …) throws rather than shadowing
+the platform's accessor.
+
+```test
+import { Component } from 'tosijs'
+
+// THE REAL-BROWSER TIER MATTERS FOR THIS ONE. The mechanism is
+// markup → attributeChangedCallback → your setter, which rides custom-element
+// UPGRADE TIMING — what happy-dom models most loosely, and where this project
+// has been bitten before. Every unit test for computed attributes runs under
+// happy-dom; this fence is what pins the feature in Chromium and Firefox.
+test('a computed attribute is set from markup, in a real browser', async () => {
+  class NameTag extends Component {
+    static preferredTagName = 'doc-name-tag'
+    static initAttributes = { fullName: Component.computed('') }
+    first = '?'
+    last = '?'
+    get fullName() {
+      return `${this.first} ${this.last}`
+    }
+    set fullName(v) {
+      const [f, ...rest] = String(v).split(' ')
+      this.first = f
+      this.last = rest.join(' ')
+    }
+    content = null
+  }
+  NameTag.elementCreator()
+
+  // parsed from MARKUP, then upgraded — the ordering that matters
+  preview.innerHTML = '<doc-name-tag full-name="Grace Hopper"></doc-name-tag>'
+  const el = preview.querySelector('doc-name-tag')
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  expect(el.fullName).toBe('Grace Hopper')
+  expect(el.first).toBe('Grace')
+
+  // a post-upgrade setAttribute reaches the setter too
+  el.setAttribute('full-name', 'Ada Lovelace')
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  expect(el.fullName).toBe('Ada Lovelace')
+
+  // and a property write must NOT fire `change` — that is the value-commit
+  // signal, and an attribute is not a value
+  let changes = 0
+  el.addEventListener('change', () => changes++)
+  el.fullName = 'Alan Turing'
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  expect(el.fullName).toBe('Alan Turing')
+  expect(changes).toBe(0)
+})
+```
+
 ##### Migration from initAttributes()
 
 Old (deprecated):
@@ -558,7 +620,7 @@ empty field, or `null`. So re-entering a bad state fires again, which is what
 makes this usable for a validation banner that hides on correction and has to
 come back if the user re-breaks the field:
 
-```js
+```
 el.addEventListener('contractviolation', ({ detail }) => showBanner(detail.reason))
 // and clear the banner on your own valid-input path
 ```

@@ -68,7 +68,7 @@ test('every inline doc test passes (the whole ```test tier)', async ({
     ).toBe(true)
   }
 
-  const MINIMUM_CORPUS = 16
+  const MINIMUM_CORPUS = 17
   expect(
     ran,
     `the inline doc-test corpus shrank to ${ran} (expected at least ` +
