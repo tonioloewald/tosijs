@@ -61,6 +61,28 @@ if (!canReadTag) {
   process.exit(0)
 }
 
+// THE ESCAPE HATCH CANNOT BE `--tag latest`, and this guard used to claim it
+// was. npm exports `npm_config_*` only for NON-DEFAULT values, and `tag`'s
+// default IS `latest` — so `npm publish --tag latest` leaves `npm_config_tag`
+// unset, indistinguishable from omitting the flag, and hits the same refusal
+// the message told you it would bypass. The only real escapes were
+// `--ignore-scripts` or deleting the hook, both of which disable every publish
+// gate permanently. "Verified both ways" had probed flag and no-flag; the
+// third case the hatch depended on was never probed.
+//
+// So the deliberate override is an env var, which IS observable:
+//   ALLOW_PRERELEASE_ON_LATEST=1 npm publish
+const deliberateOverride = process.env.ALLOW_PRERELEASE_ON_LATEST === '1'
+
+if (deliberateOverride) {
+  console.warn(
+    `\n  ⚠️  Publishing prerelease ${version} to \`latest\` deliberately ` +
+      `(ALLOW_PRERELEASE_ON_LATEST=1).\n     A bare \`npm i ${pkg.name}\` will ` +
+      `serve it.\n`
+  )
+  process.exit(0)
+}
+
 if (tag == null || tag === 'latest') {
   console.error(
     `\n  REFUSING TO PUBLISH: ${version} is a prerelease and would become ` +
@@ -69,9 +91,11 @@ if (tag == null || tag === 'latest') {
       `would start\n  serving a release candidate.\n\n` +
       `  Did you mean:\n\n` +
       `      npm publish --tag ${channel}\n\n` +
-      `  If you really do want this prerelease on \`latest\`, say so ` +
-      `explicitly:\n\n` +
-      `      npm publish --tag latest\n\n` +
+      `  If you really do want this prerelease on \`latest\`, note that\n` +
+      `  \`--tag latest\` is INVISIBLE to this hook (npm only exports ` +
+      `non-default\n  config, and \`latest\` is the default). Say it with an ` +
+      `env var instead:\n\n` +
+      `      ALLOW_PRERELEASE_ON_LATEST=1 npm publish\n\n` +
       `  (If it already happened, it is fixable without unpublishing:\n` +
       `      npm dist-tag add ${pkg.name}@${version} ${channel}\n` +
       `      npm dist-tag add ${pkg.name}@<last-stable> latest)\n`

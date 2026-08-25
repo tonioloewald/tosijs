@@ -498,12 +498,21 @@ so an app can react programmatically:</p>
   telemetry.record(&#39;contract&#39;, { tag: el.tagName, reason })
 })
 </code></pre>
-<p><strong>It fires once per element per distinct reason</strong>, not once per binding pass.
-That matters more than it sounds: for an object- or array-valued contract the
-upstream <code>value !== newValue</code> guard never matches, because the proxy returns a
-fresh object on every access — so an unthrottled dispatch fired on every pass,
-for the life of the page. A listener therefore counts <em>distinct violations</em>,
-not binding-dispatch frequency, which is the number you actually wanted.</p>
+<p><strong>It fires once per element per distinct reason, per bad-state episode</strong> — not
+once per binding pass, and not only once ever.</p>
+<p>Not per pass, because for an object- or array-valued contract the upstream
+<code>value !== newValue</code> guard never matches (the proxy returns a fresh object on
+every access), so an unthrottled dispatch fired on every pass for the life of
+the page.</p>
+<p><strong>The latch clears the moment the value stops violating</strong> — a valid value, an
+empty field, or <code>null</code>. So re-entering a bad state fires again, which is what
+makes this usable for a validation banner that hides on correction and has to
+come back if the user re-breaks the field:</p>
+<pre><code class="language-js">el.addEventListener(&#39;contractviolation&#39;, ({ detail }) =&gt; showBanner(detail.reason))
+// and clear the banner on your own valid-input path
+</code></pre>
+<p>A listener therefore counts <em>episodes</em>, not binding-dispatch frequency — which
+is the number you actually wanted.</p>
 <p>A <strong>direct</strong> write (<code>el.value = bad</code>) still throws instead — no event, because
 the caller is right there to catch it.</p>
 <h3>Component static properties</h3>

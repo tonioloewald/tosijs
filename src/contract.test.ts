@@ -1419,3 +1419,52 @@ test('the violation latch clears on recovery, so re-entering a bad state fires a
   }
   el.remove()
 })
+
+// Round-5 M4: the rc.3 latch fix recovered via a VALID value, which stepped
+// around the sequence users actually perform — type bad, select-all-delete,
+// type the same bad again. `''` is not valid against { type: 'number' }, and
+// the pre-data return fired before any latch handling, so that was one event.
+test('an empty field clears the violation latch, and so does null', async () => {
+  const { bind } = await import('./bind')
+  const { setValue } = await import('./dom')
+  const { xin } = await import('./xin')
+
+  const numeric = { value: { type: 'number' } } as const satisfies ComponentMap
+  class EmptyRecover extends Component<typeof numeric> {
+    static preferredTagName = 'empty-recover'
+    static contract = numeric
+    value: any = 0
+    content = null
+  }
+  const el = EmptyRecover.elementCreator()() as any
+  document.body.append(el)
+  const reasons: string[] = []
+  el.addEventListener('contractviolation', (e: any) =>
+    reasons.push(e.detail.reason)
+  )
+  tosi({ emptyRecoverApp: { n: 1 } })
+  await updates()
+  bind(el, 'emptyRecoverApp.n', { toDOM: setValue })
+  await updates()
+
+  const originalError = console.error
+  console.error = () => {}
+  try {
+    ;(xin as any).emptyRecoverApp.n = 'bad'
+    await updates()
+    expect(reasons.length).toBe(1)
+    ;(xin as any).emptyRecoverApp.n = '' // select-all-delete
+    await updates()
+    ;(xin as any).emptyRecoverApp.n = 'bad' // retype the same mistake
+    await updates()
+    expect(reasons.length).toBe(2)
+    ;(xin as any).emptyRecoverApp.n = null // a model reset
+    await updates()
+    ;(xin as any).emptyRecoverApp.n = 'bad'
+    await updates()
+    expect(reasons.length).toBe(3)
+  } finally {
+    console.error = originalError
+  }
+  el.remove()
+})

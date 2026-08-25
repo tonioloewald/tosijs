@@ -545,12 +545,26 @@ el.addEventListener('contractviolation', (event) => {
 })
 ```
 
-**It fires once per element per distinct reason**, not once per binding pass.
-That matters more than it sounds: for an object- or array-valued contract the
-upstream `value !== newValue` guard never matches, because the proxy returns a
-fresh object on every access — so an unthrottled dispatch fired on every pass,
-for the life of the page. A listener therefore counts *distinct violations*,
-not binding-dispatch frequency, which is the number you actually wanted.
+**It fires once per element per distinct reason, per bad-state episode** — not
+once per binding pass, and not only once ever.
+
+Not per pass, because for an object- or array-valued contract the upstream
+`value !== newValue` guard never matches (the proxy returns a fresh object on
+every access), so an unthrottled dispatch fired on every pass for the life of
+the page.
+
+**The latch clears the moment the value stops violating** — a valid value, an
+empty field, or `null`. So re-entering a bad state fires again, which is what
+makes this usable for a validation banner that hides on correction and has to
+come back if the user re-breaks the field:
+
+```js
+el.addEventListener('contractviolation', ({ detail }) => showBanner(detail.reason))
+// and clear the banner on your own valid-input path
+```
+
+A listener therefore counts *episodes*, not binding-dispatch frequency — which
+is the number you actually wanted.
 
 A **direct** write (`el.value = bad`) still throws instead — no event, because
 the caller is right there to catch it.
@@ -702,6 +716,13 @@ const checkValueContract = (el: any, newValue: any): void => {
     // it after the user corrected and re-broke the value, which makes the
     // channel useless for the thing it is most obviously for.
     violationsDispatched.delete(el)
+    // the console channel is latched too, and the CHANGELOG promises recovery
+    // works "on both the event and the console" — so clear both, or that is
+    // half true. Keyed by tag+reason, so this clears every reason for the tag.
+    const validTag = el.tagName?.toLowerCase()
+    for (const k of [...bindingViolationWarned]) {
+      if (k.startsWith(`${validTag}: `)) bindingViolationWarned.delete(k)
+    }
     return
   }
   const tag = el.tagName?.toLowerCase()
@@ -710,7 +731,19 @@ const checkValueContract = (el: any, newValue: any): void => {
     // whole binding-dispatch loop and strand every element bound after this
     // one (and would fire spuriously before data arrives). Report, assign,
     // and let the app keep running — the DOM must still reflect state.
-    if (newValue == null || newValue === '') return // pre-data, not a defect
+    if (newValue == null || newValue === '') {
+      // AN EMPTY FIELD IS NOT CURRENTLY VIOLATING, so it must clear the latch
+      // exactly as a valid value does. This returned FIRST, before any latch
+      // handling — and `''` is not valid against `{ type: 'number' }`, so it
+      // never reached the clear on the valid path either. The result was that
+      // the sequence a user actually performs (type `bad`, select-all-delete,
+      // type `bad` again) fired ONE event, and the rc.3 test stepped around it
+      // by recovering to a valid `5` instead of to empty. Same for null — a
+      // model reset.
+      violationsDispatched.delete(el)
+      bindingViolationWarned.delete(`${tag}: ${err}`)
+      return // pre-data, not a defect
+    }
     const key = `${tag}: ${err}`
     if (!bindingViolationWarned.has(key)) {
       bindingViolationWarned.add(key)

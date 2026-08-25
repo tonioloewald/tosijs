@@ -683,8 +683,25 @@ const SECRET_CONTROL_SELECTOR = [
  * every binding mutation — at which point the 24% is gone anyway.
  *
  * The selector is deliberately narrow (only controls that CAN be secret), so
- * the uncached scan is cheap. Spending 1.3µs a read to keep a redaction
- * guarantee is not a trade worth revisiting.
+ * the uncached scan matches almost nothing.
+ *
+ * ⚠️ **It is not free, and an earlier version of this comment said it was.**
+ * That text claimed "1.3µs a read … not a trade worth revisiting" — a
+ * happy-dom figure, and happy-dom memoises `querySelectorAll`. Real engines do
+ * not: measured in Chromium, this scan costs **~350µs at 2k elements and
+ * 1–2ms at 7k**, with or without an intervening mutation. 200 `tosi_read`
+ * calls in one WebMCP turn is 200 of those.
+ *
+ * The revert still stands — a redaction guarantee is worth real milliseconds,
+ * and the invalidation this replaced could not be made correct (see above).
+ * But the SHAPE is the open question, not the trade: 15 selector arms, 12 of
+ * them `[autocomplete^=…]` prefix matches no engine can bucket. A cheaper scan
+ * that is still correct — narrowing to bound elements, or checking secrecy at
+ * the point a path is read rather than sweeping the document — would be a real
+ * improvement. Tracked in TODO.md.
+ *
+ * Two lessons in one comment: do not benchmark a DOM operation in happy-dom,
+ * and do not write a number into a comment phrased to close future argument.
  */
 const refreshSecretPaths = (): void => {
   if (typeof document === 'undefined') return
