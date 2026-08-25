@@ -280,13 +280,20 @@ So, deliberately, for 1.8.0:
 - **`tjs-lang` stays pinned at `0.10.1`.** The debug/safe bundles it builds are
   EXPERIMENTAL and inert (every TS-converted function is marked `unsafe` by
   design), so nothing user-facing rides on the version.
-- **`tosijs-ui` stays pinned at `1.9.4`** even though 1.10.0 closes five issues
-  filed from here (#49, #51, #70, #71, #72), because 1.10.0 peers
-  `tjs-lang ^0.12.0`. Adopting it means resolving that peer against a version
-  we are about to skip. The cost of waiting is visible and bounded: the
-  10-entry `watchPaths` array duplicating `docPaths` is the #49 workaround, and
-  it stays until we bump. **Revisit as one move when 0.13.0 ships** — bump
-  tjs-lang, bump tosijs-ui, delete the duplicated block, re-run the lanes.
+- ⚠️ **`tosijs-ui` stays pinned at `1.9.4`, but the reason recorded here was
+  FALSE and is corrected.** This said 1.10.0 was unadoptable "because 1.10.0
+  peers `tjs-lang ^0.12.0`". Verified against the registry: **1.9.1, 1.9.4 and
+  1.10.0 all declare `tjs-lang: ^0.12.0`.** The 1.9.4 we already install
+  carries that peer, so upgrading changes nothing about it — we have been
+  paying a cost for a constraint that does not exist. Found by round-4 (M6).
+
+  The cost is real and itemised: the 10-entry `watchPaths` array in
+  `tosijs-site.config.ts` duplicating `docPaths` is the tosijs-ui#49
+  workaround, and **#49 is closed upstream**, along with #51, #70, #71, #72.
+
+  So the bump is unblocked and always was. It is deferred now for one honest
+  reason only — it is a build-host change and 1.8.0 is mid-release — and it is
+  reopened as work rather than closed as a decision (`TODO.md` E1).
 - **The `tosijs-2.0` port branch stays on hold** (it already was). When it
   resumes, the 0.13.0 ergonomics ARE the experiment: re-walk `by-path.tjs`
   against the branch's `TJS-PORT-DX.md` friction log as the BEFORE.

@@ -1,5 +1,28 @@
 # todo
 
+## Benchmark numbers we publish, and the harness we do not have (round-4 M9)
+
+- [ ] **We publish µs figures with no benchmark harness behind them.** `find src
+      bin tests -iname '*bench*'` is empty; so is a grep for `performance.now`
+      or `Bun.nanoseconds` outside one-off probes. Every number quoted in the
+      CHANGELOG and in this file came from an ad-hoc script under **happy-dom,
+      in a shared test process** — which the shared practice on microbenchmark
+      validity (`a3154cf`) says explicitly not to do: assert on ratios, never
+      wall-clock; best-of-N; delete any ratio a test cannot defend.
+      Interim: the CHANGELOG figure is now stated as a RATIO with the method
+      disclosed. Proper fix: either add a harness that can defend a number, or
+      stop quoting them and describe the shape of the win instead.
+- [ ] **Lens 8's READ direction has never been run.** 48 practices commits since
+      v1.7.9 have no disposition here. The KB is written back TO regularly and
+      never read FROM, which is half a loop — and the one commit that turned out
+      to govern numbers this release publishes (`a3154cf`) was sitting there
+      unread the whole time. Add "read the KB diff since the last release" to
+      the release checklist, next to the write-back.
+- [ ] **P1's recorded range is stale.** It is ticked as outstanding but was
+      landed by practices `1ca7eba`, whose range `v1.7.9..44ddc2b` is now ~28
+      commits behind. A range that is not re-stamped is a range nobody can
+      check, which is the failure the range was introduced to prevent.
+
 ## 1.8.0 pre-release review — round 3 (fast pass) + the security pass
 
 Report: `REVIEW-1.8.0-rc.1-round3.md` (verdict BLOCK, now cleared), security
@@ -40,15 +63,18 @@ package's own repository (it went stale once across the rename already).
 
 **Needs a decision from the maintainer before the rc publishes:**
 
-- [x] **E1 — DECIDED (2026-08-21): the `tosijs-ui@1.9.4` pin stays for 1.8.0.**
-      1.10.0 closes five issues filed from here (#49, #51, #70, #71, #72), but
-      it peers `tjs-lang ^0.12.0` — and tjs-lang is at **0.13.0-rc.1**, a
-      reorientation of the language toward *TypeScript plus obvious
-      improvements* rather than fighting TS idioms. Resolving a peer against
-      0.12.0 is work aimed at a target that is about to move. **Bump both as
-      one move when 0.13.0 ships**, then delete the `watchPaths` block (it is
-      the #49 workaround) and re-run the lanes. Recorded in `UPSTREAM.md`
-      § tjs-lang. Cost of waiting is bounded and visible: one duplicated array.
+- [ ] **E1 — REOPENED (round-4 M6): the decision rested on a false fact.** It
+      was recorded that `tosijs-ui@1.10.0` was unadoptable because it peers
+      `tjs-lang ^0.12.0`. Every published 1.9.x declares the same peer,
+      including the 1.9.4 we install — verified against the registry. So the
+      bump was never blocked, and the `watchPaths` duplication (the tosijs-ui#49
+      workaround, **#49 now closed upstream** along with #51/#70/#71/#72) has
+      been paid for nothing.
+      Do it as one move after 1.8.0 ships: bump tosijs-ui, delete the
+      duplicated `watchPaths` block, re-run the lanes. Deferred now only
+      because it is a build-host change mid-release — which is a reason to
+      wait, not a reason to call it decided.
+
 - [x] **E2 — MOOT, do not file (2026-08-21 re-survey).** The seam we were about
       to ask for already shipped: `registerTool(tool, { signal })` +
       `controller.abort()`, and since Chrome 153 it withdraws a tool without

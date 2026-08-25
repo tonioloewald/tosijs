@@ -284,7 +284,23 @@ not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` pat
 6. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
 7. `git push` and `git push --tags`.
 8. `npm publish` (the `files` field publishes `dist/`, `LICENSE`, `README.md`).
-   For a **prerelease**, `npm publish --tag beta` (or `rc`) so `latest` is not moved.
+   For a **prerelease**, `npm publish --tag rc` (or `beta`) so `latest` is not moved.
+   `prepublishOnly` now refuses a prerelease with no tag, but the flag is still
+   yours to pass.
+8b. **`npm view tosijs dist-tags` — did `latest` move, and did you mean it to?**
+   This is not optional and it is not paranoia: 1.8.0-rc.2 published without the
+   flag, npm moved `latest` to a release candidate, and it was found because
+   someone happened to look. Ten seconds here.
+8c. **Install what you published and run it** — `bun add tosijs@<tag>` in a scratch
+   dir, import it, exercise the headline feature. The tarball is not the repo; a
+   `files` mistake or a shaken-away export is invisible until you execute the
+   artifact.
+9. Add the release row to the shared scoreboard in `../tosijs-coding-practices`.
+
+> **This list is a SUMMARY.** `../tosijs-coding-practices/practices/releasing.md`
+> is authoritative and carries steps this one has historically dropped —
+> including the pre-release nine-lens review and settling incoming issues. When
+> the two disagree, the KB wins; when you find a gap here, fix it there first.
 
 ## Session Completion ("Landing the Plane")
 

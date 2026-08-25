@@ -77,11 +77,19 @@ built, kept and budgeted but never executed); it is now one declaration in
 CDN-entry export list, the curation predicate, and the own-`static contract`
 lookup that was copy-pasted at six sites.
 
-Two measured performance fixes: `agent.write()` no longer scans the document
-when no inline contract exists (**44.9µs → 7.3µs** per write on a
-2000-element page), and the secret-path scan is cached against a binding
-generation (**5.4µs → 4.1µs** per read — smaller than the finding implied,
-recorded honestly).
+One performance fix: `agent.write()` no longer scans the document when no
+inline contract exists — **roughly 6× faster** on a page with 2,000 bound
+elements.
+
+> **On that number.** It is a one-off measurement under happy-dom in a shared
+> test process, not a benchmark: there is no benchmark harness in this repo, so
+> nothing defends it against drift and it is a ratio rather than a wall-clock
+> promise. Your numbers will differ. It is quoted because the shape of the win
+> (skip a whole-document scan when nothing can match) is the part that
+> generalises.
+
+The second "fix" in this pair — caching the secret-path scan — **was reverted**
+before release. It was a security regression: see the 1.8.0-rc.3 entry.
 
 ## [1.8.0-rc.1] - 2026-08-17
 
