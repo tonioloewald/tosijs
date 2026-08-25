@@ -321,13 +321,40 @@ async function buildLibrary() {
   // EXPERIMENTAL, admittedly-inert tjs bundles, whose maps are excluded from
   // `files` for exactly that reason. Measured by packing, because summing
   // dist/ would quietly disagree with whatever npm actually ships.
+  // BUDGET WHAT WE PUBLISH, ONLY WHEN WE ARE PUBLISHING. A tarball budget has
+  // no business running inside `bun start` — and it did, which is how it took
+  // the release gate down (below).
+  if (!buildOnly) return
+
   const packDir = path.resolve(PROJECT_ROOT, '.pack-probe')
   await $`rm -rf ${packDir}`
   await $`mkdir -p ${packDir}`
   // --ignore-scripts: `bun pm pack` runs prepack/prepare, and the day someone
   // adds `"prepare": "bun run build"` this recurses into itself forever.
-  const packed =
-    await $`bun pm pack --ignore-scripts --destination ${packDir}`.text()
+  const packed = (
+    await $`bun pm pack --ignore-scripts --destination ${packDir}`
+      .env({ ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' })
+      .text()
+  )
+    // STRIP ANSI ANYWAY. Playwright sets FORCE_COLOR=1 in its webServer child
+    // env, so `bun pm pack` coloured its output and the summary line arrived as
+    // `\x1b[1m\x1b[34mUnpacked size\x1b[0m: 3.89MB` — the reset sequence sits
+    // between `size` and `:`, so a `/Unpacked size:/` regex cannot match.
+    //
+    // That killed `bun run test:browser` entirely: Playwright's webServer is
+    // `bun start`, this gate threw, and Playwright reported only "Process from
+    // config.webServer was not able to start" — so the doc-test lane and the
+    // per-engine value-commit lane ran ZERO times, on a release that rewrites
+    // the attribute accessors. Both a passing lane and a failing one would have
+    // been fine; what we got was no lane and a green-looking summary from an
+    // earlier run.
+    //
+    // Note the direction of the damage: the earlier FAIL-OPEN version had the
+    // same parse bug and merely skipped the budget silently, so the lane still
+    // started. Making the gate fail closed is right, and it is what exposed
+    // this — but a gate that can take down another gate needs its input
+    // normalised, not just its failure mode hardened.
+    .replace(/\x1b\[[0-9;]*m/g, '')
   await $`rm -rf ${packDir}`
   // FAIL CLOSED ON A PARSE MISS. This was `if (match != null)` with no else —
   // so a unit change (KB/GB), a reword of bun's output, or the line going to

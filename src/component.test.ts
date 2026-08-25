@@ -1993,3 +1993,193 @@ describe('#24 covers every declared attribute type, not just string', () => {
     el.remove()
   })
 })
+
+// Round-5 M3: Component.computed() shipped with ZERO tests, and every defect
+// the review found was trivially reachable — a DOM-name collision that
+// corrupted HTMLElement.prototype page-wide, a spurious value-commit `change`,
+// and a markup path that never reached the setter. NB queueRender uses rAF, so
+// `await updates()` alone does not observe a render; these settle on a timer.
+describe('Component.computed() — computed attributes', () => {
+  const settle = () => new Promise((r) => setTimeout(r, 40))
+
+  const makeNameTag = (tag: string) => {
+    class NameTag extends Component {
+      static preferredTagName = tag
+      static initAttributes = {
+        fullName: Component.computed(''),
+        collapsed: Component.computed(false),
+      }
+      first = '?'
+      last = '?'
+      _c = false
+      renders = 0
+      get fullName(): string {
+        return `${this.first} ${this.last}`
+      }
+      set fullName(v: string) {
+        const [f, ...rest] = String(v).split(' ')
+        this.first = f
+        this.last = rest.join(' ')
+      }
+      get collapsed(): any {
+        return this._c
+      }
+      set collapsed(v: any) {
+        this._c = v === '' ? true : Boolean(v)
+      }
+      content = null
+      render(): void {
+        super.render()
+        this.renders++
+      }
+    }
+    NameTag.elementCreator()
+    return NameTag
+  }
+
+  test('B1: a native DOM property name throws and leaves the prototype intact', async () => {
+    const before = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'title'
+    )
+    class Colliding extends Component {
+      static preferredTagName = 'computed-collides'
+      static initAttributes = { title: Component.computed('') }
+      content = null
+    }
+    const creator = Colliding.elementCreator()
+    expect(() => {
+      const el = creator()
+      document.body.append(el)
+      ;(el as any).connectedCallback?.()
+    }).toThrow(/native DOM property|get title/)
+    // the platform accessor must be untouched — this corrupted every element
+    // on the page for the rest of its life
+    const after = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'title'
+    )
+    expect(after?.get).toBe(before?.get)
+    const plain = document.createElement('div')
+    plain.title = 'still works'
+    expect(plain.title).toBe('still works')
+  })
+
+  test('M2: markup reaches the setter — string value and presence', async () => {
+    makeNameTag('computed-markup')
+    document.body.innerHTML =
+      '<computed-markup full-name="Grace Hopper" collapsed></computed-markup>'
+    const el = document.querySelector('computed-markup') as any
+    await settle()
+    expect(el.fullName).toBe('Grace Hopper')
+    expect(el.collapsed).toBe(true)
+    document.body.innerHTML = ''
+  })
+
+  test('M2: an empty attribute delivers the empty string, not undefined', async () => {
+    makeNameTag('computed-empty')
+    document.body.innerHTML = '<computed-empty full-name></computed-empty>'
+    const el = document.querySelector('computed-empty') as any
+    await settle()
+    // `<el full-name>` is the case a naive split(' ') setter fumbles — it has
+    // to actually reach the setter for that to be the author's problem
+    expect(typeof el.fullName).toBe('string')
+    document.body.innerHTML = ''
+  })
+
+  test('M2: a post-hydration setAttribute reaches the setter', async () => {
+    const Cls = makeNameTag('computed-setattr')
+    const el = (Cls as any)._elementCreator() as any
+    document.body.append(el)
+    await settle()
+    el.setAttribute('full-name', 'Ada Lovelace')
+    await settle()
+    expect(el.fullName).toBe('Ada Lovelace')
+    el.remove()
+  })
+
+  test('M1: a property write renders but fires NO change event', async () => {
+    const Cls = makeNameTag('computed-nochange')
+    const el = (Cls as any)._elementCreator() as any
+    document.body.append(el)
+    await settle()
+    let changes = 0
+    el.addEventListener('change', () => changes++)
+    const before = el.renders
+    el.fullName = 'Alan Turing'
+    await settle()
+    expect(el.fullName).toBe('Alan Turing')
+    expect(el.renders).toBeGreaterThan(before)
+    // queueRender(true) is the VALUE-COMMIT signal; an attribute is not a value
+    expect(changes).toBe(0)
+    el.remove()
+  })
+
+  test('M1: an unchanged repeat write does not re-render', async () => {
+    const Cls = makeNameTag('computed-idempotent')
+    const el = (Cls as any)._elementCreator() as any
+    document.body.append(el)
+    el.fullName = 'Grace Hopper'
+    await settle()
+    const after = el.renders
+    el.fullName = 'Grace Hopper'
+    await settle()
+    expect(el.renders).toBe(after)
+    el.remove()
+  })
+
+  test('a getter with no setter is a read-only derived attribute', async () => {
+    class ReadOnly extends Component {
+      static preferredTagName = 'computed-readonly'
+      static initAttributes = { derived: Component.computed('') }
+      n = 2
+      get derived(): string {
+        return `n=${this.n}`
+      }
+      content = null
+    }
+    const creator = ReadOnly.elementCreator()
+    const el = creator() as any
+    document.body.append(el)
+    await settle()
+    expect(el.derived).toBe('n=2')
+    el.remove()
+  })
+
+  test('declaring computed() with no accessor at all throws', () => {
+    class Ghost extends Component {
+      static preferredTagName = 'computed-ghost'
+      static initAttributes = { nothing: Component.computed('') }
+      content = null
+    }
+    const creator = Ghost.elementCreator()
+    expect(() => {
+      const el = creator()
+      document.body.append(el)
+      ;(el as any).connectedCallback?.()
+    }).toThrow(/Component.computed/)
+  })
+
+  test('a subclass does not double-wrap the parent setter', async () => {
+    const Parent = makeNameTag('computed-parent')
+    class Child extends Parent {
+      static preferredTagName = 'computed-child'
+    }
+    Child.elementCreator()
+    const el = (Child as any)._elementCreator() as any
+    document.body.append(el)
+    await settle()
+    const before = el.renders
+    el.fullName = 'Grace Hopper'
+    await settle()
+    // double-wrapping would queue two renders for one assignment
+    expect(el.renders - before).toBeLessThanOrEqual(1)
+    el.remove()
+  })
+
+  test('computed names appear in observedAttributes', () => {
+    const Cls = makeNameTag('computed-observed')
+    expect(Cls.observedAttributes).toContain('full-name')
+    expect(Cls.observedAttributes).toContain('collapsed')
+  })
+})

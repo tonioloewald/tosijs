@@ -1441,11 +1441,42 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (_newValue === null && this._attrValues?.has(propName)) {
       this._attrValues.delete(propName)
     }
+    // A COMPUTED ATTRIBUTE HAS TO ACCEPT MARKUP, or it is not an attribute.
+    //
+    // Computed names are in observedAttributes, so this fired — but it only
+    // queued a render. Nothing pushed the value into the author's setter, and
+    // computed names skip _installAttrAccessor so no getter read it back. So
+    // `<my-el full-name="Grace Hopper">` left the setter uncalled and
+    // `el.fullName` returned the derived default, while the docs promised the
+    // setter "MUST tolerate a string" — describing a path that could not run.
+    // Only property writes worked, which makes it a computed *property*.
+    //
+    // Presence semantics for a boolean-shaped one: `<el collapsed>` is `true`,
+    // absence is `false`. String-shaped gets the attribute text, and `<el
+    // full-name>` delivers `''` — the case a naive `split(' ')` setter fumbles,
+    // which is exactly why it has to actually reach the setter.
+    const shape = this._computedAttrShapes?.get(propName)
+    if (shape !== undefined && !this._applyingComputedAttr?.has(propName)) {
+      this._applyingComputedAttr ??= new Set()
+      this._applyingComputedAttr.add(propName)
+      try {
+        ;(this as any)[propName] =
+          shape === 'boolean' ? _newValue !== null : _newValue ?? ''
+      } finally {
+        // re-entry guard: the author's setter may reflect back to the
+        // attribute, which would re-enter this callback
+        this._applyingComputedAttr.delete(propName)
+      }
+      return // the setter wrapper already queued the render if it changed
+    }
     // Only queue render if this isn't a legacy-tracked attr (those use MutationObserver)
     if (!this._legacyTrackedAttrs?.has(propName)) {
       this.queueRender(false)
     }
   }
+
+  /** computed attributes currently being applied FROM markup (re-entry guard) */
+  private _applyingComputedAttr?: Set<string>
 
   constructor() {
     super()
@@ -1649,9 +1680,29 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * vacuous because nothing can set it.
    */
   private _installComputedAttribute(attrName: string, shape: unknown): void {
+    // FLOOR THE WALK AT Component.prototype.
+    //
+    // Unfloored, this found the NATIVE accessor for any DOM-owned name —
+    // `title`, `id`, `hidden`, `dir`, `lang`, `slot`, `tabIndex`,
+    // `className`, `contentEditable` — and then installed the wrapper on
+    // `HTMLElement.prototype` (or `Element.prototype` for `id`, which takes
+    // SVG with it). Those descriptors are configurable, so it SUCCEEDED: after
+    // one such component was constructed, `document.createElement('div').title
+    // = 'x'` threw `this.queueRender is not a function`, page-wide and
+    // permanently, surfacing nowhere near the cause.
+    //
+    // That is the author-error path the throw below exists for, and it failed
+    // OPEN into global DOM corruption. Only a prototype strictly below
+    // Component's can own a computed attribute — anything at or above it
+    // belongs to the platform, and shadowing the platform is never what
+    // `Component.computed('title')` meant.
     let proto: object | null = Object.getPrototypeOf(this)
     let descriptor: PropertyDescriptor | undefined
-    while (proto != null && descriptor === undefined) {
+    while (
+      proto != null &&
+      proto !== Component.prototype &&
+      descriptor === undefined
+    ) {
       descriptor = Object.getOwnPropertyDescriptor(proto, attrName)
       if (descriptor === undefined) proto = Object.getPrototypeOf(proto)
     }
@@ -1659,13 +1710,22 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       throw new Error(
         `${this.tagName}: initAttributes.${attrName} is Component.computed(), ` +
           `which declares that this class implements the attribute itself — ` +
-          `but no \`get ${attrName}()\` was found on the prototype chain. ` +
+          `but no \`get ${attrName}()\` was found on the class. ` +
           `Define get/set for it, or give the attribute an ordinary default ` +
-          `value instead.`
+          `value instead. (If "${attrName}" is a native DOM property — title, ` +
+          `id, hidden, lang, slot, tabIndex … — it cannot be a computed ` +
+          `attribute: tosijs will not shadow the platform's accessor, because ` +
+          `doing so corrupts it for every element on the page.)`
       )
     }
+    // Remembered so attributeChangedCallback knows how to deliver a markup
+    // value to this setter: presence for a boolean-shaped attribute, the
+    // string otherwise.
     this._computedAttrShapes ??= new Map()
-    this._computedAttrShapes.set(attrName, typeof shape)
+    this._computedAttrShapes.set(
+      attrName,
+      typeof shape === 'boolean' ? 'boolean' : 'string'
+    )
 
     // read-only derived attribute: nothing to wrap
     if (descriptor.set == null || proto == null) return
@@ -1673,10 +1733,34 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // re-wraps its parent's already-wrapped setter and every assignment queues
     // two renders — the same hazard DRAIN_WRAPPED exists for on connectedCallback.
     if (wrappedComputedSetters.has(descriptor.set)) return
+    const authorGet = descriptor.get
     const authorSet = descriptor.set
     const wrapped = function (this: Component, value: any): void {
+      // `queueRender(true)` is the VALUE-COMMIT signal — it dispatches a
+      // bubbling, composed `change` and calls internals.setFormValue(). An
+      // attribute is not a value: on an element with `bindValue`, a
+      // presentational `el.collapsed = true` was committing the element's
+      // stale DOM value back into bound state and reverting an external
+      // update that had not yet flushed. Ordinary initAttributes setters call
+      // queueRender() with no argument; so does this one now.
+      //
+      // Equality guard for the same reason ordinary attributes have one: a
+      // repeat write of the same value is not a change, and firing renders for
+      // it is how "always re-renders" turns into a render loop.
+      let previous: unknown
+      try {
+        previous = authorGet.call(this)
+      } catch {
+        previous = undefined // a getter that throws pre-init is not a change
+      }
       authorSet.call(this, value)
-      this.queueRender(true)
+      let next: unknown
+      try {
+        next = authorGet.call(this)
+      } catch {
+        next = undefined
+      }
+      if (next !== previous) this.queueRender()
     }
     wrappedComputedSetters.add(wrapped)
     Object.defineProperty(proto, attrName, {

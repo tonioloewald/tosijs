@@ -109,6 +109,22 @@ package's own repository (it went stale once across the rename already).
       - Still open: bump react-tosijs / ngx-tosijs off `^1.0.6` in their next
         releases — a range that wide is exposure to changes nobody reviewed.
 
+- [ ] **THE CONSUMER LIST IS NOT DERIVABLE FROM npm, and I asserted otherwise.**
+      Asked whether tosijs has consumers outside this ecosystem, I ran
+      `registry.npmjs.org/-/v1/search?text=depends:tosijs`, got `0`, and
+      reported it as fact. The maintainer immediately named two the query
+      missed (**snowfox-app**, **nonono**). Checking why: the same query for
+      `depends:tosijs-ui` returns **187,288** — the `depends:` qualifier does
+      not filter, it fuzzy-matches text. So the number measured nothing.
+      Two structural reasons no registry query can answer this:
+      **an app is never a "dependent"** (nothing depends on an app, so it is
+      invisible to the graph), and **private or unpublished repos do not
+      appear at all** — snowfox-app is not on npm.
+      **The only sources of truth are the maintainer's knowledge and grep over
+      local checkouts.** Before the next release, get the real list from the
+      maintainer and record it here, so consumer verification (E8) covers what
+      actually exists rather than what npm can see.
+
 - [ ] **Test a consumer with its TEST command, never its BUILD.** Learned doing
       E8: tosijs-3d has no test script, so I ran `bun run build` — which wiped
       and regenerated its **tracked** `docs/` (4,938 changes) and rewrote part

@@ -136,6 +136,8 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * Only called for attributes declared in static observedAttributes.
      */
     attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null): void;
+    /** computed attributes currently being applied FROM markup (re-entry guard) */
+    private _applyingComputedAttr?;
     constructor();
     private _warnOnHandlerCollisions;
     private _installAttributeQueue;
