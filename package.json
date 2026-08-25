@@ -58,7 +58,8 @@
     "latest": "rm -rf node_modules && bun update",
     "tunnel": "tosijs-tunnel",
     "deploy": "tosijs-deploy",
-    "stamps": "bun bin/stamps.ts"
+    "stamps": "bun bin/stamps.ts",
+    "prepublishOnly": "bun bin/check-publish-tag.ts"
   },
   "author": "Tonio Loewald",
   "license": "Apache-2.0",
