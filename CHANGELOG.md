@@ -6,6 +6,78 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.0-rc.3] - 2026-08-25
+
+**Supersedes 1.8.0-rc.2, which is deprecated.** rc.2 shipped a secret-redaction
+regression in the agent surface; if you installed it, upgrade.
+
+### Fixed — security
+
+- **`agent.read()` could return values it had promised to redact.** rc.2 added
+  a cache to the secret-path scan, keyed on a binding-generation counter. The
+  counter was bumped from three call sites, two of them inside a
+  `dataBindings == null` guard — so only an element's **first** binding bumped
+  it, and a control that *became* secret afterwards was never re-learned. Five
+  reachable paths returned cleartext where rc.1 returned `⟨secret⟩`:
+
+  1. `type` flipped to `password` after a read (a show/hide toggle)
+  2. `data-tosi-secret` added later — the author's explicit opt-in
+  3. `autocomplete="cc-…"` set when a payment method is chosen
+  4. a **second** `bind()` on an already-mounted element — permanent, because
+     no DOM mutation follows to rescue it
+  5. same-task append after a detached bind, and `cloneWithBindings()`
+
+  Reachable under every posture, since `read`/`changes`/`when` share the path,
+  and `tosi_read` publishes it to a WebMCP host.
+
+  **The cache is reverted, not repaired.** Three of the five are *attribute*
+  changes on an element that never re-binds, so no binding-shaped signal can
+  observe them; correctness would need a MutationObserver on
+  `type`/`autocomplete`/`data-tosi-secret` plus a bump at every binding
+  mutation — at which point the ~24% saving is gone. The scan runs on every
+  read again, over a selector narrow enough that this costs about 1.3µs.
+
+  No disclosure is known to have occurred: the affected build was tagged `rc`,
+  had no published dependents, and this project's own site binds no secret
+  controls.
+
+### Fixed
+
+- **The `contractviolation` latch was one-way.** Bad value → event; valid value
+  → nothing; the *same* bad value again → silence, on both the event and the
+  console. An app showing a validation banner could never re-show it after the
+  user corrected and re-broke the field. The latch now clears on recovery.
+- **`detail.repeated` is removed.** rc.2's notes advertised it as the way to
+  tell repeats apart; it was hard-coded `false` at the only dispatch site and
+  could never have distinguished anything.
+- **tosijs#24 now covers every declared attribute type.** rc.2 fixed only
+  string-declared attributes while the error message and the release notes
+  claimed otherwise: `el.count = false` on a number-declared attribute read
+  back `null`, and `el.flag = 'off'` on a boolean-declared one read back
+  `true` — a value that inverts its own meaning. Warn-once per tag+attribute,
+  so instances 2..N were silent.
+
+### Added
+
+- **Computed attributes.** `Component.computed('')` (or `false`) in
+  `initAttributes` declares an attribute the class implements itself with an
+  ordinary `get`/`set`. tosijs wraps the setter so a change always re-renders —
+  you never call `queueRender()` — and the name joins `observedAttributes`, so
+  markup changes re-render too. The argument is a *shape*, not a default:
+  markup delivers strings and presence, so those are the two. A getter with no
+  setter is a read-only derived attribute.
+
+### Internal
+
+- The internal-link gate had a blind spot over `src/docs/**` — including the
+  file whose broken link rc.2 fixed — because it expanded `docPaths`
+  differently from the site. It now expands them the same way.
+- `bun start` no longer rewrites tracked `README.md`; both generators that
+  write into tracked sources share one guard.
+- Coverage for `contract-check`'s fail-open warning, and the record correction
+  that the `tosijs-ui@1.9.4` pin rested on a peer constraint every 1.9.x
+  already carries.
+
 ## [1.8.0-rc.2] - 2026-08-24
 
 No API changes from rc.1 — this is the fix-and-gate pass over it. One
