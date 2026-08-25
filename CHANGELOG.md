@@ -6,6 +6,86 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.0] - 2026-08-25
+
+**One source of truth for state, UI, and AI.** An app's affordances — what
+exists, what it's bound to, what it does — have always been recorded by tosijs
+in order to *run* the app. 1.8.0 lets you ask for them.
+
+The three release candidates below carry the detail; this is what changed since
+**1.7.9**, and what to know before upgrading.
+
+> **Licence: tosijs is Apache-2.0 as of 1.8.0** (BSD-3-Clause through 1.7.x).
+> It adds an explicit patent grant and a patent-retaliation clause, cannot be
+> combined with **GPLv2-only** code (GPLv3+ is fine), and — the part semver
+> cannot express — §4(d) asks **redistributors** to carry the [`NOTICE`](./NOTICE)
+> text. Hosting an app you built with it is unaffected.
+
+> **This release deviates from semver, and says so.** A minor is supposed to be
+> additive and most of this is. But it also removes `data-ref` (the only
+> pre-announced removal), removes `<xin-slot>` markup handling, reduces
+> `<xin-blueprint>`/`<xin-loader>` to warning tombstones, and flips two
+> behaviours — `on<Event>` member precedence, and what a type-contradicting
+> attribute write does — neither of which carried a prior deprecation warning.
+> A consumer on `^1.7.9` receives all of it on a routine update. The deprecated
+> *exports* survive as working aliases naming 2.0, so nothing breaks at import;
+> the markup path and the two flips are the real exposure.
+
+> **Size, measured rather than claimed.** The agent surface is opt-in and shakes
+> away if you never import it — **6.7 kB gzipped** in a real app bundle, 10.6 kB
+> with the schematic renderer and the accessibility audit. But 1.8.0 is **not**
+> size-neutral: an identical consumer app touching no agent API measured
+> **+2.9 kB (+13.7%) against 1.7.9**, because the contract seam, the
+> path-segment guard and the binding bookkeeping sit on the ordinary path. If
+> that matters more than the features, `tosijs/core` is the smaller door.
+
+### The headline
+
+- **The agent surface** — `enableAgentInterface()` gives
+  `describe`/`read`/`write`/`observe`/`call`/`changes`/`when`/`log` over the
+  wiring tosijs already records. **Read-only by default**; a manifest scopes
+  what may be *seen*, and `write: true` is a separate grant.
+  `agent.version` reports shape and capabilities so consumers can ask instead
+  of duck-typing.
+- **WebMCP auto-registration** where the browser provides a host, with the tool
+  set *generated* from the map rather than hand-written.
+- **Contracts at three granularities** — app (`expose.contract`), component
+  (`static contract`), and inline (`contract` on an element) — executable as
+  tests via `exerciseContract()` / `exerciseComponent()`.
+- **An accessibility audit over the same map** (`auditAccessibility`), because
+  the records that serve an agent are the records that catch anonymous
+  affordances, unnameable actions, contrast and target-size failures.
+- **`tosijs/core`** (slim) and **`tosijs/state`** (DOM-free, imports under bare
+  node) as new entry points.
+- **The scaffolder**: `bunx tosijs create app|component|blueprint`.
+- **Computed attributes**: `Component.computed('')` declares an attribute your
+  class implements with an ordinary `get`/`set`; tosijs wraps the setter so a
+  change always re-renders, and markup reaches it.
+
+### Closed by this release
+
+tosijs **#18** (DOM-free entry), **#22** (`on<Event>` shadowing component
+methods), **#23** (agent version/capability marker), **#24** (wrong-typed
+attribute writes silently discarded), **#27** (computed/derived attributes).
+
+**Known, still open:** **#26** — an unknown *key* passed to `elementCreator` is
+still absorbed by `ElementProps`' index signature and silently dropped. Note the
+boundary, since 1.8.0 fixed its sibling: a wrong-*type* write to a *declared*
+prop is applied and reported (#24); an unknown *key* is still dropped (#26).
+Also open: **#17** (proxy-identity seam — `src/xin.ts` is unchanged in 1.8.0, so
+fresh-proxy-per-access still holds), **#16** (semantic-parent accessor),
+**#9** (virtual-list resize).
+
+### A note on how this was built
+
+Four adversarial pre-release reviews ran against this release. They found — and
+this is the part worth publishing — a **secret-redaction regression in rc.2**
+(reverted in rc.3, rc.2 is deprecated on npm), a caching optimisation that
+corrupted `HTMLElement.prototype` page-wide, and a hardened build gate that
+silently disabled the browser test lane. Every one passed the local test suite.
+If you are relying on the agent surface's redaction guarantees, prefer 1.8.0
+over any rc.
+
 ## [1.8.0-rc.3] - 2026-08-25
 
 **Supersedes 1.8.0-rc.2, which is deprecated.** rc.2 shipped a secret-redaction

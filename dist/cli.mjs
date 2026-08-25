@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // src/version.ts
-var version = "1.8.0-rc.3";
+var version = "1.8.0";
 
 // bin/cli.ts
 var [command, kind, rawName, ...flags] = process.argv.slice(2);
