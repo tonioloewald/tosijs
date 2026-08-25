@@ -750,6 +750,19 @@ type TagToElement<T> = T extends keyof HTMLElementTagNameMap
  *   literal) — parts derive from `contract.parts` tag names, so THE
  *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
  *   exerciseComponent(), and this.parts typing.
+ *
+ * **"The declaration is the type" is ADDITIVE, not exhaustive** — worth
+ * stating because the phrase oversells it. The derived shape is intersected
+ * with `PartsMap` (`Record<string, Element>`), which it has to be: parts
+ * resolve lazily by `[part]` attribute, so an undeclared part is a legitimate
+ * runtime lookup, not an error. The cost is that a TYPO also typechecks —
+ * `this.parts.readuot` is `Element` to tsc and throws when nothing matches.
+ *
+ * So the declaration buys you precise types for what you DID declare
+ * (`this.parts.readout` is `HTMLSpanElement`, not `Element`); it does not
+ * close the set. If you want the closed behaviour, the check that catches it
+ * is `exerciseComponent()`, which verifies every declared part resolves and
+ * matches its declared tag at runtime.
  */
 export type PartsOf<T> = T extends {
   parts: infer P extends Record<string, string>

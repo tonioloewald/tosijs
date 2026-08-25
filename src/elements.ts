@@ -593,9 +593,25 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
     // has no reason to expect the framework to claim that namespace — so
     // when the element already defines a FUNCTION under this name (its own
     // method or class field), assigning it is what the caller meant.
-    // A non-function value (the usual `onClick: () => …`) is event sugar,
-    // as always. Custom elements only: plain DOM `onclick`-style props are
-    // functions too, and those ARE the event channel.
+    // THE DISCRIMINATOR IS THE EXISTING MEMBER, NOT THE PASSED VALUE. An
+    // earlier version of this comment said "a non-function value (the usual
+    // `onClick: () => …`) is event sugar", which cannot be right — an arrow
+    // function IS a function. What decides is whether the element already
+    // HOLDS a function under this key:
+    //
+    //   plain element, or custom element with no such member → event sugar
+    //   custom element already holding a function there      → assignment
+    //
+    // Custom elements only, deliberately: on a plain DOM element `onclick`
+    // and friends are functions too, so testing `typeof existing` there would
+    // hijack every ordinary handler.
+    //
+    // Known sharp edge (tracked in TODO.md): this reads the member off the
+    // INSTANCE, so it depends on the element having been upgraded. A
+    // component delivered by `<tosi-blueprint>` and created before
+    // `customElements.define` runs sees `undefined` here and takes the sugar
+    // branch — so an identical call site can mean two different things
+    // depending on timing.
     const existing = (elt as { [key: string]: any })[key]
     if (
       elt.tagName.includes('-') &&

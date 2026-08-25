@@ -303,11 +303,19 @@ package's own repository (it went stale once across the rename already).
       ships. Verified it fires by setting an impossible budget: exit 1, "the
       published tarball is 3.81 MB unpacked, over its 1 MB budget".
 
-- [ ] `PartsOf<T>` intersects with `PartsMap`, so `this.parts.readuot`
-      typechecks and throws at runtime. Keep the intersection (lazy parts need
-      it) but say so where "the declaration is the type" is sold.
-- [ ] The comment explaining the new `on<Event>` rule contradicts the code
-      below it (`src/elements.ts:596`).
+- [x] **DONE (1.8.x, post-rc.2).** Documented at `PartsOf<T>` itself rather
+      than softening the CHANGELOG line: "the declaration is the type" is
+      ADDITIVE, not exhaustive. The intersection with `PartsMap` is required —
+      parts resolve lazily by `[part]`, so an undeclared part is a legitimate
+      runtime lookup — and the cost is that a typo typechecks as `Element` and
+      throws. What the declaration buys is precision for what you DID declare;
+      the check that closes the set is `exerciseComponent()`.
+- [x] **DONE (1.8.x, post-rc.2).** The comment claimed "a non-function value
+      (the usual `onClick: () => …`) is event sugar", which cannot be right —
+      an arrow function IS a function. Rewritten to say what actually decides
+      (whether the element already HOLDS a function under that key), with the
+      two branches spelled out, why it is custom-elements-only, and the
+      upgrade-timing sharp edge cross-referenced.
 - [ ] **P7 — document the semver deviation.** 1.8.0 removes `data-ref` and
       `<xin-slot>`, de-functions `<xin-blueprint>`/`<xin-loader>`, and flips two
       behaviours with no prior deprecation warning, while CHANGELOG asserts
@@ -315,9 +323,16 @@ package's own repository (it went stale once across the rename already).
       relicense is invisible to semver and §4 imposes a NOTICE-redistribution
       obligation BSD-3 did not — say so, and put the relicense in the release
       notes' **first line**.
-- [ ] Scaffolder templates model `as any` and untyped `content`, and the
-      generated README names `https://localhost:3000` where `bun index.html`
-      serves plain http.
+- [x] **DONE (1.8.x, post-rc.2).** The `--bare` form now annotates
+      `ElementsProxy`, so a new user gets autocomplete inside `content` —
+      where they will spend their first hour. The blueprint form keeps `any`
+      and now says why: its tosijs import is type-only and erases, with
+      `Component` arriving through the hydration factory, so that `any` is
+      structural rather than lazy. Verified by scaffolding both forms and
+      typechecking the bare one under `strict` against the published
+      `tosijs@rc` — exit 0. Also corrected the generated README, which
+      promised `https://localhost:3000` where `bun index.html` serves plain
+      http on a port it prints.
 - [ ] Freeze the declared-test step DSL's verbs, document that dev-time
       behaviour belongs in real tests, and consider making the scaffolded
       `tests:` block opt-in — it is a second, weaker test vocabulary that the

@@ -77,10 +77,19 @@ function contractSource(tag: string): string {
 } as const satisfies ComponentMap`
 }
 
-function componentBody(): string {
+/**
+ * `elementsType` is the annotation for the destructured elements proxy.
+ *
+ * The BARE form imports `Component` for real, so it can name `ElementsProxy`
+ * and a new user gets autocomplete inside `content` — which is where they will
+ * spend their first hour. The BLUEPRINT form cannot: its whole point is that
+ * the tosijs import is type-only and erases, with `Component` arriving through
+ * the hydration factory, so `any` there is structural rather than lazy.
+ */
+function componentBody(elementsType = 'any'): string {
   return `    value = 0
 
-    content = ({ span, button }: any) => [
+    content = ({ span, button }: ${elementsType}) => [
       span({ part: 'readout' }),
       button(
         {
@@ -147,7 +156,7 @@ function bareFormSource(tag: string): string {
  * (Prefer the blueprint form unless you have a reason: blueprints are
  * consumable directly from markup with no build step on the consumer side.)
  */
-import { Component, type ComponentMap } from 'tosijs'
+import { Component, type ComponentMap, type ElementsProxy } from 'tosijs'
 
 ${contractSource(tag)}
 
@@ -155,7 +164,7 @@ export class ${cls} extends Component<typeof contract> {
   static preferredTagName = '${tag}'
   static contract = contract
 
-${componentBody()}
+${componentBody('ElementsProxy')}
 }
 
 export const ${camel(tag)} = ${cls}.elementCreator()
@@ -343,7 +352,7 @@ enableAgentInterface({
 Scaffolded by \`bunx tosijs create app\`.
 
     bun install
-    bun start          # bun's dev server, hot reload, https://localhost:3000
+    bun start          # bun serves index.html and prints the URL (plain http)
 
 Open the console: \`tosiAgent.describe()\` is your app's live map — state,
 wiring, actions. The scaffolded component carries a contract, so it
