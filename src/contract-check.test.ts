@@ -135,3 +135,78 @@ describe('setContractValidator — the plug is a security boundary (SEC-13)', ()
     expect(contractViolation(3, { type: 'number', minimum: 10 })).toBe(null)
   })
 })
+
+// The fail-open warning and the `const` branch had no coverage — and the
+// reported coverage number for this module is structurally misleading, so
+// nobody would have noticed from the figure. Each test below takes a FRESH
+// module instance (`?case=N`), because both the validator and the warning
+// latch are module-global; that idiom means the coverage tool attributes hits
+// to N different modules and reports each as barely exercised.
+describe('the fail-open warning: a contract must never quietly mean less', () => {
+  test('warns once, naming the keywords the built-in checker ignores', async () => {
+    const { contractViolation } = await freshModule()
+    const warnings = await captureWarnings(() => {
+      contractViolation(5, { type: 'number', minimum: 1, maximum: 10 })
+    })
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain('minimum')
+    expect(warnings[0]).toContain('maximum')
+    expect(warnings[0]).toContain('setContractValidator')
+  })
+
+  test('the latch is per KEYWORD SET, not per call or per schema', async () => {
+    const { contractViolation } = await freshModule()
+    const first = await captureWarnings(() => {
+      contractViolation(5, { type: 'number', minimum: 1 })
+      contractViolation(9, { type: 'number', minimum: 3 }) // same keyword set
+    })
+    expect(first.length).toBe(1)
+    // a DIFFERENT unenforceable keyword is a different set, and speaks again
+    const second = await captureWarnings(() => {
+      contractViolation('x', { type: 'string', pattern: '^a' })
+    })
+    expect(second.length).toBe(1)
+    expect(second[0]).toContain('pattern')
+  })
+
+  test('silent once a real engine is installed — it is no longer failing open', async () => {
+    const { contractViolation, setContractValidator } = await freshModule()
+    setContractValidator(() => true)
+    const warnings = await captureWarnings(() => {
+      contractViolation(5, { type: 'number', minimum: 1, maximum: 10 })
+    })
+    expect(warnings).toEqual([])
+  })
+
+  test('a fully-enforceable schema never warns', async () => {
+    const { contractViolation } = await freshModule()
+    const warnings = await captureWarnings(() => {
+      contractViolation('b', { type: 'string', enum: ['a', 'b'] })
+    })
+    expect(warnings).toEqual([])
+  })
+})
+
+describe('the built-in subset: type, enum, const', () => {
+  test('const is enforced, and reports what it expected', async () => {
+    const { contractViolation } = await freshModule()
+    expect(contractViolation(1, { const: 1 })).toBeNull()
+    const err = contractViolation(2, { const: 1 })
+    expect(err).toContain('const')
+    expect(err).toContain('1')
+  })
+
+  test('enum is enforced', async () => {
+    const { contractViolation } = await freshModule()
+    expect(contractViolation('a', { enum: ['a', 'b'] })).toBeNull()
+    // the message names the ALLOWED set, not the offending value — worth
+    // pinning, since a caller shows this to a user or an agent
+    expect(contractViolation('z', { enum: ['a', 'b'] })).toContain('one of')
+  })
+
+  test('type is enforced', async () => {
+    const { contractViolation } = await freshModule()
+    expect(contractViolation(1, { type: 'number' })).toBeNull()
+    expect(contractViolation('1', { type: 'number' })).toContain('number')
+  })
+})
