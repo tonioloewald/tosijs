@@ -62,7 +62,6 @@ import {
   elementToHandlers,
   elementContract,
   anyInlineContracts,
-  bindingGeneration,
   tosiValue,
   tosiPath,
 } from './metadata'
@@ -659,16 +658,36 @@ const SECRET_CONTROL_SELECTOR = [
   ),
 ].join(',')
 
-let secretScanGeneration = -1
-
+/**
+ * NO CACHE HERE. THIS SCAN RUNS EVERY TIME, ON PURPOSE.
+ *
+ * A binding-generation cache was added, measured at ~24% per read, and
+ * REVERTED — it was a security regression, and the way it failed is the
+ * argument for never trying again without a very different invalidation story.
+ *
+ * The generation was bumped from three call sites, two of which sat inside
+ * `if (dataBindings == null)` — so only an element's FIRST binding bumped.
+ * That produced five reachable leaks, each returning cleartext from `read()`
+ * where rc.1 returned the sentinel:
+ *
+ *   1. `type` flipped to `password` after a read (a show/hide toggle)
+ *   2. `data-tosi-secret` added later — the author's EXPLICIT opt-in
+ *   3. `autocomplete="cc-…"` set when a payment method is chosen
+ *   4. a second `bind()` on an already-mounted element — PERMANENT, since no
+ *      DOM mutation follows to rescue it
+ *   5. same-task append after a detached bind, and `cloneWithBindings()`
+ *
+ * Three of those are ATTRIBUTE changes on an element that never re-binds, so
+ * no binding-shaped signal can see them at all; correctness would need a
+ * MutationObserver on `type`/`autocomplete`/`data-tosi-secret` plus bumps at
+ * every binding mutation — at which point the 24% is gone anyway.
+ *
+ * The selector is deliberately narrow (only controls that CAN be secret), so
+ * the uncached scan is cheap. Spending 1.3µs a read to keep a redaction
+ * guarantee is not a trade worth revisiting.
+ */
 const refreshSecretPaths = (): void => {
   if (typeof document === 'undefined') return
-  // nothing has bound or been inserted since the last scan, so a rescan would
-  // re-learn exactly the same facts. `read()` calls this every time — a
-  // 200-path drain used to mean 200 identical document queries.
-  const generation = bindingGeneration()
-  if (generation === secretScanGeneration) return
-  secretScanGeneration = generation
   let candidates: Element[]
   try {
     // Array.from, not for-of: the lib target types NodeListOf without

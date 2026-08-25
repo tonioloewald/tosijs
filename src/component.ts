@@ -668,6 +668,22 @@ const bindingViolationWarned = new Set<string>()
 // from enforcing (see initValue)
 const inertContractWarned = new Set<string>()
 
+/**
+ * The marker `Component.computed()` returns, and the guard against wrapping a
+ * setter twice (a subclass would otherwise double-queue every render).
+ */
+const COMPUTED_ATTRIBUTE = Symbol('tosi-computed-attribute')
+const wrappedComputedSetters = new WeakSet<(value: any) => void>()
+
+export interface ComputedAttribute {
+  [COMPUTED_ATTRIBUTE]: true
+  /** '' or false — records whether markup delivers a string or presence */
+  shape: string | boolean
+}
+
+const isComputedAttribute = (v: any): v is ComputedAttribute =>
+  v != null && typeof v === 'object' && v[COMPUTED_ATTRIBUTE] === true
+
 // per element, the violation reasons already announced on the `contractviolation`
 // channel. WeakMap so a removed element takes its history with it — a
 // long-lived page that mounts and discards many components must not accumulate
@@ -1011,6 +1027,31 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       )
     }
     return this.initAttributes
+  }
+
+  /**
+   * Declare an attribute the class computes itself.
+   *
+   *     static initAttributes = {
+   *       fullName: Component.computed(''),      // markup delivers a string
+   *       collapsed: Component.computed(false),  // presence = true
+   *     }
+   *     get fullName() { return `${this.first} ${this.last}` }
+   *     set fullName(v: string) { … }            // MUST tolerate a string
+   *
+   * The class owns the value; tosijs owns the attribute-ness. Your setter is
+   * wrapped so a change always re-renders — you never call `queueRender()`
+   * yourself — and the name lands in `observedAttributes`, so markup changes
+   * re-render too.
+   *
+   * The argument is a SHAPE, not a default: `''` for string-valued, `false`
+   * for presence-valued. There is no number shape, because markup has no
+   * numbers — take the string and parse it in your setter.
+   *
+   * A getter with no setter is legal, and means a read-only derived attribute.
+   */
+  static computed(shape: string | boolean = ''): ComputedAttribute {
+    return { [COMPUTED_ATTRIBUTE]: true, shape }
   }
 
   static get observedAttributes(): string[] {
@@ -1571,6 +1612,71 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * type-contradicting write reads back as written (tosijs#24) */
   private _attrTypedOverride?: Map<string, { reflected: string; value: any }>
 
+  /**
+   * Wire a computed attribute: the class owns `get`/`set`, we own the promise
+   * that it behaves like an attribute.
+   *
+   * An attribute has two defining qualities, and neither is reflection:
+   *
+   * 1. **It re-renders when it changes after initialization.** If that is
+   *    definitional then it has to be GUARANTEED, not documented — an author
+   *    who forgets `this.queueRender()` in their setter has not written a
+   *    slightly-broken attribute, they have written something that is not one.
+   *    So the setter is wrapped rather than trusted. Changes arriving from
+   *    MARKUP are already covered: `observedAttributes` derives from
+   *    `initAttributes` keys, so `attributeChangedCallback` fires for these
+   *    too.
+   * 2. **It accepts a string (or boolean presence).** Markup can only deliver
+   *    those, and `<el full-name>` delivers the EMPTY string specifically —
+   *    the case a naive `split(' ')` setter gets wrong. The declared `shape`
+   *    records which of the two this is, for `describe()` and the contract.
+   *
+   * A getter with no setter is legal and means a read-only derived attribute:
+   * quality 1 still holds via `attributeChangedCallback`, and quality 2 is
+   * vacuous because nothing can set it.
+   */
+  private _installComputedAttribute(attrName: string, shape: unknown): void {
+    let proto: object | null = Object.getPrototypeOf(this)
+    let descriptor: PropertyDescriptor | undefined
+    while (proto != null && descriptor === undefined) {
+      descriptor = Object.getOwnPropertyDescriptor(proto, attrName)
+      if (descriptor === undefined) proto = Object.getPrototypeOf(proto)
+    }
+    if (descriptor?.get == null) {
+      throw new Error(
+        `${this.tagName}: initAttributes.${attrName} is Component.computed(), ` +
+          `which declares that this class implements the attribute itself — ` +
+          `but no \`get ${attrName}()\` was found on the prototype chain. ` +
+          `Define get/set for it, or give the attribute an ordinary default ` +
+          `value instead.`
+      )
+    }
+    this._computedAttrShapes ??= new Map()
+    this._computedAttrShapes.set(attrName, typeof shape)
+
+    // read-only derived attribute: nothing to wrap
+    if (descriptor.set == null || proto == null) return
+    // WRAP ONCE PER CLASS, not per instance. Without the guard a subclass
+    // re-wraps its parent's already-wrapped setter and every assignment queues
+    // two renders — the same hazard DRAIN_WRAPPED exists for on connectedCallback.
+    if (wrappedComputedSetters.has(descriptor.set)) return
+    const authorSet = descriptor.set
+    const wrapped = function (this: Component, value: any): void {
+      authorSet.call(this, value)
+      this.queueRender(true)
+    }
+    wrappedComputedSetters.add(wrapped)
+    Object.defineProperty(proto, attrName, {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get: descriptor.get,
+      set: wrapped,
+    })
+  }
+
+  /** computed attribute name → declared shape ('string' | 'boolean') */
+  private _computedAttrShapes?: Map<string, string>
+
   private _setupAttributeAccessors(initAttrs: Record<string, any>): void {
     if (!this._attrValues) {
       this._attrValues = new Map()
@@ -1588,6 +1694,15 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         console.warn(
           `${this.tagName}: 'value' cannot be an attribute. Use the Component value property instead.`
         )
+        continue
+      }
+
+      // A COMPUTED attribute: the class implements get/set itself, and this
+      // declaration exists to make it a real attribute rather than a property
+      // that happens to be named like one. Checked before the object guard
+      // below, because the marker IS an object.
+      if (isComputedAttribute(defaultValue)) {
+        this._installComputedAttribute(attrName, defaultValue.shape)
         continue
       }
 

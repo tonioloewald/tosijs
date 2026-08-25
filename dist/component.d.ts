@@ -5,6 +5,16 @@ import { ElementCreator, ContentType, PartsMap } from './xin-types';
 import { setContractValidator } from './contract-check';
 import type { ComponentMap } from './agent';
 export { setContractValidator };
+/**
+ * The marker `Component.computed()` returns, and the guard against wrapping a
+ * setter twice (a subclass would otherwise double-queue every render).
+ */
+declare const COMPUTED_ATTRIBUTE: unique symbol;
+export interface ComputedAttribute {
+    [COMPUTED_ATTRIBUTE]: true;
+    /** '' or false — records whether markup delivers a string or presence */
+    shape: string | boolean;
+}
 /** tag-name literal → element type, for parts declared in a component contract */
 type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[T] : Element;
 /**
@@ -16,6 +26,19 @@ type TagToElement<T> = T extends keyof HTMLElementTagNameMap ? HTMLElementTagNam
  *   literal) — parts derive from `contract.parts` tag names, so THE
  *   DECLARATION IS THE TYPE, and the same declaration feeds describe(),
  *   exerciseComponent(), and this.parts typing.
+ *
+ * **"The declaration is the type" is ADDITIVE, not exhaustive** — worth
+ * stating because the phrase oversells it. The derived shape is intersected
+ * with `PartsMap` (`Record<string, Element>`), which it has to be: parts
+ * resolve lazily by `[part]` attribute, so an undeclared part is a legitimate
+ * runtime lookup, not an error. The cost is that a TYPO also typechecks —
+ * `this.parts.readuot` is `Element` to tsc and throws when nothing matches.
+ *
+ * So the declaration buys you precise types for what you DID declare
+ * (`this.parts.readout` is `HTMLSpanElement`, not `Element`); it does not
+ * close the set. If you want the closed behaviour, the check that catches it
+ * is `exerciseComponent()`, which verifies every declared part resolves and
+ * matches its declared tag at runtime.
  */
 export type PartsOf<T> = T extends {
     parts: infer P extends Record<string, string>;
@@ -60,6 +83,28 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * - no contract involvement → classic initAttributes, unchanged.
      */
     static _resolveInitAttributes(): Record<string, any> | undefined;
+    /**
+     * Declare an attribute the class computes itself.
+     *
+     *     static initAttributes = {
+     *       fullName: Component.computed(''),      // markup delivers a string
+     *       collapsed: Component.computed(false),  // presence = true
+     *     }
+     *     get fullName() { return `${this.first} ${this.last}` }
+     *     set fullName(v: string) { … }            // MUST tolerate a string
+     *
+     * The class owns the value; tosijs owns the attribute-ness. Your setter is
+     * wrapped so a change always re-renders — you never call `queueRender()`
+     * yourself — and the name lands in `observedAttributes`, so markup changes
+     * re-render too.
+     *
+     * The argument is a SHAPE, not a default: `''` for string-valued, `false`
+     * for presence-valued. There is no number shape, because markup has no
+     * numbers — take the string and parse it in your setter.
+     *
+     * A getter with no setter is legal, and means a read-only derived attribute.
+     */
+    static computed(shape?: string | boolean): ComputedAttribute;
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;
@@ -102,6 +147,32 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     /** attrName → the typed value written and the string it reflected as, so a
      * type-contradicting write reads back as written (tosijs#24) */
     private _attrTypedOverride?;
+    /**
+     * Wire a computed attribute: the class owns `get`/`set`, we own the promise
+     * that it behaves like an attribute.
+     *
+     * An attribute has two defining qualities, and neither is reflection:
+     *
+     * 1. **It re-renders when it changes after initialization.** If that is
+     *    definitional then it has to be GUARANTEED, not documented — an author
+     *    who forgets `this.queueRender()` in their setter has not written a
+     *    slightly-broken attribute, they have written something that is not one.
+     *    So the setter is wrapped rather than trusted. Changes arriving from
+     *    MARKUP are already covered: `observedAttributes` derives from
+     *    `initAttributes` keys, so `attributeChangedCallback` fires for these
+     *    too.
+     * 2. **It accepts a string (or boolean presence).** Markup can only deliver
+     *    those, and `<el full-name>` delivers the EMPTY string specifically —
+     *    the case a naive `split(' ')` setter gets wrong. The declared `shape`
+     *    records which of the two this is, for `describe()` and the contract.
+     *
+     * A getter with no setter is legal and means a read-only derived attribute:
+     * quality 1 still holds via `attributeChangedCallback`, and quality 2 is
+     * vacuous because nothing can set it.
+     */
+    private _installComputedAttribute;
+    /** computed attribute name → declared shape ('string' | 'boolean') */
+    private _computedAttrShapes?;
     private _setupAttributeAccessors;
     private _installAttrAccessor;
     private _recoverShadowedAttrAccessors;

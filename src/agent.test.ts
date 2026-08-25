@@ -1497,45 +1497,95 @@ describe('inline-contract lookup does not scan when nobody declared one', () => 
 // is a performance optimisation sitting in a SECURITY path: a missed bump is
 // an under-redaction. Measured win is modest (~24% per read on a 2000-element
 // page under happy-dom), so the caching only earns its keep if these hold.
-describe('cached secret scanning cannot miss a late-bound secret', () => {
-  test('a secret bound AFTER an earlier read is still redacted', async () => {
-    tosi({ lateSecret: { pw: 'hunter2' } })
+describe('secret redaction survives every way a control BECOMES secret', () => {
+  // These five are the reproductions from the round-4 review, which BLOCKED
+  // the release on a cache I added and defended. The cache keyed off a
+  // binding-generation counter; three of these five are ATTRIBUTE changes on
+  // an element that never re-binds, so no binding-shaped signal can see them
+  // at all. Each asserts read() ALONE — no intervening describe(), no await
+  // to step around a synchronous window, which is how the original two guard
+  // tests missed it.
+  const mountBound = async (path: string, props: any = {}) => {
+    const el = elements.input(props)
+    document.body.append(el)
+    bind(el, path, bindings.value)
     await updates()
+    return el
+  }
+
+  test('type flipped to password AFTER an earlier read', async () => {
+    tosi({ becomeSecret1: { pw: 'hunter2' } })
+    await updates()
+    const el = await mountBound('becomeSecret1.pw', { type: 'text' })
     const agent = (current = enableAgentInterface({
       global: false,
       expose: 'all',
     }))
-    // this read caches a scan taken when nothing was secret
-    expect(agent.read('lateSecret.pw')).toBe('hunter2')
-
-    const pw = elements.input({ type: 'password' })
-    document.body.append(pw)
-    bind(pw, 'lateSecret.pw', bindings.value)
-    await updates()
-
-    // binding registration must invalidate that cache
-    expect(agent.read('lateSecret.pw')).toBe(SECRET_SENTINEL_TEXT)
-    pw.remove()
+    expect(agent.read('becomeSecret1.pw')).toBe('hunter2') // not secret yet
+    el.setAttribute('type', 'password')
+    ;(el as any).type = 'password'
+    expect(agent.read('becomeSecret1.pw')).toBe(SECRET_SENTINEL_TEXT)
+    el.remove()
   })
 
-  test('a secret bound while DETACHED and inserted later is redacted', async () => {
-    tosi({ detachedSecret: { pin: '4821' } })
+  test("data-tosi-secret added later — the author's explicit opt-in", async () => {
+    tosi({ becomeSecret2: { pw: 'hunter2' } })
+    await updates()
+    const el = await mountBound('becomeSecret2.pw')
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    agent.read('becomeSecret2.pw')
+    el.setAttribute('data-tosi-secret', '')
+    expect(agent.read('becomeSecret2.pw')).toBe(SECRET_SENTINEL_TEXT)
+    el.remove()
+  })
+
+  test('autocomplete becomes cc-* when a payment method is chosen', async () => {
+    tosi({ becomeSecret3: { card: '4111111111111111' } })
+    await updates()
+    const el = await mountBound('becomeSecret3.card')
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    agent.read('becomeSecret3.card')
+    el.setAttribute('autocomplete', 'cc-number')
+    expect(agent.read('becomeSecret3.card')).toBe(SECRET_SENTINEL_TEXT)
+    el.remove()
+  })
+
+  test('a SECOND binding on an already-mounted element (was permanent)', async () => {
+    tosi({ becomeSecret4: { user: 'ada', pw: 'hunter2' } })
+    await updates()
+    const el = await mountBound('becomeSecret4.user', { type: 'password' })
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    agent.read('becomeSecret4.pw')
+    // no DOM mutation follows this, so nothing would ever rescue a stale cache
+    bind(el, 'becomeSecret4.pw', bindings.value)
+    await updates()
+    expect(agent.read('becomeSecret4.pw')).toBe(SECRET_SENTINEL_TEXT)
+    el.remove()
+  })
+
+  test('same-task append after a detached bind — NO await', async () => {
+    tosi({ becomeSecret5: { pw: 'hunter2' } })
+    await updates()
+    const el = elements.input({ type: 'password' })
+    bind(el, 'becomeSecret5.pw', bindings.value)
     await updates()
     const agent = (current = enableAgentInterface({
       global: false,
       expose: 'all',
     }))
-    expect(agent.read('detachedSecret.pin')).toBe('4821')
-
-    // bound off-document, so the scan at bind time cannot see it — only the
-    // insertion makes it findable, which is the case a naive dirty flag misses
-    const pw = elements.input({ type: 'password' })
-    bind(pw, 'detachedSecret.pin', bindings.value)
-    await updates()
-    document.body.append(pw)
-    await new Promise((resolve) => setTimeout(resolve, 30))
-
-    expect(agent.read('detachedSecret.pin')).toBe(SECRET_SENTINEL_TEXT)
-    pw.remove()
+    agent.read('becomeSecret5.pw')
+    document.body.append(el)
+    // deliberately no await: a MutationObserver-based signal has not fired yet
+    expect(agent.read('becomeSecret5.pw')).toBe(SECRET_SENTINEL_TEXT)
+    el.remove()
   })
 })

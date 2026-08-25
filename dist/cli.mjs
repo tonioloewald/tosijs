@@ -52,10 +52,10 @@ function contractSource(tag) {
   ],
 } as const satisfies ComponentMap`;
 }
-function componentBody() {
+function componentBody(elementsType = "any") {
   return `    value = 0
 
-    content = ({ span, button }: any) => [
+    content = ({ span, button }: ${elementsType}) => [
       span({ part: 'readout' }),
       button(
         {
@@ -120,7 +120,7 @@ function bareFormSource(tag) {
  * (Prefer the blueprint form unless you have a reason: blueprints are
  * consumable directly from markup with no build step on the consumer side.)
  */
-import { Component, type ComponentMap } from 'tosijs'
+import { Component, type ComponentMap, type ElementsProxy } from 'tosijs'
 
 ${contractSource(tag)}
 
@@ -128,7 +128,7 @@ export class ${cls} extends Component<typeof contract> {
   static preferredTagName = '${tag}'
   static contract = contract
 
-${componentBody()}
+${componentBody("ElementsProxy")}
 }
 
 export const ${camel(tag)} = ${cls}.elementCreator()
@@ -289,7 +289,7 @@ enableAgentInterface({
 Scaffolded by \`bunx tosijs create app\`.
 
     bun install
-    bun start          # bun's dev server, hot reload, https://localhost:3000
+    bun start          # bun serves index.html and prints the URL (plain http)
 
 Open the console: \`tosiAgent.describe()\` is your app's live map — state,
 wiring, actions. The scaffolded component carries a contract, so it
