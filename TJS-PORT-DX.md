@@ -335,6 +335,34 @@ regardless of what the target is, so honest `instanceof` buys TJS `Eq` correctne
       same underlying reason: **it turns control flow into data.** That is the `path`
       substrate argument again, one level up.
 
+- [ ] **…but do NOT teach it as an absolute — `switch` keeps three real advantages.**
+      Measured, best-of-9 over 200k dispatches, ratios only (microbenchmark, Node not a
+      browser, ~5–10% run-to-run variance, and it times *only* dispatch):
+
+      | | vs `switch` |
+      | --- | --- |
+      | `switch` | 1.00x |
+      | table of **values** (no call) | ~1.5x |
+      | table of **functions** + call | ~2.0x |
+
+      The call is only about **a third** of the penalty — the lookup is the bigger share,
+      so storing values instead of functions does not escape it. Note the ratio is
+      meaningless unless dispatch *is* the work: 2x on something that is 1% of a loop body
+      is nothing, and it only bites in a tight loop doing trivial per-item work.
+
+      The other two: **deliberate fallthrough has no table equivalent** (though ESLint's
+      `no-fallthrough` is on by default and requires an explicit comment, so the ecosystem
+      already treats it as exceptional); and **multiple keys sharing one handler** is
+      terser in a `switch`, though the table form is shared references rather than
+      duplicated code, greppable at each key, and generatable —
+      `Object.fromEntries(['a','b','c'].map(k => [k, fn]))`.
+
+      **The rule to document, and the two concerns align rather than conflict:** table
+      dispatch by default; `switch` on an explicit `.value` when dispatch is genuinely the
+      hot path or you need fallthrough. In a hot loop you would reach for `.value` anyway
+      to avoid per-iteration proxy overhead — and `.value` is also the form that makes
+      `switch` match correctly. The fast answer and the correct answer are the same answer.
+
 ## Takeaway so far
 
 **The bar is VALUE, not parity.** 2.0 ships pure TJS — that's settled, so "is TJS
