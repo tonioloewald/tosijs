@@ -135,6 +135,81 @@ The real consumers are tosijs-3d and manta-recon, where the data is numerical an
 the payoff is genuine; keep the justifications separate so neither project
 inherits the other's.
 
+## The one that changes the verdict: type checks that RECORD instead of throw
+
+*(Maintainer's design, 2026-08-26. Recorded here because it dissolves a blocker this
+log has carried since July, and because it survives the cost objection that sank
+everything else.)*
+
+**The idea.** Put type checking in the proxy setter. It does not need to throw — it
+writes the violation to a **flight recorder**. Now you can travel back to where state
+got corrupted. And if you do not want to pay the `__tjs` tax in production, you do not
+have to: build `tosijs/debug`, run it in staging, and get a debugging capability that
+does not exist in the TypeScript world at all.
+
+**Why this is not another feature request: every piece already exists, unconnected.**
+
+| piece | where it already is |
+| --- | --- |
+| interception of *every* state write | `xin.ts` set trap — it is how the library works |
+| type-drift check on write | archived `settings.strictness` (`off`/`warn`/`throw`) |
+| declared per-path types | 1.8.0 contracts (JSON-Schema-shaped) |
+| **the flight recorder itself** | **tjs-lang, shipped** — `record()` / `records(filter?)`, and its `source` taxonomy already includes **`app`** |
+| a debug-only distribution channel | `tosijs/debug`, already published, already carries `__tjs` |
+| a per-touch ledger | `agent.ts` |
+
+Nobody has joined them up.
+
+**It dissolves the blocker that stalled `settings.strictness`.** That work stopped at a
+monadic mode because "the Proxy `set` trap cannot be the channel — its return is coerced
+to boolean, so a returned error reads as *success*", and a TJS assignment transform does
+not exist. **Recording needs no return channel.** The third mode is `'record'`, and it is
+strictly easier than the two already built. The design was stuck on how to *report*
+outward when it should have been writing sideways.
+
+**Two tiers, and the free one matters most.**
+
+1. **Type drift — no declarations, no schemas, no author effort.** "This path held a
+   number and now holds a string." That is what `settings.strictness` already computes,
+   from the value alone. It catches the classic corruption with zero adoption cost.
+2. **Contract validation per path** — richer, needs declarations, uses what 1.8.0 ships.
+
+Tier 1 working without anyone authoring anything is the difference between a feature and
+a product.
+
+**Why TypeScript cannot do this, precisely.** Not "would be hard" — structurally cannot.
+TS types are erased, so there is nothing at runtime to check against; and there is no
+universal write interception, so even hand-written validators (zod et al.) sit at
+*boundaries*, not at every mutation. Redux DevTools is the closest existing thing and it
+time-travels over **actions**, which requires the app to be written in actions. Here the
+proxy sees every write anyway. **The two ingredients are runtime types and a universal
+write choke point, and TJS + tosijs are one of the few stacks that has both.**
+
+**The observant model makes replay cheaper, not harder.** Unlike a vdom, replaying a write
+just re-runs the binding — the DOM updates in place, no reconciliation, no re-render. Time
+travel is *structurally* cheaper here than in `f(state)` frameworks. This is the exact
+inverse of the React disposal problem: React's value is that you never record what
+changes, so it cannot tell you; tosijs records it to work at all, so it can.
+
+**Honest engineering caveats, so the next person does not discover them:**
+
+- **Time travel needs prior values**, so the recorder stores old-value per write. Bounded
+  ring buffer; fine for staging, and a real memory decision, not free.
+- **Replay re-fires observers**, and observers do effectful things (fetch, sync, DOM
+  events). Redux has the same problem. Either suppress effectful observers during replay
+  or be honest that it is a **state** time machine, not an **app** time machine. Do not
+  ship it claiming the latter.
+- **Recording every write is not free even in debug**, and the write path is the hot path
+  for data arrival. Needs the same ratio-not-wall-clock discipline as everything else here.
+
+**What it does to the port verdict, stated plainly, because this log had reached the
+opposite conclusion.** The cost case against porting was ~1 kB gzipped per production
+bundle for introspection nobody consumed. This feature **does not need production bytes**:
+it lives in a debug build that already exists as a separate export, that consumers who
+never import it do not pay for. So the strongest argument against was an argument about
+production size, and the strongest argument *for* turns out not to involve production at
+all. That is not a tie-break — it is a different question than the one being asked.
+
 ## Takeaway so far
 
 **The bar is VALUE, not parity.** 2.0 ships pure TJS — that's settled, so "is TJS
