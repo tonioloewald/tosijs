@@ -202,6 +202,45 @@ changes, so it cannot tell you; tosijs records it to work at all, so it can.
 - **Recording every write is not free even in debug**, and the write path is the hot path
   for data arrival. Needs the same ratio-not-wall-clock discipline as everything else here.
 
+### And the strictness should be PER-CHANNEL, not global — strict for agents, lenient for the GUI
+
+*(Maintainer's, same session.)* You can enforce types hard on the agent surface while
+staying advisory on the GUI, **basically for free**, because `agent.write()` is a
+different call site from a binding's `fromDOM`. A per-channel policy costs the hot path
+nothing — it is a disposition at one seam, not a check in the write trap.
+
+And it is not merely cheap, it is *right*, because the two channels differ in every way
+that should govern enforcement:
+
+| | GUI write | agent write |
+| --- | --- | --- |
+| who is acting | a human, mid-task | a program, acting on a description |
+| what a refusal costs | breaks the app under someone's hands | a structured error the caller can act on |
+| what silence costs | the human sees the wrong thing and says so | state is silently corrupted, blamed on a human later |
+| trust level | the app's own UI | **the untrusted channel** — the entire premise of 1.8.0's posture ladder |
+
+So: **record on the GUI, refuse for agents.** The channel a human is watching gets the
+flight recorder; the channel nobody is watching gets the wall.
+
+**This completes something 1.8.0 left half-built.** Contracts declare "what is legal," and
+the built-in checker understands only `type`/`enum`/`const` — `properties` and `required`
+are inert unless you register a full schema engine. So today a contract is advisory
+*everywhere*. Making it binding **on the agent channel only** gives contracts teeth exactly
+where they matter, without demanding that every app adopt a schema engine to keep its own
+UI working. The manifest already scopes sight, and `write: true` already scopes reach;
+this scopes *validity*, with the same shape.
+
+The generalisation worth keeping: **enforcement strictness should track the trust level of
+the channel, not be a global setting.** `settings.strictness` being one global knob is the
+design flaw — a single value cannot be right for both a human's keystroke and a model's
+tool call.
+
+One requirement, or the refusal is useless: it must cite the **declared** type and the
+received value, so the caller can correct itself. Which is the `describe()`/`__tjs`
+connection arriving from the other direction — a refusal that says "expected `number`,
+got `\"12\"`" is only possible if the surface knows what it declared, and that is the
+same metadata the derived-contracts idea wants.
+
 **What it does to the port verdict, stated plainly, because this log had reached the
 opposite conclusion.** The cost case against porting was ~1 kB gzipped per production
 bundle for introspection nobody consumed. This feature **does not need production bytes**:
