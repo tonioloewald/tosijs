@@ -80,21 +80,14 @@ export default defineSiteConfig({
   ],
   staticDirs: ['demo/static'],
 
-  // the dev watcher only covers README.md/src/demo/icons by default — root
-  // markdown docs need listing explicitly or edits never trigger rebuilds
-  watchPaths: [
-    'Building-Apps.md',
-    'Migration.md',
-    'React.md',
-    'Angular.md',
-    'one-user-interface.md',
-    'derived-surface.md',
-    'agent-surface.md',
-    'trust-and-transports.md',
-    'headless-embodiment.md',
-    'plan-and-prior-art.md',
-  ],
-
+  // NO `watchPaths` HERE ON PURPOSE. It used to duplicate every root-markdown
+  // entry of `docPaths` above, because the dev watcher covered only
+  // README.md/src/demo/icons and a root doc edit therefore never rebuilt.
+  // tosijs-ui 1.12.0's `resolveWatchPaths()` folds `docPaths` in and dedupes by
+  // resolved path (tosijs-ui#49), so the duplicate list is now redundant — and a
+  // redundant list is worse than none: it is a second place to forget when a doc
+  // is added. `watchPaths` remains the additive override for anything NOT in
+  // `docPaths`.
   // dev-only: let the in-browser "edit page source" / live-example "Save to
   // source" read+write the actual repo files via /__docstore/source. Off by
   // default, which makes edit-source fall back to GitHub raw (the last COMMITTED

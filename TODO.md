@@ -63,17 +63,44 @@ package's own repository (it went stale once across the rename already).
 
 **Needs a decision from the maintainer before the rc publishes:**
 
-- [ ] **E1 — REOPENED (round-4 M6): the decision rested on a false fact.** It
-      was recorded that `tosijs-ui@1.10.0` was unadoptable because it peers
-      `tjs-lang ^0.12.0`. Every published 1.9.x declares the same peer,
-      including the 1.9.4 we install — verified against the registry. So the
-      bump was never blocked, and the `watchPaths` duplication (the tosijs-ui#49
-      workaround, **#49 now closed upstream** along with #51/#70/#71/#72) has
-      been paid for nothing.
-      Do it as one move after 1.8.0 ships: bump tosijs-ui, delete the
-      duplicated `watchPaths` block, re-run the lanes. Deferred now only
-      because it is a build-host change mid-release — which is a reason to
-      wait, not a reason to call it decided.
+- [x] **E1 — DONE 2026-08-26, but it split in two.** The "one move" was
+      tosijs-ui + tjs-lang + delete-the-`watchPaths`-duplication. Two of the
+      three landed; the language bump did not, and the reason is a real bug
+      rather than the false peer-range story this entry used to carry.
+      - ✅ **tosijs-ui 1.9.4 → 1.12.0** (not 1.10.0 — three minors shipped
+        while 1.8.0 was in flight) and the 10-entry `watchPaths` array is
+        **deleted**. tosijs-ui#49 is genuinely fixed: `resolveWatchPaths()`
+        folds `docPaths` in and dedupes by resolved path. Build + 898 unit
+        tests + Playwright lane green, and **`dist/` is byte-identical to
+        committed 1.8.0**, so the new build host changes nothing shipped.
+      - 🛑 **tjs-lang 0.10.1 → 0.12.0 only.** 0.13.x's `convert` strips `new`
+        from every class declared in the module it is converting, so the output
+        throws `Cannot call a class constructor without |new|` — at *import*
+        time for static-field initialisers. 15 sites across 4 of our modules,
+        including `UnsafePathError`, the prototype-pollution guard. Bisected to
+        0.13.0. Filed: **tjs-lang#37**. Caught by the published-bundle smoke
+        gate, before anything shipped.
+      - The peer story is finally closed: since tosijs-ui 1.11.0, `tjs-lang` is
+        an **optional** peer, so 0.12.0 against `^0.13.1` is a warning and
+        nothing more. The peer range was never the blocker in either direction.
+
+- [ ] **E1a — take tjs-lang 0.13.x once #37 is fixed**, and re-read #33/#35
+      (`asCompared`) at the same time. Until then `tjs convert` cannot round-trip
+      our own classes, so the debug/safe bundles must be built on 0.12.0.
+
+- [ ] **File the `tjs convert` inline-test import failure.** `src/color.ts:
+      0 passed, 8 failed — clamp is not defined` on every version from 0.10.1
+      through 0.13.4: convert's inline signature-test runner does not resolve
+      cross-module imports (`clamp` is in `more-math.ts`). Pre-existing, ignored
+      by the build, never filed — which is why it kept reading as noise during
+      the E1 bump instead of as a known defect.
+
+- [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
+      both default to **8799**, so the two browser lanes cannot run at the same
+      time — a lane running in tosijs-ui made this one fail with
+      `NS_ERROR_CONNECTION_REFUSED`, which looks nothing like a port collision.
+      Workaround is `E2E_PORT=8811 bun run test:browser`. Give the repos
+      distinct defaults, or have the config pick a free port.
 
 - [x] **E2 — MOOT, do not file (2026-08-21 re-survey).** The seam we were about
       to ask for already shipped: `registerTool(tool, { signal })` +

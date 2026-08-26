@@ -264,6 +264,53 @@ bump-tjs-lang + bump-tosijs-ui + delete-the-`watchPaths`-duplication move is
 unblocked — do it as ONE change, and re-read issue #33 first, since it may change
 what the port is worth.
 
+### ⚠️ E1 DONE, BUT SPLIT — `convert` is broken on 0.13.x (2026-08-26)
+
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/37
+
+The one move above turned out to be two, because the halves disagree:
+
+- ✅ **`tosijs-ui` 1.9.4 → 1.12.0, and the `watchPaths` duplication is deleted.**
+  #49 is genuinely fixed: `resolveWatchPaths()` now folds `docPaths` into the
+  watch set and dedupes by resolved path, so the 10-entry copy was pure
+  redundancy. Build, 898 unit tests and the Playwright lane are all green, and
+  **`dist/` came out byte-identical to committed 1.8.0** — the new build host
+  changes nothing we ship.
+- 🛑 **`tjs-lang` stays at `0.12.0`, NOT 0.13.4.** `tjs convert` on 0.13.x
+  strips `new` from every class declared in the module being converted, so the
+  converted module throws `Cannot call a class constructor without |new|` — at
+  *import* time where the call is a static field initialiser. 15 call sites
+  across 4 of our modules, `UnsafePathError` (the prototype-pollution guard)
+  among them. Bisected to **0.13.0**; 0.12.0 is the last good version. 0.13.4
+  also emits a **syntax error** for `component.ts` (`Try statements must have at
+  least a catch or finally block`), not reduced, possibly the same emitter
+  change.
+
+  Caught by the published-bundle smoke gate, which is the whole reason that gate
+  exists — it failed on `import dist/module.debug.js` before anything shipped.
+
+  0.12.0 satisfies the *old* tosijs-ui peer (`^0.12.0`) and misses the new one
+  (`^0.13.1`), which is fine: since 1.11.0 tosijs-ui declares `tjs-lang` an
+  **optional** peer, so the mismatch is a warning and nothing more. Note this
+  retires the last trace of the false "1.10.0 peers ^0.12.0 so we cannot bump"
+  rationale below — the peer was never the blocker, and now the blocker is a
+  real, reproducible emitter bug instead.
+
+  ⚠️ **And 0.12.0 is npm-deprecated**, so we now install against a deprecation
+  notice. The two constraints contradict: every *non*-deprecated version has
+  the `new` bug, and the only version without it is deprecated and its notice
+  points at a version that has it. The deprecation reason ("tosijs-schema
+  >=1.5.0 breaks the battery atoms' output validation") does not appear to
+  touch us — we use `convert` only — and the evidence is that the full build is
+  green with `tosijs-schema@1.6.0` installed. Recorded on #37; not a position
+  to hold for long.
+
+  **Pre-existing, NOT from this bump:** `tjs convert` reports
+  `src/color.ts: 0 passed, 8 failed — clamp is not defined` because its inline
+  signature-test runner cannot resolve cross-module imports (`clamp` lives in
+  `more-math.ts`). Identical on 0.10.1 and 0.12.0. The build ignores it; it has
+  never been filed.
+
 ### 🛑 HOLD — everything tjs-lang waits for **0.13.0 stable**
 
 **Maintainer decision, 2026-08-21.** tjs-lang is at **0.13.0-rc.1**, and 0.13.0
