@@ -213,6 +213,30 @@ appears missing, check the spec text before the object shape — and never file
 
 ## tjs-lang
 
+### 🔭 Filed 2026-08-26 from the 2.0 branch restart
+
+- **tjs-lang#41 — `/* tjs:convert-to-tjs */` pragma: convert a `.ts` file in
+  place, and `revert-to-ts` to back out.** Maintainer's proposal, filed with the
+  friction as evidence: adopting ONE module today is four steps, three of them
+  mechanical (delete the `.ts`, rewrite every importer to carry the extension,
+  hand-author the `.d.tjs.ts`). Because that is tedious, the tempting shortcut is
+  to hand-write the `.tjs` — which is how we installed an `isInteger` guard on
+  `lerp` and broke a real call from the existing suite. The revert half may
+  matter more than the forward half: it turns converting a file from a
+  commitment into an experiment, which is the premise incremental adoption rests
+  on. Noted there that the directions are NOT symmetric — forward is lossless,
+  backward drops the worked examples and inline tests that are the entire point.
+- **tjs-lang#40 — `convert`'s inline signature-test runner** fails on `color.ts`
+  (unresolved cross-module import) and `component.ts` (malformed `try` in its
+  harness) on every version 0.10.1–0.13.6. Emitted modules are fine; 13 failures
+  printed on every build, exit 0.
+- **tosijs-ui#108 — converting a file to `.tjs` silently deletes its docs page**
+  (and its `llms.txt` entry). The build exits 0 and the internal-link check
+  *passes*, because it verifies links resolve and an ungenerated page is linked
+  from nowhere. Two extension lists, both `.ts`-only.
+
+
+
 ### 📋 FILED — schema islands enforced from inside the proxy (the 2.0 dissolve)
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/27
 The use case behind tosijs 1.8.0's contracts, recorded with its scars: a
