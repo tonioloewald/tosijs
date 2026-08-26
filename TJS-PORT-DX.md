@@ -299,8 +299,41 @@ regardless of what the target is, so honest `instanceof` buys TJS `Eq` correctne
 - [ ] Document that `==` and direct assignment work — and document the `===`/`switch` trap
       in the same breath, because teaching the clean form without the trap is worse than
       teaching neither. Silent `switch` non-matching is the failure mode to name.
-- [ ] Consider whether `switch (String(app.filter))` or a `.is()` helper deserves to be the
-      recommended idiom for TS consumers, since it is the case with no `==` escape.
+- [x] **ANSWERED: the recommended TS idiom is TABLE DISPATCH**, and it needs no helper
+      from us. Property access uses `ToPropertyKey` — it *coerces the key to a string*
+      rather than comparing it — so a lookup table is **proxy-transparent**. Measured on
+      1.8.0:
+
+      ```
+      switch (app.filter)          -> FALLBACK   x
+      app.filter === 'all'         -> FALLBACK   x
+      app.filter == 'all'          -> ALL        ok
+      table[app.filter]            -> ALL        ok   no ceremony
+      table[app.tab]               -> TAB-TWO    ok   numeric key too
+      app.filter in table          -> FOUND      ok
+      new Map(...).get(app.filter) -> FALLBACK   x    <- the trap
+      ```
+
+      **`Map`/`Set` are the trap, and they are the modern-looking choice.** They use
+      SameValueZero, which is identity for objects, so they fail exactly like `switch`.
+      A consumer following current TS style — prefer `Map` over an object literal — picks
+      the one that silently breaks. Document that explicitly; it is not guessable.
+
+- [ ] **The docs should teach table dispatch as the idiom, not as a workaround** — it is
+      better on its own merits, and the equality transparency is a bonus rather than the
+      reason. A table is **data, not control flow**: inspectable, extensible at runtime,
+      mergeable, generatable; open/closed, so a handler is added without editing the
+      dispatcher; no fallthrough or missing-`break` bugs; and `Record<Filter, Handler>`
+      gives TypeScript better exhaustiveness checking than `switch` (which needs the
+      `never` trick).
+
+      **And the part specific to us: a dispatch table is INTROSPECTABLE and a `switch` is
+      opaque.** `describe()` returns `actions: string[]`, and a table of named functions is
+      *literally a map of affordances* — enumerable, and each handler carries its own
+      `__tjs` signature. A `switch` statement can never be described to an agent. So the
+      idiom that dodges the equality gap is the same idiom that is agent-legible, for the
+      same underlying reason: **it turns control flow into data.** That is the `path`
+      substrate argument again, one level up.
 
 ## Takeaway so far
 
