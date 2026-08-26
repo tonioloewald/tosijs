@@ -249,6 +249,59 @@ never import it do not pay for. So the strongest argument against was an argumen
 production size, and the strongest argument *for* turns out not to involve production at
 all. That is not a tie-break — it is a different question than the one being asked.
 
+## The consumer-side argument, which is the strongest one and is not about our internals
+
+*(2026-08-26, measured on 1.8.0, not speculated.)*
+
+The pitch is that a consumer writes `if (app.filter == "all")` with no `.value` ceremony.
+**That already works today**, and so does the write side:
+
+```
+app.filter == 'all'        // true   — works NOW, on 1.8.0
+app.filter = 'done'        // works  — direct assignment, no .value
+app.filter.value === 'all' // true   — the ceremonial form the docs teach
+```
+
+Two of 2.0's headline goals — "equality works", "assignment works" — are, for practical
+consumer purposes, **already shipped**. `Building-Apps.md` mentions `.value` 30 times and
+never mentions that you can drop it.
+
+**But it is not a documentation bug, and that is the interesting part:**
+
+```
+app.filter === 'all'                          // FALSE  — the trap
+switch (app.filter) { case 'all': ... }       // NEVER MATCHES — switch uses ===
+```
+
+`switch` is the killer, because a todo app's filter logic *is* a switch, it fails
+**silently** (falls through to `default`), and unlike `===` there is no `==` form of
+`switch` to reach for. Add that most TypeScript projects run eslint `eqeqeq`, which bans
+the one form that works, and the docs teaching `.value` stop looking like an oversight —
+`.value` is the only form that survives `===`, `switch`, a linter, and TS narrowing.
+
+**Which is the actual consumer-side case for TJS, and it is not about porting tosijs.**
+The clean form is only clean in a language where `==` is *safe*. In TypeScript `==` is
+dangerous (coercion), so the ecosystem standardised on `===` and `switch`, and neither can
+see through a proxy — so a TS consumer is stuck with ceremony no amount of work on our side
+removes. In TJS, `==` **is** `Eq`, which unwraps; the clean form and the idiomatic form are
+the same form. (`===` stays strict identity in TJS too, by design — so the answer is that
+TJS consumers do not reach for it.)
+
+So: **a tosijs consumer writing TJS gets frictionless state access; a consumer writing
+TypeScript cannot, and that ceiling is TypeScript's, not ours.** That is a far better
+argument than anything about our own modules — `clamp` and `lerp` carrying signatures helps
+nobody, but a consumer's app file being able to say what it means helps every line of it.
+
+Note also that 2.0's `instanceof` wrapper work does **not** fix this. `===` is identity
+regardless of what the target is, so honest `instanceof` buys TJS `Eq` correctness, not `===`.
+
+**Actions (MAIN-LINE, not this branch):**
+- [ ] Document that `==` and direct assignment work — and document the `===`/`switch` trap
+      in the same breath, because teaching the clean form without the trap is worse than
+      teaching neither. Silent `switch` non-matching is the failure mode to name.
+- [ ] Consider whether `switch (String(app.filter))` or a `.is()` helper deserves to be the
+      recommended idiom for TS consumers, since it is the case with no `==` escape.
+
 ## Takeaway so far
 
 **The bar is VALUE, not parity.** 2.0 ships pure TJS — that's settled, so "is TJS
