@@ -73,27 +73,46 @@ package's own repository (it went stale once across the rename already).
         folds `docPaths` in and dedupes by resolved path. Build + 898 unit
         tests + Playwright lane green, and **`dist/` is byte-identical to
         committed 1.8.0**, so the new build host changes nothing shipped.
-      - 🛑 **tjs-lang 0.10.1 → 0.12.0 only.** 0.13.x's `convert` strips `new`
-        from every class declared in the module it is converting, so the output
-        throws `Cannot call a class constructor without |new|` — at *import*
-        time for static-field initialisers. 15 sites across 4 of our modules,
-        including `UnsafePathError`, the prototype-pollution guard. Bisected to
-        0.13.0. Filed: **tjs-lang#37**. Caught by the published-bundle smoke
-        gate, before anything shipped.
+      - ✅ **tjs-lang 0.10.1 → 0.13.6** (after a one-day detour at 0.12.0).
+        0.13.0–0.13.5's `convert` stripped `new` from every class declared in
+        the module it was converting, so the output threw `Cannot call a class
+        constructor without |new|` — at *import* time for static-field
+        initialisers. 15 sites across 4 of our modules, including
+        `UnsafePathError`, the prototype-pollution guard. Bisected to 0.13.0,
+        filed as **tjs-lang#37**, fixed upstream in **0.13.6** the same day.
+        Caught by the published-bundle smoke gate and by nothing else — all
+        898 unit tests passed under the broken toolchain, because they test
+        `src/` and the bug is in the emitter. Re-verified on 0.13.6 by repro,
+        green build, unit suite, Playwright 4/4, and by exercising the broken
+        paths in the built artifact. Cost ~340 gz bytes per tjs bundle, which
+        left 7 bytes of budget headroom — budgets raised 56k → 58k in the same
+        commit.
       - The peer story is finally closed: since tosijs-ui 1.11.0, `tjs-lang` is
         an **optional** peer, so 0.12.0 against `^0.13.1` is a warning and
         nothing more. The peer range was never the blocker in either direction.
 
-- [ ] **E1a — take tjs-lang 0.13.x once #37 is fixed**, and re-read #33/#35
-      (`asCompared`) at the same time. Until then `tjs convert` cannot round-trip
-      our own classes, so the debug/safe bundles must be built on 0.12.0.
+- [x] **E1a — DONE 2026-08-26.** tjs-lang#37 was fixed in 0.13.6 and adopted
+      the same day; see E1 above. Still worth doing separately: re-read #33/#35
+      (`asCompared`) against the 2.0 branch's boxed scalars.
 
-- [ ] **File the `tjs convert` inline-test import failure.** `src/color.ts:
-      0 passed, 8 failed — clamp is not defined` on every version from 0.10.1
-      through 0.13.4: convert's inline signature-test runner does not resolve
-      cross-module imports (`clamp` is in `more-math.ts`). Pre-existing, ignored
-      by the build, never filed — which is why it kept reading as noise during
-      the E1 bump instead of as a known defect.
+- [x] **FILED as tjs-lang#40 (2026-08-26): the `tjs convert` inline-test-runner
+      failures — both of them.**
+      On every version tried, 0.10.1 through 0.13.6:
+      - `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner
+        does not resolve cross-module imports; `clamp` is in `more-math.ts`)
+      - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
+        statements must have at least a catch or finally block.`
+
+      **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
+      and imports; the error is in the harness the runner wraps around the
+      module. I first reported the `component.ts` one on tjs-lang#37 as a
+      possible second emitter bug; it is not, and that correction should go in
+      the new issue.
+
+      Net effect: **13 failures printed on every build, permanently ignored** —
+      the ambient-noise condition that hides a real failure when one arrives.
+      It is also why this read as noise during the E1 bump rather than as a
+      known defect.
 
 - [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
       both default to **8799**, so the two browser lanes cannot run at the same

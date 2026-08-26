@@ -276,40 +276,75 @@ The one move above turned out to be two, because the halves disagree:
   redundancy. Build, 898 unit tests and the Playwright lane are all green, and
   **`dist/` came out byte-identical to committed 1.8.0** — the new build host
   changes nothing we ship.
-- 🛑 **`tjs-lang` stays at `0.12.0`, NOT 0.13.4.** `tjs convert` on 0.13.x
-  strips `new` from every class declared in the module being converted, so the
-  converted module throws `Cannot call a class constructor without |new|` — at
-  *import* time where the call is a static field initialiser. 15 call sites
-  across 4 of our modules, `UnsafePathError` (the prototype-pollution guard)
-  among them. Bisected to **0.13.0**; 0.12.0 is the last good version. 0.13.4
-  also emits a **syntax error** for `component.ts` (`Try statements must have at
-  least a catch or finally block`), not reduced, possibly the same emitter
-  change.
+- ✅ **`tjs-lang` 0.10.1 → 0.13.6.** This half took two attempts, and the
+  detour is the useful part.
 
-  Caught by the published-bundle smoke gate, which is the whole reason that gate
-  exists — it failed on `import dist/module.debug.js` before anything shipped.
+  **The bug (tjs-lang#37, CLOSED — fixed in 0.13.6).** `tjs convert` on
+  0.13.0–0.13.5 stripped `new` from every class declared in the module being
+  converted, so the output threw `Cannot call a class constructor without
+  |new|` — at *import* time where the call is a static field initialiser. 15
+  call sites across 4 of our modules, `UnsafePathError` (the
+  prototype-pollution guard) among them, which would have degraded a security
+  refusal into a `TypeError`. Bisected to **0.13.0** against a ten-line repro;
+  filed the same day, fixed the same day.
 
-  0.12.0 satisfies the *old* tosijs-ui peer (`^0.12.0`) and misses the new one
-  (`^0.13.1`), which is fine: since 1.11.0 tosijs-ui declares `tjs-lang` an
-  **optional** peer, so the mismatch is a warning and nothing more. Note this
-  retires the last trace of the false "1.10.0 peers ^0.12.0 so we cannot bump"
-  rationale below — the peer was never the blocker, and now the blocker is a
-  real, reproducible emitter bug instead.
+  Upstream's diagnosis is worth recording because it explains why this looked
+  deliberate: dropping `new` **is** correct where a class is callable, and in
+  native `.tjs` it is, because the emitter Proxy-wraps it. The scope was wrong
+  — `fromTS` output is plain JS with no Proxy wrap, so there the `new` is
+  load-bearing. The transform moved to the *graduation* step. Six regression
+  tests, one of which actually **imports** the converted module (the failure
+  was at module evaluation, so a test that only transpiled would have missed
+  it).
 
-  ⚠️ **And 0.12.0 is npm-deprecated**, so we now install against a deprecation
-  notice. The two constraints contradict: every *non*-deprecated version has
-  the `new` bug, and the only version without it is deprecated and its notice
-  points at a version that has it. The deprecation reason ("tosijs-schema
-  >=1.5.0 breaks the battery atoms' output validation") does not appear to
-  touch us — we use `convert` only — and the evidence is that the full build is
-  green with `tosijs-schema@1.6.0` installed. Recorded on #37; not a position
-  to hold for long.
+  **Caught by the published-bundle smoke gate, and only by it.** All 898 unit
+  tests passed under the broken toolchain: they exercise `src/`, and the bug is
+  in the emitter, downstream of everything the suite can see. This is the
+  standing argument for a gate that executes what you ship — see
+  `../tosijs-coding-practices/practices/dependencies.md` §12.
 
-  **Pre-existing, NOT from this bump:** `tjs convert` reports
-  `src/color.ts: 0 passed, 8 failed — clamp is not defined` because its inline
-  signature-test runner cannot resolve cross-module imports (`clamp` lives in
-  `more-math.ts`). Identical on 0.10.1 and 0.12.0. The build ignores it; it has
-  never been filed.
+  **Verified on 0.13.6** by repro, by a green build (all gates), by 898 unit
+  tests, by the Playwright lane 4/4, and by exercising the previously-broken
+  paths in the built artifact: `new Color(...)`, the `Color.black` static field
+  initialiser, `Color.fromHsl`, and the `__proto__` guard throwing
+  `UnsafePathError` with its intended message. Only `dist/module.debug.js` and
+  `dist/module.safe.js` changed; every consumer-facing bundle is byte-identical.
+
+  **Budget note:** the fix cost ~340 gzipped bytes on each tjs bundle, landing
+  `module.debug.js` at 55_993 against a 56_000 ceiling — a pass with **seven
+  bytes** of headroom. Raised to 58_000 in the same commit, with the reasoning
+  at `bin/bundles.ts`. A gate that passes by seven bytes is a gate that fails
+  next week on something unrelated, and teaches whoever hits it to raise the
+  number without reading it.
+
+  The peer range was never the blocker in either direction: since tosijs-ui
+  1.11.0 `tjs-lang` is an **optional** peer. That retires the last trace of the
+  false "1.10.0 peers ^0.12.0 so we cannot bump" rationale below.
+
+- 🔭 **STILL OPEN, and NOT caused by any of this: `tjs convert`'s inline
+  signature-test runner fails on two of our files, on every version tried
+  (0.10.1 through 0.13.6).**
+  - `src/color.ts: 0 passed, 8 failed — clamp is not defined` — the runner does
+    not resolve cross-module imports (`clamp` lives in `more-math.ts`).
+  - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try statements
+    must have at least a catch or finally block.`
+
+  **The emitted modules are fine.** `tjs-out/component.js` parses, bundles
+  (`bun build`, 27 modules, exit 0) and imports; the syntax error is inside the
+  harness the runner builds around the module, not in the output. I originally
+  reported the `component.ts` one on #37 as a possible second emitter bug — it
+  is not; correcting that here so the next reader does not chase it.
+
+  Consequence: **13 failures printed on every single build**, permanently, both
+  ignored. That is exactly the ambient-noise condition that hides a real
+  failure when one appears — and the reason the #37 emitter regression first
+  read to me as more of the usual convert noise.
+
+  **Issue:** https://github.com/tonioloewald/tjs-lang/issues/40 — asks for
+  either import resolution in the runner, or (cheaper, and arguably more
+  correct) reporting an unrunnable module as **skipped-with-reason** instead of
+  as N failed tests. A runner that cannot build its harness has not observed a
+  failing test.
 
 ### 🛑 HOLD — everything tjs-lang waits for **0.13.0 stable**
 

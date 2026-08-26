@@ -86,11 +86,22 @@ export const BUNDLES: BundleSpec[] = [
   // catch it doubling. They were published with no gate at all until the
   // 1.8.0 security pass (SEC-15): the two bundles built by the least-trusted
   // toolchain were the two nobody executed.
+  //
+  // RAISED 56_000 -> 58_000 on 2026-08-26, deliberately, in the commit that
+  // caused the growth. tjs-lang 0.13.6 restores `new` on locally-declared
+  // classes (tjs-lang#37) and moves the transform to the graduation step;
+  // that put module.debug.js at 55_993 against the old 56_000 — a pass with
+  // SEVEN BYTES of headroom, which is a gate that will fail on the next
+  // unrelated edit and teach whoever hits it to raise the number without
+  // reading. The growth buys output that does not throw on import, so it is
+  // worth it. Unlike the shipped-to-consumers bundles, these two are
+  // EXPERIMENTAL and inert, so the number polices toolchain regressions, not
+  // a promise to anyone: ~2 kB of room is the right slack for that job.
   {
     naming: 'module.debug.js',
     format: 'esm',
     entry: './tjs-out/index-debug.js',
-    budget: 56_000,
+    budget: 58_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -101,7 +112,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.safe.js',
     format: 'esm',
     entry: './tjs-out/index-safe.js',
-    budget: 56_000,
+    budget: 58_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

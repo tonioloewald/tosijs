@@ -19,7 +19,7 @@
         "haltija": "^1.11.2",
         "marked": "^16.4.2",
         "prettier": "^2.8.8",
-        "tjs-lang": "0.12.0",
+        "tjs-lang": "0.13.6",
         "tosijs": "file:.",
         "tosijs-floorplan": "0.3.0",
         "tosijs-schema": "^1.6.0",
@@ -309,7 +309,7 @@
 
     "tinyglobby": ["tinyglobby@0.2.17", "", { "dependencies": { "fdir": "^6.5.0", "picomatch": "^4.0.4" } }, "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g=="],
 
-    "tjs-lang": ["tjs-lang@0.12.0", "", { "dependencies": { "acorn": "^8.15.0", "acorn-loose": "^8.5.2", "acorn-walk": "^8.3.4", "tosijs-schema": "^1.4.0" }, "peerDependencies": { "@codemirror/autocomplete": "^6.0.0", "@codemirror/lang-javascript": "^6.0.0", "@codemirror/language": "^6.0.0", "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.0.0" }, "optionalPeers": ["@codemirror/autocomplete", "@codemirror/lang-javascript", "@codemirror/language", "@codemirror/state", "@codemirror/view"], "bin": { "tjs": "src/cli/tjs.ts", "tjsx": "src/cli/tjsx.ts", "create-tjs-app": "src/cli/create-app.ts", "tjs-playground": "src/cli/playground.ts", "ajs-install-cursor": "bin/install-cursor.sh", "ajs-install-vscode": "bin/install-vscode.sh" } }, "sha512-aZFwHRfeh4EuNEj/3Hky/H98fM7IXHbE7Rw71TNLvCtkom/I9aw/4iRGDNl66nc3huUA9A95DydGEP1yqHvvSQ=="],
+    "tjs-lang": ["tjs-lang@0.13.6", "", { "dependencies": { "acorn": "^8.15.0", "acorn-loose": "^8.5.2", "acorn-walk": "^8.3.4", "tosijs-schema": "^1.5.1" }, "peerDependencies": { "@codemirror/autocomplete": "^6.0.0", "@codemirror/lang-javascript": "^6.0.0", "@codemirror/language": "^6.0.0", "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.0.0" }, "optionalPeers": ["@codemirror/autocomplete", "@codemirror/lang-javascript", "@codemirror/language", "@codemirror/state", "@codemirror/view"], "bin": { "tjs": "src/cli/tjs.ts", "tjsx": "src/cli/tjsx.ts", "tjs-playground": "src/cli/playground.ts", "create-tjs-app": "src/cli/create-app.ts", "ajs-install-vscode": "bin/install-vscode.sh", "ajs-install-cursor": "bin/install-cursor.sh" } }, "sha512-7URqewLOr4SNcRYFAtrb19x1WQsvmiub51Pr6KyHZxoPEkDuQseGSW6Yg8yvbMuRyhHGcIMTvK8mhr2YngLzuA=="],
 
     "tosijs": ["tosijs@root:", {}],
 
