@@ -71,7 +71,7 @@ export type {
   XinPackagedComponent,
   XinComponentSpec,
 } from './make-component'
-export { MoreMath } from './more-math'
+export { MoreMath } from './more-math.tjs'
 export { settings } from './settings'
 export { throttle, debounce } from './throttle'
 export { version } from './version'

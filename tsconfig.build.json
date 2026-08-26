@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "allowImportingTsExtensions": false,
+    "allowArbitraryExtensions": true,
     "declaration": true,
     "emitDeclarationOnly": false,
     "noEmit": false,

@@ -12,6 +12,7 @@ import { $ } from 'bun'
 import { BUNDLES, BundleSpec } from './bundles'
 import siteConfig from '../tosijs-site.config'
 import { buildSite, devServer } from 'tosijs-ui/site'
+import { tjsPlugin } from '../src/bun-plugin/tjs-plugin'
 
 declare global {
   var Bun: any
@@ -125,6 +126,54 @@ async function vendorSchematic() {
   console.log('vendored tosijs-floorplan', upstreamPkg.version)
 }
 
+// ── the mixed .ts/.tjs graph ────────────────────────────────────────────────
+//
+// Native `.tjs` sources in src/ are invisible to two tools that both need
+// them: `tsc` cannot parse them, and `tjs convert` skips them (correctly —
+// they are already native). Anything consuming the emitted graph therefore
+// needs the sources staged alongside it. Staging is BUILD-TIME ONLY; the `.tjs`
+// are stripped from dist before publish.
+const fs = await import('fs/promises')
+const SRC = path.resolve(PROJECT_ROOT, 'src')
+
+async function tjsSources(): Promise<string[]> {
+  const names = await fs.readdir(SRC)
+  return names.filter((n) => n.endsWith('.tjs'))
+}
+
+async function stageTjs(intoDir: string) {
+  for (const name of await tjsSources()) {
+    await fs.copyFile(path.join(SRC, name), path.join(intoDir, name))
+  }
+}
+
+/**
+ * buildSite's `libraryBuild` seam (tosijs-ui >= 1.6.21) — replaces its `tsc -p`
+ * step, because tsc alone cannot emit a mixed graph.
+ *
+ * tsc still owns the `.ts` sources, but it emits `import './x.tjs'` specifiers
+ * with no artifact behind them — and buildSite then *evaluates* the emitted
+ * `dist/*.js` in a subprocess to burn the theme stylesheet. So stage the `.tjs`
+ * (and their hand-authored `.d.tjs.ts`, which tsc treats as inputs and never
+ * copies) into dist, and give that subprocess the loader via
+ * `generateCssPreload` below.
+ */
+async function libraryBuild({
+  dist,
+  tsconfig,
+}: {
+  dist: string
+  tsconfig?: string
+}) {
+  await $`bun tsc -p ${tsconfig ?? 'tsconfig.build.json'}`
+  await stageTjs(dist)
+  for (const name of await fs.readdir(SRC)) {
+    if (name.endsWith('.d.tjs.ts')) {
+      await fs.copyFile(path.join(SRC, name), path.join(dist, name))
+    }
+  }
+}
+
 async function buildCli() {
   // the scaffolder: `bunx tosijs create …` / `npx tosijs create …` —
   // node-target build (npx runs node), shebang + exec bit stamped here
@@ -182,6 +231,11 @@ async function buildLibrary() {
       sourcemap: bundle.sourcemap === false ? 'none' : 'linked',
       minify: MINIFY,
       naming: bundle.naming,
+      // NATIVE `.tjs` SOURCES IN THE GRAPH (the 2.0 port, incremental — see
+      // TJS-PORT-DX.md). Bun.build honours a plugin's onResolve/onLoad, so the
+      // bundlers need it; the RUNTIME loader does not (a Bun limitation, not a
+      // tjs one), which is why every `.tjs` import must write the extension.
+      plugins: [tjsPlugin],
     })
     if (!result.success) {
       console.error(`library ${bundle.naming} build failed`)
@@ -200,6 +254,11 @@ async function buildLibrary() {
   await $`bun tjs convert src/ -o ${TJS_OUT}/`
   await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
   await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
+  // `tjs convert` SKIPS `.tjs` — they are already native, so there is nothing
+  // to convert. But the converted `.js` beside them still carry
+  // `import './x.tjs'`, so the sources have to sit next to the output or the
+  // debug/safe bundles cannot resolve them.
+  await stageTjs(TJS_OUT)
 
   for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
     await buildBundle(bundle)
@@ -211,10 +270,16 @@ async function buildLibrary() {
   // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs it as
   // ESM without a package-level "type": "module", which would break main.js's
   // CJS consumers.)
+  //
+  // The staged `.tjs` sources go too. They exist only so the per-file `.js`
+  // could resolve `import './x.tjs'` during buildSite's CSS eval; by now they
+  // are inlined into the bundles. Their `.d.tjs.ts` declarations STAY — that is
+  // the type bridge a `.ts` importer compiles against.
   const keepJs = new Set(BUNDLES.map((b) => b.naming))
-  const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {
-    if (name.endsWith('.js') && !keepJs.has(name)) {
+    if (name.endsWith('.tjs')) {
+      await fs.unlink(path.join(DIST, name))
+    } else if (name.endsWith('.js') && !keepJs.has(name)) {
       await fs.unlink(path.join(DIST, name))
     } else if (name.endsWith('.js.map')) {
       const base = name.replace(/\.map$/, '')
@@ -452,7 +517,7 @@ async function buildDocsBundle() {
     format: 'iife',
     minify: MINIFY,
     naming: 'iife.js',
-    plugins: [tosijsAlias],
+    plugins: [tosijsAlias, tjsPlugin],
   })
   if (!result.success) {
     console.error('docs iife bundle failed')
@@ -468,6 +533,11 @@ const config = {
     await writeVersion()
     await vendorSchematic()
   },
+  libraryBuild,
+  // buildSite evaluates the emitted dist/*.js in a SUBPROCESS to burn the theme
+  // stylesheet. Those files carry `import './x.tjs'`, and a fresh subprocess has
+  // no loader for that extension — so it gets one here.
+  generateCssPreload: './src/bun-plugin/tjs-plugin.ts',
 }
 
 // The dev-server watcher re-runs this on every change. buildSite() starts with

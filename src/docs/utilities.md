@@ -9,7 +9,6 @@ These are lightweight but powerful general useful things. They're used internall
 - [contract harness (EXPERIMENTAL)](/contract/)
 - [contract validation](/contract-check/)
 - [hotReload](/hot-reload/)
-- [more-math](/more-math/)
 - [schematic (EXPERIMENTAL)](/schematic/)
 - [share](/share/)
 - [sync](/sync/)

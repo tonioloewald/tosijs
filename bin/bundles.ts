@@ -35,6 +35,33 @@ export interface BundleSpec {
   sourcemap?: boolean
 }
 
+/*
+ * ⚠️ BUDGETS ON THIS BRANCH ARE RAISED ~1.5 kB ACROSS THE BOARD. DO NOT PORT
+ * THE NUMBERS TO MAIN — port the measurement.
+ *
+ * This is the cost of the FIRST native `.tjs` module in the graph. `more-math`
+ * is two functions, `clamp` and `lerp`, twelve lines of arithmetic. It cost:
+ *
+ *     index.js  +995    module.js  +1037   main.js  +986   core.js  +976
+ *     state.js  +1064   debug      +1033   safe     +1043      (gzipped)
+ *
+ * Uniform, because it is an ENTRY FEE, not per-module weight: every bundle
+ * carries its own copy of the self-contained `__tjs` runtime. Measured
+ * directly — a bundle with one `.tjs` module is 1_364 gz, with two it is
+ * 1_718, so an equivalent second module adds ~354. And `tjs emit --unsafe`
+ * (which strips the `__tjs` metadata) saves only 181 raw bytes, so the weight
+ * is the runtime and the type guards, NOT the introspection data.
+ *
+ * Read that as: ~1 kB to open the door, ~350 per room. The port gets cheaper
+ * per module the further it goes, which is the opposite of the intuition that
+ * says convert one file and see. Converting ONE file is the worst ratio you
+ * will ever measure.
+ *
+ * index.js is the artifact to watch: it is the CDN IIFE, it cannot tree-shake
+ * (which is why it already omits the agent surface), and it had ~200 bytes of
+ * headroom before this. If the port lands, that entry point may have to opt
+ * out — and that is a finding, not a budget problem.
+ */
 export const BUNDLES: BundleSpec[] = [
   {
     naming: 'index.js',
@@ -42,7 +69,7 @@ export const BUNDLES: BundleSpec[] = [
     // the IIFE cannot tree-shake, so it gets the slim entry (no agent
     // surface); ESM/CJS carry everything and consumers shake what they skip
     entry: './src/index-browser.ts',
-    budget: 29_000,
+    budget: 31_000,
     probe: 'load',
     stage: 'main',
   },
@@ -50,7 +77,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.js',
     format: 'esm',
     entry: './src/index.ts',
-    budget: 42_000,
+    budget: 44_000,
     probe: 'import',
     stage: 'main',
   },
@@ -58,7 +85,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'main.js',
     format: 'cjs',
     entry: './src/index.ts',
-    budget: 42_500,
+    budget: 44_500,
     probe: 'require',
     stage: 'main',
   },
@@ -68,7 +95,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'core.js',
     format: 'esm',
     entry: './src/index-core.ts',
-    budget: 26_500,
+    budget: 28_500,
     probe: 'import',
     stage: 'alt',
   },
@@ -76,7 +103,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'state.js',
     format: 'esm',
     entry: './src/index-state.ts',
-    budget: 17_500,
+    budget: 18_500,
     probe: 'import',
     stage: 'alt',
   },
@@ -101,7 +128,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.debug.js',
     format: 'esm',
     entry: './tjs-out/index-debug.js',
-    budget: 58_000,
+    budget: 59_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -112,7 +139,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.safe.js',
     format: 'esm',
     entry: './tjs-out/index-safe.js',
-    budget: 58_000,
+    budget: 59_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

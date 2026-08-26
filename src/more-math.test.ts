@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { clamp, lerp } from './more-math'
+import { clamp, lerp } from './more-math.tjs'
 
 test('clamp works', () => {
   expect(clamp(0, 0.4, 1)).toBe(0.4)

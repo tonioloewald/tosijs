@@ -46,7 +46,7 @@ export {
   TAKE_DESCRIPTOR,
 } from './metadata'
 export { throttle, debounce } from './throttle'
-export { MoreMath } from './more-math'
+export { MoreMath } from './more-math.tjs'
 export { settings } from './settings'
 export { version } from './version'
 export type {

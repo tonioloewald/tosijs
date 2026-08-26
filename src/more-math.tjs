@@ -1,0 +1,134 @@
+/*{ "parent": "utilities", "description": "Math utilities missing from the standard Math object: clamp, lerp, and the radians/degrees conversion constants." }*/
+/*#
+# more-math
+
+Some simple functions egregiously missing from the Javascript `Math`
+object. They are exported from `tosijs` as the `MoreMath` object.
+
+**This module is native TJS** — the first in tosijs. The worked examples below
+are not prose: they are the function signatures, and `tjs test` executes them.
+See the note at the bottom of this file for what that buys.
+
+## Functions
+
+`clamp(min, v, max)` will return `v` if it's between `min` and `max`
+and the `min` or `max` otherwise.
+
+If min > max, the function will return NaN.
+
+```
+clamp(0, 0.5, 1)        // produces 0.5
+clamp(0, -0.5, 1)       // produces 0
+clamp(-50, 75, 50)      // produces 50
+```
+
+`lerp(a, b, t, clamped = true)` will interpolate linearly between `a` and `b` using
+parameter `t`. `t` will be clamped to the interval `[0, 1]`, so
+`lerp` will be clamped *between* a and b unless you pass `false` as the
+optional fourth parameter (allowing `lerp()` to extrapolate).
+
+```
+lerp(0, 10, 0.5)        // produces 5
+lerp(0, 10, 2)          // produces 10
+lerp(0, 10, 2, false)   // produces 20
+lerp(5, -5, 0.75)       // produces -2.5
+```
+
+## Constants
+
+`RADIANS_TO_DEGREES` and `DEGREES_TO_RADIANS` are values to multiply
+an angle by to convert between degrees and radians.
+*/
+
+export const RADIANS_TO_DEGREES = 180 / Math.PI
+export const DEGREES_TO_RADIANS = Math.PI / 180
+
+/*
+ * BASED ON `tjs convert --emit-tjs`, NOT HAND-WRITTEN — and that ordering is the
+ * lesson, so it is recorded here rather than in a log nobody opens.
+ *
+ * Converting gives you the TYPES for free and correctly: TypeScript already said
+ * `number`, so convert emits `0.0`. Hand-authored first, this file said
+ * `min: 0`, `b: 10` — and in TJS the example IS the type, so `0` means INTEGER
+ * and installs a `Number.isInteger` guard. It compiled happily and then refused
+ * `lerp(0.5, -0.5, 3, false)`, a real call from the existing suite, because a
+ * placeholder had been picked for looking tidy. Convert never makes that
+ * mistake; only a human writing examples by eye does.
+ *
+ * What convert CANNOT do is know an answer. It emits `:!` on every return — the
+ * marker for "this example describes the type, not the result" — because
+ * nothing in a TypeScript signature says what `clamp(0.0, 0.5, 1.0)` produces.
+ * So the human step is precisely: upgrade `:!` to `:` wherever a real worked
+ * example exists, which turns the return into an executed assertion, and add
+ * the `test { }` blocks underneath.
+ *
+ * That is the whole port workflow in one file. Convert for the types, improve
+ * for the value — and the improvement is the part TypeScript could not express.
+ * The doc block above has carried `clamp(0, 0.5, 1) // produces 0.5` since the
+ * function was written, in a bare fence nothing runs; below, the same claim is
+ * the signature, and `tjs test` executes it.
+ */
+export function clamp(min: 0.0, v: 0.5, max: 1.0): 0.5 {
+  return max < min ? NaN : v < min ? min : v > max ? max : v
+}
+
+export function lerp(a: 0.0, b: 10.0, t: 0.5, clamped = true): 5.0 {
+  if (clamped) t = clamp(0, t, 1)
+  return t * (b - a) + a
+}
+
+export const MoreMath = {
+  RADIANS_TO_DEGREES,
+  DEGREES_TO_RADIANS,
+  clamp,
+  lerp,
+}
+
+/*
+ * The rest of the documented behaviour, as executable assertions living beside
+ * the code they describe. Every case below is lifted verbatim from the doc
+ * block above — which is the demonstration: this module's documentation was
+ * decorative for the whole life of the library, and is now load-bearing.
+ *
+ * The NaN case is the one that matters most. `clamp` has documented "if
+ * min > max, the function will return NaN" since it was written, and nothing
+ * asserted it. A behaviour that is documented but unverified is a behaviour
+ * you are free to break.
+ */
+test('clamp — the documented worked examples') {
+  expect(clamp(0, 0.5, 1)).toBe(0.5)
+  expect(clamp(0, -0.5, 1)).toBe(0)
+  expect(clamp(-50, 75, 50)).toBe(50)
+}
+
+test('clamp — inverted bounds are NaN, as documented') {
+  expect(Number.isNaN(clamp(1, 0.5, 0))).toBe(true)
+}
+
+test('clamp — the bounds themselves are inclusive') {
+  expect(clamp(0, 0, 1)).toBe(0)
+  expect(clamp(0, 1, 1)).toBe(1)
+}
+
+test('lerp — the documented worked examples') {
+  expect(lerp(0, 10, 0.5)).toBe(5)
+  expect(lerp(0, 10, 2)).toBe(10)
+  expect(lerp(0, 10, 2, false)).toBe(20)
+  expect(lerp(5, -5, 0.75)).toBe(-2.5)
+}
+
+test('lerp — extrapolates in both directions when unclamped') {
+  expect(lerp(0, 10, -1, false)).toBe(-10)
+  expect(lerp(0, 10, -1)).toBe(0)
+}
+
+/*
+ * NB: tjs's inline `expect` has no `toBeCloseTo`, so float comparison is
+ * written out. Not a complaint — worth knowing before porting a numerics-heavy
+ * module, which is most of the reason you would reach for this.
+ */
+test('the conversion constants round-trip') {
+  const deg = 90
+  const roundTripped = deg * DEGREES_TO_RADIANS * RADIANS_TO_DEGREES
+  expect(Math.abs(roundTripped - deg) < 1e-9).toBe(true)
+}

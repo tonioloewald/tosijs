@@ -16,7 +16,7 @@ export { getCssVar } from './get-css-var';
 export { xinPath, xinValue, tosiPath, tosiValue, tosiSetValue, tosiAccessor, TOSI_ACCESSOR, TAKE_DESCRIPTOR, BOUND_CLASS, BOUND_SELECTOR, deprecated, warnDeprecated, } from './metadata';
 export { getListInstance, getListItem, getListBinding, deleteListItem, scrollListItemIntoView, } from './list-binding';
 export type { TosiBlueprint, TosiFactory, TosiPackagedComponent, TosiComponentSpec, XinBlueprint, XinFactory, XinPackagedComponent, XinComponentSpec, } from './make-component';
-export { MoreMath } from './more-math';
+export { MoreMath } from './more-math.tjs';
 export { settings } from './settings';
 export { throttle, debounce } from './throttle';
 export { version } from './version';

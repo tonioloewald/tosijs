@@ -224,7 +224,7 @@ computations in rgb.
 - `toString()` emits the `html` property
 */
 
-import { lerp, clamp } from './more-math'
+import { lerp, clamp } from './more-math.tjs'
 import { getCssVar } from './get-css-var'
 import { CSSSystemColor } from './css-system-color'
 import { cssColors } from './css-colors'
