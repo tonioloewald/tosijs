@@ -6,6 +6,87 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.1] - 2026-08-30
+
+**The attribute API everyone uses was invisible to agents.** A component
+declaring `static initAttributes` — the terse form nearly every component uses,
+and until now the only one the component reference documented — appeared in
+`describe()` with **no attribute description at all**. The identical component
+declaring `contract.attributes` was fully described. So 1.8.0's headline
+feature systematically under-described real applications, and the population it
+under-described was the majority one.
+
+> **🚧 THE CONTRACT API IS IN FLUX.** `ComponentMap` / `static contract` /
+> `expose.contract` will change shape **without a deprecation cycle** while the
+> layering questions settle (tosijs#29, #30) — how `contract.attributes` and
+> `initAttributes` divide the work, and whether an integrator's overlay may
+> *embellish* a component's own declaration rather than replace it wholesale.
+> Changes will land in patch and minor releases and will be called out here.
+>
+> **Nothing else in `Component` is in flux.** `initAttributes`, `content`,
+> `parts`, form association and the rest are stable — and if you want stability
+> today, `initAttributes` is the answer: it is stable, terser, and as of this
+> release described to agents identically.
+
+### Fixed
+
+- **`describe()` now reports a component's attributes however they were
+  declared** (#29). Types are inferred exactly as the attribute machinery
+  infers them — from the default, including through a `Component.computed()`
+  marker, whose `shape` is the type example. A `contract.attributes` entry
+  still wins per key, being the richer statement.
+
+  Deliberately gated on an element already being *wired*, and it never makes
+  one wired: declaration remains the announce signal. Every component has
+  attributes, so letting them announce would flood the map with every custom
+  element on the page.
+
+### Changed
+
+- **`initAttributes` and `contract.attributes` now COMPOSE instead of throwing**
+  (#29). `initAttributes` **declares** (name, default, inferred type);
+  `contract.attributes` **enriches** (`enum`, `const`, and whatever a
+  registered schema engine adds). Declaring both is the intended shape.
+
+  The old rule was wrong twice over: the same two declarations *split across a
+  prototype chain* already merged cleanly — identical intent, opposite
+  outcomes, decided only by where you wrote them — and "one source of truth" is
+  a property of an attribute **name**, not of a class, so two disjoint
+  declarations threw despite creating no ambiguity.
+
+  A contract entry **may now omit `default`** when `initAttributes` supplies
+  one, so constraining a single attribute costs one line rather than a rewrite.
+  With no default anywhere it still throws, naming the attribute.
+
+- **The "ideally attributes live in the contract" nudge is gone.** Its only
+  real force was *"so one declaration feeds … the agents"* — true only because
+  `initAttributes` never reached `describe()`. It does now.
+
+### Documentation
+
+- **`static contract` is documented in the component reference** (#28), which
+  previously mentioned `initAttributes` nine times and contracts zero times
+  while contracts were documented thoroughly in `agent-surface.md` — a file
+  nobody opens to build a component. The two APIs were taught in disjoint
+  documents with the relationship stated nowhere, which is how an agent
+  building a component discovered the old throw by hitting it. The
+  `initAttributes` section now forward-references the contract, so neither can
+  be read alone and mistaken for the whole story. `CLAUDE.md` gets the
+  conventions bullet four consecutive pre-release reviews asked for.
+
+### Build host
+
+- `tosijs-ui` 1.9.4 → **1.12.0** and the duplicated `watchPaths` array deleted
+  (tosijs-ui#49 is fixed: `resolveWatchPaths()` folds `docPaths` in).
+- `tjs-lang` 0.10.1 → **0.13.6**. 0.13.0–0.13.5 were unusable — `convert`
+  stripped `new` from every class declared in the module being converted, so
+  the output threw at *import* time on a static field initialiser (tjs-lang#37,
+  fixed upstream the day it was filed). Caught by the published-bundle smoke
+  gate and by nothing else: all unit tests passed under the broken toolchain,
+  because they exercise `src/` and the bug was in the emitter.
+
+  Build-host only — no consumer-facing bundle changed as a result.
+
 ## [1.8.0] - 2026-08-25
 
 **One source of truth for state, UI, and AI.** An app's affordances — what
