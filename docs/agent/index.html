@@ -86,6 +86,14 @@ callable either way. <code>describe().writable</code> reports which you have.</p
 generated tool set automatically — <code>agent.webmcp</code> is the receipt, and
 <code>webmcp: false</code> opts out. No host, no-op.</p>
 <blockquote>
+<p><strong>🚧 CONTRACTS ARE IN FLUX.</strong> <code>ComponentMap</code> / <code>static contract</code> /
+<code>expose.contract</code> will change shape without a deprecation cycle while the
+layering questions settle (tosijs#29, #30) — how <code>contract.attributes</code> and
+<code>initAttributes</code> divide the work, and whether an integrator&#39;s overlay may
+embellish a component&#39;s own declaration rather than replace it. Changes land
+in patch and minor releases and are called out in the CHANGELOG. For stable
+attribute declaration today, use <code>static initAttributes</code>; since 1.8.1 it is
+described to agents identically.</p>
 <p><strong>EXPERIMENTAL.</strong> Shapes and names may change. The surface is deliberately
 protocol-neutral — MCP / WebMCP adapters sit on top of it; the WebMCP
 auto-registration is a convenience over that adapter, not a dependency.</p>

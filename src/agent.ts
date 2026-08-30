@@ -46,6 +46,15 @@ One call is the whole story: where the browser provides a WebMCP host
 generated tool set automatically — `agent.webmcp` is the receipt, and
 `webmcp: false` opts out. No host, no-op.
 
+> **🚧 CONTRACTS ARE IN FLUX.** `ComponentMap` / `static contract` /
+> `expose.contract` will change shape without a deprecation cycle while the
+> layering questions settle (tosijs#29, #30) — how `contract.attributes` and
+> `initAttributes` divide the work, and whether an integrator's overlay may
+> embellish a component's own declaration rather than replace it. Changes land
+> in patch and minor releases and are called out in the CHANGELOG. For stable
+> attribute declaration today, use `static initAttributes`; since 1.8.1 it is
+> described to agents identically.
+>
 > **EXPERIMENTAL.** Shapes and names may change. The surface is deliberately
 > protocol-neutral — MCP / WebMCP adapters sit on top of it; the WebMCP
 > auto-registration is a convenience over that adapter, not a dependency.

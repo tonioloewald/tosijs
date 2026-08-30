@@ -234,6 +234,19 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 - **`static lightStyleSpec`** — global styles appended to `document.head`. `:host` selectors are rewritten to the tag name.
 - **`static extends`** — for customized built-in elements (passed to `customElements.define()`).
 - **`static initAttributes`** declares attributes synced to properties with automatic type inference from default values (string, number, boolean).
+- **`static contract`** (`ComponentMap`) is the component's self-declaration —
+  description, attribute constraints, parts, test fixture — feeding the docs,
+  the agent surface and `exerciseComponent()`. **`initAttributes` DECLARES,
+  `contract.attributes` ENRICHES, and they COMPOSE**: declaring both is the
+  intended shape, the contract wins per key, and a contract entry may omit
+  `default` when `initAttributes` supplies one. Both are described identically
+  to an agent (since 1.8.1 — before that, `initAttributes` reached `describe()`
+  not at all; tosijs#29).
+- 🚧 **The contract API is IN FLUX and will change without a deprecation cycle**
+  while tosijs#29/#30 settle (attribute division of labour; whether an
+  integrator overlay embellishes or replaces). Nothing else in `Component` is —
+  `initAttributes` is stable. Do not build a deprecation cycle around contract
+  shape changes; steer to correctness and note it in the CHANGELOG.
 - **`value`** is a special property, not an attribute. Don't put it in `initAttributes`. Setting it triggers a `change` event and `render()`.
 - **`content`** can be a function `({div, span}) => div(...)` or a static node/array. The function form receives a destructurable `elements` proxy.
 - **`parts`** is a proxy — `this.parts.foo` finds the element with `part="foo"`.

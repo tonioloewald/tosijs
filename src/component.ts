@@ -322,10 +322,60 @@ content = ({div}) => div('hello world')
 
 ### Component static properties
 
+#### static contract: ComponentMap  🚧 IN FLUX
+
+> **🚧 THE CONTRACT API IS IN FLUX — expect it to change without a deprecation
+> cycle.** Not "experimental" in the shrug sense: the *idea* is settled and the
+> feature works. What is unsettled is its shape, and we would rather get that
+> right than freeze it early and carry a mistake. Changes will land in patch
+> and minor releases, and the CHANGELOG will say so. **Nothing else in
+> `Component` is in flux** — `initAttributes`, `content`, `parts`, form
+> association and the rest are stable.
+>
+> Specifically open: how `contract.attributes` and `initAttributes` divide the
+> work; whether an integrator's overlay may *embellish* a component's own
+> declaration rather than replace it wholesale; and the precedence between the
+> two (tosijs#29, #30). It settles when those close.
+>
+> If you need stability today, declare attributes with `initAttributes` — it is
+> stable, it is terser, and since 1.8.1 it is described to agents identically.
+
+A component's self-declaration: what it is, what its attributes and value are
+allowed to be, which `part`s it exposes, and a test fixture — in one structure.
+It feeds the docs, the agent surface, and `exerciseComponent()`, so a
+declaration that lies breaks visibly.
+
+    class Stepper extends Component {
+      static preferredTagName = 'my-stepper'
+      static initAttributes = { count: 0, mode: 'add' }
+      static contract = {
+        description: 'increments a counter',
+        attributes: { mode: { enum: ['add', 'subtract'] } },
+      }
+    }
+
+**`initAttributes` DECLARES; `contract.attributes` ENRICHES.** They compose —
+declaring both is the intended shape, not an error. `initAttributes` gives a
+name, a default and an inferred type; the contract adds constraints the
+built-in checker enforces (`enum`, `const`) plus anything a registered schema
+engine understands. A contract entry may omit `default` when `initAttributes`
+already supplies one, so constraining one attribute costs one line rather than
+a rewrite. The contract wins per key.
+
+Both forms are described identically to an agent. (Before 1.8.1 they were not:
+attributes were read from the contract alone, so a component using
+`initAttributes` — nearly all of them — appeared in the map with no attribute
+description at all. tosijs#29.)
+
 #### static initAttributes: Record<string, any>
 
 Declares attributes that should be watched and synced with properties. The keys are
 property names (camelCase), and the values are the defaults which also determine the type.
+
+> This is the stable, terse way to declare attributes, and it is what most
+> components use. To add *constraints* (`enum`, `const`, …) to an attribute,
+> see `static contract` above — the two compose, and you do not have to move a
+> declaration to constrain it.
 
     import { Component } from 'tosijs'
 

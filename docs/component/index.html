@@ -315,9 +315,55 @@ that creates the basic content of the element on hydration. Static content will 
 This allows composition to work as expected without requiring the shadow DOM.</p>
 </blockquote>
 <h3>Component static properties</h3>
+<h4>static contract: ComponentMap  🚧 IN FLUX</h4>
+<blockquote>
+<p><strong>🚧 THE CONTRACT API IS IN FLUX — expect it to change without a deprecation
+cycle.</strong> Not &quot;experimental&quot; in the shrug sense: the <em>idea</em> is settled and the
+feature works. What is unsettled is its shape, and we would rather get that
+right than freeze it early and carry a mistake. Changes will land in patch
+and minor releases, and the CHANGELOG will say so. <strong>Nothing else in
+<code>Component</code> is in flux</strong> — <code>initAttributes</code>, <code>content</code>, <code>parts</code>, form
+association and the rest are stable.</p>
+<p>Specifically open: how <code>contract.attributes</code> and <code>initAttributes</code> divide the
+work; whether an integrator&#39;s overlay may <em>embellish</em> a component&#39;s own
+declaration rather than replace it wholesale; and the precedence between the
+two (tosijs#29, #30). It settles when those close.</p>
+<p>If you need stability today, declare attributes with <code>initAttributes</code> — it is
+stable, it is terser, and since 1.8.1 it is described to agents identically.</p>
+</blockquote>
+<p>A component&#39;s self-declaration: what it is, what its attributes and value are
+allowed to be, which <code>part</code>s it exposes, and a test fixture — in one structure.
+It feeds the docs, the agent surface, and <code>exerciseComponent()</code>, so a
+declaration that lies breaks visibly.</p>
+<pre><code>class Stepper extends Component {
+  static preferredTagName = &#39;my-stepper&#39;
+  static initAttributes = { count: 0, mode: &#39;add&#39; }
+  static contract = {
+    description: &#39;increments a counter&#39;,
+    attributes: { mode: { enum: [&#39;add&#39;, &#39;subtract&#39;] } },
+  }
+}
+</code></pre>
+<p><strong><code>initAttributes</code> DECLARES; <code>contract.attributes</code> ENRICHES.</strong> They compose —
+declaring both is the intended shape, not an error. <code>initAttributes</code> gives a
+name, a default and an inferred type; the contract adds constraints the
+built-in checker enforces (<code>enum</code>, <code>const</code>) plus anything a registered schema
+engine understands. A contract entry may omit <code>default</code> when <code>initAttributes</code>
+already supplies one, so constraining one attribute costs one line rather than
+a rewrite. The contract wins per key.</p>
+<p>Both forms are described identically to an agent. (Before 1.8.1 they were not:
+attributes were read from the contract alone, so a component using
+<code>initAttributes</code> — nearly all of them — appeared in the map with no attribute
+description at all. tosijs#29.)</p>
 <h4>static initAttributes: Record&lt;string, any&gt;</h4>
 <p>Declares attributes that should be watched and synced with properties. The keys are
 property names (camelCase), and the values are the defaults which also determine the type.</p>
+<blockquote>
+<p>This is the stable, terse way to declare attributes, and it is what most
+components use. To add <em>constraints</em> (<code>enum</code>, <code>const</code>, …) to an attribute,
+see <code>static contract</code> above — the two compose, and you do not have to move a
+declaration to constrain it.</p>
+</blockquote>
 <pre><code>import { Component } from &#39;tosijs&#39;
 
 class MyWidget extends Component {
