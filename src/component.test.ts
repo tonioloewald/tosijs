@@ -2183,3 +2183,75 @@ describe('Component.computed() — computed attributes', () => {
     expect(Cls.observedAttributes).toContain('collapsed')
   })
 })
+
+describe('initAttributes and contract.attributes COMPOSE (tosijs#29)', () => {
+  /*
+   * These used to be mutually exclusive on one class — declaring both threw.
+   * That was wrong twice over: the same two declarations SPLIT ACROSS a
+   * prototype chain already merged cleanly (identical intent, opposite
+   * outcome, decided only by placement), and "one source of truth" is a
+   * property of an attribute NAME, not of a class.
+   */
+  test('both on one class merge, with the contract winning per key', () => {
+    class Composed extends Component {
+      static preferredTagName = 'compose-both'
+      static initAttributes = { alpha: 'a', shared: 'from-init' }
+      static contract = {
+        attributes: {
+          beta: { type: 'number', default: 7 },
+          shared: { type: 'string', default: 'from-contract' },
+        },
+      }
+      content = null
+    }
+    expect((Composed as any)._resolveInitAttributes()).toEqual({
+      alpha: 'a',
+      beta: 7,
+      shared: 'from-contract',
+    })
+  })
+
+  test('a contract entry may omit default when initAttributes declares one', () => {
+    class Enriched extends Component {
+      static preferredTagName = 'compose-enrich'
+      static initAttributes = { mode: 'a' }
+      // constrain an attribute WITHOUT restating its default — the whole
+      // point of enrichment being cheap
+      static contract = { attributes: { mode: { enum: ['a', 'b', 'c'] } } }
+      content = null
+    }
+    expect((Enriched as any)._resolveInitAttributes()).toEqual({ mode: 'a' })
+    // and the constraint survives into what an agent is told
+    expect((Enriched as any)._describedAttributes().mode).toMatchObject({
+      enum: ['a', 'b', 'c'],
+    })
+  })
+
+  test('a contract attribute with no default ANYWHERE still throws', () => {
+    class NoDefault extends Component {
+      static preferredTagName = 'compose-nodefault'
+      static contract = { attributes: { orphan: { type: 'string' } } }
+      content = null
+    }
+    // the machinery infers an attribute's runtime type from its default, so
+    // with none in either place there is nothing to infer from
+    expect(() => (NoDefault as any)._resolveInitAttributes()).toThrow(/orphan/)
+  })
+
+  test('Component.computed() survives into the described type', () => {
+    class Computed extends Component {
+      static preferredTagName = 'compose-computed'
+      static initAttributes = { fullName: Component.computed('') }
+      get fullName() {
+        return 'x'
+      }
+      set fullName(_v: string) {}
+      content = null
+    }
+    // the marker's `shape` IS the type example — not `object`
+    expect((Computed as any)._describedAttributes().fullName).toEqual({
+      type: 'string',
+      default: '',
+    })
+  })
+})

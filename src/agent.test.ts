@@ -1589,3 +1589,78 @@ describe('secret redaction survives every way a control BECOMES secret', () => {
     el.remove()
   })
 })
+
+describe('attributes are described however they were declared (tosijs#29)', () => {
+  /*
+   * THE BUG: describe() read a component's attributes off `static contract`
+   * alone, so a component using `static initAttributes` — the terse form
+   * nearly every component uses, and the only one the component reference
+   * documents — appeared in the map with NO attribute description at all.
+   * The majority API was invisible to the feature 1.8.0 was named for.
+   *
+   * This pins the PROPERTY (the two forms describe equivalently), not the
+   * implementation, because the property is what shipped broken.
+   */
+  test('initAttributes and contract.attributes produce equivalent descriptions', async () => {
+    const { Component } = await import('./component')
+
+    class EqInit extends (Component as any) {
+      static preferredTagName = 'eq-init'
+      static initAttributes = { label: '', count: 0, on: false }
+      content = null
+    }
+    class EqContract extends (Component as any) {
+      static preferredTagName = 'eq-contract'
+      static contract = {
+        attributes: {
+          label: { type: 'string', default: '' },
+          count: { type: 'number', default: 0 },
+          on: { type: 'boolean', default: false },
+        },
+      }
+      content = null
+    }
+    const initEl = EqInit.elementCreator()() as any
+    const contractEl = EqContract.elementCreator()() as any
+    tosi({ eqApp: { a: 'x', b: 'y' } })
+    document.body.append(initEl, contractEl)
+    // both must be WIRED — an unbound element is dropped from the map, which
+    // is what made two earlier probes of this look like "neither works"
+    bind(initEl, 'eqApp.a', bindings.value)
+    bind(contractEl, 'eqApp.b', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    const wiring = agent.describe().wiring as any[]
+    const viaInit = wiring.find((w) => w.tag === 'eq-init')
+    const viaContract = wiring.find((w) => w.tag === 'eq-contract')
+
+    expect(viaInit?.component?.attributes).toEqual(
+      viaContract?.component?.attributes
+    )
+    // and it is the real description, not two matching absences
+    expect(viaInit?.component?.attributes).toEqual({
+      label: { type: 'string', default: '' },
+      count: { type: 'number', default: 0 },
+      on: { type: 'boolean', default: false },
+    })
+  })
+
+  test('attributes alone never make an element wired — declaration is still the signal', async () => {
+    const { Component } = await import('./component')
+    class QuietThing extends (Component as any) {
+      static preferredTagName = 'quiet-thing'
+      static initAttributes = { label: '' }
+      content = null
+    }
+    const el = QuietThing.elementCreator()() as any
+    document.body.append(el)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    const tags = (agent.describe().wiring as any[]).map((w) => w.tag)
+    // nothing binds it and it declares no contract, so it stays out of the
+    // map. Otherwise every custom element on the page would flood it.
+    expect(tags).not.toContain('quiet-thing')
+  })
+})

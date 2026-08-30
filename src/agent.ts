@@ -1327,16 +1327,39 @@ export function enableAgentInterface(
           if (record.tag.includes('-')) {
             const cls = (globalThis as any).customElements?.get?.(record.tag)
             const own = ownContract(cls)
-            if (own !== undefined) {
-              record.component = own
-            } else if (components?.[record.tag] != null) {
-              record.component = components[record.tag]
+            const declared =
+              own !== undefined ? own : (components?.[record.tag] ?? undefined)
+            if (declared != null) {
+              record.component = declared
             }
             // a self-DECLARED component is an affordance by declaration:
             // carrying a contract announces it to the surface, shadow
             // internals or not
             if (record.component != null) {
               wired = true
+            }
+            // ATTRIBUTES, HOWEVER THEY WERE DECLARED (tosijs#29). Reading them
+            // off `static contract` alone meant a component using
+            // `static initAttributes` — the terse form nearly every component
+            // uses, and the only one the component reference documents — sat
+            // in the map with no attribute description at all.
+            //
+            // DELIBERATELY GATED ON `wired`, and it never sets it. Declaration
+            // stays the announce signal: every component has attributes, so
+            // letting them make an element wired would flood the map with
+            // every custom element on the page. This only fills in the surface
+            // of something already in the map.
+            if (wired) {
+              const described =
+                typeof (cls as any)?._describedAttributes === 'function'
+                  ? (cls as any)._describedAttributes()
+                  : undefined
+              if (described != null && Object.keys(described).length > 0) {
+                record.component = {
+                  ...(record.component ?? {}),
+                  attributes: described,
+                }
+              }
             }
           }
           // BAIL FIRST. measureBounds is a getBoundingClientRect plus a

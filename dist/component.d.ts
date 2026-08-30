@@ -75,12 +75,24 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      */
     setFormValue(value: File | string | FormData | null, state?: File | string | FormData | null): void;
     /**
-     * The attribute map the machinery actually uses. `contract.attributes`
-     * (with `default`s) SUBSUMES `static initAttributes`:
-     * - both declared on the same class → throw (one source of truth);
-     * - initAttributes beside a contract that lacks attributes → warn once,
-     *   pointing at the ideal;
-     * - no contract involvement → classic initAttributes, unchanged.
+     * The attribute map the machinery actually uses. The two declaration forms
+     * COMPOSE — they are not rivals:
+     *
+     * - `static initAttributes` DECLARES: name + default, type inferred. Terse,
+     *   and what nearly every component uses.
+     * - `contract.attributes` ENRICHES: the same, plus constraints the built-in
+     *   checker enforces (`enum`, `const`) and anything a registered schema
+     *   engine adds.
+     *
+     * A key in both is the INTENDED composition — declare it tersely, then
+     * constrain it — so a contract entry may omit `default` when the key is
+     * already declared in `initAttributes`. The contract wins per key.
+     *
+     * This used to THROW when a class declared both, which was wrong twice over:
+     * the same two declarations split across a prototype chain already merged
+     * cleanly (identical intent, opposite outcome, decided only by placement),
+     * and "one source of truth" is a property of an attribute NAME, not of a
+     * class — two disjoint declarations create no ambiguity at all. tosijs#29.
      */
     static _resolveInitAttributes(): Record<string, any> | undefined;
     /**
@@ -105,6 +117,24 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      * A getter with no setter is legal, and means a read-only derived attribute.
      */
     static computed(shape?: string | boolean): ComputedAttribute;
+    /**
+     * The attributes as an AGENT should see them — `{ type, default }` per name,
+     * however they were declared.
+     *
+     * THE BUG THIS EXISTS TO FIX (tosijs#29): `describe()` read a component's
+     * attributes from `static contract` alone, so a component declaring
+     * `static initAttributes` — the terse form nearly every component uses, and
+     * the only one the component reference documents — appeared in the map with
+     * NO attribute description at all. The agent surface could see the element
+     * and what its value was bound to, and had no idea what attributes it had.
+     * The majority API was invisible to the feature 1.8.0 was named for.
+     *
+     * Types are inferred exactly as the attribute machinery infers them, from
+     * the default — including through a `Component.computed()` marker, whose
+     * `shape` IS the type example. A `contract.attributes` entry wins per key,
+     * because it is the richer statement (it can carry `enum`/`const`).
+     */
+    static _describedAttributes(): Record<string, any> | undefined;
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;

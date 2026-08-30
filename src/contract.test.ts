@@ -347,17 +347,37 @@ describe('contract.attributes subsumes initAttributes', () => {
     el.remove()
   })
 
-  test('declaring BOTH initAttributes and contract.attributes throws — one source of truth', () => {
+  /*
+   * WAS: "declaring BOTH throws — one source of truth". Reversed deliberately
+   * in tosijs#29. That rule was wrong twice over — the same two declarations
+   * split across a prototype chain already merged cleanly (identical intent,
+   * opposite outcome, decided only by placement), and "one source of truth" is
+   * a property of an attribute NAME, not of a class.
+   */
+  test('declaring BOTH composes — initAttributes declares, the contract enriches', () => {
     class BothDeclared extends Component {
       static preferredTagName = 'both-declared'
-      static initAttributes = { count: 0 }
+      static initAttributes = { count: 0, label: 'untitled' }
       static contract: ComponentMap = {
-        attributes: { count: { type: 'number', default: 0 } },
+        attributes: { count: { type: 'number', default: 3 } },
       }
     }
-    expect(() => BothDeclared._resolveInitAttributes()).toThrow(
-      'single source of truth'
-    )
+    // no throw; the contract wins on `count`, `label` survives from init
+    expect(BothDeclared._resolveInitAttributes()).toEqual({
+      count: 3,
+      label: 'untitled',
+    })
+  })
+
+  test('a contract entry may omit default when initAttributes supplies one', () => {
+    class Enriched extends Component {
+      static preferredTagName = 'enriched-attrs'
+      static initAttributes = { mode: 'a' }
+      static contract: ComponentMap = {
+        attributes: { mode: { enum: ['a', 'b'] } },
+      } as any
+    }
+    expect(Enriched._resolveInitAttributes()).toEqual({ mode: 'a' })
   })
 
   test('a contract.attributes entry without a default throws, naming it', () => {
@@ -372,8 +392,15 @@ describe('contract.attributes subsumes initAttributes', () => {
     )
   })
 
-  test('initAttributes beside a contract without attributes warns once toward the ideal', () => {
-    class Nudged extends Component {
+  /*
+   * WAS: "warns once toward the ideal". The nudge is GONE (tosijs#29). Its
+   * only real force was "so one declaration feeds … the agents", and that was
+   * true only because `initAttributes` never reached `describe()`. It does
+   * now — so the warning pushed people toward the verbose form for a reason
+   * that no longer exists, and toward the API with far fewer users.
+   */
+  test('initAttributes beside a contract without attributes is silent', () => {
+    class NotNudged extends Component {
       static preferredTagName = 'nudged-attrs'
       static initAttributes = { count: 0 }
       static contract: ComponentMap = { description: 'no attributes here' }
@@ -382,17 +409,11 @@ describe('contract.attributes subsumes initAttributes', () => {
     const original = console.warn
     console.warn = (msg: string) => void warnings.push(String(msg))
     try {
-      const resolved = Nudged._resolveInitAttributes()
-      Nudged._resolveInitAttributes() // second call — no second warning
-      expect(resolved).toEqual({ count: 0 }) // still works as before
+      expect(NotNudged._resolveInitAttributes()).toEqual({ count: 0 })
     } finally {
       console.warn = original
     }
-    expect(
-      warnings.filter((w) =>
-        w.includes('Ideally attributes live in the contract')
-      ).length
-    ).toBe(1)
+    expect(warnings.filter((w) => w.includes('Ideally attributes'))).toEqual([])
   })
 })
 
@@ -1001,18 +1022,39 @@ describe('contract.attributes inheritance (review M3)', () => {
     el.remove()
   })
 
-  test('declaring BOTH on the SAME class still throws — one source of truth', () => {
-    class Conflicted extends Component {
-      static preferredTagName = 'attr-conflicted'
+  /*
+   * WAS: "declaring BOTH on the SAME class still throws". That assertion sat
+   * directly beneath the inheritance-merge tests above, and the pair was the
+   * defect: the SAME two declarations merged cleanly when split across a
+   * prototype chain and threw when written on one class. Identical intent,
+   * opposite outcomes, decided only by placement — and the same-class form is
+   * arguably the safer one, since both declarations are visible in one file.
+   *
+   * So this now pins the CONSISTENCY rather than the exception (tosijs#29).
+   */
+  test('same-class and split-across-a-chain resolve identically', () => {
+    class SameClass extends Component {
+      static preferredTagName = 'attr-same-class'
       static initAttributes = { a: 1 }
       static contract = {
         attributes: { b: { type: 'number', default: 2 } },
       } as any
       content = null
     }
-    expect(() => (Conflicted as any)._resolveInitAttributes()).toThrow(
-      /BOTH static initAttributes AND/
-    )
+    class SplitBase extends Component {
+      static preferredTagName = 'attr-split-base'
+      static initAttributes = { a: 1 }
+      content = null
+    }
+    class SplitChild extends SplitBase {
+      static preferredTagName = 'attr-split-child'
+      static contract = {
+        attributes: { b: { type: 'number', default: 2 } },
+      } as any
+    }
+    const expected = { a: 1, b: 2 }
+    expect((SameClass as any)._resolveInitAttributes()).toEqual(expected)
+    expect((SplitChild as any)._resolveInitAttributes()).toEqual(expected)
   })
 })
 

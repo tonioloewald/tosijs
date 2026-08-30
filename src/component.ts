@@ -858,7 +858,6 @@ const checkValueContract = (el: any, newValue: any): void => {
 // contract.attributes subsumes initAttributes: cache the derived map per
 // class (never mutate the class), warn/throw toward the ideal exactly once
 const derivedInitAttributes = new WeakMap<Function, Record<string, any>>()
-const attributeNudgeGiven = new Set<Function>()
 
 /** tag-name literal → element type, for parts declared in a component contract */
 type TagToElement<T> = T extends keyof HTMLElementTagNameMap
@@ -1061,12 +1060,24 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
 
   /**
-   * The attribute map the machinery actually uses. `contract.attributes`
-   * (with `default`s) SUBSUMES `static initAttributes`:
-   * - both declared on the same class → throw (one source of truth);
-   * - initAttributes beside a contract that lacks attributes → warn once,
-   *   pointing at the ideal;
-   * - no contract involvement → classic initAttributes, unchanged.
+   * The attribute map the machinery actually uses. The two declaration forms
+   * COMPOSE — they are not rivals:
+   *
+   * - `static initAttributes` DECLARES: name + default, type inferred. Terse,
+   *   and what nearly every component uses.
+   * - `contract.attributes` ENRICHES: the same, plus constraints the built-in
+   *   checker enforces (`enum`, `const`) and anything a registered schema
+   *   engine adds.
+   *
+   * A key in both is the INTENDED composition — declare it tersely, then
+   * constrain it — so a contract entry may omit `default` when the key is
+   * already declared in `initAttributes`. The contract wins per key.
+   *
+   * This used to THROW when a class declared both, which was wrong twice over:
+   * the same two declarations split across a prototype chain already merged
+   * cleanly (identical intent, opposite outcome, decided only by placement),
+   * and "one source of truth" is a property of an attribute NAME, not of a
+   * class — two disjoint declarations create no ambiguity at all. tosijs#29.
    */
   static _resolveInitAttributes(): Record<string, any> | undefined {
     const declaredContract = ownContract(this)
@@ -1074,24 +1085,21 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       ? this.initAttributes
       : undefined
     if (declaredContract?.attributes != null) {
-      if (ownInit != null) {
-        throw new Error(
-          `${this.name} declares BOTH static initAttributes AND ` +
-            `contract.attributes — the contract is the single source of ` +
-            `truth. Move the defaults into contract.attributes ` +
-            `({ name: { type, default } }) and delete initAttributes.`
-        )
-      }
       const cached = derivedInitAttributes.get(this)
       if (cached != null) return cached
-      const derived: Record<string, any> = {}
+      // initAttributes is the BASE layer; contract.attributes overlays it.
+      const derived: Record<string, any> = { ...(ownInit ?? {}) }
       const missingDefaults: string[] = []
       for (const [name, schema] of Object.entries(
         declaredContract.attributes
       )) {
         if (schema != null && 'default' in (schema as any)) {
           derived[name] = (schema as any).default
-        } else {
+        } else if (!(name in derived)) {
+          // no default anywhere: the machinery infers an attribute's runtime
+          // type from its default, so there is nothing to infer from. A
+          // contract entry WITHOUT `default` is fine when initAttributes
+          // already supplied one — that is the point of composing.
           missingDefaults.push(name)
         }
       }
@@ -1100,7 +1108,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           `${this.name} contract.attributes entries missing 'default': ` +
             `${missingDefaults.join(', ')} — the attribute machinery infers ` +
             `each attribute's runtime type from its default, so every ` +
-            `declared attribute needs one.`
+            `declared attribute needs one, either here or in ` +
+            `static initAttributes.`
         )
       }
       // INHERITANCE: a subclass declaring contract.attributes must not
@@ -1121,19 +1130,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       derivedInitAttributes.set(this, merged)
       return merged
     }
-    if (
-      ownInit != null &&
-      declaredContract != null &&
-      !attributeNudgeGiven.has(this)
-    ) {
-      attributeNudgeGiven.add(this)
-      console.warn(
-        `${this.name} declares a contract AND a separate static ` +
-          `initAttributes. Ideally attributes live in the contract ` +
-          `(contract.attributes: { name: { type, default } }) so one ` +
-          `declaration feeds the types, the docs, the agents, and the tests.`
-      )
-    }
+    // NO NUDGE HERE ANY MORE. This used to warn that attributes "ideally live
+    // in the contract … so one declaration feeds the types, the docs, the
+    // agents, and the tests" — whose only real force was the agents clause,
+    // and that was true only because `initAttributes` never reached
+    // `describe()`. It does now (see `_describedAttributes`), so the nudge
+    // pushed people toward the verbose form for a reason that no longer
+    // exists — and toward the form with, at last count, far fewer users than
+    // the one it was nudging them away from. tosijs#29.
     return this.initAttributes
   }
 
@@ -1160,6 +1164,35 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    */
   static computed(shape: string | boolean = ''): ComputedAttribute {
     return { [COMPUTED_ATTRIBUTE]: true, shape }
+  }
+
+  /**
+   * The attributes as an AGENT should see them — `{ type, default }` per name,
+   * however they were declared.
+   *
+   * THE BUG THIS EXISTS TO FIX (tosijs#29): `describe()` read a component's
+   * attributes from `static contract` alone, so a component declaring
+   * `static initAttributes` — the terse form nearly every component uses, and
+   * the only one the component reference documents — appeared in the map with
+   * NO attribute description at all. The agent surface could see the element
+   * and what its value was bound to, and had no idea what attributes it had.
+   * The majority API was invisible to the feature 1.8.0 was named for.
+   *
+   * Types are inferred exactly as the attribute machinery infers them, from
+   * the default — including through a `Component.computed()` marker, whose
+   * `shape` IS the type example. A `contract.attributes` entry wins per key,
+   * because it is the richer statement (it can carry `enum`/`const`).
+   */
+  static _describedAttributes(): Record<string, any> | undefined {
+    const resolved = this._resolveInitAttributes()
+    const declared = ownContract(this)?.attributes
+    if (resolved == null) return declared
+    const described: Record<string, any> = {}
+    for (const [name, value] of Object.entries(resolved)) {
+      const shape = isComputedAttribute(value) ? value.shape : value
+      described[name] = { type: typeof shape, default: shape }
+    }
+    return declared != null ? { ...described, ...declared } : described
   }
 
   static get observedAttributes(): string[] {
