@@ -213,6 +213,45 @@ appears missing, check the spec text before the object shape — and never file
 
 ## tjs-lang
 
+### 🛑 HOLD on build-host bumps (2026-08-31, maintainer)
+
+**Do not adopt `tosijs-ui` 1.12.5+ or the next `tjs-lang` yet.** 1.12.6 carries
+tweaks we want, and tjs-lang is mid-way through a **major pipeline rework** —
+adopting into the middle of that buys churn, and this session already showed
+what a build-host bump costs when the toolchain moves under you (tjs-lang#37
+took a bisect, a repro and a day).
+
+**The bug driving the rework, because the class matters more than the instance:**
+the `ts → js` path was **a lie**. It used tsc's own emission to produce JS
+directly, so `ts → tjs → js` was never actually exercised. `ts → tjs` was
+tested. `tjs → js` was tested. But `tjs → js` was only ever tested against TJS a
+**human had written** — so the corner cases where `ts → tjs` emits TJS nobody
+would author went straight through untested.
+
+⚠️ **tjs-lang#37 — the `new`-stripping regression we hit and filed — is an
+instance of exactly this.** Dropping `new` is *correct* for hand-written `.tjs`
+(the emitter Proxy-wraps the class, making it callable) and *wrong* for `fromTS`
+output (annotated `/* tjs <- … */`, plain JS semantics, no wrap — so the `new`
+was load-bearing). The transform was right for the authored population and
+wrong for the generated one. It reached us because we are a consumer of the
+generated path, and it cost the 0.12.0 detour.
+
+**The generalisation is worth holding onto:** testing `A → B` and `B → C` does
+not test `A → C`. The `B` values a generator emits are a different population
+from the `B` values a human writes, and the hand-written test inputs for the
+second stage are by construction the ones somebody thought of. See
+`../tosijs-coding-practices/practices/testing.md`.
+
+**What we can offer when the rework lands:** the 2.0 branch already ran the
+tosijs suite against the *converted* output (`tjs-out/`) rather than `src/` —
+**872 of 898 passed, and all 26 failures were staging artifacts**, not
+behavioural differences (tests that hardcode `import.meta.dir` or a `.ts`
+extension). That is precisely the shape of gate that catches this bug class: it
+exercises generated intermediates against a real suite. It is ~26
+location-independence fixes away from being a standing lane. Recorded on the
+branch in `TJS-PORT-DX.md`.
+
+
 ### 📋 FILED — schema islands enforced from inside the proxy (the 2.0 dissolve)
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/27
 The use case behind tosijs 1.8.0's contracts, recorded with its scars: a
