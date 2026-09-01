@@ -69,6 +69,36 @@ how large a rendered UI element is to adjust something else.
 
 It's also used a lot in unit tests. After you perform some logic, does
 it appear correctly in the UI?
+
+### ⚠️ Drain after `tosi()` before you observe
+
+Registering state **queues a touch on the root path**, and `touch()` is
+async-batched — so if you observe immediately after `tosi()`, that pending
+notification is still in flight and lands on your callback:
+
+```
+tosi({ app: { a: 0, b: 0 } })
+observe('app.a', (path) => console.log(path))   // registration touch pending
+app.a.value = 1
+await updates()                                 // logs 'app', not 'app.a'
+```
+
+Because a root touch notifies every descendant, an observer on `app.b` fires
+too — so it reads convincingly as *"writing `a` woke every sibling"*. It isn't.
+Add `await updates()` after `tosi()` and before installing observers:
+
+```
+tosi({ app: { a: 0, b: 0 } })
+await updates()                                 // <- drain the registration
+observe('app.a', (path) => console.log(path))
+app.a.value = 1
+await updates()                                 // logs 'app.a', and only that
+```
+
+Writes are surgical: every form (`app.a.value = 1`, `app.a = 1`,
+`xin.app.a = 1`, `xin['app.a'] = 1`) touches exactly `app.a`. If a probe
+suggests otherwise, check for an undrained registration first — the symptom is
+specific and stable enough to look like a real finding.
 */
 
 import {

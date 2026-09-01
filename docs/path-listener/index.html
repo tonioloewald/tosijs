@@ -103,6 +103,28 @@ have to mess with this, but sometimes—for example—you might need to know
 how large a rendered UI element is to adjust something else.</p>
 <p>It&#39;s also used a lot in unit tests. After you perform some logic, does
 it appear correctly in the UI?</p>
+<h3>⚠️ Drain after <code>tosi()</code> before you observe</h3>
+<p>Registering state <strong>queues a touch on the root path</strong>, and <code>touch()</code> is
+async-batched — so if you observe immediately after <code>tosi()</code>, that pending
+notification is still in flight and lands on your callback:</p>
+<pre><code>tosi({ app: { a: 0, b: 0 } })
+observe(&#39;app.a&#39;, (path) =&gt; console.log(path))   // registration touch pending
+app.a.value = 1
+await updates()                                 // logs &#39;app&#39;, not &#39;app.a&#39;
+</code></pre>
+<p>Because a root touch notifies every descendant, an observer on <code>app.b</code> fires
+too — so it reads convincingly as <em>&quot;writing <code>a</code> woke every sibling&quot;</em>. It isn&#39;t.
+Add <code>await updates()</code> after <code>tosi()</code> and before installing observers:</p>
+<pre><code>tosi({ app: { a: 0, b: 0 } })
+await updates()                                 // &lt;- drain the registration
+observe(&#39;app.a&#39;, (path) =&gt; console.log(path))
+app.a.value = 1
+await updates()                                 // logs &#39;app.a&#39;, and only that
+</code></pre>
+<p>Writes are surgical: every form (<code>app.a.value = 1</code>, <code>app.a = 1</code>,
+<code>xin.app.a = 1</code>, <code>xin[&#39;app.a&#39;] = 1</code>) touches exactly <code>app.a</code>. If a probe
+suggests otherwise, check for an undrained registration first — the symptom is
+specific and stable enough to look like a real finding.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
