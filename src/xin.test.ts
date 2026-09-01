@@ -1819,3 +1819,71 @@ describe('computed (getter) properties in the registry', () => {
     expect((xin as any)['computedDst.inner.x']).toBe(1)
   })
 })
+
+describe('.value = writes are surgical (and the registration-touch trap)', () => {
+  /*
+   * Nothing pinned this, and its absence cost a long investigation: probing it
+   * naively produces a CONFIDENT, SPECIFIC and WRONG conclusion — that
+   * `.value =` touches the parent and wakes every sibling. It survives several
+   * rounds of narrowing because every probe reproduces it.
+   *
+   * The cause is the test, not the library. `touch()` is async-batched, so
+   * `tosi()` queues a notification on the ROOT path; observe before that
+   * drains and your callback fires with the root, which (by bidirectional
+   * matching) also wakes every descendant. Drain first and it evaporates.
+   */
+  test('a .value write touches its own path, not its parent', async () => {
+    tosi({ surg: { a: 0, b: 0 } })
+    await updates() // <-- drain the registration touch BEFORE observing
+    const seen: string[] = []
+    const l = observe(
+      () => true,
+      (p: string) => {
+        seen.push(p)
+      }
+    )
+    boxed.surg.a.value = 1
+    await updates()
+    unobserve(l)
+    expect(seen).toEqual(['surg.a'])
+  })
+
+  test('a .value write does not wake sibling observers', async () => {
+    tosi({ surg2: { a: 0, b: 0, c: 0 } })
+    await updates()
+    const hits: Record<string, number> = { 'surg2.a': 0, 'surg2.b': 0, 'surg2.c': 0 }
+    const ls = Object.keys(hits).map((path) =>
+      observe(path, () => {
+        hits[path]++
+      })
+    )
+    boxed.surg2.a.value = 1
+    await updates()
+    ls.forEach(unobserve)
+    expect(hits).toEqual({ 'surg2.a': 1, 'surg2.b': 0, 'surg2.c': 0 })
+  })
+
+  test('every write form agrees on the touched path', async () => {
+    tosi({ surg3: { a: 0 } })
+    await updates()
+    const forms: Array<[string, () => void]> = [
+      ['.value =', () => { boxed.surg3.a.value = 1 }],
+      ['direct assign', () => { boxed.surg3.a = 2 }],
+      ['raw proxy', () => { xin.surg3.a = 3 }],
+      ['path assign', () => { xin['surg3.a'] = 4 }],
+    ]
+    for (const [label, write] of forms) {
+      const seen: string[] = []
+      const l = observe(
+        () => true,
+        (p: string) => {
+          seen.push(p)
+        }
+      )
+      write()
+      await updates()
+      unobserve(l)
+      expect({ [label]: seen }).toEqual({ [label]: ['surg3.a'] })
+    }
+  })
+})

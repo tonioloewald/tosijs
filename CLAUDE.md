@@ -220,6 +220,25 @@ Tests use Bun's test runner with Happy DOM for DOM environment (configured in `b
 
 **Async updates:** After state changes in tests, use `await updates()` to wait for all pending observer callbacks and DOM updates to complete before asserting on UI state.
 
+**`tosi()` ITSELF SCHEDULES A TOUCH ON THE ROOT — drain it before observing.**
+`touch()` is async-batched, so registering state queues a notification on the
+root path. Observe immediately afterwards and your callback fires with the ROOT
+path, not the leaf you wrote — and because touching a root notifies every
+descendant, it also looks like every sibling observer woke spuriously:
+
+```
+tosi({ app: { a: 0, b: 0 } })
+observe('app.a', cb)          // <-- the registration touch is still pending
+app.a.value = 1
+await updates()               // cb sees 'app', and an observer on 'app.b' fires too
+```
+
+Add `await updates()` after `tosi()` and before installing observers, and both
+symptoms vanish: the write touches `app.a` and nothing else stirs. **This is
+correct behaviour, not a bug** — but it produces a *confident and specific*
+false positive ("`.value =` over-notifies siblings") that survives several
+rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
+
 **Happy DOM limitations:**
 
 - Does NOT support `:scope >` CSS selector — use manual child iteration instead
