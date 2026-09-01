@@ -1201,6 +1201,73 @@ lands it on the release line.
   `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
   or by compiling boolean coercion checks to use `.valueOf()` instead
 
+## 2.0 — THE PURGE INVENTORY (every deprecation, in one place)
+
+**Why this list exists.** 1.7.6 renamed five blueprint types to `Tosi*` with
+`@deprecated` aliases and nobody wrote down what else needed the same
+treatment — so **22 more `Xin*` type names sat unconverted and untracked for
+four releases**, including ones in the *documented* API. That miss happened
+because there was no inventory. A 2.0 purge without one reproduces it at
+larger scale, across markup, runtime functions and types at once.
+
+Policy until then (maintainer, 2026-09-01): **the great purge is 2.0; until
+then we try not to break anyone.** Keep compatibility where it is cheap — a
+type alias costs nothing at runtime or in the bundle. Break only where
+compatibility is preserving a design error (as the `initAttributes` /
+`contract.attributes` throw was, #29).
+
+### Runtime deprecations — each warns once, keyed in `deprecationWarnings`
+
+| key | site | replacement |
+| --- | --- | --- |
+| `tag` | `blueprint-loader.ts:441` | `<xin-blueprint>` / `<xin-loader>` markup → `<tosi-*>` |
+| `blueprint` | `blueprint-loader.ts:467` | `tosiBlueprint()` |
+| `blueprintLoader` | `blueprint-loader.ts:480` | `tosiLoader()` |
+| `elementCreator-tag` | `component.ts:1293` | `static preferredTagName` |
+| `elementCreator-styleSpec` | `component.ts:1299` | `static lightStyleSpec` |
+| `elementCreator-extends` | `component.ts:1305` | `static extends` |
+| `initAttributes` | `component.ts:1393` | `static initAttributes = {}` (the method form goes) |
+| `static-styleSpec` | `component.ts:2434` | `static shadowStyleSpec` |
+| `xin-slot` | `component.ts:2584` | `<tosi-slot>` markup |
+| `xinSlot` | `component.ts:2602` | `tosiSlot()` |
+| `initVars` | `css.ts:645` | `_` / `__` prefixes |
+| `bind<Type>` | `elements.ts:657` | `bindText`/`bindList`/`bindEnabled`/`bindDisabled` → binding objects |
+| `boxedProxy` | `xin-proxy.ts:125` | `tosi()` |
+| `xinProxy-boxed` | `xin-proxy.ts:183` | `tosi()` |
+
+Not in that registry but deprecated and warned separately:
+
+- **`onResize`** (`component.ts:1722`) → `handleResize`.
+- **`xinValue` / `xinPath`** (`metadata.ts:242`) → `.tosi.value` / `.tosi.path`.
+  Note `tosiValue` / `tosiPath` are *also* soft-deprecated in favour of the
+  accessor; decide in 2.0 whether they go too or become canonical.
+
+### Type-only deprecations — zero runtime cost, so cheapest to keep longest
+
+- **All 27 `Xin*` type aliases.** Five renamed in 1.7.6
+  (`make-component.ts:93-100`), the other 22 in **1.8.2**
+  (`xin-types.ts`, `css-types.ts`, `metadata.ts`).
+- ⚠️ **`index-core-exports.ts` and `index-state.ts` use EXPLICIT export lists,
+  not `export *`.** Deleting an alias means deleting it in *two* places, and
+  the reverse bit us in 1.8.2: renaming the css types in that list silently
+  removed the old spellings from the public surface, invisible to our own
+  typecheck because our own code had already moved. **Any purge step needs a
+  consumer-compile check, not just a green `tsc` here.**
+- `xin-types.ts:303-309` — the `bindText` / `bindList` / `bindEnabled` /
+  `bindDisabled` binding-shortcut types.
+
+### When the purge runs
+
+- Delete in **one** commit per category (markup / runtime / types), so a
+  bisect can land on the category that broke someone.
+- The three categories have different blast radii: **types** break a build
+  (loud, instant, trivially fixed); **runtime functions** break at call time;
+  **markup tombstones** break *silently* — that is the entire reason
+  `<xin-slot>` is a warning subclass rather than a plain removal, and the
+  category to migrate first and remove last.
+- Re-derive this table before starting; it is a snapshot of 1.8.2, and the
+  point of writing it down is that snapshots go stale where memory just fails.
+
 ## 2.0 / tjs — why the port is the bet, not just a rewrite
 
 **Framing recorded 2026-08-21, when tjs-lang hit 0.13.0-rc.1.** Two things
