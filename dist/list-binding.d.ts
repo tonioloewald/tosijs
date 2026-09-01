@@ -1,5 +1,5 @@
 import { LIST_BINDING_REF } from './metadata';
-import { XinObject, ListBindingOptions } from './xin-types';
+import { TosiObject, ListBindingOptions } from './xin-types';
 import { Listener } from './path-listener';
 export declare class ListBinding {
     boundElement: Element;
@@ -8,7 +8,7 @@ export declare class ListBinding {
     isNamespaced: boolean;
     templates: Element[];
     options: ListBindingOptions;
-    itemToElement: WeakMap<XinObject, Element[]>;
+    itemToElement: WeakMap<TosiObject, Element[]>;
     private idToElement;
     array: any[];
     private _filteredCache?;

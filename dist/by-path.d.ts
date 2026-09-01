@@ -1,4 +1,4 @@
-import { XinObject, XinArray } from './xin-types';
+import { TosiObject, TosiArray } from './xin-types';
 export declare const id: () => string;
 type Part = string | string[];
 type PartArray = Part[];
@@ -25,7 +25,7 @@ export declare function assertSafeKey(key: string): void;
  * own-property check).
  */
 export declare function assertSafeLeafKey(key: string): void;
-declare function getByPath(obj: XinObject | XinArray, path: string): any;
-declare function setByPath(orig: XinObject | XinArray, path: string, val: any): boolean;
-declare function deleteByPath(orig: XinObject, path: string): void;
+declare function getByPath(obj: TosiObject | TosiArray, path: string): any;
+declare function setByPath(orig: TosiObject | TosiArray, path: string, val: any): boolean;
+declare function deleteByPath(orig: TosiObject, path: string): void;
 export { getByPath, setByPath, deleteByPath, pathParts };

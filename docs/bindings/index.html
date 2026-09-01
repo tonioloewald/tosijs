@@ -49,8 +49,8 @@
 <p><code>bindings</code> is simply a collection of common bindings.</p>
 <p>You can create your own bindings easily enough (and add them to <code>bindings</code> if so desired).</p>
 <p>A <code>binding</code> looks like this:</p>
-<pre><code>interface XinBinding {
-  toDOM?: (element: HTMLElement, value: any, options?: XinObject) =&gt; void
+<pre><code>interface TosiBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: TosiObject) =&gt; void
   fromDOM?: (element: HTMLElement) =&gt; any
 }
 </code></pre>

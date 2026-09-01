@@ -69,9 +69,9 @@ built with <code>tosijs</code> to be <em>deeply asynchronous</em>.</p>
 <h2><code>bind()</code></h2>
 <pre><code>bind&lt;T = Element&gt;(
   element: T,
-  what: XinTouchableType,
-  binding: XinBinding,
-  options: XinObject
+  what: TosiTouchableType,
+  binding: TosiBinding,
+  options: TosiObject
 ): T
 </code></pre>
 <p><code>bind()</code> binds a <code>path</code> to an element, syncing the value at the path to and/or from the DOM.</p>
@@ -149,8 +149,8 @@ be updated, and <code>app.title</code> will be listed as a changed path, and
 an update will be fired via <code>setTimout</code>. When that update fires,
 anything observer of the paths <code>app.text</code> and <code>app</code> will be fired.</p>
 <p>A <code>binding</code> looks like this:</p>
-<pre><code>interface XinBinding {
-  toDOM?: (element: HTMLElement, value: any, options?: XinObject) =&gt; void
+<pre><code>interface TosiBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: TosiObject) =&gt; void
   fromDOM?: (element: HTMLElement) =&gt; any
 }
 </code></pre>
@@ -172,9 +172,9 @@ based on whether the bound value is neither &quot;falsy&quot; nor an empty <code
 bind(listElement, &#39;app.bigList&#39;, visibility)
 </code></pre>
 <h2><code>on()</code></h2>
-<pre><code>on(element: Element, eventType: string, handler: XinEventHandler): VoidFunction
+<pre><code>on(element: Element, eventType: string, handler: TosiEventHandler): VoidFunction
 
-export type XinEventHandler&lt;T extends Event = Event, E extends Element = Element&gt; =
+export type TosiEventHandler&lt;T extends Event = Event, E extends Element = Element&gt; =
   | ((evt: T &amp; {target: E}) =&gt; void)
   | ((evt: T &amp; {target: E}) =&gt; Promise&lt;void&gt;)
   | string

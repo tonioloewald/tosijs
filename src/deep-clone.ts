@@ -1,7 +1,7 @@
-import { XinObject, XinArray, AnyFunction } from './xin-types'
+import { TosiObject, TosiArray, AnyFunction } from './xin-types'
 
 type Scalar = string | boolean | number | AnyFunction
-type Cloneable = Scalar | XinObject | XinArray
+type Cloneable = Scalar | TosiObject | TosiArray
 
 // `seen` maps original -> clone so circular references reproduce the cycle in
 // the clone instead of blowing the stack, and shared references stay shared.
@@ -49,10 +49,10 @@ export function deepClone(
     }
     return clone
   }
-  const clone: XinObject = {}
+  const clone: TosiObject = {}
   seen.set(obj as object, clone)
   for (const key in obj) {
-    clone[key] = deepClone((obj as XinObject)[key], seen)
+    clone[key] = deepClone((obj as TosiObject)[key], seen)
   }
   return clone
 }

@@ -1,4 +1,4 @@
-import { XinStyleSheet } from './css-types';
+import { TosiStyleSheet } from './css-types';
 import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
@@ -47,7 +47,7 @@ export type PartsOf<T> = T extends {
 } & PartsMap : T extends Record<string, Element> ? T : T extends ComponentMap ? PartsMap : T;
 interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
-    styleSpec?: XinStyleSheet;
+    styleSpec?: TosiStyleSheet;
 }
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;
@@ -55,8 +55,8 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static initAttributes?: Record<string, any>;
     static formAssociated?: boolean;
     static preferredTagName?: string;
-    static shadowStyleSpec?: XinStyleSheet;
-    static lightStyleSpec?: XinStyleSheet;
+    static shadowStyleSpec?: TosiStyleSheet;
+    static lightStyleSpec?: TosiStyleSheet;
     static extends?: string;
     internals?: ElementInternals;
     get validity(): ValidityState | undefined;
@@ -138,7 +138,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static get observedAttributes(): string[];
     instanceId: string;
     styleNode?: HTMLStyleElement;
-    static styleSpec?: XinStyleSheet;
+    static styleSpec?: TosiStyleSheet;
     static styleNode?: HTMLStyleElement;
     content: ContentType | ((e: typeof elements) => ContentType) | null;
     isSlotted?: boolean;
@@ -149,7 +149,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     private _attrValues?;
     private _valueChanged;
     private _pendingAttrOps?;
-    static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement;
+    static StyleNode(styleSpec: TosiStyleSheet): HTMLStyleElement;
     static elementCreator<C = Component>(this: new () => C, options?: ElementCreatorOptions): ElementCreator<C>;
     /**
      * @deprecated Use static initAttributes instead.

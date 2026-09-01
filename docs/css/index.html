@@ -66,8 +66,8 @@ and bad in CSS. In Javascript it&#39;s simply an error!</li>
 <p>The <code>css</code> module attempts to implement all this the simplest and most obvious way possible,
 providing syntax sugar to help with best-practices such as <code>css-variables</code> and the use of
 <code>@media</code> queries to drive consistency, themes, and accessibility.</p>
-<h2>css(styleMap: XinStyleMap): string</h2>
-<p>A function that, given a <code>XinStyleMap</code> renders CSS code. What is a XinStyleMap?
+<h2>css(styleMap: TosiStyleMap): string</h2>
+<p>A function that, given a <code>TosiStyleMap</code> renders CSS code. What is a TosiStyleMap?
 It&#39;s kind of what you&#39;d expect if you wanted to represent CSS as Javascript in
 the most straightforward way possible. It allows for things like <code>@import</code>,
 <code>@keyframes</code> and so forth, but knows just enough about CSS to help with things
@@ -326,7 +326,7 @@ declarations to <code>elements</code> and <code>css</code> has done wonders to r
 stuff like <code>const nameElement = this.parts.nameField as unknown as HTMLInputElement</code>
 and prevent css property typos without adding a single byte to the size of
 the javascript payload.</p>
-<h2>StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement</h2>
+<h2>StyleSheet(id: string, styleSpec: TosiStyleSheet): HTMLStyleElement</h2>
 <p>Creates a <code>&lt;style&gt;</code> element (with the given <code>id</code>) in <code>document.head</code> and returns
 it, so you can remove or otherwise manage it later.</p>
 <p><strong>If you pass a <code>tosi</code> proxy, the stylesheet is <em>observant</em>:</strong> change the proxy and

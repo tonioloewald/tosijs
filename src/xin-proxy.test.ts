@@ -52,7 +52,7 @@ test('tosi works', () => {
   expect(box.whatevs.sub.xinValue).toBe(17)
 })
 
-test('xinProxy assigns to xin and returns XinProxy', () => {
+test('xinProxy assigns to xin and returns TosiProxy', () => {
   const data = {
     xinProxyTest: {
       name: 'test',

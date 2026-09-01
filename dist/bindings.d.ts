@@ -1,4 +1,4 @@
-import { XinBinding } from './xin-types';
+import { TosiBinding } from './xin-types';
 export declare const bindings: {
-    [key: string | symbol]: XinBinding<Element>;
+    [key: string | symbol]: TosiBinding<Element>;
 };

@@ -127,7 +127,7 @@ type CSSWhiteSpace =
   | 'break-spaces'
 type CSSWordBreak = 'normal' | 'break-all' | 'keep-all'
 
-export interface XinStyleRule {
+export interface TosiStyleRule {
   accentColor?: Color | CSSColor | CSSGlobalValues | string
   alignContent?:
     | CSSBasicAlign
@@ -381,10 +381,27 @@ export interface XinStyleRule {
     | undefined
 }
 
-export interface XinStyleMap {
-  [key: string]: XinStyleRule
+export interface TosiStyleMap {
+  [key: string]: TosiStyleRule
 }
 
-export interface XinStyleSheet {
-  [key: string]: XinStyleRule | XinStyleMap | string
+export interface TosiStyleSheet {
+  [key: string]: TosiStyleRule | TosiStyleMap | string
 }
+
+/* --- DEPRECATED `Xin*` SPELLINGS -------------------------------------------
+ * The library is tosijs; these names are xinjs-era. The canonical spellings
+ * are the `Tosi*` forms above. Kept exported so existing
+ * `import { XinStyleSheet } from 'tosijs'` keeps compiling — a type-only
+ * alias, so it costs nothing at runtime and nothing in the bundle.
+ *
+ * SCHEDULED FOR REMOVAL IN 2.0. The blueprint types were renamed this way in
+ * 1.7.6 and the remaining 22 were simply missed, untracked, for four
+ * releases — so this block states its own end, rather than drifting again.
+ * -------------------------------------------------------------------------- */
+/** @deprecated Use `TosiStyleRule` */
+export type XinStyleRule = TosiStyleRule
+/** @deprecated Use `TosiStyleMap` */
+export type XinStyleMap = TosiStyleMap
+/** @deprecated Use `TosiStyleSheet` */
+export type XinStyleSheet = TosiStyleSheet

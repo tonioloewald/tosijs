@@ -1,4 +1,4 @@
-import { XinObject, XinBinding, XinEventHandler, Unboxed } from './xin-types';
+import { TosiObject, TosiBinding, TosiEventHandler, Unboxed } from './xin-types';
 /**
  * The class tosijs stamps on every data-bound element. Dispatch enumerates
  * bound elements with `document.getElementsByClassName(BOUND_CLASS)`. Exported
@@ -75,8 +75,8 @@ export declare const xinPath: (x: any) => string | undefined;
 export declare const xinValue: typeof tosiValue;
 export interface DataBinding<T extends Element = Element> {
     path: string;
-    binding: XinBinding<T>;
-    options?: XinObject;
+    binding: TosiBinding<T>;
+    options?: TosiObject;
     /**
      * A take() transform rides the entry as DATA — not hidden in a closure —
      * so row instantiation can clone it (cloneWithBindings deep-clones
@@ -103,10 +103,10 @@ export declare const resolveTakePaths: (dataBinding: DataBinding, itemPath: stri
  * list instantiation) route through here so take semantics can't drift.
  */
 export declare const applyDataBinding: (element: Element, dataBinding: DataBinding, path: string) => void;
-export interface XinEventBindings {
-    [eventType: string]: Set<XinEventHandler>;
+export interface TosiEventBindings {
+    [eventType: string]: Set<TosiEventHandler>;
 }
-export declare const elementToHandlers: WeakMap<Element, XinEventBindings>;
+export declare const elementToHandlers: WeakMap<Element, TosiEventBindings>;
 export declare const elementToBindings: WeakMap<Element, DataBindings>;
 export declare const anyInlineContracts: () => boolean;
 export declare const bindingGeneration: () => number;
@@ -114,9 +114,11 @@ export declare const noteBindingChange: () => void;
 export declare const setElementContract: (element: Element, schema: Record<string, any>) => void;
 export declare const elementContract: (element: Element) => Record<string, any> | undefined;
 interface ElementMetadata {
-    eventBindings?: XinEventBindings;
+    eventBindings?: TosiEventBindings;
     dataBindings?: DataBindings;
 }
 export declare const getElementBindings: (element: Element) => ElementMetadata;
 export declare const cloneWithBindings: (element: Node) => Node;
+/** @deprecated Use `TosiEventBindings` */
+export type XinEventBindings = TosiEventBindings;
 export {};

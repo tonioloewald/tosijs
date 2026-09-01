@@ -50,14 +50,24 @@ export { MoreMath } from './more-math'
 export { settings } from './settings'
 export { version } from './version'
 export type {
-  XinObject,
-  XinArray,
+  TosiObject,
+  TosiArray,
+  TosiScalar,
+  TosiValue,
+  TosiProxy,
+  BoxedProxy,
+  BoxedScalar,
+  TosiTouchableType,
+  TosiBinding,
+  ListBindingOptions,
+} from './xin-types'
+// deprecated xinjs-era spellings, removed in 2.0. Another EXPLICIT list —
+// 1.8.0 published these names from `tosijs/state`, so dropping them here would
+// break that entry point on a patch release.
+export type {
   XinScalar,
   XinValue,
   XinProxy,
-  BoxedProxy,
-  BoxedScalar,
   XinTouchableType,
   XinBinding,
-  ListBindingOptions,
 } from './xin-types'

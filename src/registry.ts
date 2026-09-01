@@ -2,18 +2,18 @@
  * Central registry for xin state.
  * Extracted to break circular dependency between xin.ts and bind.ts.
  */
-import { XinObject, XinProxy, XinBinding } from './xin-types'
+import { TosiObject, TosiProxy, TosiBinding } from './xin-types'
 
-export const registry: XinObject = {}
+export const registry: TosiObject = {}
 
 // Lazy reference to xin proxy - set by xin.ts on initialization
-let _xin: XinProxy<XinObject> | null = null
+let _xin: TosiProxy<TosiObject> | null = null
 
-export const setXinProxy = (xin: XinProxy<XinObject>): void => {
+export const setXinProxy = (xin: TosiProxy<TosiObject>): void => {
   _xin = xin
 }
 
-export const getXinProxy = (): XinProxy<XinObject> => {
+export const getXinProxy = (): TosiProxy<TosiObject> => {
   if (_xin === null) {
     throw new Error('xin proxy not initialized')
   }
@@ -24,8 +24,8 @@ export const getXinProxy = (): XinProxy<XinObject> => {
 type BindFunc = (
   element: Element,
   path: string,
-  binding: XinBinding,
-  options?: XinObject
+  binding: TosiBinding,
+  options?: TosiObject
 ) => void
 // Using 'any' for OnFunc to accommodate the generic signature of the actual 'on' function
 type OnFunc = any

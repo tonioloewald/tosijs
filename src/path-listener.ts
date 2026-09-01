@@ -75,7 +75,7 @@ import {
   PathTestFunction,
   ObserverCallbackFunction,
   AnyFunction,
-  XinTouchableType,
+  TosiTouchableType,
 } from './xin-types'
 import { tosiPath, getArrayIdPaths } from './metadata'
 import { settings } from './settings'
@@ -239,7 +239,7 @@ const update = (): void => {
   }
 }
 
-export const touch = (touchable: XinTouchableType): void => {
+export const touch = (touchable: TosiTouchableType): void => {
   const path = typeof touchable === 'string' ? touchable : tosiPath(touchable)
 
   if (path === undefined) {

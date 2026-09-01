@@ -689,12 +689,12 @@ Sets the desired tag name for the custom element. If omitted, it is derived
 from the class name (e.g. `ToolBar` → `tool-bar`), but this does **not** survive
 minification. If the tag is already in use, a unique anonymous tag is generated.
 
-#### `static shadowStyleSpec?: XinStyleSheet`
+#### `static shadowStyleSpec?: TosiStyleSheet`
 
 Styles injected into the component's shadow DOM as a `<style>` element.
 Setting this property causes the component to use shadow DOM.
 
-#### `static lightStyleSpec?: XinStyleSheet`
+#### `static lightStyleSpec?: TosiStyleSheet`
 
 Global styles appended to `document.head` when the first instance is inserted
 in the DOM. `:host` selectors are automatically rewritten to the tag name, e.g.:
@@ -754,7 +754,7 @@ user-interfaces.
   in your application using [babylonjs](https://babylonjs.com/)
 */
 import { css } from './css'
-import { XinStyleSheet } from './css-types'
+import { TosiStyleSheet } from './css-types'
 import { settings } from './settings'
 import { deepClone } from './deep-clone'
 import {
@@ -996,14 +996,14 @@ function getLegacyAttributeObserver(): MutationObserver {
 
 interface ElementCreatorOptions extends ElementDefinitionOptions {
   tag?: string
-  styleSpec?: XinStyleSheet
+  styleSpec?: TosiStyleSheet
 }
 
 const globalStyleSheets: {
   [key: string]: string
 } = {}
 
-function setGlobalStyle(tagName: string, styleSpec: XinStyleSheet) {
+function setGlobalStyle(tagName: string, styleSpec: TosiStyleSheet) {
   const existing = globalStyleSheets[tagName]
   const processed = css(styleSpec)
     .replace(/:host\(([^)]+)\)/g, `${tagName}$1`)
@@ -1051,8 +1051,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   static initAttributes?: Record<string, any>
   static formAssociated?: boolean
   static preferredTagName?: string
-  static shadowStyleSpec?: XinStyleSheet
-  static lightStyleSpec?: XinStyleSheet
+  static shadowStyleSpec?: TosiStyleSheet
+  static lightStyleSpec?: TosiStyleSheet
   static extends?: string
   internals?: ElementInternals
 
@@ -1254,7 +1254,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   }
   instanceId!: string
   styleNode?: HTMLStyleElement
-  static styleSpec?: XinStyleSheet
+  static styleSpec?: TosiStyleSheet
   static styleNode?: HTMLStyleElement
   content: ContentType | ((e: typeof elements) => ContentType) | null =
     elements.slot()
@@ -1275,7 +1275,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   // _installAttributeQueue / _drainPendingAttrOps).
   private _pendingAttrOps?: Array<['set', string, string] | ['remove', string]>
 
-  static StyleNode(styleSpec: XinStyleSheet): HTMLStyleElement {
+  static StyleNode(styleSpec: TosiStyleSheet): HTMLStyleElement {
     console.warn('StyleNode is deprecated, use static shadowStyleSpec instead')
     return elements.style(css(styleSpec))
   }

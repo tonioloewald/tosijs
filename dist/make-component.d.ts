@@ -1,7 +1,7 @@
 import { Color } from './color';
 import { Component } from './component';
 import { vars, varDefault } from './css';
-import { XinStyleSheet } from './css-types';
+import { TosiStyleSheet } from './css-types';
 import { bind, on } from './bind';
 import { elements, svgElements, mathML } from './elements';
 import { ElementCreator, PartsMap } from './xin-types';
@@ -27,9 +27,9 @@ export interface TosiFactory {
 }
 export interface TosiComponentSpec<T = PartsMap> {
     type: Component<T>;
-    lightStyleSpec?: XinStyleSheet;
+    lightStyleSpec?: TosiStyleSheet;
     /** @deprecated Use lightStyleSpec instead */
-    styleSpec?: XinStyleSheet;
+    styleSpec?: TosiStyleSheet;
     /**
      * The component's self-declaration (contract + description + parts map +
      * test fixture — see ComponentMap). Stamped as an OWN static on `type` at

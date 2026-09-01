@@ -23,9 +23,9 @@ The `css` module attempts to implement all this the simplest and most obvious wa
 providing syntax sugar to help with best-practices such as `css-variables` and the use of
 `@media` queries to drive consistency, themes, and accessibility.
 
-## css(styleMap: XinStyleMap): string
+## css(styleMap: TosiStyleMap): string
 
-A function that, given a `XinStyleMap` renders CSS code. What is a XinStyleMap?
+A function that, given a `TosiStyleMap` renders CSS code. What is a TosiStyleMap?
 It's kind of what you'd expect if you wanted to represent CSS as Javascript in
 the most straightforward way possible. It allows for things like `@import`,
 `@keyframes` and so forth, but knows just enough about CSS to help with things
@@ -340,7 +340,7 @@ stuff like `const nameElement = this.parts.nameField as unknown as HTMLInputElem
 and prevent css property typos without adding a single byte to the size of
 the javascript payload.
 
-## StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement
+## StyleSheet(id: string, styleSpec: TosiStyleSheet): HTMLStyleElement
 
 Creates a `<style>` element (with the given `id`) in `document.head` and returns
 it, so you can remove or otherwise manage it later.
@@ -496,7 +496,7 @@ import { Color } from './color'
 import { cssColors } from './css-colors'
 import { elements } from './elements'
 import { camelToKabob } from './string-case'
-import { XinStyleSheet, XinStyleRule } from './css-types'
+import { TosiStyleSheet, TosiStyleRule } from './css-types'
 import { warnDeprecated, tosiPath, tosiValue } from './metadata'
 import { observe } from './xin'
 
@@ -528,9 +528,9 @@ function notifyStylesheetChange(): void {
 // sheet they created (it used to return nothing, leaving no handle at all).
 export function StyleSheet(
   id: string,
-  styleSpec: XinStyleSheet
+  styleSpec: TosiStyleSheet
 ): HTMLStyleElement {
-  const spec = tosiValue(styleSpec) as XinStyleSheet
+  const spec = tosiValue(styleSpec) as TosiStyleSheet
   const element = elements.style(css(spec))
   element.id = id
   document.head.append(element)
@@ -539,7 +539,7 @@ export function StyleSheet(
   const path = tosiPath(styleSpec)
   if (path !== undefined) {
     observe(path, () => {
-      element.textContent = css(tosiValue(styleSpec) as XinStyleSheet)
+      element.textContent = css(tosiValue(styleSpec) as TosiStyleSheet)
       notifyStylesheetChange()
     })
   }
@@ -606,7 +606,7 @@ const renderProp = (
 
 const renderStatement = (
   key: string,
-  value: Color | string | number | XinStyleRule | undefined,
+  value: Color | string | number | TosiStyleRule | undefined,
   indentation = ''
 ): string => {
   const cssProp = camelToKabob(key)
@@ -622,7 +622,7 @@ const renderStatement = (
   }
 }
 
-export const css = (obj: XinStyleSheet, indentation = ''): string => {
+export const css = (obj: TosiStyleSheet, indentation = ''): string => {
   const selectors = Object.keys(obj).map((selector) => {
     const body = obj[selector]
     if (typeof body === 'string') {
@@ -641,12 +641,12 @@ export const css = (obj: XinStyleSheet, indentation = ''): string => {
 
 export const initVars = (obj: {
   [key: string]: string | number
-}): XinStyleRule => {
+}): TosiStyleRule => {
   warnDeprecated(
     'initVars',
     'initVars is deprecated. Just use _ and __ prefixes instead.'
   )
-  const rule: XinStyleRule = {}
+  const rule: TosiStyleRule = {}
   for (const key of Object.keys(obj)) {
     const value = obj[key]
     const kabobKey = camelToKabob(key)
@@ -656,8 +656,8 @@ export const initVars = (obj: {
   return rule
 }
 
-export const invertLuminance = (map: XinStyleRule): XinStyleRule => {
-  const inverted: XinStyleRule = {}
+export const invertLuminance = (map: TosiStyleRule): TosiStyleRule => {
+  const inverted: TosiStyleRule = {}
 
   for (const key of Object.keys(map)) {
     const value = map[key]

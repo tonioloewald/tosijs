@@ -47,7 +47,7 @@ was something like this:
 Now we can use the new `myThing` in a pretty intuitive way, leverage autocomplete
 most of the time, and it's all pretty nice.
 
-And because `myThing.path.to.something` is actually a `XinProxy` we can actually
+And because `myThing.path.to.something` is actually a `TosiProxy` we can actually
 bind to it directly. So instead of typing (or mis-typing):
 
     customElement({bindValue: 'mything.path.to.something'}))
@@ -101,17 +101,17 @@ This is syntax sugar for:
 
     Object.assign(boxed, stuff)
 
-    const { foo, bar } = boxed as XinProxy<typeof stuff>
+    const { foo, bar } = boxed as TosiProxy<typeof stuff>
 
-So, Typescript will know that `foo` is a `string` and `bar` is a `XinProxy<typeof stuff.bar>`.
+So, Typescript will know that `foo` is a `string` and `bar` is a `TosiProxy<typeof stuff.bar>`.
 
-Now, `boxedProxy` is the same except replace `XinProxy` with `BoxedProxy` and
+Now, `boxedProxy` is the same except replace `TosiProxy` with `BoxedProxy` and
 now Typescript will know that `foo` is a `BoxedProxy<string>`, `bar` is a `BoxedProxy<typeof stuff.bar>`
 and `bar.born` is a `BoxedProxy<number>`.
 
 This lets you write bindings that support autocomplete and lint. Yay!
 */
-import { XinProxy, BoxedProxy } from './xin-types'
+import { TosiProxy, BoxedProxy } from './xin-types'
 import { xin, boxed } from './xin'
 import { warnDeprecated } from './metadata'
 import { id } from './by-path'
@@ -178,7 +178,7 @@ export function tosiUnique<T extends object>(
   return [proxy, remove]
 }
 
-export function xinProxy<T extends object>(obj: T, boxed = false): XinProxy<T> {
+export function xinProxy<T extends object>(obj: T, boxed = false): TosiProxy<T> {
   if (boxed) {
     warnDeprecated(
       'xinProxy-boxed',
@@ -190,5 +190,5 @@ export function xinProxy<T extends object>(obj: T, boxed = false): XinProxy<T> {
   Object.keys(obj).forEach((key: string) => {
     xin[key] = (obj as { [key: string]: any })[key]
   })
-  return xin as XinProxy<T>
+  return xin as TosiProxy<T>
 }

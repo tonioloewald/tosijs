@@ -31,9 +31,9 @@ built with `tosijs` to be *deeply asynchronous*.
 ```
 bind<T = Element>(
   element: T,
-  what: XinTouchableType,
-  binding: XinBinding,
-  options: XinObject
+  what: TosiTouchableType,
+  binding: TosiBinding,
+  options: TosiObject
 ): T
 ```
 
@@ -125,8 +125,8 @@ anything observer of the paths `app.text` and `app` will be fired.
 A `binding` looks like this:
 
 ```
-interface XinBinding {
-  toDOM?: (element: HTMLElement, value: any, options?: XinObject) => void
+interface TosiBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: TosiObject) => void
   fromDOM?: (element: HTMLElement) => any
 }
 ```
@@ -155,9 +155,9 @@ bind(listElement, 'app.bigList', visibility)
 ## `on()`
 
 ```
-on(element: Element, eventType: string, handler: XinEventHandler): VoidFunction
+on(element: Element, eventType: string, handler: TosiEventHandler): VoidFunction
 
-export type XinEventHandler<T extends Event = Event, E extends Element = Element> =
+export type TosiEventHandler<T extends Event = Event, E extends Element = Element> =
   | ((evt: T & {target: E}) => void)
   | ((evt: T & {target: E}) => Promise<void>)
   | string
@@ -317,12 +317,12 @@ import {
   tosiPath,
 } from './metadata'
 import {
-  XinObject,
-  XinProps,
-  XinEventHandler,
-  XinTouchableType,
-  XinBinding,
-  XinBindingSpec,
+  TosiObject,
+  TosiProps,
+  TosiEventHandler,
+  TosiTouchableType,
+  TosiBinding,
+  TosiBindingSpec,
   TakeDescriptor,
   EventType,
   ValueElement,
@@ -343,8 +343,8 @@ export const touchElement = (element: Element, changedPath?: string): void => {
     if (toDOM != null) {
       if (path.startsWith('^')) {
         const dataSource = getListItem(element)
-        if (dataSource != null && (dataSource as XinProps)[XIN_PATH] != null) {
-          const itemPath = (dataSource as XinProps)[XIN_PATH] as string
+        if (dataSource != null && (dataSource as TosiProps)[XIN_PATH] != null) {
+          const itemPath = (dataSource as TosiProps)[XIN_PATH] as string
           path = dataBinding.path = `${itemPath}${path.substring(1)}`
           // a take()'s input paths resolve against the same row
           resolveTakePaths(dataBinding, itemPath)
@@ -577,7 +577,7 @@ const handleChange = (event: Event): void => {
           } else {
             const existingActual =
               existing[XIN_PATH] != null
-                ? (existing as XinProps)[XIN_VALUE]
+                ? (existing as TosiProps)[XIN_VALUE]
                 : existing
             let valueActual = value[XIN_PATH] != null ? value[XIN_VALUE] : value
             // State-driven coercion (H-6 layer 2): the type state currently
@@ -634,7 +634,7 @@ interface BindingOptions {
 function bindTake<T extends Element>(
   element: T,
   descriptor: TakeDescriptor,
-  binding: XinBinding<T>,
+  binding: TosiBinding<T>,
   options?: BindingOptions
 ): T {
   const { paths, transform } = descriptor
@@ -658,7 +658,7 @@ function bindTake<T extends Element>(
   for (const p of take.paths) {
     dataBindings.push({
       path: p,
-      binding: binding as unknown as XinBinding<Element>,
+      binding: binding as unknown as TosiBinding<Element>,
       options,
       take,
     })
@@ -698,8 +698,8 @@ export const warnIfShadowed = (element: Element, what: string): void => {
 
 export function bind<T extends Element = Element>(
   element: T,
-  what: XinTouchableType | XinBindingSpec | TakeDescriptor,
-  binding: XinBinding<T>,
+  what: TosiTouchableType | TosiBindingSpec | TakeDescriptor,
+  binding: TosiBinding<T>,
   options?: BindingOptions
 ): T {
   if (element instanceof DocumentFragment) {
@@ -724,18 +724,18 @@ export function bind<T extends Element = Element>(
   let path: string
   if (
     typeof what === 'object' &&
-    (what as XinProps)[XIN_PATH] === undefined &&
+    (what as TosiProps)[XIN_PATH] === undefined &&
     options === undefined
   ) {
-    const { value } = what as XinBindingSpec
+    const { value } = what as TosiBindingSpec
     path = typeof value === 'string' ? value : value[XIN_PATH]
     // Copy the spec rather than mutating the caller's object: deleting `value`
     // from `what` in place broke reusing one bindList spec for two containers
     // (the second call saw no `value` and threw "bind requires a path").
-    options = { ...(what as XinObject) }
+    options = { ...(what as TosiObject) }
     delete options.value
   } else {
-    path = typeof what === 'string' ? what : (what as XinProps)[XIN_PATH]
+    path = typeof what === 'string' ? what : (what as TosiProps)[XIN_PATH]
   }
   if (path == null) {
     throw new Error('bind requires a path or object with xin Proxy')
@@ -751,7 +751,7 @@ export function bind<T extends Element = Element>(
   }
   dataBindings.push({
     path,
-    binding: binding as XinBinding<Element>,
+    binding: binding as TosiBinding<Element>,
     options,
   })
 
@@ -792,7 +792,7 @@ const handleBoundEvent = (event: Event): void => {
       }
     },
   })
-  const nohandlers = new Set<XinEventHandler>()
+  const nohandlers = new Set<TosiEventHandler>()
   while (!propagationStopped && target != null) {
     // every target visited is, by construction, a key in elementToHandlers
     const eventBindings = elementToHandlers.get(target)
@@ -821,7 +821,7 @@ type RemoveListener = VoidFunction
 export function on<E extends HTMLElement, K extends EventType>(
   element: E,
   eventType: K,
-  eventHandler: XinEventHandler<HTMLElementEventMap[K], E>
+  eventHandler: TosiEventHandler<HTMLElementEventMap[K], E>
 ): RemoveListener {
   // normalize at the boundary: a proxy handler IS a path — store it as one,
   // so dispatch, dedup, and every consumer of the metadata (the agent
@@ -837,15 +837,15 @@ export function on<E extends HTMLElement, K extends EventType>(
     elementToHandlers.set(element, eventBindings)
   }
   if (!eventBindings[eventType]) {
-    eventBindings[eventType] = new Set<XinEventHandler>()
+    eventBindings[eventType] = new Set<TosiEventHandler>()
   }
-  eventBindings[eventType].add(eventHandler as XinEventHandler)
+  eventBindings[eventType].add(eventHandler as TosiEventHandler)
   if (!handledEventTypes.has(eventType)) {
     handledEventTypes.add(eventType)
     document.body.addEventListener(eventType, handleBoundEvent, true)
   }
   return () => {
-    eventBindings[eventType].delete(eventHandler as XinEventHandler)
+    eventBindings[eventType].delete(eventHandler as TosiEventHandler)
   }
 }
 

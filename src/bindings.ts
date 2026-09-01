@@ -9,8 +9,8 @@ You can create your own bindings easily enough (and add them to `bindings` if so
 A `binding` looks like this:
 
 ```
-interface XinBinding {
-  toDOM?: (element: HTMLElement, value: any, options?: XinObject) => void
+interface TosiBinding {
+  toDOM?: (element: HTMLElement, value: any, options?: TosiObject) => void
   fromDOM?: (element: HTMLElement) => any
 }
 ```
@@ -142,11 +142,11 @@ The `list` binding will automatically add the class `-xin-empty-list` to a
 container bound to an empty array, making it easier to conditionally render
 instructions or explanations when a list is empty.
 */
-import { XinObject, XinBinding, ValueElement } from './xin-types'
+import { TosiObject, TosiBinding, ValueElement } from './xin-types'
 import { getListBinding } from './list-binding'
 import { getValue, setValue } from './dom'
 
-export const bindings: { [key: string | symbol]: XinBinding<Element> } = {
+export const bindings: { [key: string | symbol]: TosiBinding<Element> } = {
   value: {
     toDOM: setValue,
 
@@ -174,7 +174,7 @@ export const bindings: { [key: string | symbol]: XinBinding<Element> } = {
   },
 
   list: {
-    toDOM(element: Element, value: any[], options?: XinObject) {
+    toDOM(element: Element, value: any[], options?: TosiObject) {
       const listBinding = getListBinding(element, value, options)!
       listBinding.update(value)
     },

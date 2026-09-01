@@ -6,6 +6,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.2] - 2026-09-01
+
+### Changed
+
+- **All 27 `Xin*` type names are now `Tosi*`, with the old spellings kept as
+  `@deprecated` type aliases.** The library is tosijs; these names were
+  xinjs-era. The blueprint five were renamed in 1.7.6 — the other **22**
+  (`XinStyleRule`, `XinStyleSheet`, `XinStyleMap`, `XinObject`, `XinBinding`,
+  `XinProxy`, `XinProps`, `XinEventHandler`, …) were simply missed, and
+  untracked, for four releases. They were in the *documented* API: the
+  component reference told you to type a stylesheet as `XinStyleSheet`.
+
+  **Nothing breaks.** The aliases are type-only — no runtime cost, no bundle
+  cost, and old and new spellings are assignment-compatible in both directions
+  (verified by compiling a consumer against both). They are **scheduled for
+  removal in 2.0**, stated in the alias block itself so this does not drift a
+  fifth time.
+
+- The `<xin-slot>` runtime tombstone is unaffected and still warns — that is
+  markup, not a type, and it keeps misplaced content composing until renamed.
+
+### Fixed
+
+- **The DOM-free gate no longer misdiagnoses an old `node` as a broken bundle.**
+  Both copies spawned whatever `node` was on PATH and blamed the *artifact* for
+  any non-zero exit, so on a machine whose default node predates modern ESM it
+  reported `dist/state.js requires a DOM` — confident, specific and wrong,
+  sending you to debug a shipped bundle instead of your toolchain. They now
+  distinguish cannot-run from found-a-problem: below node 20 they skip **out
+  loud**, saying the artifact is UNVERIFIED; at 20+ the gate is unchanged and
+  still fails closed. Found by running the new shared `release-doctor` Tier 0
+  script against tosijs.
+
 ## [1.8.1] - 2026-08-30
 
 **The attribute API everyone uses was invisible to agents.** A component

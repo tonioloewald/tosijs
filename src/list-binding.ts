@@ -1038,7 +1038,7 @@ import {
   applyDataBinding,
   resolveTakePaths,
 } from './metadata'
-import { XinObject, ListBindingOptions } from './xin-types'
+import { TosiObject, ListBindingOptions } from './xin-types'
 import { Listener } from './path-listener'
 
 const SLICE_INTERVAL_MS = 16 // 60fps
@@ -1096,7 +1096,7 @@ export class ListBinding {
   isNamespaced: boolean
   templates: Element[]
   options: ListBindingOptions
-  itemToElement: WeakMap<XinObject, Element[]>
+  itemToElement: WeakMap<TosiObject, Element[]>
   private idToElement: Map<string, Element[]> = new Map()
   array: any[] = []
   private _filteredCache?: any[]

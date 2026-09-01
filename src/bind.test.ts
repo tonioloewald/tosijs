@@ -237,7 +237,7 @@ test('event handler can stop propagation', async () => {
   expect(outerClicked).toBe(false)
 })
 
-test('bind with XinBindingSpec options works', async () => {
+test('bind with TosiBindingSpec options works', async () => {
   const { specTest } = tosi({
     specTest: {
       text: 'spec value',

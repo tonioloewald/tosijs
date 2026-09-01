@@ -36,7 +36,7 @@ type CSSTouchAction = 'auto' | 'none' | 'pan-x' | 'pan-left' | 'pan-right' | 'pa
 type CSSVisibility = 'visible' | 'hidden';
 type CSSWhiteSpace = 'normal' | 'nowrap' | 'pre' | 'pre-wrap' | 'pre-line' | 'break-spaces';
 type CSSWordBreak = 'normal' | 'break-all' | 'keep-all';
-export interface XinStyleRule {
+export interface TosiStyleRule {
     accentColor?: Color | CSSColor | CSSGlobalValues | string;
     alignContent?: CSSBasicAlign | CSSBaselineAlign | CSSDistributedAlign | CSSPositionalAlign | CSSGlobalValues | string;
     alignItems?: CSSBasicAlign | CSSPositionalAlign | CSSBaselineAlign | CSSOverflowAlign | CSSGlobalValues | CSSSelfAlign | string;
@@ -241,10 +241,16 @@ export interface XinStyleRule {
     zIndex?: string | number;
     [key: string]: Color | CSSColor | CSSGlobalValues | string | number | undefined;
 }
-export interface XinStyleMap {
-    [key: string]: XinStyleRule;
+export interface TosiStyleMap {
+    [key: string]: TosiStyleRule;
 }
-export interface XinStyleSheet {
-    [key: string]: XinStyleRule | XinStyleMap | string;
+export interface TosiStyleSheet {
+    [key: string]: TosiStyleRule | TosiStyleMap | string;
 }
+/** @deprecated Use `TosiStyleRule` */
+export type XinStyleRule = TosiStyleRule;
+/** @deprecated Use `TosiStyleMap` */
+export type XinStyleMap = TosiStyleMap;
+/** @deprecated Use `TosiStyleSheet` */
+export type XinStyleSheet = TosiStyleSheet;
 export {};

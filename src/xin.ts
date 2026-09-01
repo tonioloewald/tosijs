@@ -821,17 +821,17 @@ preview.append(
 */
 
 import {
-  XinProxyObject,
-  XinProxyTarget,
-  XinObject,
-  XinProxy,
+  TosiProxyObject,
+  TosiProxyTarget,
+  TosiObject,
+  TosiProxy,
   BoxedProxy,
-  XinArray,
-  XinValue,
-  XinBinding,
+  TosiArray,
+  TosiValue,
+  TosiBinding,
   PathTestFunction,
   ObserverCallbackFunction,
-  XinEventHandler,
+  TosiEventHandler,
 } from './xin-types'
 import { settings } from './settings'
 import {
@@ -922,7 +922,7 @@ function box<T>(x: T, path: string): T {
     return x
   }
   // For scalars, use the shared target - path is captured in the handler closure
-  return new Proxy<XinProxyTarget, XinObject>(
+  return new Proxy<TosiProxyTarget, TosiObject>(
     boxedScalarTarget,
     regHandler(path, true)
   ) as T
@@ -1025,7 +1025,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
           return () => unobserve(listener)
         }
       case 'bind':
-        return (element: Element, binding: XinBinding, options?: XinObject) => {
+        return (element: Element, binding: TosiBinding, options?: TosiObject) => {
           getBind()(element, path, binding, options)
         }
       case 'on': {
@@ -1038,10 +1038,10 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
         return (
           element: HTMLElement,
           eventType: keyof HTMLElementEventMap
-        ): VoidFunction => getOn()(element, eventType, val as XinEventHandler)
+        ): VoidFunction => getOn()(element, eventType, val as TosiEventHandler)
       }
       case 'binding':
-        return (binding: XinBinding) => ({
+        return (binding: TosiBinding) => ({
           bind: { value: path, binding },
         })
       case 'listBinding':
@@ -1051,7 +1051,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
             obj: BoxedProxy,
             columnIndex?: number
           ) => HTMLElement = ({ span }) => span({ bindText: '^' }),
-          options: XinObject = {}
+          options: TosiObject = {}
         ) => {
           const n = options.virtual?.itemsPerRow ?? 1
           const templates = []
@@ -1141,8 +1141,8 @@ const LEGACY_MAP = new Map<string | symbol, string>([
 const regHandler = (
   path: string,
   boxScalars: boolean
-): ProxyHandler<XinObject> => ({
-  get(target: XinObject | XinArray, _prop: string | symbol): XinValue {
+): ProxyHandler<TosiObject> => ({
+  get(target: TosiObject | TosiArray, _prop: string | symbol): TosiValue {
     // .tosi / TOSI_ACCESSOR — collision-free accessor API
     if ((_prop === 'tosi' || _prop === TOSI_ACCESSOR) && boxScalars) {
       return makeTosiAccessor(path, target)
@@ -1214,7 +1214,7 @@ const regHandler = (
       return makeTosiAccessor(path, target)[legacyMapped]
     }
     if (typeof _prop === 'symbol') {
-      return (target as XinObject)[_prop]
+      return (target as TosiObject)[_prop]
     }
 
     // Check for non-configurable, non-writable properties (e.g., String character indices)
@@ -1240,7 +1240,7 @@ const regHandler = (
       const currentPath = extendPath(path, basePath)
       const value = tosiValue(getByPath(target, basePath))
       return value !== null && typeof value === 'object'
-        ? new Proxy<XinObject, XinProxyObject>(
+        ? new Proxy<TosiObject, TosiProxyObject>(
             value,
             regHandler(currentPath, boxScalars)
           )[subPath]
@@ -1253,24 +1253,24 @@ const regHandler = (
       (!Array.isArray(target) && target[prop] !== undefined) ||
       (Array.isArray(target) && prop.includes('='))
     ) {
-      let value: XinValue
+      let value: TosiValue
       if (prop.includes('=')) {
         const [idPath, needle] = prop.split('=')
-        value = (target as XinObject[]).find(
-          (candidate: XinObject) =>
+        value = (target as TosiObject[]).find(
+          (candidate: TosiObject) =>
             `${getByPath(candidate, idPath) as string}` === needle
         )
       } else {
         // we're working around Typescript's incorrect understanding of arrays
-        value = (target as XinArray)[prop as unknown as number]
+        value = (target as TosiArray)[prop as unknown as number]
       }
       if (value instanceof Object) {
         value = tosiValue(value)
         const currentPath = extendPath(path, prop)
-        return new Proxy<XinObject, XinProxyObject>(
+        return new Proxy<TosiObject, TosiProxyObject>(
           value instanceof Function ? value.bind(target) : value,
           regHandler(currentPath, boxScalars)
-        ) as XinValue
+        ) as TosiValue
       } else {
         return boxScalars ? box(value, extendPath(path, prop)) : value
       }
@@ -1290,7 +1290,7 @@ const regHandler = (
               if (prop === 'find' || prop === 'findLast' || prop === 'at') {
                 const index = target.indexOf(result)
                 if (index !== -1) {
-                  return new Proxy<XinProxyTarget, XinObject>(
+                  return new Proxy<TosiProxyTarget, TosiObject>(
                     result,
                     regHandler(extendPath(path, String(index)), boxScalars)
                   )
@@ -1300,7 +1300,7 @@ const regHandler = (
             return result
           }
         : typeof value === 'object'
-        ? new Proxy<XinProxyTarget, XinObject>(
+        ? new Proxy<TosiProxyTarget, TosiObject>(
             tosiValue(value),
             regHandler(extendPath(path, prop), boxScalars)
           )
@@ -1391,7 +1391,7 @@ const observe = (
   return _observe(test, func as ObserverCallbackFunction)
 }
 
-const xin = new Proxy<XinObject, XinProxy<XinObject>>(
+const xin = new Proxy<TosiObject, TosiProxy<TosiObject>>(
   registry,
   regHandler('', false)
 )
@@ -1399,7 +1399,7 @@ const xin = new Proxy<XinObject, XinProxy<XinObject>>(
 // Register xin proxy for use by bind.ts (breaks circular dependency)
 setXinProxy(xin)
 
-const boxed = new Proxy<XinObject, BoxedProxy<XinObject>>(
+const boxed = new Proxy<TosiObject, BoxedProxy<TosiObject>>(
   registry,
   regHandler('', true)
 )

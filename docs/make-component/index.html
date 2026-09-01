@@ -60,8 +60,8 @@ export type TosiBlueprint&lt;T = PartsMap&gt; = (
 
 export interface TosiComponentSpec&lt;T = PartsMap&gt; {
   type: Component&lt;T&gt;
-  lightStyleSpec?: XinStyleSheet
-  styleSpec?: XinStyleSheet // deprecated, use lightStyleSpec
+  lightStyleSpec?: TosiStyleSheet
+  styleSpec?: TosiStyleSheet // deprecated, use lightStyleSpec
 }
 </code></pre>
 <p>Note that a crucial benefit of blueprints is that the <strong>consumer</strong> of the blueprint gets

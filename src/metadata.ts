@@ -58,10 +58,10 @@ foo.xinValue                            // undefined! foo isn't a proxy
 for non-proxy values. Prefer `.path` or `.tosi.path`.
 */
 import {
-  XinObject,
-  XinProps,
-  XinBinding,
-  XinEventHandler,
+  TosiObject,
+  TosiProps,
+  TosiBinding,
+  TosiEventHandler,
   Unboxed,
 } from './xin-types'
 import { settings } from './settings'
@@ -205,7 +205,7 @@ export const tosiPath = (x: any): string | undefined => {
  */
 export function tosiValue<T>(x: T): Unboxed<T> {
   if (typeof x === 'object' && x !== null) {
-    const val = (x as unknown as XinProps)[XIN_VALUE]
+    const val = (x as unknown as TosiProps)[XIN_VALUE]
     return (val !== undefined ? val : x) as Unboxed<T>
   }
   return x as Unboxed<T>
@@ -246,8 +246,8 @@ export const xinValue = deprecated(
 
 export interface DataBinding<T extends Element = Element> {
   path: string
-  binding: XinBinding<T>
-  options?: XinObject
+  binding: TosiBinding<T>
+  options?: TosiObject
   /**
    * A take() transform rides the entry as DATA — not hidden in a closure —
    * so row instantiation can clone it (cloneWithBindings deep-clones
@@ -307,11 +307,11 @@ export const applyDataBinding = (
   toDOM(element, take.transform(...inputs), options)
 }
 
-export interface XinEventBindings {
-  [eventType: string]: Set<XinEventHandler>
+export interface TosiEventBindings {
+  [eventType: string]: Set<TosiEventHandler>
 }
 
-export const elementToHandlers: WeakMap<Element, XinEventBindings> =
+export const elementToHandlers: WeakMap<Element, TosiEventBindings> =
   new WeakMap()
 export const elementToBindings: WeakMap<Element, DataBindings> = new WeakMap()
 
@@ -377,7 +377,7 @@ export const elementContract = (
 ): Record<string, any> | undefined => elementContracts.get(element)
 
 interface ElementMetadata {
-  eventBindings?: XinEventBindings
+  eventBindings?: TosiEventBindings
   dataBindings?: DataBindings
 }
 
@@ -444,3 +444,16 @@ export const cloneWithBindings = (element: Node): Node => {
   }
   return cloned
 }
+
+/* --- DEPRECATED `Xin*` SPELLINGS -------------------------------------------
+ * The library is tosijs; these names are xinjs-era. The canonical spellings
+ * are the `Tosi*` forms above. Kept exported so existing
+ * `import { XinStyleSheet } from 'tosijs'` keeps compiling — a type-only
+ * alias, so it costs nothing at runtime and nothing in the bundle.
+ *
+ * SCHEDULED FOR REMOVAL IN 2.0. The blueprint types were renamed this way in
+ * 1.7.6 and the remaining 22 were simply missed, untracked, for four
+ * releases — so this block states its own end, rather than drifting again.
+ * -------------------------------------------------------------------------- */
+/** @deprecated Use `TosiEventBindings` */
+export type XinEventBindings = TosiEventBindings

@@ -623,10 +623,10 @@ the caller is right there to catch it.</p>
 <p>Sets the desired tag name for the custom element. If omitted, it is derived
 from the class name (e.g. <code>ToolBar</code> → <code>tool-bar</code>), but this does <strong>not</strong> survive
 minification. If the tag is already in use, a unique anonymous tag is generated.</p>
-<h4><code>static shadowStyleSpec?: XinStyleSheet</code></h4>
+<h4><code>static shadowStyleSpec?: TosiStyleSheet</code></h4>
 <p>Styles injected into the component&#39;s shadow DOM as a <code>&lt;style&gt;</code> element.
 Setting this property causes the component to use shadow DOM.</p>
-<h4><code>static lightStyleSpec?: XinStyleSheet</code></h4>
+<h4><code>static lightStyleSpec?: TosiStyleSheet</code></h4>
 <p>Global styles appended to <code>document.head</code> when the first instance is inserted
 in the DOM. <code>:host</code> selectors are automatically rewritten to the tag name, e.g.:</p>
 <pre><code>class ToolBar extends Component {

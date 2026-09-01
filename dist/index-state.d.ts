@@ -5,4 +5,5 @@ export { throttle, debounce } from './throttle';
 export { MoreMath } from './more-math';
 export { settings } from './settings';
 export { version } from './version';
-export type { XinObject, XinArray, XinScalar, XinValue, XinProxy, BoxedProxy, BoxedScalar, XinTouchableType, XinBinding, ListBindingOptions, } from './xin-types';
+export type { TosiObject, TosiArray, TosiScalar, TosiValue, TosiProxy, BoxedProxy, BoxedScalar, TosiTouchableType, TosiBinding, ListBindingOptions, } from './xin-types';
+export type { XinScalar, XinValue, XinProxy, XinTouchableType, XinBinding, } from './xin-types';

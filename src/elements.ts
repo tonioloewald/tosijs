@@ -404,7 +404,7 @@ import {
   ElementProps,
   ElementCreator,
   StringMap,
-  XinBinding,
+  TosiBinding,
   EventType,
 } from './xin-types'
 import { camelToKabob } from './string-case'
@@ -428,7 +428,7 @@ const elementStyle = (elt: HTMLElement, prop: string, value: any) => {
   }
 }
 
-const elementStyleBinding = (prop: string): XinBinding => {
+const elementStyleBinding = (prop: string): TosiBinding => {
   return {
     toDOM(element, value) {
       elementStyle(element as HTMLElement, prop, value)
@@ -559,16 +559,16 @@ const elementProp = (elt: HTMLElement, key: string, value: any) => {
   }
 }
 
-const propBindingCache: Record<string, XinBinding> = {}
+const propBindingCache: Record<string, TosiBinding> = {}
 // reverse lookup: which element prop does this (cached) prop binding drive?
 // used by the agent surface to name bindings in describe() output
-export const propBindingKey = (binding: XinBinding): string | undefined => {
+export const propBindingKey = (binding: TosiBinding): string | undefined => {
   for (const key of Object.keys(propBindingCache)) {
     if (propBindingCache[key] === binding) return key
   }
   return undefined
 }
-const elementPropBinding = (key: string): XinBinding => {
+const elementPropBinding = (key: string): TosiBinding => {
   if (!propBindingCache[key]) {
     propBindingCache[key] = {
       toDOM(element, value) {

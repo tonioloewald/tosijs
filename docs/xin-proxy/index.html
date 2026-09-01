@@ -84,7 +84,7 @@ export const myThing = xin.myThing as typeof _myThing
 </code></pre>
 <p>Now we can use the new <code>myThing</code> in a pretty intuitive way, leverage autocomplete
 most of the time, and it&#39;s all pretty nice.</p>
-<p>And because <code>myThing.path.to.something</code> is actually a <code>XinProxy</code> we can actually
+<p>And because <code>myThing.path.to.something</code> is actually a <code>TosiProxy</code> we can actually
 bind to it directly. So instead of typing (or mis-typing):</p>
 <pre><code>customElement({bindValue: &#39;mything.path.to.something&#39;}))
 </code></pre>
@@ -129,10 +129,10 @@ const stuff = {
 
 Object.assign(boxed, stuff)
 
-const { foo, bar } = boxed as XinProxy&lt;typeof stuff&gt;
+const { foo, bar } = boxed as TosiProxy&lt;typeof stuff&gt;
 </code></pre>
-<p>So, Typescript will know that <code>foo</code> is a <code>string</code> and <code>bar</code> is a <code>XinProxy&lt;typeof stuff.bar&gt;</code>.</p>
-<p>Now, <code>boxedProxy</code> is the same except replace <code>XinProxy</code> with <code>BoxedProxy</code> and
+<p>So, Typescript will know that <code>foo</code> is a <code>string</code> and <code>bar</code> is a <code>TosiProxy&lt;typeof stuff.bar&gt;</code>.</p>
+<p>Now, <code>boxedProxy</code> is the same except replace <code>TosiProxy</code> with <code>BoxedProxy</code> and
 now Typescript will know that <code>foo</code> is a <code>BoxedProxy&lt;string&gt;</code>, <code>bar</code> is a <code>BoxedProxy&lt;typeof stuff.bar&gt;</code>
 and <code>bar.born</code> is a <code>BoxedProxy&lt;number&gt;</code>.</p>
 <p>This lets you write bindings that support autocomplete and lint. Yay!</p>

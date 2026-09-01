@@ -1,15 +1,15 @@
-import { XinStyleSheet, XinStyleRule } from './css-types';
+import { TosiStyleSheet, TosiStyleRule } from './css-types';
 export declare function onStylesheetChange(callback: () => void): () => void;
-export declare function StyleSheet(id: string, styleSpec: XinStyleSheet): HTMLStyleElement;
+export declare function StyleSheet(id: string, styleSpec: TosiStyleSheet): HTMLStyleElement;
 export declare const processProp: (prop: string, value: string | number) => {
     prop: string;
     value: string;
 };
-export declare const css: (obj: XinStyleSheet, indentation?: string) => string;
+export declare const css: (obj: TosiStyleSheet, indentation?: string) => string;
 export declare const initVars: (obj: {
     [key: string]: string | number;
-}) => XinStyleRule;
-export declare const invertLuminance: (map: XinStyleRule) => XinStyleRule;
+}) => TosiStyleRule;
+export declare const invertLuminance: (map: TosiStyleRule) => TosiStyleRule;
 export declare const varDefault: {
     [key: string]: CssVarBuilder;
 };

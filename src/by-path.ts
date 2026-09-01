@@ -1,6 +1,6 @@
 // unique tokens passed to set by path to delete or create properties
 
-import { XinObject, XinArray, XinScalar } from './xin-types'
+import { TosiObject, TosiArray, TosiScalar } from './xin-types'
 import { makeError } from './make-error'
 
 const now36 = (): string =>
@@ -59,7 +59,7 @@ interface IdPathMap {
   [key: string]: number
 }
 
-function buildIdPathValueMap(array: XinObject[], idPath: string): IdPathMap {
+function buildIdPathValueMap(array: TosiObject[], idPath: string): IdPathMap {
   if (idPathMaps.get(array) === undefined) {
     idPathMaps.set(array, {})
   }
@@ -83,7 +83,7 @@ function buildIdPathValueMap(array: XinObject[], idPath: string): IdPathMap {
   return map
 }
 
-function getIdPathMap(array: XinObject[], idPath: string): IdPathMap {
+function getIdPathMap(array: TosiObject[], idPath: string): IdPathMap {
   if (
     idPathMaps.get(array) === undefined ||
     idPathMaps.get(array)[idPath] === undefined
@@ -94,7 +94,7 @@ function getIdPathMap(array: XinObject[], idPath: string): IdPathMap {
   }
 }
 
-function keyToIndex(array: XinObject[], idPath: string, idValue: any): number {
+function keyToIndex(array: TosiObject[], idPath: string, idValue: any): number {
   idValue = (idValue as string) + ''
   let idx = getIdPathMap(array, idPath)[idValue]
   if (
@@ -155,7 +155,7 @@ export function assertSafeLeafKey(key: string): void {
   if (key === '__proto__') throw new UnsafePathError(key)
 }
 
-function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
+function byKey(obj: TosiObject, key: string, valueToInsert?: any): any {
   assertSafeKey(key)
   // TWO different things are "not a container here", and only one of them is
   // about ownership:
@@ -179,7 +179,7 @@ function byKey(obj: XinObject, key: string, valueToInsert?: any): any {
 }
 
 function byIdPath(
-  array: any[] | XinObject,
+  array: any[] | TosiObject,
   idPath: string,
   idValue: string,
   valueToInsert?: any
@@ -226,20 +226,20 @@ function expectObject(obj: any): void {
   }
 }
 
-function getByPath(obj: XinObject | XinArray, path: string): any {
+function getByPath(obj: TosiObject | TosiArray, path: string): any {
   const parts = pathParts(path)
-  let found: XinObject | XinArray | XinScalar = obj
+  let found: TosiObject | TosiArray | TosiScalar = obj
   let i, iMax, j, jMax
   for (i = 0, iMax = parts.length; found !== undefined && i < iMax; i++) {
     const part = parts[i]
     if (Array.isArray(part)) {
       for (j = 0, jMax = part.length; found !== undefined && j < jMax; j++) {
         const key = part[j]
-        found = (found as XinObject)[key]
+        found = (found as TosiObject)[key]
       }
     } else {
-      if ((found as XinArray).length === 0) {
-        found = (found as XinArray)[Number(part.slice(1))]
+      if ((found as TosiArray).length === 0) {
+        found = (found as TosiArray)[Number(part.slice(1))]
         if (part[0] !== '=') {
           return undefined
         }
@@ -248,7 +248,7 @@ function getByPath(obj: XinObject | XinArray, path: string): any {
         found = byIdPath(found as any[], idPath, tail.join('='))
       } else {
         j = parseInt(part, 10)
-        found = (found as XinArray)[j]
+        found = (found as TosiArray)[j]
       }
     }
   }
@@ -256,11 +256,11 @@ function getByPath(obj: XinObject | XinArray, path: string): any {
 }
 
 function setByPath(
-  orig: XinObject | XinArray,
+  orig: TosiObject | TosiArray,
   path: string,
   val: any
 ): boolean {
-  let obj: XinObject | XinArray | XinScalar = orig
+  let obj: TosiObject | TosiArray | TosiScalar = orig
   if (path === '')
     throw new Error('setByPath cannot be used to set the root object')
   const parts = pathParts(path)
@@ -290,15 +290,15 @@ function setByPath(
         expectArray(obj)
         const idx = parseInt(part, 10)
         if (parts.length > 0) {
-          obj = (obj as XinArray)[idx]
+          obj = (obj as TosiArray)[idx]
         } else {
           if (val !== _delete_) {
-            if ((obj as XinArray)[idx] === val) {
+            if ((obj as TosiArray)[idx] === val) {
               return false
             }
-            ;(obj as XinArray)[idx] = val
+            ;(obj as TosiArray)[idx] = val
           } else {
-            ;(obj as XinArray).splice(idx, 1)
+            ;(obj as TosiArray).splice(idx, 1)
           }
           return true
         }
@@ -309,7 +309,7 @@ function setByPath(
         const key = part.shift() as string
         if (part.length > 0 || parts.length > 0) {
           // if we're at the end of part.length then we need to insert an array
-          obj = byKey(obj as XinObject, key, part.length > 0 ? {} : [])
+          obj = byKey(obj as TosiObject, key, part.length > 0 ? {} : [])
           // the OUTER loop guards `obj != null`; this one never did, so a
           // byKey that legitimately declines to create a container (an
           // inherited member) reported it as a raw TypeError from library
@@ -322,15 +322,15 @@ function setByPath(
         } else {
           assertSafeLeafKey(key)
           if (val !== _delete_) {
-            if ((obj as XinObject)[key] === val) {
+            if ((obj as TosiObject)[key] === val) {
               return false
             }
-            ;(obj as XinObject)[key] = val
+            ;(obj as TosiObject)[key] = val
           } else {
             if (!Object.prototype.hasOwnProperty.call(obj, key)) {
               return false
             }
-            delete (obj as XinObject)[key]
+            delete (obj as TosiObject)[key]
           }
           return true
         }
@@ -343,7 +343,7 @@ function setByPath(
   throw new Error(`setByPath(${orig}, ${path}, ${val}) failed`)
 }
 
-function deleteByPath(orig: XinObject, path: string): void {
+function deleteByPath(orig: TosiObject, path: string): void {
   if (getByPath(orig, path) !== null) {
     setByPath(orig, path, _delete_)
   }

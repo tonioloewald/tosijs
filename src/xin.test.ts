@@ -1,5 +1,5 @@
 import { test, expect, describe } from 'bun:test'
-import { XinObject, XinProxyArray, XinProxyObject, XinArray } from './xin-types'
+import { TosiObject, TosiProxyArray, TosiProxyObject, TosiArray } from './xin-types'
 import {
   xin,
   boxed,
@@ -51,18 +51,18 @@ const obj = {
   },
 }
 
-xin.test = obj as unknown as XinProxyObject
+xin.test = obj as unknown as TosiProxyObject
 
 test('recovers simple values', () => {
-  const _test = xin.test as XinProxyObject
+  const _test = xin.test as TosiProxyObject
   expect(_test.message).toBe('hello xin')
   expect(_test.value).toBe(17)
 })
 
 test('handles arrays', () => {
-  const _test = xin.test as XinProxyObject
+  const _test = xin.test as TosiProxyObject
   const people = _test.people as string[]
-  const things = _test.things as XinProxyArray
+  const things = _test.things as TosiProxyArray
   expect(people[0]).toBe('tomasina')
   expect(things['id=1701'].name).toBe('Enterprise')
 })
@@ -94,7 +94,7 @@ test('xinPath property works', () => {
 })
 
 test('updates simple values', () => {
-  const _test = xin.test as XinProxyObject
+  const _test = xin.test as TosiProxyObject
   _test.message = 'xin rules!'
   // @ts-expect-error it's just a test
   _test.value++
@@ -147,7 +147,7 @@ test('triggers listeners', async () => {
   const listener = observe('test', (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const test = xin.test as XinProxyObject
+  const test = xin.test as TosiProxyObject
   test.value = Math.PI
   await updates()
   expect(changes.length).toBe(1)
@@ -158,19 +158,19 @@ test('triggers listeners', async () => {
   expect(changes.length).toBe(2)
   expect(changes[1].path).toBe('test.message')
   expect(changes[1].value).toBe('kiss me xin')
-  ;(test.things as XinProxyArray)['id=1701'].name =
+  ;(test.things as TosiProxyArray)['id=1701'].name =
     'formerly known as Enterprise'
   await updates()
   expect(changes.length).toBe(3)
   expect(changes[2].path).toBe('test.things[id=1701].name')
   expect(changes[2].value).toBe('formerly known as Enterprise')
-  ;(test.people as XinProxyArray).sort()
+  ;(test.people as TosiProxyArray).sort()
   // expect sort to trigger change
   await updates()
   expect(changes.length).toBe(4)
   expect(changes[3].path).toBe('test.people')
   // expect map to NOT trigger change
-  const ignore = (test.people as XinProxyArray).map(
+  const ignore = (test.people as TosiProxyArray).map(
     (person) => `hello ${String(person)}`
   )
   expect(ignore === undefined).toBe(false)
@@ -184,7 +184,7 @@ test('listener paths are selective', async () => {
   const listener = observe('test.value', (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const test = xin.test as XinProxyObject
+  const test = xin.test as TosiProxyObject
   test.message = 'ignore this'
   test.value = Math.random()
   await updates()
@@ -197,7 +197,7 @@ test('listener tests are selective', async () => {
   const listener = observe(/message/, (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const _test = xin.test as XinProxyObject
+  const _test = xin.test as TosiProxyObject
   _test.value = Math.random()
   _test.message = 'hello'
   _test.value = Math.random()
@@ -211,7 +211,7 @@ test('async updates skip multiple updates to the same path', async () => {
   const listener = observe('test.value', (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const test = xin.test as XinProxyObject
+  const test = xin.test as TosiProxyObject
   test.value = (test.value as number) - 1
   test.value = 17
   test.value = Math.PI
@@ -226,7 +226,7 @@ test('async updates skip multiple updates to the same path', async () => {
 test('listener callback paths work', async () => {
   await resetChanges()
   const listener = observe('test', 'test.cb')
-  const test = xin.test as XinProxyObject
+  const test = xin.test as TosiProxyObject
   test.message = 'hello'
   test.value = Math.random()
   test.message = 'good-bye'
@@ -242,8 +242,8 @@ test('you can touch objects', async () => {
     recordChange({ path, value: xin[path] })
   })
 
-  const test = xin.test as XinProxyObject
-  ;(test[XIN_VALUE] as XinObject).message = 'wham-o'
+  const test = xin.test as TosiProxyObject
+  ;(test[XIN_VALUE] as TosiObject).message = 'wham-o'
   expect(test.message).toBe('wham-o')
   await updates()
   expect(changes.length).toBe(0)
@@ -253,7 +253,7 @@ test('you can touch objects', async () => {
   test.message = 'because'
   await updates()
   expect(changes.length).toBe(2)
-  ;(test[XIN_VALUE] as XinObject).message = 'i said so'
+  ;(test[XIN_VALUE] as TosiObject).message = 'i said so'
   await updates()
   expect(changes.length).toBe(2)
   touch('test.message')
@@ -301,8 +301,8 @@ test('instance changes trigger observers', async () => {
   }
 
   const baz = new Baz(17)
-  const _test = xin.test as XinProxyObject
-  _test.baz = baz as unknown as XinProxyObject
+  const _test = xin.test as TosiProxyObject
+  _test.baz = baz as unknown as TosiProxyObject
 
   const listener = observe(
     () => true,
@@ -315,7 +315,7 @@ test('instance changes trigger observers', async () => {
   expect(changes.length).toBe(1)
 
   await resetChanges()
-  expect((_test.baz as XinProxyObject)[XIN_VALUE]).toBe(baz)
+  expect((_test.baz as TosiProxyObject)[XIN_VALUE]).toBe(baz)
   expect(_test.baz.x).toBe(17)
   expect(_test.baz.y).toBe(17)
   await updates()
@@ -353,15 +353,15 @@ test('handles array changes', async () => {
   const listener = observe('test', (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const _test = xin.test as XinProxyObject
-  const people = _test.people as XinArray
+  const _test = xin.test as TosiProxyObject
+  const people = _test.people as TosiArray
   expect(people === undefined).toBe(false)
   // @ts-expect-error it's a test
   _test.people.push('stanton')
   await updates()
   expect(changes.length).toBe(1)
   expect(changes[0].path).toBe('test.people')
-  ;(_test.people as XinProxyArray).sort()
+  ;(_test.people as TosiProxyArray).sort()
   await updates()
   expect(changes.length).toBe(2)
   expect(changes[1].path).toBe('test.people')
@@ -369,12 +369,12 @@ test('handles array changes', async () => {
 })
 
 test('objects are replaced', () => {
-  const _test = xin.test as XinProxyObject
+  const _test = xin.test as TosiProxyObject
   // @ts-expect-error it's a test
   expect(_test.sub.foo).toBe('bar')
   _test.sub = {
     bar: 'baz',
-  } as unknown as XinProxyObject
+  } as unknown as TosiProxyObject
   expect(_test.sub.foo).toBe(undefined)
   expect(_test.sub.bar).toBe('baz')
 })
@@ -384,8 +384,8 @@ test('unobserve works', async () => {
   const listener = observe('test', (path) => {
     recordChange({ path, value: xin[path] })
   })
-  const _test = xin.test as XinProxyObject
-  const things = _test.things as XinProxyArray
+  const _test = xin.test as TosiProxyObject
+  const things = _test.things as TosiProxyArray
   _test.value = Math.random()
   await updates()
   expect(changes.length).toBe(1)
@@ -397,21 +397,21 @@ test('unobserve works', async () => {
 })
 
 test('xinPath() works', () => {
-  const _test = xin.test as XinProxyObject
-  const people = _test.people as XinProxyArray
+  const _test = xin.test as TosiProxyObject
+  const people = _test.people as TosiProxyArray
   expect(_test.xinPath).toBe('test')
   expect(people.xinPath).toBe('test.people')
 })
 
 test('xinValue works, xin does not corrupt content', () => {
-  const _test = xin.test as XinProxyObject
-  const things = _test.things as XinProxyArray
-  const people = _test.people as XinProxyArray
+  const _test = xin.test as TosiProxyObject
+  const things = _test.things as TosiProxyArray
+  const people = _test.people as TosiProxyArray
   expect(_test[XIN_VALUE]).toBe(obj)
   expect(people[XIN_VALUE] as string[]).toBe(obj.people)
   expect(people.xinValue as string[]).toBe(obj.people)
-  expect((things['id=666'] as XinProxyObject)[XIN_VALUE]).toBe(
-    (things[1] as XinProxyObject)[XIN_VALUE]
+  expect((things['id=666'] as TosiProxyObject)[XIN_VALUE]).toBe(
+    (things[1] as TosiProxyObject)[XIN_VALUE]
   )
 })
 
@@ -514,7 +514,7 @@ test('instance properties, computed properties', () => {
     }
   }
 
-  xin.foo = new Foo('test') as unknown as XinProxyObject
+  xin.foo = new Foo('test') as unknown as TosiProxyObject
   expect(xin.foo.x).toBe('test')
   expect(xin.foo.computedX).toBe('test')
 })
@@ -523,8 +523,8 @@ test('parents and children', async () => {
   xin.grandparent = {
     name: 'Bobby',
     parent: { child: 17 },
-  } as unknown as XinProxyObject
-  const grandparent = xin.grandparent as XinObject
+  } as unknown as TosiProxyObject
+  const grandparent = xin.grandparent as TosiObject
   await resetChanges()
   observe('grandparent.parent', (path) => {
     recordChange({ path, value: xin[path], observed: 'parent' })
