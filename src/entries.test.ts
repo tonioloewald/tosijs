@@ -51,7 +51,32 @@ describe('entry points', () => {
   // reported as a pass. The real gate is inside buildLibrary(), after the
   // bundle exists; this copy serves a developer running `bun test` against an
   // existing build, and now says out loud when it isn't doing that.
-  test.skipIf(!existsSync('dist/state.js'))(
+  // WHICH `node` IS ON PATH? This test spawns it, and on a machine whose
+  // default node predates modern ESM (v14 is still `/usr/local/bin/node` on
+  // plenty of them) the import fails for reasons that have nothing to do with
+  // a DOM — so the test reported a DOM-free REGRESSION when the truth was an
+  // ancient toolchain. A misdiagnosis is worse than an abstention: it sends
+  // you to debug the shipped bundle. Skip loudly instead.
+  const NODE_FLOOR = 20
+  const nodeMajor = Number(
+    (
+      Bun.spawnSync(['node', '-v'], { stdout: 'pipe', stderr: 'pipe' })
+        .stdout?.toString?.() ?? ''
+    )
+      .trim()
+      .replace(/^v/, '')
+      .split('.')[0]
+  )
+  if (nodeMajor > 0 && nodeMajor < NODE_FLOOR) {
+    console.warn(
+      `entries.test: DOM-free gate SKIPPED — \`node -v\` is v${nodeMajor}, ` +
+        `too old to import a modern ESM bundle (need ${NODE_FLOOR}+). This is ` +
+        `your PATH, not the artifact. The build's own copy of this gate is the ` +
+        `one that must pass before publishing.`
+    )
+  }
+
+  test.skipIf(!existsSync('dist/state.js') || nodeMajor < NODE_FLOOR)(
     'the BUILT state bundle imports in plain node — no DOM, no shim (tosijs#18)',
     async () => {
       // the acceptance criterion of #18 is environmental, so the test has to

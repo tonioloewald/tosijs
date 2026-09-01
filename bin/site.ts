@@ -268,6 +268,19 @@ async function buildLibrary() {
   // from index-state.ts would sail through it — and through `bun test`,
   // which runs under happy-dom too. Only a BARE node process can prove the
   // claim, and it has to run after state.js exists.
+  // What `node` is actually on PATH? The gate below spawns it, and a machine
+  // whose default node predates modern ESM makes the gate lie rather than fail.
+  const NODE_FLOOR = 20
+  const nodeMajor = Number(
+    (
+      Bun.spawnSync(['node', '-v'], { stdout: 'pipe', stderr: 'pipe' })
+        .stdout?.toString?.() ?? ''
+    )
+      .trim()
+      .replace(/^v/, '')
+      .split('.')[0]
+  )
+
   const domFree = Bun.spawnSync(
     [
       'node',
@@ -285,11 +298,30 @@ async function buildLibrary() {
     { stderr: 'pipe', stdout: 'pipe' }
   )
   if (domFree.exitCode !== 0) {
-    console.error('tosijs/state is NOT DOM-free (tosijs#18):')
-    console.error(domFree.stderr.toString().slice(0, 800))
-    throw new Error('dist/state.js requires a DOM')
+    // DISTINGUISH "CANNOT RUN" FROM "FOUND A PROBLEM" — practices
+    // dependencies.md §2, fail open on inability and closed on findings.
+    //
+    // This gate spawns whatever `node` is on PATH and used to blame the bundle
+    // for any non-zero exit. On a machine whose default node predates modern
+    // ESM (node 14 is still `/usr/local/bin/node` on plenty of them) it
+    // therefore reported `dist/state.js requires a DOM` — a specific, confident
+    // and WRONG diagnosis that sends you to debug the bundle instead of your
+    // toolchain. A gate that misdiagnoses is worse than one that abstains.
+    if (nodeMajor > 0 && nodeMajor < NODE_FLOOR) {
+      console.warn(
+        `⚠️  dom-free gate SKIPPED — node ${nodeMajor} is too old to import a ` +
+          `modern ESM bundle (need ${NODE_FLOOR}+). This is your PATH, not the ` +
+          `artifact: \`node -v\` reports v${nodeMajor}. The gate did NOT run, ` +
+          `so tosijs/state is UNVERIFIED in this build.`
+      )
+    } else {
+      console.error('tosijs/state is NOT DOM-free (tosijs#18):')
+      console.error(domFree.stderr.toString().slice(0, 800))
+      throw new Error('dist/state.js requires a DOM')
+    }
+  } else {
+    console.log('dom-free gate: tosijs/state imports and runs under bare node')
   }
-  console.log('dom-free gate: tosijs/state imports and runs under bare node')
 
   // SIZE BUDGETS, where the artifacts exist. The suite's copy can't run
   // during a build (buildSite wipes dist before the tests), so a regression
