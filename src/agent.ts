@@ -286,6 +286,21 @@ export interface AgentInterfaceOptions {
    * it is a ring buffer; `changes()` reports `truncated: true` if a drain
    * spans dropped entries. */
   maxLog?: number
+  /**
+   * Silence THIS surface's posture notice (default false).
+   *
+   * `settings.quiet` is global and silences every advisory tosijs emits; this
+   * is per-surface, for a page that enables one deliberately and does not want
+   * the console line — and for tests, which want one surface quiet without
+   * muting the library for every other test in the process.
+   *
+   * It was passed at 16 test call sites before it existed. Nothing caught that:
+   * `tsconfig.json` and `tsconfig.build.json` both EXCLUDE `*.test.ts`, so no
+   * lane typechecks tests, and the calls were silently accepted as excess
+   * properties on a widened object. They passed only because the posture notice
+   * dedupes on `lastPostureAnnounced`.
+   */
+  quiet?: boolean
 }
 
 /**
@@ -817,6 +832,11 @@ const indexSpellingAliasesSecret = (
 
 /** is this path, or an ancestor of it, bound to a secret-bearing control? */
 const isSecretPath = (path: string): boolean => {
+  // THE OVERWHELMINGLY COMMON PAGE HAS NO SECRETS AT ALL. Every index here
+  // is populated only from `addSecretPath`, so an empty `secretPaths` means
+  // all of them are empty — and without this both predicates allocated an
+  // ancestor array and ran regexes on every path of every read.
+  if (secretPaths.size === 0) return false
   // an ancestor walk, not a scan of secretPaths — see `secretAncestors`
   for (const ancestor of pathAncestors(path)) {
     if (secretPaths.has(ancestor)) return true
@@ -839,6 +859,7 @@ const isSecretPath = (path: string): boolean => {
 
 /** would this read expose a secret nested anywhere beneath it? */
 const containsSecret = (path: string): boolean => {
+  if (secretPaths.size === 0) return false // see isSecretPath
   if (secretAncestors.has(path)) return true
   // an index-spelled ANCESTOR — `rows[0]` — has no prefix relation to a secret
   // learned as `rows[id=r1].pw`, so without this the read returned the whole
@@ -1097,6 +1118,27 @@ const bindingPathsOf = (el: Element): string[] => {
   }
 }
 
+/**
+ * `harvestWouldLeak`, but it also MARKS the record when it suppresses.
+ *
+ * The CHANGELOG promised suppressed harvests keep `secret: true` "so
+ * suppression does not read as absence", and that held for the two shapes
+ * whose secrecy comes from the element itself — `describeElement` sets the
+ * flag from the element's own kind. It did NOT hold for the third: an element
+ * merely BOUND to a secret path is not a secret control, so its text was
+ * (correctly) withheld and the record said nothing about why. An agent cannot
+ * tell "this div has no text" from "this div's text was withheld".
+ */
+const suppressHarvest = (
+  el: Element,
+  record: AgentWiringRecord,
+  boundPaths: string[]
+): boolean => {
+  if (!harvestWouldLeak(el, record, boundPaths)) return false
+  record.secret = true
+  return true
+}
+
 const harvestWouldLeak = (
   el: Element,
   record: AgentWiringRecord,
@@ -1107,8 +1149,12 @@ const harvestWouldLeak = (
     if (isSecretPath(path) || containsSecret(path)) return true
   }
   try {
+    // ONE query. A second `querySelector('[data-tosi-secret]')` used to
+    // follow this line and could never fire: that selector is the FIRST arm
+    // of SECRET_CONTROL_SELECTOR, so reaching it means it already didn't
+    // match. Deleted — zero behaviour change, one less subtree scan per
+    // described element.
     if (el.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
-    if (el.querySelector?.('[data-tosi-secret]') != null) return true
   } catch {
     return true // cannot tell === must not publish
   }
@@ -1312,7 +1358,13 @@ export function enableAgentInterface(
   // re-enabling reconfigures: tear down the previous surface first
   if (active != null) active.disable()
 
-  const { expose, components, global = true, webmcp = true } = options
+  const {
+    expose,
+    components,
+    global = true,
+    webmcp = true,
+    quiet = false,
+  } = options
   let webmcpRegistration:
     | { tools: string[]; unregister: () => void }
     | undefined
@@ -1395,7 +1447,8 @@ export function enableAgentInterface(
   // posture keeps repeated identical enables quiet while making each change
   // of posture speak.
   const posture = exposeAll ? 'all' : manifestMode ? 'manifest' : 'closed'
-  const announce = posture !== lastPostureAnnounced && settings.quiet !== true
+  const announce =
+    posture !== lastPostureAnnounced && settings.quiet !== true && !quiet
   if (announce) lastPostureAnnounced = posture
   if (closed && announce) {
     // NOT a warning: exposing nothing is the correct, safe outcome. It is
@@ -1704,7 +1757,7 @@ export function enableAgentInterface(
           }
           // static text, when textContent isn't already surfaced as bound —
           // NOT when harvesting it would publish a secret (round-4 B-1)
-          if (record.text === undefined && !harvestWouldLeak(el, record, boundPaths)) {
+          if (record.text === undefined && !suppressHarvest(el, record, boundPaths)) {
             const text = stripArrows((el.textContent || '').trim()).slice(0, 40)
             if (text) record.text = text
           }
@@ -1743,7 +1796,7 @@ export function enableAgentInterface(
             // author's own opt-in, and it was being ignored here
             if (
               record.value === undefined &&
-              !harvestWouldLeak(el, record, boundPaths)
+              !suppressHarvest(el, record, boundPaths)
             ) {
               const liveText = stripArrows((el.textContent || '').trim()).slice(
                 0,
@@ -1940,7 +1993,7 @@ export function enableAgentInterface(
               // the value `read()` refuses on that same path
               structuralPaths.every((p) => inScope(p)) &&
               // SECRECY: and must not print one that is secret
-              !harvestWouldLeak(el, record, structuralPaths)
+              !suppressHarvest(el, record, structuralPaths)
             ) {
               const text = (el.textContent || '').trim().slice(0, 60)
               if (text) record.text = text

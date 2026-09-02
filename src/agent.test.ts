@@ -1027,6 +1027,42 @@ describe('the posture: safe by default, full access behind one line', () => {
     expect(open.describe().wiring.length).toBeGreaterThan(0)
   })
 
+  test('suppression is MARKED, so it does not read as absence', async () => {
+    /*
+     * The CHANGELOG promises a suppressed harvest keeps `secret: true`. That
+     * held only for elements whose secrecy comes from their own kind (a
+     * password input, a `data-tosi-secret` node) — `describeElement` sets the
+     * flag there. An element merely BOUND to a secret path is not a secret
+     * control, so its text was correctly withheld while the record said
+     * nothing: an agent could not tell "no text" from "text withheld".
+     */
+    tosi({ mark: { token: 'eyJ-MARK-SECRET' } })
+    await updates()
+    const pw = elements.input({ type: 'password' })
+    document.body.append(pw)
+    bind(pw, 'mark.token', bindings.value)
+    const mirror = elements.div({ id: 'mark-mirror' })
+    document.body.append(mirror)
+    bind(mirror, 'mark.token', {
+      toDOM(el: any, v: any) {
+        el.textContent = v
+      },
+    })
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const rec = (agent.describe().wiring as any[]).find(
+      (w) => w.id === 'mark-mirror'
+    )
+    expect(rec).toBeDefined() // the element is still ON the map
+    expect(JSON.stringify(rec)).not.toContain('eyJ-MARK-SECRET')
+    expect(rec.secret).toBe(true) // …and says why its content is missing
+  })
+
   test('the structural tier obeys scope, secrecy and aria-hidden', async () => {
     /*
      * Review B-2 — a FOURTH unguarded harvest, and the nastiest, because it

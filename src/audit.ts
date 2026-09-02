@@ -142,6 +142,22 @@ export const auditAccessibility = (
   const skipped: string[] = []
   const enabled = (rule: string): boolean => !exclude.includes(rule)
 
+  // AN EMPTY MAP IS NOT A CLEAN BILL OF HEALTH. Since 1.9.0 the default
+  // posture exposes nothing, so `describe()` over a bare surface returns no
+  // wiring at all — and auditing it examined ZERO elements while reporting no
+  // findings, which reads exactly like "your page is accessible". Same
+  // philosophy as the contrast skip below: say what was not checked.
+  if (description.wiring.length === 0) {
+    skipped.push(
+      description.exposure === 'closed'
+        ? 'everything: the agent surface exposes nothing, so there was no ' +
+          'wiring to audit — enable it with expose: { roots } or ' +
+          "expose: 'all'"
+        : 'everything: the map contains no wired elements, so nothing was ' +
+          'examined'
+    )
+  }
+
   // the contrast rule needs computed colors; say so rather than passing
   // silently, which would read as "no contrast problems"
   const anyStyles = description.wiring.some((w) => w.style != null)

@@ -13,6 +13,18 @@ warning its own users about API they never wrote.
 
 ### Breaking
 
+> **A breaking change in a MINOR, deliberately.** Semver says this wants 2.0,
+> and it is not waiting: the agent surface is marked EXPERIMENTAL, shipped in
+> 1.8.0 five weeks ago, and the break makes it *less* permissive — code that
+> keeps working keeps working, and code that stops was reading state it never
+> declared. Deferring to 2.0 would mean knowingly leaving a default that leaked
+> secrets in four distinct ways. **Restoring the old behaviour is one word**
+> (`expose: 'all'`), and the surface says so at runtime.
+>
+> One break is *compile-time*: `describe().exposure`'s union changed, so
+> `'read-only'` / `'introspection'` no longer typecheck. Nothing else in
+> tosijs — `Component`, `bind`, `tosi`, the element factories — changes.
+
 - **`enableAgentInterface()` with no manifest now exposes NOTHING.** It used to
   mean "read-only over the entire registry": every state root, every value,
   every bound element on the page, published to `globalThis.tosiAgent` and to

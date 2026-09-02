@@ -1,5 +1,100 @@
 # todo
 
+## 1.9.0 pre-minor review — deferred follow-ups
+
+Report: `reviews/1.9.0-preminor.md` (BLOCK; 3 blockers + 2 majors fixed before
+tag). These are the findings NOT fixed, with the reasoning, so "reviewed and
+deferred" stays distinguishable from "reviewed and fine".
+
+**Fixed in the remediation pass, listed so nobody re-opens them:** the phantom
+`quiet` option (now real, and verified load-bearing in both postures); the
+`secret: true` marker missing on suppressed harvests (the CHANGELOG claim was
+false for one of its three shapes — `suppressHarvest()` now marks, pinned by
+test); the provably-dead second `querySelector` in `harvestWouldLeak`; the
+lost zero-secret fast path in `isSecretPath`/`containsSecret` (re-verified
+behaviour-neutral across the 54-query corpus); the `bind*` `.d.ts` deprecation
+text, which shipped downstream advice that silently does not bind; the
+`auditAccessibility()` empty-map silent pass; `Migration.md`; the scaffolder
+README + a test that reads it.
+
+- [ ] **No lane typechecks test files.** `tsconfig.json` and
+      `tsconfig.build.json` both exclude `*.test.ts`, which is exactly why a
+      `quiet` option that did not exist was passed at 16 sites and typechecked.
+      `tsconfig.test.json` now exists as a MEASURING TOOL, wired into no gate:
+      `npx tsc --noEmit -p tsconfig.test.json` reports **369 errors**, nearly
+      all pre-existing looseness in test code (raw values assigned to
+      `BoxedScalar`, incomplete `AgentDescription` fixtures behind `as` casts),
+      not real defects. Wiring it in red would train everyone to ignore it, so
+      it is a backlog with a number rather than a gate. Burn it down, then gate.
+- [ ] **Path-spelling canonicalisation now exists at THREE addresses inside a
+      security predicate** (`indexSpellingAliasesSecret`/`splitAtElement`,
+      `redactWithin`'s candidate builder, the actions walk's `${path}.${key}`),
+      and only two are tested together: SEC-2f fails only when BOTH the descent
+      and the index-alias containment are reverted, so narrowing the
+      containment silently unguards the descent. Land the shared canonicaliser
+      (closes tosijs#32's query side and the third copy at once) and add an
+      SEC-2f-independent case.
+- [ ] **The closed posture still registers `tosi_describe`/`tosi_surface`** with
+      a model-context host, and on hosts with no unregistration path that is
+      register-once-per-name. A model gets a tool returning
+      `{roots:{},wiring:[],actions:[],exposure:'closed'}` with no signal
+      distinguishing "no state" from "never configured". Either skip
+      registration while closed, or make the tool descriptions say the surface
+      is unconfigured and name `expose`.
+- [ ] **~25 live doc examples were mechanically rewritten and nothing executes
+      them** (`list-binding.ts`, `xin.ts`, `elements.ts`, `xin-proxy.ts`, as
+      ```` ```js ```` fences). This release's own advice warns that
+      `textContent` with a path STRING sets literal text instead of binding —
+      exactly the mistake that shipped once already and was caught only by the
+      browser lane. Promote a sample to ```` ```test ````.
+- [ ] **Re-measure the agent-surface size claims.** README and CLAUDE.md still
+      carry "6.7 kB gz" and "+2.9 kB gz (+13.7%) vs 1.7.9" verbatim while
+      `agent.ts` grew substantially; only the generated `<!-- sizes -->` block
+      moved. Either re-measure or stop quoting a number nothing regenerates.
+- [ ] **Hoist the remaining `harvestWouldLeak` DOM test.** `refreshSecretPaths()`
+      already runs the document-wide query at the top of every `describe()`;
+      cache it into a Set and build the ancestor set once, making the DOM arm an
+      O(1) lookup instead of N subtree scans. (`agent.ts` claims this
+      cheaper-scan follow-up is "Tracked in TODO.md" — it was not. It is now.)
+- [ ] **~260 gz bytes of dev-only deprecation prose ship in every bundle**,
+      including `tosijs/core` and DOM-free `tosijs/state`, which will never
+      print a `bindText` warning (`elements.ts`; `grep 'permanently DISABLING'
+      dist/*.js` hits all four). Keep the actionable half, move the explanation
+      behind a docs anchor.
+- [ ] **Decide the `bind*` string-form question and write it down.** This
+      release codified "deprecated iff a plain prop expresses it exactly" and
+      un-deprecated `bindList` on that basis, but `bindText`/`bindEnabled`/
+      `bindDisabled` stay deprecated for the PATH-STRING form where the plain
+      prop provably does not express it. The `.d.ts` now says so per-case, which
+      removes the sharp edge; the rule is still applied non-uniformly. Either
+      warn only when the value is a proxy, or state the exception and why.
+      (Not new in 1.9.0 — `git log -S` puts the deprecation at 1.5.7.)
+- [ ] **No downstream consumer has been built against 1.9.0.** `tosijs-ui`
+      devDepends `tosijs 1.8.0` and is the doc-site build host; `bind`
+      accumulation in `create()`/`hydrate()` is a semantics change on the
+      hottest path in the library. Scratch-install and build tosijs-ui before
+      publish (release step 8c, applied pre-tag).
+- [ ] **Close tosijs#31 naming 1.9.0** — the `SYMBOL_MAP` split, the `create()`
+      fix and the `listBinding()` fix close it, and it is still open, so
+      downstream (including tosijs-ui#127) has no signal the fix shipped.
+      Leave **tosijs#32** open with the narrowed-not-closed note.
+- [ ] **Post the `bind*` resolution on tosijs-ui#127** (not #126, whose title
+      reasons from the superseded `textContent`-only advice) and mirror in
+      `UPSTREAM.md`. Comment; do not edit that repo.
+- [ ] **Write back to `../tosijs-coding-practices`:** (a) a guard test whose
+      fixture contains only one of the N paths it guards is VACUOUS — B-1 and
+      B-2 both passed a green 927-test suite, and rounds 3/4 already flagged
+      this shape ("every test used a single spelling per array"); (b) an
+      environment-suppressed assertion is a passing test that proves nothing
+      (happy-dom's zero rects hid the entire structural tier); (c) the
+      root-cause escalation rule — when a security lens finds N findings
+      sharing one precondition, the finding IS the precondition; (d) don't
+      deprecate the primitive your own recommended sugar emits, and a
+      deprecation whose replacement is a different syntactic form cannot be
+      phrased as advice; (e) `releasing.md` already required a `Migration.md`
+      entry and it was missed — make it a mechanical check.
+
+
 ## Benchmark numbers we publish, and the harness we do not have (round-4 M9)
 
 - [ ] **We publish µs figures with no benchmark harness behind them.** `find src

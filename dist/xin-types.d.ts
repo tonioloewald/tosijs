@@ -215,13 +215,22 @@ export interface ElementProps<T = Element> {
     bind?: TosiInlineBinding<T> | Array<TosiInlineBinding<T>>;
     /** TWO-WAY value binding; `value: proxy` is one-way (state -> DOM) only */
     bindValue?: TosiBindingShortcut;
-    /** @deprecated Use { textContent: proxy } instead */
+    /** @deprecated With a PROXY use `{ textContent: proxy }`. With a PATH
+     * STRING you must use `{ bind: { value: 'path', binding: 'text' } }` —
+     * `textContent: 'path'` sets the literal text "path" and silently does not
+     * bind. (That mistake typechecks and passes a unit suite; it was caught only
+     * by the browser doc-test lane.) */
     bindText?: TosiBindingShortcut;
     /** the low-level list-binding prop; `.tosi.listBinding()` is sugar over it */
     bindList?: TosiBindingShortcut;
-    /** @deprecated Use { disabled: proxy.tosi.take(v => !v) } instead */
+    /** @deprecated With a PROXY use `{ disabled: proxy.tosi.take(v => !v) }`.
+     * With a PATH STRING use `{ bind: { value: 'path', binding: 'enabled' } }` —
+     * `disabled: 'path'` is a truthy string, which permanently DISABLES the
+     * control. */
     bindEnabled?: TosiBindingShortcut;
-    /** @deprecated Use { disabled: proxy } instead */
+    /** @deprecated With a PROXY use `{ disabled: proxy }`. With a PATH STRING
+     * use `{ bind: { value: 'path', binding: 'disabled' } }` — a path string is
+     * always truthy, so `disabled: 'path'` permanently disables the control. */
     bindDisabled?: TosiBindingShortcut;
     style?: TosiStyleRule;
     class?: TosiClassSpec;

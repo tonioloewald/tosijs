@@ -165,6 +165,21 @@ export interface AgentInterfaceOptions {
      * it is a ring buffer; `changes()` reports `truncated: true` if a drain
      * spans dropped entries. */
     maxLog?: number;
+    /**
+     * Silence THIS surface's posture notice (default false).
+     *
+     * `settings.quiet` is global and silences every advisory tosijs emits; this
+     * is per-surface, for a page that enables one deliberately and does not want
+     * the console line — and for tests, which want one surface quiet without
+     * muting the library for every other test in the process.
+     *
+     * It was passed at 16 test call sites before it existed. Nothing caught that:
+     * `tsconfig.json` and `tsconfig.build.json` both EXCLUDE `*.test.ts`, so no
+     * lane typechecks tests, and the calls were silently accepted as excess
+     * properties on a widened object. They passed only because the posture notice
+     * dedupes on `lastPostureAnnounced`.
+     */
+    quiet?: boolean;
 }
 /**
  * Provenance tokens for bound properties in describe() output. A bound prop

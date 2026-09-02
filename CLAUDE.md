@@ -245,6 +245,15 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
 - Elements return `0` for `offsetWidth`/`offsetHeight` — mock with `Object.defineProperty(el, 'offsetHeight', { value: 300, configurable: true })`
 - `ListBinding` tests require proxied arrays from `xin['path.to.array']`, not raw arrays (raw arrays lack the `XIN_PATH` metadata)
 - Throttled event handlers are unreliable in tests; call methods like `lb.update()` directly
+- **`getBoundingClientRect()` returns zero geometry**, and the agent surface's
+  structural tier drops any element measuring 0×0 — so a structural assertion
+  written without mocking the rect **silently tests nothing**, and passes. This
+  hid an entire class of `describe()` leak (headings publishing secrets) from
+  every test in the suite until a real browser was used. Mock it:
+  `Object.defineProperty(el, 'getBoundingClientRect', { value: () => ({ x: 0, y: 0, width: 200, height: 30 }), configurable: true })`.
+  Generally: **an environment-suppressed assertion is a passing test that
+  proves nothing** — if a guard depends on geometry, layout or timing, make the
+  environment supply it rather than trusting a green tick.
 
 ## Component Conventions
 

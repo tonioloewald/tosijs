@@ -203,3 +203,33 @@ describe('contrast cannot be measured through transparency (round-2 review)', ()
     expect(report.failed).toBe(0)
   })
 })
+
+describe('an empty map is not a clean bill of health', () => {
+  test('auditing zero elements SAYS so instead of reporting no findings', () => {
+    /*
+     * 1.9.0's closed default means `describe()` over a bare surface returns no
+     * wiring — so an audit examined ZERO elements and reported no findings,
+     * which reads exactly like "your page is accessible". Same hazard as the
+     * contrast skip: silence that looks like a pass.
+     */
+    const report = auditAccessibility({
+      version: { surface: '1.0.0', tosijs: 'test', capabilities: [] },
+      roots: {},
+      actions: [],
+      exposure: 'closed',
+      wiring: [],
+      writable: false,
+    } as unknown as AgentDescription)
+    expect(report.findings).toEqual([])
+    expect(report.skipped.some((s) => s.includes('exposes nothing'))).toBe(true)
+    // and it names the fix rather than just refusing
+    expect(report.skipped.some((s) => s.includes('expose:'))).toBe(true)
+  })
+
+  test('a non-closed surface with no wiring still says nothing was examined', () => {
+    const report = auditAccessibility(map([]))
+    expect(
+      report.skipped.some((s) => s.includes('no wired elements'))
+    ).toBe(true)
+  })
+})
