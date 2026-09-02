@@ -119,10 +119,13 @@ and it becomes a text-bound <code>&lt;span&gt;</code> — <code>h1(app.user.name
 if that bothers you). Pass a proxy as any property or attribute and tosijs
 detects it and binds it — <code>hidden: app.loggedIn</code> stays in sync with state.
 This eliminates the need for most custom bindings.</p>
-<p><code>bindText</code> and <code>bindValue</code> are shorthands that also handle <code>fromDOM</code>
-(two-way binding). For anything truly custom, use
-<code>bind: { value, binding: { toDOM, fromDOM } }</code>. A function is also
-accepted as shorthand for <code>{ toDOM: fn }</code>:</p>
+<p><code>textContent</code> and <code>bindValue</code> bind a <strong>proxy</strong>; <code>bindValue</code> also handles <code>fromDOM</code>.
+For a path <strong>string</strong> rather than a proxy, use the inline form —
+<code>bind: { value: &#39;app.user.name&#39;, binding: &#39;text&#39; }</code> — because <code>textContent: &#39;app.user.name&#39;</code>
+would set that literal text instead of binding. (<code>bindText</code> is deprecated — it
+warns, and the naive migration to <code>textContent</code> silently drops the binding.)</p>
+<p>For anything truly custom, use <code>bind: { value, binding: { toDOM, fromDOM } }</code>.
+A function is also accepted as shorthand for <code>{ toDOM: fn }</code>:</p>
 <pre><code>div({ bind: {
   value: app.prefs.darkMode,
   binding(el, isDark) {
@@ -170,8 +173,8 @@ an element, you put it in the DOM, bindings activate. That&#39;s it.</p>
 <pre><code>ul(
   ...app.messages.listBinding(
     ({li, span}, msg) =&gt; li(
-      span({ bindText: msg.sender }),
-      span({ bindText: msg.body })
+      span({ textContent: msg.sender }),
+      span({ textContent: msg.body })
     ),
     {
       idPath: &#39;id&#39;,
@@ -344,7 +347,7 @@ from <code>type=&quot;text&quot;</code> to <code>type=&quot;password&quot;</code
   static initAttributes = { expanded: false }
 
   content = ({div, span}) =&gt; [
-    span({ bindText: msg.sender }),
+    span({ textContent: msg.sender }),
     div({
       class: &#39;body&#39;,
       bind: {
@@ -353,7 +356,7 @@ from <code>type=&quot;text&quot;</code> to <code>type=&quot;password&quot;</code
         binding: (el, expanded) =&gt; { el.hidden = !expanded }
       }
     },
-      span({ bindText: msg.body })  // content: flows through binding
+      span({ textContent: msg.body })  // content: flows through binding
     )
   ]
 }

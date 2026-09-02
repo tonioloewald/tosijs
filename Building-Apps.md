@@ -86,10 +86,14 @@ if that bothers you). Pass a proxy as any property or attribute and tosijs
 detects it and binds it — `hidden: app.loggedIn` stays in sync with state.
 This eliminates the need for most custom bindings.
 
-`bindText` and `bindValue` are shorthands that also handle `fromDOM`
-(two-way binding). For anything truly custom, use
-`bind: { value, binding: { toDOM, fromDOM } }`. A function is also
-accepted as shorthand for `{ toDOM: fn }`:
+`textContent` and `bindValue` bind a **proxy**; `bindValue` also handles `fromDOM`.
+For a path **string** rather than a proxy, use the inline form —
+`bind: { value: 'app.user.name', binding: 'text' }` — because `textContent: 'app.user.name'`
+would set that literal text instead of binding. (`bindText` is deprecated — it
+warns, and the naive migration to `textContent` silently drops the binding.)
+
+For anything truly custom, use `bind: { value, binding: { toDOM, fromDOM } }`.
+A function is also accepted as shorthand for `{ toDOM: fn }`:
 
     div({ bind: {
       value: app.prefs.darkMode,
@@ -146,8 +150,8 @@ an element, you put it in the DOM, bindings activate. That's it.
     ul(
       ...app.messages.listBinding(
         ({li, span}, msg) => li(
-          span({ bindText: msg.sender }),
-          span({ bindText: msg.body })
+          span({ textContent: msg.sender }),
+          span({ textContent: msg.body })
         ),
         {
           idPath: 'id',
@@ -351,7 +355,7 @@ The separation: **attributes drive structure, bindings drive content.**
       static initAttributes = { expanded: false }
 
       content = ({div, span}) => [
-        span({ bindText: msg.sender }),
+        span({ textContent: msg.sender }),
         div({
           class: 'body',
           bind: {
@@ -360,7 +364,7 @@ The separation: **attributes drive structure, bindings drive content.**
             binding: (el, expanded) => { el.hidden = !expanded }
           }
         },
-          span({ bindText: msg.body })  // content: flows through binding
+          span({ textContent: msg.body })  // content: flows through binding
         )
       ]
     }

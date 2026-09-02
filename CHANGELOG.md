@@ -6,6 +6,68 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.8.3] - 2026-09-02
+
+**The library stops warning its own users about API they never wrote** — and,
+found while fixing that, two ways the agent surface published secrets that
+`read()` refuses.
+
+### Security
+
+- **`describe()` no longer publishes what `read()` refuses.** `boundValue()`
+  redacted on a DOM record's own flag and never consulted the PATH, violating
+  the invariant the module states out loud. Two shapes leaked, both in the
+  **read-only default posture** and both through `tosi_describe` — the one
+  WebMCP tool published in *every* posture, while `tosi_read` sits behind a
+  gate precisely because reads are considered too much to publish unasked:
+  an element bound to an **ancestor** of a secret serialised the whole subtree,
+  and an element bound to the **exact** secret path with a non-value binding
+  leaked too (nothing of the value reaches the DOM, so the record's flag is
+  false). Pre-existing in 1.8.0–1.8.2.
+- **Reading a list no longer hands back the secrets inside it.** Secrets are
+  learned from bound controls, and a control in a list template binds through
+  one spelling while the redaction walk used another — so `read('rows')`
+  returned every secret it contained in cleartext. Every spelling that can name
+  a row is now tried: bracket index, dot index, and each registered id-path.
+- ⚠️ **Still open, deliberately: [#32](https://github.com/tonioloewald/tosijs/issues/32).**
+  A *direct* read spelled by index — `read('list[0].pw')` — still returns
+  cleartext where `read('list[id=a1].pw')` redacts. Descending from an ancestor
+  is covered; the query side is not. If you expose reads over paths an agent
+  can construct, scope them with a manifest.
+
+### Fixed
+
+- **`bind` composes instead of clobbering.** A container can be list-bound
+  *and* carry its own binding. Previously one order silently dropped the
+  caller's binding and the other **destroyed the entire list**, with no error.
+  Fixed at both addresses that fold element props — `create()` and
+  `Component.hydrate()` — via one shared helper.
+- **A `null` row no longer takes the agent surface down.** `read`, `describe`
+  and `changes` all threw on a list containing a null element, and `changes`
+  threw inside its coalescing loop, killing every subsequent poll.
+- **`elements.div(proxy)` no longer warns.** The most idiomatic call form in
+  the library emitted a deprecation warning for a key the caller never wrote.
+- **`.tosi.listBinding()` no longer warns**, and its default content no longer
+  uses a deprecated key.
+- **Deprecation messages you can actually type.** Two told users to write props
+  keys that do not exist, and following the `bindEnabled` advice literally
+  shipped a **permanently disabled button**. They now branch on whether the
+  value is a proxy or a path string, and say SPREAD where a spread is meant.
+
+### Changed
+
+- **`.tosi.listBinding()` returns `{ bind: { value, binding: 'list', options } }`
+  instead of `{ bindList: { value, ...options } }`.** Spreading the tuple —
+  the supported usage — is unaffected. Code that *inspects* the props
+  (`props.bindList.virtual = …`) breaks: `props.bindList` is now `undefined`.
+  This repo's own tests did exactly that and had to be rewritten, which is the
+  evidence that a consumer plausibly does too.
+- The inline `bind` form now forwards `options` to `bind()`'s fourth argument;
+  it silently dropped them before, which is why a list binding could not be
+  expressed without the deprecated key.
+- `ElementProps.bind` accepts a single inline binding or an array.
+- Bundle budgets raised ~1 kB across the board for the above.
+
 ## [1.8.2] - 2026-09-01
 
 ### Changed

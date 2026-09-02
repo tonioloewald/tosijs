@@ -612,7 +612,8 @@ const isSecretPath = (path: string): boolean => {
   for (const secret of secretPaths) {
     if (extendsPath(secret, path)) return true
   }
-  // ⚠️ KNOWN GAP (tosijs#32): matching is by SPELLING. A secret learned as
+  // ⚠️ KNOWN GAP — tosijs#32, and TODO.md "Agent surface — secret-path
+  // matching is spelling-sensitive". Matching is by SPELLING. A secret learned as
   // `list[id=a1].pw` is not matched by a DIRECT read spelled `list[0].pw`.
   // Descending from an ancestor IS covered — redactWithin tries every
   // spelling — so `read('list')` is safe; it is the direct index-spelled
@@ -964,7 +965,9 @@ const boundValue = (path: string, twoWay: boolean, secret = false): string => {
   // one WebMCP tool published in every posture, while `tosi_read` sits behind
   // a gate precisely because reads are considered too much to publish unasked.
   // So the surface handed out the exact value the gate exists to withhold.
-  // Now mirrors `readScanned()` exactly; the two must not diverge again.
+  // Now mirrors `readScanned()` exactly. THE MECHANISM THAT KEEPS THEM IN
+  // STEP IS SEC-2b in agent.test.ts, which mutation-fails if either arm of
+  // this dispatch is removed — not this comment.
   if (secret || isSecretPath(path)) return `${arrowOnly} ${path}`
   const serialized = serialize(xin[path])
   const raw = containsSecret(path)

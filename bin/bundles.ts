@@ -9,6 +9,15 @@
  * passed happily if the budget loop were deleted and only the log strings
  * survived.)
  */
+/*
+ * ⚠️ THESE ARE BUN-ZLIB FIGURES. The gate runs under Bun, whose `node:zlib`
+ * compresses differently from Node's: a byte-identical `dist/index.js` gzips
+ * to ~29.0 kB under Bun and ~28.7 kB under Node — a ~1% swing, which is the
+ * same order as the headroom the gate polices. So `gzip`, `node -e`, or a
+ * bundle-size tool will disagree with these numbers by about a percent, and a
+ * reviewer checking them the obvious way can conclude the budgets were raised
+ * against a measurement that does not reproduce. Compare like with like.
+ */
 export type BundleProbe = 'load' | 'import' | 'require'
 export type BundleStage = 'main' | 'alt' | 'tjs'
 

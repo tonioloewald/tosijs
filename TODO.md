@@ -1201,6 +1201,35 @@ lands it on the release line.
   `Boolean(anyObject)` is always `true`). TJS could fix this via `TjsEquals`
   or by compiling boolean coercion checks to use `.valueOf()` instead
 
+## Agent surface — secret-path matching is spelling-sensitive (tosijs#32)
+
+- [ ] **A DIRECT read spelled by index returns cleartext where the id-path
+      spelling redacts.** `read('list[0].pw')` and `read('list.0.pw')` leak;
+      `read('list[id=a1].pw')` redacts. Same location, three names, one string
+      compare. Reachable through `tosi_read` wherever reads are published and
+      through `globalThis.tosiAgent` from any script on the page.
+
+      **Descending from an ancestor IS covered** as of 1.8.3 — `redactWithin`
+      tries the bracket-index, dot-index and every registered id-path spelling,
+      so `read('list')` is safe. It is the query side that is open.
+
+      The fix is canonicalising index segments to the registered id-path form
+      before matching, and **it must fail closed**: an error inside the
+      canonicaliser has to mean "possibly secret", never "not secret". I
+      attempted it during the 1.8.3 remediation, got `pathParts`' return shape
+      wrong (`(string | string[])[]`, dot-split runs interleaved with bracket
+      strings), and it THREW inside `isSecretPath()` — which fails open at
+      every call site that does not catch. Reverted rather than shipped.
+
+      Issue: https://github.com/tonioloewald/tosijs/issues/32 — carries the
+      repro, the root cause and the test plan.
+
+- [ ] **The dot-index assumption has a third copy** at `src/agent.ts` in the
+      actions walk (`${path}.${key}`). A shared path-canonicalisation helper
+      would close both this and the query side at once, rather than leaving a
+      third address to drift. *(unverified — line confirmed, behaviour not
+      exercised.)*
+
 ## 2.0 — THE PURGE INVENTORY (every deprecation, in one place)
 
 **Why this list exists.** 1.7.6 renamed five blueprint types to `Tosi*` with

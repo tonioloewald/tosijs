@@ -15,6 +15,20 @@ let current: ReturnType<typeof enableAgentInterface> | undefined
 afterEach(() => {
   current?.disable()
   current = undefined
+  /*
+   * REMOVE SECRET-BEARING CONTROLS BETWEEN TESTS.
+   *
+   * `refreshSecretPaths()` rescans the WHOLE document before every read, and
+   * `secretPaths` lives for the process — so a password field left appended by
+   * one test keeps registering its path for every test after it. That is a
+   * guard passing for the wrong reason, and it is the same hazard `M5` just
+   * fixed for `warnDeprecated`'s latch: cross-test state that makes an
+   * assertion look verified while proving nothing.
+   *
+   * Neighbouring tests each did `field.remove()` by hand; doing it here means
+   * a new test cannot forget.
+   */
+  document.body.replaceChildren()
 })
 
 describe('agent interface — read/write/observe', () => {
