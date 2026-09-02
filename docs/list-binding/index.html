@@ -77,12 +77,10 @@ the tags you need) and a placeholder proxy for the array item. Property access
 on the placeholder creates relative bindings (<code>^.name</code>, <code>^.score</code>, etc.)
 automatically.</p>
 <p>Spread the result into a container element — it returns an <code>[ElementProps, HTMLTemplateElement]</code>
-tuple. The props (containing <code>bindList</code>) are applied to the container and the
+tuple. The props (an inline <code>bind</code> with <code>binding: &#39;list&#39;</code>) are applied to the container and the
 <code>&lt;template&gt;</code> becomes a child; the <code>ListBinding</code> constructor then finds and removes
 the <code>&lt;template&gt;</code>, extracting its children as stamp templates. <strong>The <code>&lt;template&gt;</code>
 element never appears in the live DOM</strong> — it&#39;s consumed during initialization.</p>
-<p>Under the hood, this creates the same <code>bindList</code> + <code>template</code> structure shown below,
-but without the boilerplate.</p>
 <h3>Options</h3>
 <p>Pass options as the second argument:</p>
 <pre><code>...items.tosi.listBinding(({div}, item) =&gt; div(item.name), {
@@ -90,21 +88,23 @@ but without the boilerplate.</p>
   virtual: { height: 30 } // virtualize for large lists
 })
 </code></pre>
-<h3><code>bindList</code> + <code>template</code> — the low-level way</h3>
-<p>Before <code>.tosi.listBinding()</code> there was <code>bindList</code>.</p>
-<p>For reference, the equivalent low-level structure that <code>.listBinding()</code> generates:</p>
+<h3>the low-level form — an inline <code>bind</code></h3>
+<p><code>.tosi.listBinding()</code> is sugar. The structure it generates is an ordinary inline
+binding with <code>binding: &#39;list&#39;</code>:</p>
 <pre><code>div( // container element
   {
-    bindList: {
-      value: boxed.path.to.array // OR &#39;path.to.array&#39;
-      idPath: &#39;id&#39; // (optional) path to unique id of array items
+    bind: {
+      value: boxed.path.to.array, // OR &#39;path.to.array&#39;
+      binding: &#39;list&#39;,
+      options: { idPath: &#39;id&#39; }, // (optional) unique id of array items
     }
   },
   template( // template for the repeated item
     div( // repeated item should have a single root element
       ... // whatever you want
       span({
-        bindText: &#39;^.foo.bar&#39; // binding to a given array member&#39;s `foo.bar`
+        bind: { value: &#39;^.foo.bar&#39;, binding: &#39;text&#39; }
+          // binds a given array member&#39;s `foo.bar`
           // &#39;^&#39; refers to the array item itself
       })
     )
@@ -171,7 +171,7 @@ just direct, surgical updates.</p>
 (in Chrome: DevTools → More tools → Rendering → Paint flashing), and watch the
 virtualized grid example below. Only the cells whose values actually change will flash.</p>
 <h2>Nested lists</h2>
-<p>A <code>bindList</code> can live inside another list&#39;s item template — the inner list&#39;s
+<p>A list binding can live inside another list&#39;s item template — the inner list&#39;s
 relative path (<code>^.subs</code>) resolves against each outer item. This depends on
 cloning a <code>&lt;template&gt;</code> that itself contains a <code>&lt;template&gt;</code>, which only behaves
 correctly in a real browser (jsdom/happy-dom put cloned children in the wrong
@@ -179,7 +179,7 @@ place), so it is verified in-browser here:</p>
 <pre><code class="language-test">import { tosi, elements, xin, updates } from &#39;tosijs&#39;
 const { div, span, template } = elements
 
-test(&#39;a bindList nested in a list item template renders each inner item&#39;, async () =&gt; {
+test(&#39;a nested list binding renders each inner item&#39;, async () =&gt; {
   tosi({
     nestedListDoc: {
       groups: [
@@ -192,12 +192,21 @@ test(&#39;a bindList nested in a list item template renders each inner item&#39;
     template(
       div(
         div(
-          { class: &#39;subs&#39;, bindList: { value: &#39;^.subs&#39;, idPath: &#39;sid&#39; } },
-          template(span({ bindText: &#39;^.label&#39; }))
+          {
+            class: &#39;subs&#39;,
+            bind: { value: &#39;^.subs&#39;, binding: &#39;list&#39;, options: { idPath: &#39;sid&#39; } },
+          },
+          template(span({ bind: { value: &#39;^.label&#39;, binding: &#39;text&#39; } }))
         )
       )
     ),
-    { bindList: { value: xin[&#39;nestedListDoc.groups&#39;], idPath: &#39;gid&#39; } }
+    {
+      bind: {
+        value: xin[&#39;nestedListDoc.groups&#39;],
+        binding: &#39;list&#39;,
+        options: { idPath: &#39;gid&#39; },
+      },
+    }
   )
   preview.append(container)
   await updates()
@@ -227,15 +236,14 @@ of mutations the batched-touch form is dramatically cheaper. The path
 string is used here deliberately: you&#39;ve already bypassed the proxy, so
 you notify the registry by path rather than reaching for a proxy reference.</p>
 <h2>Virtualized Lists</h2>
-<p>The real power of <code>bindList</code> comes from its support for virtualizing lists.</p>
-<pre><code>bindList: {
-  value: emojiListExample.array,
+<p>The real power of list bindings comes from their support for virtualizing lists.</p>
+<pre><code>...emojiListExample.array.tosi.listBinding(({ div }, item) =&gt; div(item.name), {
   idPath: &#39;name&#39;,
   virtual: {
     height: 30,
     rowChunkSize: 3,
   },
-}
+})
 </code></pre>
 <p>Simply add a <code>virtual</code> property to the list-binding specifying the row <code>height</code>
 and the list will be <code>virtualized</code> (meaning that only visible elements will be rendered,
@@ -268,10 +276,10 @@ const emojiTable = div(
         class: &#39;emoji-row&#39;,
         tabindex: 0,
       },
-      span({ bindText: item.chars, class: &#39;graphic&#39; }),
-      span({ bindText: item.name, class: &#39;no-overflow&#39; }),
-      span({ bindText: item.category, class: &#39;no-overflow&#39; }),
-      span({ bindText: item.subcategory, class: &#39;no-overflow&#39; })
+      span({ textContent: item.chars, class: &#39;graphic&#39; }),
+      span({ textContent: item.name, class: &#39;no-overflow&#39; }),
+      span({ textContent: item.category, class: &#39;no-overflow&#39; }),
+      span({ textContent: item.subcategory, class: &#39;no-overflow&#39; })
     ),
     {
       value: emojiListExample.array,
@@ -375,7 +383,7 @@ const grid = div(
   ...bigBindTest.listBinding(
     ({div}, item) =&gt; div({
       class: &#39;cell&#39;,
-      bindText: item.id,
+      textContent: item.id,
       bind: {
         value: item.color,
         binding: {
@@ -550,7 +558,7 @@ const grid = div(
       return span({
         class: cellClass(&#39;sg-cell&#39;, col),
         style: stickyStyle(col),
-        bindText: item[col.key],
+        textContent: item[col.key],
       })
     },
     {
@@ -622,14 +630,13 @@ scroll-fraction interpolation: the total scroll area is estimated from
 the top and bottom of the list based on scroll position.</p>
 <p>Items render at their <strong>natural height</strong> — no fixed-height constraint.
 The scrollbar position is approximate but smooth.</p>
-<pre><code>bindList: {
-  value: myArray,
+<pre><code>...myArray.tosi.listBinding(({ div }, item) =&gt; div(item.name), {
   idPath: &#39;id&#39;,
   virtual: {
     height: 40,
     minHeight: 30,
   },
-}
+})
 </code></pre>
 <pre><code class="language-js">import { elements, tosi, scrollListItemIntoView } from &#39;tosijs&#39;
 
@@ -657,8 +664,8 @@ const list = div(
       {
         class: &#39;var-height-item&#39;,
       },
-      span({ bindText: item.label, class: &#39;var-item-label&#39; }),
-      span({ bindText: item.description, class: &#39;var-item-desc&#39; }),
+      span({ textContent: item.label, class: &#39;var-item-label&#39; }),
+      span({ textContent: item.description, class: &#39;var-item-desc&#39; }),
     ),
     {
       idPath: &#39;id&#39;,
@@ -734,8 +741,7 @@ provides both simple and powerful methods for doing this.</p>
 elements (and they can be <code>symbol</code> values if you want to avoid &quot;polluting&quot;
 your data, e.g. for round-tripping to a database.)</p>
 <h3><code>filter</code> and <code>needle</code></h3>
-<pre><code>bindList: {
-  value: filterListExample.array,
+<pre><code>...filterListExample.array.tosi.listBinding(({ div }, item) =&gt; div(item.name), {
   idPath: &#39;name&#39;,
   virtual: {
     height: 30,
@@ -750,7 +756,7 @@ your data, e.g. for round-tripping to a database.)</p>
   needle: filterListExample.needle
 }
 </code></pre>
-<p>If <code>bindList</code>&#39;s options provide a <code>filter</code> function and a <code>needle</code> (proxy or path) then
+<p>If the list binding&#39;s options provide a <code>filter</code> function and a <code>needle</code> (proxy or path) then
 the list will be filtered using the function via throttled updates.</p>
 <p><code>filter</code> is passed the whole array, and <code>needle</code> can be anything so, <code>filter</code> can
 sort the array or even synthesize it entirely.</p>
@@ -821,10 +827,10 @@ preview.append(
           class: &#39;emoji-row&#39;,
           tabindex: 0,
         },
-        span({ bindText: item.chars, class: &#39;graphic&#39; }),
-        span({ bindText: item.name, class: &#39;no-overflow&#39; }),
-        span({ bindText: item.category, class: &#39;no-overflow&#39; }),
-        span({ bindText: item.subcategory, class: &#39;no-overflow&#39; })
+        span({ textContent: item.chars, class: &#39;graphic&#39; }),
+        span({ textContent: item.name, class: &#39;no-overflow&#39; }),
+        span({ textContent: item.category, class: &#39;no-overflow&#39; }),
+        span({ textContent: item.subcategory, class: &#39;no-overflow&#39; })
       ),
       {
         idPath: &#39;name&#39;,
@@ -889,7 +895,7 @@ a valid <code>idPath</code>, or it will throw an error (and fail).</p>
 especially useful for virtualized lists where the item&#39;s DOM element may
 not exist yet.</p>
 <ul>
-<li><code>element</code> - the list container element (the one with the <code>bindList</code>)</li>
+<li><code>element</code> - the list container element (the one carrying the list binding)</li>
 <li><code>item</code> - the raw array item to scroll to</li>
 <li><code>options.position</code> - where to place the item in the viewport:
 <code>&#39;start&#39;</code>, <code>&#39;middle&#39;</code> (default), <code>&#39;end&#39;</code>, or <code>&#39;nearest&#39;</code></li>
@@ -931,14 +937,13 @@ teardown or recreation.</p>
 <p>By default, virtualized lists scroll within their container element. For infinite-scroll
 feeds or full-page lists, you can use the window as the scroll container instead by
 setting <code>scrollContainer: &#39;window&#39;</code> in the virtual options:</p>
-<pre><code>bindList: {
-  value: feedItems,
+<pre><code>...feedItems.tosi.listBinding(({ div }, item) =&gt; div(item.title), {
   idPath: &#39;id&#39;,
   virtual: {
     height: 120,
     scrollContainer: &#39;window&#39;
   }
-}
+})
 </code></pre>
 <p>With <code>scrollContainer: &#39;window&#39;</code>, the list virtualizes based on the window&#39;s scroll
 position and viewport height, rather than the element&#39;s own scroll position. The list

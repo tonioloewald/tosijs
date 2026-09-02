@@ -299,14 +299,14 @@ const friendlyLayer = g(
     circle({ r: &#39;5&#39;, fill: &#39;none&#39;, stroke: &#39;#8cc63f&#39;, &#39;stroke-width&#39;: &#39;1&#39; }),
     { bind: { value: &#39;^&#39;, binding: position } }
   ),
-  { bindList: { value: friendlies, idPath: &#39;id&#39; } }
+  { bind: { value: friendlies, binding: &#39;list&#39;, options: { idPath: &#39;id&#39; } } }
 )
 const hostileLayer = g(
   g(
     polygon({ points: &#39;0,-6 5.2,3 -5.2,3&#39;, fill: &#39;none&#39;, stroke: &#39;#ff1d25&#39;, &#39;stroke-width&#39;: &#39;1.5&#39;, &#39;stroke-linejoin&#39;: &#39;round&#39; }),
     { bind: { value: &#39;^&#39;, binding: position } }
   ),
-  { bindList: { value: hostiles, idPath: &#39;id&#39; } }
+  { bind: { value: hostiles, binding: &#39;list&#39;, options: { idPath: &#39;id&#39; } } }
 )
 
 preview.append(

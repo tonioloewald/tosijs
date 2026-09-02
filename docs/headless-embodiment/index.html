@@ -128,7 +128,7 @@ host.innerHTML = html
 preview.append(host)
 bindParts(host, {
   name: { bindValue: vended.name },
-  greet: { bindText: vended.name },
+  greet: { textContent: vended.name },
 })
 </code></pre>
 <pre><code class="language-test">import { updates } from &#39;tosijs&#39;

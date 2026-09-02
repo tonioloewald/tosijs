@@ -192,7 +192,7 @@ preview.append(
         padding: 10
       }
     },
-    div({bindText: &#39;xinExample.string&#39;}),
+    div({bind: {value: &#39;xinExample.string&#39;, binding: &#39;text&#39;}}),
     label(
       span(&#39;Edit this&#39;),
       input({ bindValue: &#39;xinExample.string&#39;})
@@ -252,7 +252,7 @@ preview.append(
     ),
     input({bindValue: &#39;calculatorExample.y&#39;, placeholder: &#39;y&#39;}),
     span(&#39;=&#39;),
-    span({bindText: &#39;calculatorExample.result&#39; })
+    span({bind: {value: &#39;calculatorExample.result&#39;, binding: &#39;text&#39;}})
   )
 )
 </code></pre>
@@ -436,7 +436,7 @@ preview.append(
         padding: 10
       }
     },
-    div({bindText: boxedExample.string}),
+    div({textContent: boxedExample.string}),
     label(
       span(&#39;Edit this&#39;),
       input({ bindValue: boxedExample.string})
@@ -541,9 +541,9 @@ const { takeDemo } = tosi({ takeDemo: { count: 3, items: [&#39;a&#39;, &#39;b&#3
 const { span, button } = elements
 
 preview.append(
-  span({ bindText: takeDemo.count.tosi.take(n =&gt; `Count: ${n}`) }),
+  span({ textContent: takeDemo.count.tosi.take(n =&gt; `Count: ${n}`) }),
   button(&#39;Delete&#39;, {
-    bindEnabled: takeDemo.items.tosi.take(list =&gt; list.length &gt; 0),
+    disabled: takeDemo.items.tosi.take(list =&gt; list.length === 0),
   })
 )
 </code></pre>
@@ -559,7 +559,7 @@ const { takeMultiDemo } = tosi({
 const { span, input, label } = elements
 
 preview.append(
-  span({ bindText: takeMultiDemo.firstName.tosi.take(
+  span({ textContent: takeMultiDemo.firstName.tosi.take(
     takeMultiDemo.lastName,
     (first, last) =&gt; `${first} ${last}`
   ) }),
@@ -599,7 +599,7 @@ preview.append(
       bindValue: takeFilterDemo.search,
     })),
     div({
-      bindText: takeFilterDemo.items.tosi.take(
+      textContent: takeFilterDemo.items.tosi.take(
         takeFilterDemo.search,
         (items, search) =&gt; {
           const s = search.toLowerCase()
@@ -612,9 +612,9 @@ preview.append(
     ul(
       ...takeFilterDemo.items.tosi.listBinding(
         ({li, span}, item) =&gt; li(
-          span({ bindText: item.name, style: { fontWeight: &#39;bold&#39; } }),
+          span({ textContent: item.name, style: { fontWeight: &#39;bold&#39; } }),
           &#39; — &#39;,
-          span({ bindText: item.role }),
+          span({ textContent: item.role }),
         ),
         {
           idPath: &#39;id&#39;,
@@ -701,13 +701,8 @@ const addItem = () =&gt; {
 preview.append(
   h3(&#39;To do&#39;),
   div(
-    {
-      bindList: {
-        value: todos.list
-      }
-    },
-    template(
-      div({ bindText: &#39;^.description&#39; })
+    ...todos.list.tosi.listBinding(({ div }) =&gt;
+      div({ bind: { value: &#39;^.description&#39;, binding: &#39;text&#39; } })
     )
   ),
   div(
@@ -721,7 +716,7 @@ preview.append(
       }
     }),
     button(&#39;Add&#39;, {
-      bindEnabled: todos.newItem,
+      disabled: todos.newItem.tosi.take(text =&gt; !text),
       onClick: addItem
     })
   )

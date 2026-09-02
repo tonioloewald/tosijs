@@ -847,8 +847,11 @@ test('tosiListBinding method on boxed arrays', async () => {
   const [props, template] = listBindTest2.items.tosiListBinding(
     ({ li }, item) => li(item)
   )
-  expect(props.bindList).toBeDefined()
-  expect(props.bindList.value).toBe('listBindTest2.items')
+  // the NON-deprecated inline form — `bindList` warned its own callers
+  expect(props.bindList).toBeUndefined()
+  expect(props.bind).toBeDefined()
+  expect(props.bind.value).toBe('listBindTest2.items')
+  expect(props.bind.binding).toBe('list')
   expect(template).toBeInstanceOf(HTMLTemplateElement)
 })
 
@@ -1136,8 +1139,9 @@ test('boxed array new API - listBinding method', async () => {
   const [props, template] = arrListBindTest.items.listBinding(({ li }, item) =>
     li(item)
   )
-  expect(props.bindList).toBeDefined()
-  expect(props.bindList.value).toBe('arrListBindTest.items')
+  expect(props.bindList).toBeUndefined()
+  expect(props.bind.value).toBe('arrListBindTest.items')
+  expect(props.bind.binding).toBe('list')
   expect(template).toBeInstanceOf(HTMLTemplateElement)
 })
 
@@ -1152,7 +1156,14 @@ test('listBinding with itemsPerRow generates multiple templates', () => {
     },
     { idPath: 'id', virtual: { height: 30, itemsPerRow: 2 } }
   )
-  expect(props.bindList).toBeDefined()
+  expect(props.bind).toBeDefined()
+  // OPTIONS SURVIVE. The inline `bind` form used to drop its fourth argument
+  // entirely, which is why listBinding had to route through the deprecated
+  // `bindList` key at all — so pin that they arrive.
+  expect(props.bind.options).toEqual({
+    idPath: 'id',
+    virtual: { height: 30, itemsPerRow: 2 },
+  })
   expect(template).toBeInstanceOf(HTMLTemplateElement)
   expect(template.content.children.length).toBe(2)
 })
@@ -1886,4 +1897,35 @@ describe('.value = writes are surgical (and the registration-touch trap)', () =>
       expect({ [label]: seen }).toEqual({ [label]: ['surg3.a'] })
     }
   })
+})
+
+test('the recommended list API emits NO deprecation warnings (tosijs#31)', async () => {
+  /*
+   * `.tosi.listBinding()` used to emit `{ bindList: … }` and a default content
+   * function using `{ bindText: '^' }` — both deprecated — so the RECOMMENDED
+   * api warned you to stop using it, from inside itself, on every list in
+   * every app. And the escape-hatch SYMBOLS shared a lookup table with the
+   * deprecated string spellings, so the library's own internal reads warned
+   * the consumer about API they never touched.
+   */
+  const warnings: string[] = []
+  const original = console.warn
+  console.warn = (msg: any) => void warnings.push(String(msg))
+  try {
+    const { quietList } = tosi({ quietList: { items: ['a', 'b'] } })
+    await updates()
+    const el = elements.div(
+      ...quietList.items.listBinding(({ span }: any, item: any) =>
+        span({ textContent: item })
+      )
+    )
+    document.body.append(el)
+    await updates()
+    // and the default-content path, which used bindText
+    document.body.append(elements.div(...quietList.items.listBinding()))
+    await updates()
+  } finally {
+    console.warn = original
+  }
+  expect(warnings.filter((w) => w.includes('deprecated'))).toEqual([])
 })

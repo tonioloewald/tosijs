@@ -179,7 +179,7 @@ preview.append(
         padding: 10
       }
     },
-    div({bindText: 'xinExample.string'}),
+    div({bind: {value: 'xinExample.string', binding: 'text'}}),
     label(
       span('Edit this'),
       input({ bindValue: 'xinExample.string'})
@@ -241,7 +241,7 @@ preview.append(
     ),
     input({bindValue: 'calculatorExample.y', placeholder: 'y'}),
     span('='),
-    span({bindText: 'calculatorExample.result' })
+    span({bind: {value: 'calculatorExample.result', binding: 'text'}})
   )
 )
 ```
@@ -483,7 +483,7 @@ preview.append(
         padding: 10
       }
     },
-    div({bindText: boxedExample.string}),
+    div({textContent: boxedExample.string}),
     label(
       span('Edit this'),
       input({ bindValue: boxedExample.string})
@@ -606,9 +606,9 @@ const { takeDemo } = tosi({ takeDemo: { count: 3, items: ['a', 'b', 'c'] } })
 const { span, button } = elements
 
 preview.append(
-  span({ bindText: takeDemo.count.tosi.take(n => `Count: ${n}`) }),
+  span({ textContent: takeDemo.count.tosi.take(n => `Count: ${n}`) }),
   button('Delete', {
-    bindEnabled: takeDemo.items.tosi.take(list => list.length > 0),
+    disabled: takeDemo.items.tosi.take(list => list.length === 0),
   })
 )
 ```
@@ -628,7 +628,7 @@ const { takeMultiDemo } = tosi({
 const { span, input, label } = elements
 
 preview.append(
-  span({ bindText: takeMultiDemo.firstName.tosi.take(
+  span({ textContent: takeMultiDemo.firstName.tosi.take(
     takeMultiDemo.lastName,
     (first, last) => `${first} ${last}`
   ) }),
@@ -673,7 +673,7 @@ preview.append(
       bindValue: takeFilterDemo.search,
     })),
     div({
-      bindText: takeFilterDemo.items.tosi.take(
+      textContent: takeFilterDemo.items.tosi.take(
         takeFilterDemo.search,
         (items, search) => {
           const s = search.toLowerCase()
@@ -686,9 +686,9 @@ preview.append(
     ul(
       ...takeFilterDemo.items.tosi.listBinding(
         ({li, span}, item) => li(
-          span({ bindText: item.name, style: { fontWeight: 'bold' } }),
+          span({ textContent: item.name, style: { fontWeight: 'bold' } }),
           ' — ',
-          span({ bindText: item.role }),
+          span({ textContent: item.role }),
         ),
         {
           idPath: 'id',
@@ -792,13 +792,8 @@ const addItem = () => {
 preview.append(
   h3('To do'),
   div(
-    {
-      bindList: {
-        value: todos.list
-      }
-    },
-    template(
-      div({ bindText: '^.description' })
+    ...todos.list.tosi.listBinding(({ div }) =>
+      div({ bind: { value: '^.description', binding: 'text' } })
     )
   ),
   div(
@@ -812,7 +807,7 @@ preview.append(
       }
     }),
     button('Add', {
-      bindEnabled: todos.newItem,
+      disabled: todos.newItem.tosi.take(text => !text),
       onClick: addItem
     })
   )
@@ -1050,7 +1045,11 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
             e: ElementsProxy,
             obj: BoxedProxy,
             columnIndex?: number
-          ) => HTMLElement = ({ span }) => span({ bindText: '^' }),
+          ) => HTMLElement = ({ span }) =>
+            // NOT `{ textContent: '^' }` — that sets the LITERAL string. A
+            // path only binds through the inline `bind` form; `textContent`
+            // binds a proxy, not a path.
+            span({ bind: { value: '^', binding: 'text' } }),
           options: TosiObject = {}
         ) => {
           const n = options.virtual?.itemsPerRow ?? 1
@@ -1059,7 +1058,12 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
             templates.push(content(elements, listElement(), col))
           }
           return [
-            { bindList: { value: path, ...options } },
+            // NOT `{ bindList: … }`. That key is deprecated, so the RECOMMENDED
+            // api emitted a warning telling you to use the recommended api —
+            // fired from inside it, unavoidable, on every list in every app
+            // (tosijs#31). The inline `bind` form is the non-deprecated
+            // channel; it carries options as of this release.
+            { bind: { value: path, binding: 'list', options } },
             elements.template(...templates),
           ]
         }
@@ -1117,6 +1121,24 @@ const ACCESSOR_PROPS = new Set([
   'take',
 ])
 
+/*
+ * SYMBOLS ARE NOT DEPRECATED — they are the unshadowable escape hatch, and the
+ * library uses them internally (bind.ts alone reads `[XIN_PATH]` eight times).
+ * They were in the same map as the deprecated STRING spellings, so every one of
+ * those internal reads fired "xinValue, tosiValue, xinPath, tosiPath … are
+ * deprecated" at the consumer, for API the consumer never touched (tosijs#31).
+ *
+ * Split: symbols resolve silently, strings warn.
+ */
+const SYMBOL_MAP = new Map<symbol, string>([
+  [XIN_PATH, 'path'],
+  [XIN_VALUE, 'value'],
+  // ONLY THESE TWO. `XIN_OBSERVE` and `XIN_ON` are *strings* — 'xinObserve'
+  // and 'xinOn', the deprecated spellings themselves — so they belong in
+  // LEGACY_MAP and must keep warning. tsc caught this; the first draft
+  // silenced two genuinely deprecated names.
+])
+
 // Legacy/deprecated property names → accessor property they map to
 const LEGACY_MAP = new Map<string | symbol, string>([
   [XIN_PATH, 'path'],
@@ -1171,6 +1193,13 @@ const regHandler = (
       // Accessor API — delegate to accessor proxy
       if (ACCESSOR_PROPS.has(_prop as string)) {
         return makeTosiAccessor(path, target)[_prop]
+      }
+
+      // Symbol escape hatches — current API, resolve silently
+      const bySymbol =
+        typeof _prop === 'symbol' ? SYMBOL_MAP.get(_prop) : undefined
+      if (bySymbol !== undefined) {
+        return makeTosiAccessor(path, target)[bySymbol]
       }
 
       // Deprecated prefixed names — delegate to accessor

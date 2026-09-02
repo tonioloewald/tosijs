@@ -264,6 +264,8 @@ export interface TosiBinding<T = Element> {
 export interface TosiInlineBinding<T = Element> {
   value: TosiTouchableType
   binding: TosiBinding<T> | TosiBindingSetter<T> | string
+  /** forwarded as `bind()`'s fourth argument — idPath, virtual, hiddenProp… */
+  options?: TosiObject
 }
 
 // The `class` element-prop accepts (as of 1.6.6):

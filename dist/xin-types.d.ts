@@ -186,6 +186,8 @@ export interface TosiBinding<T = Element> {
 export interface TosiInlineBinding<T = Element> {
     value: TosiTouchableType;
     binding: TosiBinding<T> | TosiBindingSetter<T> | string;
+    /** forwarded as `bind()`'s fourth argument — idPath, virtual, hiddenProp… */
+    options?: TosiObject;
 }
 export type TosiClassSpec = string | false | null | Array<string | false | null | undefined> | Record<string, boolean>;
 export interface ElementProps<T = Element> {

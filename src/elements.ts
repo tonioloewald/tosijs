@@ -289,14 +289,14 @@ const friendlyLayer = g(
     circle({ r: '5', fill: 'none', stroke: '#8cc63f', 'stroke-width': '1' }),
     { bind: { value: '^', binding: position } }
   ),
-  { bindList: { value: friendlies, idPath: 'id' } }
+  { bind: { value: friendlies, binding: 'list', options: { idPath: 'id' } } }
 )
 const hostileLayer = g(
   g(
     polygon({ points: '0,-6 5.2,3 -5.2,3', fill: 'none', stroke: '#ff1d25', 'stroke-width': '1.5', 'stroke-linejoin': 'round' }),
     { bind: { value: '^', binding: position } }
   ),
-  { bindList: { value: hostiles, idPath: 'id' } }
+  { bind: { value: hostiles, binding: 'list', options: { idPath: 'id' } } }
 )
 
 preview.append(
@@ -635,7 +635,13 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
       bind(
         elt,
         value.value,
-        binding instanceof Function ? { toDOM: binding } : binding
+        binding instanceof Function ? { toDOM: binding } : binding,
+        // OPTIONS WERE SILENTLY DROPPED HERE. `bind()` has always taken a
+        // fourth argument, but the inline form ignored anything beyond
+        // value/binding — so a list binding could not be expressed inline and
+        // had to go through the DEPRECATED `bindList` key, which is how
+        // `.tosi.listBinding()` ended up warning its own callers (tosijs#31).
+        value.options
       )
     } else {
       throw new Error(`bad binding`)
@@ -643,6 +649,12 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   } else if (key.match(/^bind[A-Z]/) != null) {
     const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5)
     if (bindingType !== 'value') {
+      // NAME THE PROXY FORM EXPLICITLY. "Use { textContent: … }" is only true
+      // when the value is a PROXY. Given a path STRING — which is what these
+      // shortcuts were most used for — `textContent` sets literal text and the
+      // binding silently disappears. Following this advice mechanically broke
+      // six doc examples and the listBinding default content (tosijs#31), all
+      // of which typechecked and only surfaced in the browser doc-test lane.
       const alt =
         bindingType === 'text'
           ? 'textContent'
@@ -654,9 +666,19 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
           ? '.tosi.listBinding()'
           : null
       if (alt) {
+        // THE CAVEAT IS NOT OPTIONAL. `{ textContent: x }` binds when `x` is a
+        // PROXY and sets literal text when it is a path STRING — which is what
+        // these shortcuts were most used for. Advice without that distinction
+        // is advice that silently deletes a binding.
+        const caveat =
+          typeof value === 'string'
+            ? ` Since you passed a PATH STRING, use ` +
+              `{ bind: { value: '${value}', binding: '${bindingType}' } } — ` +
+              `{ ${alt}: '${value}' } would set literal text, not bind.`
+            : ''
         warnDeprecated(
           `bind${bindingType}`,
-          `bind${key.substring(4)} is deprecated. Use { ${alt}: ... } instead.`
+          `bind${key.substring(4)} is deprecated. Use { ${alt}: ... } instead.${caveat}`
         )
       }
     }

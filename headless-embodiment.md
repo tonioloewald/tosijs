@@ -86,7 +86,7 @@ host.innerHTML = html
 preview.append(host)
 bindParts(host, {
   name: { bindValue: vended.name },
-  greet: { bindText: vended.name },
+  greet: { textContent: vended.name },
 })
 ```
 
