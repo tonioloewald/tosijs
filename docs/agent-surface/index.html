@@ -362,7 +362,7 @@ yields — deep edits can&#39;t slip past, replacing an item with an
 incomplete document is caught by <code>required</code> at root context, and
 root-level cross-field constraints and <code>$predicate</code>s see every edit.
 Adapters never touch path mechanics; core never touches schemas. Free, and crucially <strong>legible</strong>: a bare
-<code>bindEnabled: app.cart.valid</code> tells the agent <em>that</em> an action is gated
+<code>disabled: app.cart.invalid</code> tells the agent <em>that</em> an action is gated
 but not <em>why</em> — when the flag is <code>false</code> a human infers the reason from
 visual context; an agent hits a causal dead end. A serialized predicate
 is the why: <code>describe()</code> can hand over the failing condition itself

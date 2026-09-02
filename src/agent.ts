@@ -41,6 +41,40 @@ A manifest scopes **sight**, not reach: `roots` says what may be seen,
 `write: true` is a separate grant to change it, and declared `actions` stay
 callable either way. `describe().writable` reports which you have.
 
+## Secrets
+
+A path bound to a password field, a `cc-*` autocomplete, a hidden CSRF token,
+or anything you mark `data-tosi-secret` is withheld — it reads back as the
+sentinel `⟨secret⟩` rather than its value:
+
+    <input type="password" data-bind="value=app.login.password">
+
+    agent.read('app.login.password')  // '⟨secret⟩'
+    agent.read('app.login')           // { user: 'ada', password: '⟨secret⟩' }
+
+**Secrecy is a property of the PATH, not of an element.** Marking one control
+secret withholds that path everywhere it surfaces — `read`, `describe`,
+`changes`, `when` — including from *other* elements bound to the same path,
+and from every field beneath it if the path names an object. It is also
+one-way for the session: a path that was ever secret stays secret, because the
+alternative is a window in which it isn't.
+
+**What this is for, and what it is not.** It is not a defence against script
+running in your page — that code can read the state directly and never asks
+the agent surface. It exists because `describe()` output is *designed to
+leave the machine*: it is assembled to be handed to a model, and typically an
+off-device one. The guarantee is "tosijs will not volunteer your secrets into
+that channel", not "your secrets are safe from an attacker with code
+execution". Scope is still the real control — declare a manifest, and keep
+secrets out of the roots you expose.
+
+> **Matching is by spelling (tosijs#32).** A secret learned as
+> `rows[id=r1].pw` is withheld from `read('rows')`, `read('rows[0])`, and
+> `read('rows[0].pw')` — descent and index-aliasing are both covered. The
+> known gap is narrower: exotic spellings of a *direct* query that no
+> canonicalisation resolves. Treat the redaction as defence in depth beneath
+> manifest scoping, not as the boundary itself.
+
 One call is the whole story: where the browser provides a WebMCP host
 (`document.modelContext`), `enableAgentInterface()` also registers the
 generated tool set automatically — `agent.webmcp` is the receipt, and
@@ -606,6 +640,80 @@ const associatedLabel = (el: Element): string | undefined => {
  */
 const secretPaths = new Set<string>()
 
+/**
+ * Every ancestor-or-self spelling of every path in `secretPaths`, so that
+ * `containsSecret` is a lookup instead of a scan.
+ *
+ * `extendsPath(prefix, path)` is a segment-boundary prefix test, which makes
+ * this an EXACT restatement, not an approximation:
+ *   - `containsSecret(p)` — "∃ secret with p an ancestor-or-self of it" — is
+ *     `secretAncestors.has(p)`;
+ *   - `isSecretPath(p)` — "∃ secret that is an ancestor-or-self of p" — is
+ *     an ancestor walk of `p` against `secretPaths`.
+ * Both were linear scans of `secretPaths`, and every node of a read walks
+ * them, so a page whose SECRET COUNT grows with its row count read
+ * quadratically: 800 password-bound rows took 686ms, 4.1× per doubling.
+ * (The ordinary shape — a few secrets, many rows — was and remains linear
+ * and sub-millisecond; this bounds the pathological one.)
+ *
+ * Add ONLY via `addSecretPath`, never `secretPaths.add`: a missed update here
+ * makes `containsSecret` under-report, and under-redaction is a leak. That is
+ * why this is a derived index behind one choke point rather than a second set
+ * maintained alongside the first.
+ */
+const secretAncestors = new Set<string>()
+
+/** every prefix of `path` that ends on a segment boundary, plus `path` */
+const pathAncestors = (path: string): string[] => {
+  const out: string[] = []
+  for (let i = 1; i < path.length; i++) {
+    const c = path.charAt(i)
+    if (c === '.' || c === '[') out.push(path.slice(0, i))
+  }
+  out.push(path)
+  return out
+}
+
+/**
+ * ancestor spelling -> the id-segment REMAINDERS of the secrets beneath it.
+ *
+ * `indexSpellingAliasesSecret` filters secrets by `extendsPath(arrayPath, …)`
+ * and then compares only each one's remainder after its first id-segment —
+ * a function of the secret alone, so it can be computed once at add time.
+ * Storing remainders in a Set is what actually breaks the quadratic: 800 rows
+ * bound to `rows[id=rN].pw` share the single remainder `.pw`.
+ */
+const secretRestsByAncestor = new Map<string, Set<string>>()
+
+/** secrets whose remainder could not be computed; scanned the slow way */
+const unindexedSecrets = new Set<string>()
+
+const addSecretPath = (path: string): void => {
+  if (secretPaths.has(path)) return
+  secretPaths.add(path)
+  const ancestors = pathAncestors(path)
+  for (const ancestor of ancestors) secretAncestors.add(ancestor)
+  let rest: string | null
+  try {
+    const split = splitAtElement(path, ID_SEGMENT)
+    rest = split == null ? null : split[1]
+  } catch {
+    // cannot index it -> keep scanning it, rather than silently dropping it
+    unindexedSecrets.add(path)
+    return
+  }
+  // no id-segment: this secret can never alias an index spelling
+  if (rest == null) return
+  for (const ancestor of ancestors) {
+    let rests = secretRestsByAncestor.get(ancestor)
+    if (rests == null) {
+      rests = new Set<string>()
+      secretRestsByAncestor.set(ancestor, rests)
+    }
+    rests.add(rest)
+  }
+}
+
 /*
  * FAIL CLOSED ON A SPELLING WE CANNOT RESOLVE.
  *
@@ -666,15 +774,24 @@ const indexSpellingAliasesSecret = (
     // only arrays whose rows are ALSO named by an idPath can be aliased
     const idPaths = getArrayIdPaths(arrayPath)
     if (idPaths == null || idPaths.size === 0) return false
-    for (const secret of secretPaths) {
+    // COMPARE THE REMAINDER, not just the array. `rows[0].pw` aliases
+    // `rows[id=r1].pw`; `rows[0].label` aliases nothing and must still be
+    // described — blanket-redacting the array withheld ordinary fields and
+    // made the map useless to buy nothing.
+    const rests = secretRestsByAncestor.get(arrayPath)
+    if (rests != null) {
+      for (const secretRest of rests) {
+        if (wantLeaf ? rest === secretRest : secretRest.startsWith(rest)) {
+          return true
+        }
+      }
+    }
+    // anything the index could not absorb still gets the original scan
+    for (const secret of unindexedSecrets) {
       if (!extendsPath(arrayPath, secret)) continue
       const secretSplit = splitAtElement(secret, ID_SEGMENT)
       if (secretSplit == null) continue
       const secretRest = secretSplit[1]
-      // COMPARE THE REMAINDER, not just the array. `rows[0].pw` aliases
-      // `rows[id=r1].pw`; `rows[0].label` aliases nothing and must still be
-      // described — blanket-redacting the array withheld ordinary fields and
-      // made the map useless to buy nothing.
       if (wantLeaf ? rest === secretRest : secretRest.startsWith(rest)) {
         return true
       }
@@ -687,9 +804,9 @@ const indexSpellingAliasesSecret = (
 
 /** is this path, or an ancestor of it, bound to a secret-bearing control? */
 const isSecretPath = (path: string): boolean => {
-  if (secretPaths.has(path)) return true
-  for (const secret of secretPaths) {
-    if (extendsPath(secret, path)) return true
+  // an ancestor walk, not a scan of secretPaths — see `secretAncestors`
+  for (const ancestor of pathAncestors(path)) {
+    if (secretPaths.has(ancestor)) return true
   }
   if (indexSpellingAliasesSecret(path, true)) return true
   // ⚠️ NARROWED, NOT CLOSED — tosijs#32, and TODO.md "Agent surface —
@@ -709,9 +826,7 @@ const isSecretPath = (path: string): boolean => {
 
 /** would this read expose a secret nested anywhere beneath it? */
 const containsSecret = (path: string): boolean => {
-  for (const secret of secretPaths) {
-    if (extendsPath(path, secret)) return true
-  }
+  if (secretAncestors.has(path)) return true
   // an index-spelled ANCESTOR — `rows[0]` — has no prefix relation to a secret
   // learned as `rows[id=r1].pw`, so without this the read returned the whole
   // row in cleartext. Saying "contains" (rather than "is") keeps the descent,
@@ -823,16 +938,35 @@ const refreshSecretPaths = (): void => {
     if (!isSecretControl(el)) continue
     const { dataBindings } = getElementBindings(el)
     if (dataBindings == null) continue
-    for (const b of dataBindings) secretPaths.add(b.path)
+    for (const b of dataBindings) addSecretPath(b.path)
   }
 }
 
-/** replace secret-bound leaves inside a serialized value */
-const redactWithin = (path: string, value: any): any => {
+/**
+ * Replace secret-bound leaves inside a serialized value.
+ *
+ * Takes a LIST of paths, not one, because a single node can be named several
+ * ways (`rows[0]` / `rows.0` / `rows[id=r1]`) and secrecy must hold under all
+ * of them. Descending once per spelling instead — the first version of the
+ * multi-spelling fix — re-cloned and re-walked the whole subtree 3× per row
+ * and made `read()` over a secret-bearing list quadratic (measured 4.3× per
+ * doubling, 647ms at 800 rows). Carrying the spellings together collapses
+ * that back to one walk while covering strictly more ground than the `find`
+ * it replaced.
+ */
+const redactWithin = (paths: string[], value: any): any => {
   if (value == null || typeof value !== 'object') return value
   const clone: any = Array.isArray(value) ? [...value] : { ...value }
   const isArray = Array.isArray(value)
-  const idPaths = isArray ? getArrayIdPaths(path) : undefined
+  const idPaths = isArray
+    ? paths.reduce<Set<string> | undefined>((acc, p) => {
+        const found = getArrayIdPaths(p)
+        if (found == null) return acc
+        const set = acc ?? new Set<string>()
+        for (const idPath of found) set.add(idPath)
+        return set
+      }, undefined)
+    : undefined
   for (const key of Object.keys(clone)) {
     /*
      * EVERY SPELLING THAT CAN NAME THIS CHILD — because secrecy must not
@@ -851,7 +985,11 @@ const redactWithin = (path: string, value: any): any => {
      * whichever one actually contains a secret.
      */
     const candidates: string[] = []
-    if (isArray) {
+    for (const path of paths) {
+      if (!isArray) {
+        candidates.push(`${path}.${key}`)
+        continue
+      }
       candidates.push(`${path}[${key}]`, `${path}.${key}`)
       if (idPaths != null) {
         for (const idPath of idPaths) {
@@ -867,26 +1005,24 @@ const redactWithin = (path: string, value: any): any => {
           }
         }
       }
-    } else {
-      candidates.push(`${path}.${key}`)
     }
     if (candidates.some((candidate) => isSecretPath(candidate))) {
       clone[key] = SECRET_SENTINEL
       continue
     }
     // DESCEND UNDER *EVERY* SPELLING THAT CONTAINS A SECRET, not the first.
-    // The leaf test above is `some` — OR across spellings — and this used
+    // The leaf test above is `some` — OR across spellings — and this once used
     // `find`, so with two idPaths registered on one array the recursion ran
     // under one spelling and the secret registered under the other came back
     // in cleartext, through `read()` AND through `describe()` in the
     // read-only default posture. Both leaves redacted individually, which is
     // exactly what made it invisible: every test used a single spelling per
     // array, so the suite was structurally incapable of catching it.
-    for (const candidate of candidates) {
-      if (containsSecret(candidate)) {
-        clone[key] = redactWithin(candidate, clone[key])
-      }
-    }
+    //
+    // ONE recursion carrying all matching spellings — a loop of recursions
+    // (the first version) covered the same ground quadratically.
+    const deeper = candidates.filter((candidate) => containsSecret(candidate))
+    if (deeper.length > 0) clone[key] = redactWithin(deeper, clone[key])
   }
   return clone
 }
@@ -1107,7 +1243,7 @@ const boundValue = (path: string, twoWay: boolean, secret = false): string => {
   if (secret || isSecretPath(path)) return `${arrowOnly} ${path}`
   const serialized = serialize(xin[path])
   const raw = containsSecret(path)
-    ? redactWithin(path, serialized)
+    ? redactWithin([path], serialized)
     : serialized
   const shown =
     raw === undefined ? '' : typeof raw === 'string' ? raw : JSON.stringify(raw)
@@ -1331,7 +1467,7 @@ export function enableAgentInterface(
     if (isSecretPath(path)) return SECRET_SENTINEL
     const value = serialize(xin[path])
     // an ANCESTOR read must not hand back what a direct read refuses
-    return containsSecret(path) ? redactWithin(path, value) : value
+    return containsSecret(path) ? redactWithin([path], value) : value
   }
 
   const read = (path: string): any => {
@@ -1418,7 +1554,7 @@ export function enableAgentInterface(
               // remember the PATH, so read/changes/when redact it too — the
               // map publishes this path, so withholding only the DOM value
               // would just be telling the agent what to ask for
-              if (record.secret === true) secretPaths.add(b.path)
+              if (record.secret === true) addSecretPath(b.path)
               boundPaths.push(b.path)
               if (name != null && record[name] === undefined) {
                 record[name] = boundValue(

@@ -81,6 +81,37 @@ dev.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)          // invoke an action
 <p>A manifest scopes <strong>sight</strong>, not reach: <code>roots</code> says what may be seen,
 <code>write: true</code> is a separate grant to change it, and declared <code>actions</code> stay
 callable either way. <code>describe().writable</code> reports which you have.</p>
+<h2>Secrets</h2>
+<p>A path bound to a password field, a <code>cc-*</code> autocomplete, a hidden CSRF token,
+or anything you mark <code>data-tosi-secret</code> is withheld — it reads back as the
+sentinel <code>⟨secret⟩</code> rather than its value:</p>
+<pre><code>&lt;input type=&quot;password&quot; data-bind=&quot;value=app.login.password&quot;&gt;
+
+agent.read(&#39;app.login.password&#39;)  // &#39;⟨secret⟩&#39;
+agent.read(&#39;app.login&#39;)           // { user: &#39;ada&#39;, password: &#39;⟨secret⟩&#39; }
+</code></pre>
+<p><strong>Secrecy is a property of the PATH, not of an element.</strong> Marking one control
+secret withholds that path everywhere it surfaces — <code>read</code>, <code>describe</code>,
+<code>changes</code>, <code>when</code> — including from <em>other</em> elements bound to the same path,
+and from every field beneath it if the path names an object. It is also
+one-way for the session: a path that was ever secret stays secret, because the
+alternative is a window in which it isn&#39;t.</p>
+<p><strong>What this is for, and what it is not.</strong> It is not a defence against script
+running in your page — that code can read the state directly and never asks
+the agent surface. It exists because <code>describe()</code> output is <em>designed to
+leave the machine</em>: it is assembled to be handed to a model, and typically an
+off-device one. The guarantee is &quot;tosijs will not volunteer your secrets into
+that channel&quot;, not &quot;your secrets are safe from an attacker with code
+execution&quot;. Scope is still the real control — declare a manifest, and keep
+secrets out of the roots you expose.</p>
+<blockquote>
+<p><strong>Matching is by spelling (tosijs#32).</strong> A secret learned as
+<code>rows[id=r1].pw</code> is withheld from <code>read(&#39;rows&#39;)</code>, <code>read(&#39;rows[0])</code>, and
+<code>read(&#39;rows[0].pw&#39;)</code> — descent and index-aliasing are both covered. The
+known gap is narrower: exotic spellings of a <em>direct</em> query that no
+canonicalisation resolves. Treat the redaction as defence in depth beneath
+manifest scoping, not as the boundary itself.</p>
+</blockquote>
 <p>One call is the whole story: where the browser provides a WebMCP host
 (<code>document.modelContext</code>), <code>enableAgentInterface()</code> also registers the
 generated tool set automatically — <code>agent.webmcp</code> is the receipt, and

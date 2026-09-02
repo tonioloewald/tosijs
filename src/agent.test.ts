@@ -1631,6 +1631,43 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(drained.length).toBeGreaterThan(0)
   })
 
+  test('SEC-2i: secrecy is inherited by DESCENDANTS of a secret path', async () => {
+    /*
+     * The ancestor-walk case, pinned because the suite could not see it.
+     *
+     * `isSecretPath` used to scan every known secret asking "is this one an
+     * ancestor of the path being read?". Indexing that scan (to break the
+     * quadratic read — see `secretAncestors`) rewrote it as a walk of the
+     * READ path's ancestors, which is only equivalent if descendants of a
+     * secret stay secret. A differential corpus of 45 queries said the two
+     * were identical, and it was WRONG TO TRUST: mutating the walk down to a
+     * single exact-match check changed nothing, because not one query in it
+     * read BENEATH a secret path. This test is that missing query.
+     *
+     * The shape is real: an author marks a container `data-tosi-secret` and
+     * binds it to a credentials OBJECT. Every field under it must inherit.
+     */
+    tosi({ inherit: { creds: { user: 'U', pass: 'P', deep: { k: 'K' } } } })
+    await updates()
+    const box = elements.div()
+    box.setAttribute('data-tosi-secret', '')
+    document.body.append(box)
+    bind(box, 'inherit.creds', { toDOM() {} })
+    await updates()
+
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    expect(agent.read('inherit.creds.pass')).toBe(SECRET_SENTINEL_TEXT)
+    // and ARBITRARILY DEEP beneath it, not just one level
+    expect(agent.read('inherit.creds.deep.k')).toBe(SECRET_SENTINEL_TEXT)
+
+    // a name-prefix SIBLING must not be swept up — `extendsPath` matches on
+    // segment boundaries, and an index that used raw startsWith would redact
+    // this and look like it was working
+    tosi({ inheritOpen: { visible: 'V' } })
+    await updates()
+    expect(agent.read('inheritOpen.visible')).toBe('V')
+  })
+
   test('SEC-2h: the live-DOM harvests do not publish what read() refuses', async () => {
     /*
      * Round 4, B-1 — the SAME invariant as SEC-2b, at a THIRD address.

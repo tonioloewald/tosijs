@@ -56,6 +56,32 @@ found while fixing that, two ways the agent surface published secrets that
   does not anticipate, can still diverge. Treat the agent surface as a
   disclosure boundary, not a redaction guarantee.
 
+### Performance
+
+- **`read()` over a secret-bearing collection is no longer quadratic.** Every
+  node of a read tested secrecy by linearly scanning every known secret path,
+  so a page whose *secret count* grows with its row count read quadratically:
+  800 password-bound rows took **686ms**, growing 4.1× per doubling. Now
+  **5.0ms** and linear. `extendsPath` is a segment-boundary prefix test, which
+  makes the two predicates exact restatements — an ancestor walk for "is this
+  secret", a precomputed prefix set for "does this contain a secret" — so the
+  guarantee is unchanged; a 54-query differential corpus (29 of them
+  redacting, and covering descent beneath a secret, dot/bracket/id spellings,
+  and name-prefix siblings) returns byte-identical output before and after.
+  The ordinary shape — a few secrets and many rows — was already linear and
+  sub-millisecond, and still is.
+
+### Documentation
+
+- **The agent docs now document secrets at all.** The page never mentioned
+  redaction, so neither the guarantee nor its limit was discoverable. Adds a
+  *Secrets* section: secrecy is a property of the path (it follows the path to
+  every element bound to it and to every field beneath it), it is one-way for
+  the session, and — stated plainly — it is **not** a defence against script
+  running in your own page, which can read the state directly. It exists
+  because `describe()` output is built to leave the machine. Scope remains the
+  real control; #32 is called out inline.
+
 ### Fixed
 
 - **`bind` composes instead of clobbering.** A container can be list-bound

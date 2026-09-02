@@ -304,7 +304,7 @@ describe() }` — tosijs stays zero-dependency (the core knows a _check_,
    incomplete document is caught by `required` at root context, and
    root-level cross-field constraints and `$predicate`s see every edit.
    Adapters never touch path mechanics; core never touches schemas. Free, and crucially **legible**: a bare
-   `bindEnabled: app.cart.valid` tells the agent _that_ an action is gated
+   `disabled: app.cart.invalid` tells the agent _that_ an action is gated
    but not _why_ — when the flag is `false` a human infers the reason from
    visual context; an agent hits a causal dead end. A serialized predicate
    is the why: `describe()` can hand over the failing condition itself
