@@ -901,8 +901,28 @@ const boundValue = (path: string, twoWay: boolean, secret = false): string => {
   const arrowOnly = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM
   // a secret's PATH is useful (an agent can still see what it's bound to);
   // its content never is
-  if (secret) return `${arrowOnly} ${path}`
-  const raw = serialize(xin[path])
+  //
+  // SECRECY IS A PROPERTY OF THE PATH — the invariant this file states at the
+  // top of the secret-scan section, and which this function used to violate.
+  // It redacted on `secret`, the flag for THIS DOM record, and never consulted
+  // the path. So `describe()` published in cleartext what `read()` refuses:
+  //
+  //   - an element bound to the EXACT secret path with a non-value binding
+  //     (`bindings.enabled` on a token — "enable when a session exists") has
+  //     record.secret === false, because nothing of the value reaches the DOM;
+  //   - an element bound to an ANCESTOR serialised the whole subtree, secret
+  //     included.
+  //
+  // Both leak in the READ-ONLY DEFAULT posture, through `tosi_describe` — the
+  // one WebMCP tool published in every posture, while `tosi_read` sits behind
+  // a gate precisely because reads are considered too much to publish unasked.
+  // So the surface handed out the exact value the gate exists to withhold.
+  // Now mirrors `readScanned()` exactly; the two must not diverge again.
+  if (secret || isSecretPath(path)) return `${arrowOnly} ${path}`
+  const serialized = serialize(xin[path])
+  const raw = containsSecret(path)
+    ? redactWithin(path, serialized)
+    : serialized
   const shown =
     raw === undefined ? '' : typeof raw === 'string' ? raw : JSON.stringify(raw)
   const arrow = twoWay ? BOUND_TWO_WAY : BOUND_TO_DOM

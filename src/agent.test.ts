@@ -1392,6 +1392,63 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     field.remove()
   })
 
+  test('SEC-2b: describe() must not publish what read() refuses', async () => {
+    /*
+     * THE BUG (pre-release review 1.8.3, B1). `boundValue()` redacted on the
+     * DOM record's own `secret` flag and never consulted the PATH — violating
+     * the invariant this module states out loud: secrecy is a property of the
+     * path, not of a DOM record.
+     *
+     * Two shapes leaked, both in the READ-ONLY DEFAULT posture and both
+     * through `tosi_describe` — the one WebMCP tool published in EVERY
+     * posture, while `tosi_read` sits behind a gate precisely because reads
+     * are considered too much to publish unasked.
+     */
+    const { secretDescribe } = tosi({
+      secretDescribe: { session: { user: 'ada', token: 'eyJhbGciOi.SECRET' } },
+    })
+    void secretDescribe
+    const pw = elements.input({ type: 'password' })
+    document.body.append(pw)
+    bind(pw, 'secretDescribe.session.token', bindings.value)
+
+    // (a) bound to an ANCESTOR — serialised the whole subtree, secret included
+    const viaAncestor = elements.button('Go', { id: 'via-ancestor' })
+    document.body.append(viaAncestor)
+    bind(viaAncestor, 'secretDescribe.session', bindings.enabled)
+
+    // (b) bound to the EXACT secret path with a NON-VALUE binding, so nothing
+    //     of the value reaches the DOM and record.secret is false
+    const viaExact = elements.button('Go', { id: 'via-exact' })
+    document.body.append(viaExact)
+    bind(viaExact, 'secretDescribe.session.token', bindings.enabled)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ quiet: true })) // read-only
+    const description = agent.describe()
+
+    // the whole description, not just the records we happen to look at
+    expect(JSON.stringify(description)).not.toContain('eyJhbGciOi.SECRET')
+
+    const wiring = description.wiring as any[]
+    const ancestor = wiring.find((w) => w.id === 'via-ancestor')
+    const exact = wiring.find((w) => w.id === 'via-exact')
+
+    // an ancestor still describes its NON-secret siblings — redact, don't hide
+    expect(ancestor.enabled).toContain('"user":"ada"')
+    expect(ancestor.enabled).toContain('⟨secret⟩')
+    // the exact path yields path-only, exactly as a direct read does
+    expect(exact.enabled).not.toContain('eyJhbGciOi')
+    expect(exact.enabled).toContain('secretDescribe.session.token')
+
+    // and describe() must agree with read(), which is the whole point
+    expect(agent.read('secretDescribe.session.token')).toBe('⟨secret⟩')
+    expect(agent.read('secretDescribe.session')).toEqual({
+      user: 'ada',
+      token: '⟨secret⟩',
+    })
+  })
+
   test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
     const hidden = elements.input({ type: 'hidden', id: 'csrf' })
     ;(hidden as any).value = 'CSRF-TOKEN-123'
