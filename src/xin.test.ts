@@ -1908,10 +1908,35 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
    * deprecated string spellings, so the library's own internal reads warned
    * the consumer about API they never touched.
    */
+  /*
+   * ⚠️ THE LATCH MUST BE RESET OR THIS TEST PROVES NOTHING (review M5).
+   * `warnDeprecated` latches once per key in a module-level Set shared across
+   * the whole `bun test` process, and earlier tests in this very file trip
+   * `bindtext`. So the first version of this guard asserted [] against an
+   * ALREADY-MUTED channel: reverting the fix it names left the suite green.
+   * It only failed when the file was run alone, which is the worst possible
+   * property — it looked verified and was inert.
+   */
+  const { _resetDeprecationWarnings } = await import('./metadata')
+  _resetDeprecationWarnings()
+
   const warnings: string[] = []
   const original = console.warn
   console.warn = (msg: any) => void warnings.push(String(msg))
   try {
+    // POSITIVE CONTROL: prove the channel is live before asserting silence.
+    // A muted channel and a clean one are indistinguishable without this.
+    //
+    // …AND RESET AGAIN AFTERWARDS. The control trips `bindtext`, which
+    // RE-LATCHES the very key the assertion below depends on — so a control
+    // that is not followed by a second reset re-creates the exact vacuity it
+    // was added to disprove. Verified the hard way: with the reset missing,
+    // reverting the fix still left the whole suite green.
+    elements.span({ bindText: 'controlProbe.x' })
+    expect(warnings.filter((w) => w.includes('deprecated')).length).toBe(1)
+    _resetDeprecationWarnings()
+    warnings.length = 0
+
     const { quietList } = tosi({ quietList: { items: ['a', 'b'] } })
     await updates()
     const el = elements.div(
@@ -1928,4 +1953,78 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
     console.warn = original
   }
   expect(warnings.filter((w) => w.includes('deprecated'))).toEqual([])
+})
+
+describe('a container can be list-bound AND carry its own bind (review M1)', () => {
+  /*
+   * REGRESSION FROM THE 1.8.3 DEPRECATION CLEANUP, caught by review, not by
+   * the suite. Switching `.tosi.listBinding()` from the deprecated
+   * `{ bindList }` key to `{ bind: … }` made it collide with a caller's own
+   * `bind:` — create() merged props with Object.assign, so two `bind` keys
+   * clobbered, last write wins. SILENT in both directions:
+   *
+   *   caller's bind first -> the caller's binding never ran
+   *   listBinding first   -> the ENTIRE LIST vanished, template unconsumed
+   *
+   * Both orders are pinned because the reverse case (total silent list death)
+   * is the one that matters and is the one nobody would think to write.
+   */
+  const mark = {
+    toDOM(el: any, v: any) {
+      el.setAttribute('data-title', String(v))
+    },
+  }
+
+  test("caller's bind first — list renders AND the binding runs", async () => {
+    const { m1a } = tosi({ m1a: { items: ['x', 'y'], title: 'hello' } })
+    await updates()
+    const el = elements.div(
+      { bind: { value: 'm1a.title', binding: mark } },
+      ...m1a.items.tosi.listBinding(({ span }: any, item: any) =>
+        span({ textContent: item })
+      )
+    )
+    document.body.append(el)
+    await updates()
+    expect(el.querySelectorAll('span').length).toBe(2)
+    expect(el.getAttribute('data-title')).toBe('hello')
+  })
+
+  test('listBinding first — the list must not vanish', async () => {
+    const { m1b } = tosi({ m1b: { items: ['x', 'y'], title: 'hello' } })
+    await updates()
+    const el = elements.div(
+      ...m1b.items.tosi.listBinding(({ span }: any, item: any) =>
+        span({ textContent: item })
+      ),
+      { bind: { value: 'm1b.title', binding: mark } }
+    )
+    document.body.append(el)
+    await updates()
+    expect(el.querySelectorAll('span').length).toBe(2)
+    expect(el.getAttribute('data-title')).toBe('hello')
+  })
+
+  test('an explicit array of bindings is applied in order', async () => {
+    const { m1c } = tosi({ m1c: { a: 'one', b: 'two' } })
+    void m1c // bound by path string below
+    await updates()
+    const el = elements.div({
+      bind: [
+        { value: 'm1c.a', binding: mark },
+        {
+          value: 'm1c.b',
+          binding: {
+            toDOM(e: any, v: any) {
+              e.setAttribute('data-second', String(v))
+            },
+          },
+        },
+      ],
+    })
+    document.body.append(el)
+    await updates()
+    expect(el.getAttribute('data-title')).toBe('one')
+    expect(el.getAttribute('data-second')).toBe('two')
+  })
 })

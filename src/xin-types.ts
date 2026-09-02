@@ -300,7 +300,9 @@ export interface ElementProps<T = Element> {
   onSubmit?: TosiEventHandler<SubmitEvent, T>
   onKeydown?: TosiEventHandler<KeyboardEvent, T>
   onKeyup?: TosiEventHandler<KeyboardEvent, T>
-  bind?: TosiInlineBinding<T>
+  /** one inline binding, or several — `create()` accumulates rather than
+   * overwriting, so a container can be list-bound AND carry its own binding */
+  bind?: TosiInlineBinding<T> | Array<TosiInlineBinding<T>>
   bindValue?: TosiBindingShortcut
   /** @deprecated Use { textContent: proxy } instead */
   bindText?: TosiBindingShortcut

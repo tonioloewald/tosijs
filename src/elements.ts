@@ -624,6 +624,11 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
       on(elt, eventType as EventType, value)
     }
   } else if (key === 'bind') {
+    // may be a single inline binding or several accumulated by create()
+    if (Array.isArray(value)) {
+      for (const one of value) elementSet(elt, 'bind', one)
+      return
+    }
     const binding =
       typeof value.binding === 'string'
         ? bindings[value.binding]
@@ -730,7 +735,26 @@ const create = (tagType: string, ...contents: ElementPart[]): HTMLElement => {
     } else if (tosiPath(item)) {
       elt.append(elements.span({ bindText: item }))
     } else {
-      Object.assign(elementProps, item)
+      // `bind` IS ACCUMULATED, NOT OVERWRITTEN. Everything else is
+      // last-write-wins, which is right for scalar props — but a plain
+      // Object.assign silently destroyed one of two bindings the moment
+      // `.tosi.listBinding()` started emitting `bind` instead of the
+      // deprecated `bindList` key. Both orders failed, silently:
+      //   caller's bind first  -> the caller's binding never ran
+      //   listBinding first    -> the ENTIRE LIST vanished, template unconsumed
+      // A container that is both list-bound and carries its own binding (an
+      // empty-state class, an aria-label) is ordinary composition.
+      const incoming: any = item
+      if (incoming?.bind != null && elementProps.bind != null) {
+        elementProps.bind = ([] as any[]).concat(
+          elementProps.bind,
+          incoming.bind
+        )
+        const { bind: _dropped, ...rest } = incoming
+        Object.assign(elementProps, rest)
+      } else {
+        Object.assign(elementProps, item)
+      }
     }
   }
   for (const key of Object.keys(elementProps)) {
