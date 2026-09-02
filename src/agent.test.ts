@@ -1550,6 +1550,87 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(() => agent.changes(0)).not.toThrow()
   })
 
+  test('SEC-2f: descent ORs across spellings — two idPaths on one array', async () => {
+    /*
+     * Round 3, B1. The LEAF test was `candidates.some(isSecretPath)` but the
+     * DESCENT was `candidates.find(containsSecret)` — it recursed under the
+     * FIRST matching spelling only, so with two idPaths registered on one
+     * array the secret under the other spelling came back in cleartext. Both
+     * leaves redacted individually, which is exactly what hid it: every prior
+     * test used a single spelling per array.
+     *
+     * ⚠️ WHAT THIS TEST ACTUALLY PINS: the OUTCOME, not the mechanism. It
+     * fails when B1's loop AND B2's index-alias containment are both reverted;
+     * it does NOT fail when only B1 is, because the containment independently
+     * covers this shape. So the `for`-over-`find` change is defence in depth
+     * here rather than load-bearing, and narrowing the containment later would
+     * silently remove this test's grip on it. Stated because this release has
+     * already shipped two guards that passed while the thing they named was
+     * broken; a test whose coverage is narrower than its name is the same
+     * defect one step earlier.
+     */
+    const { twoIds } = tosi({
+      twoIds: { rows: [{ id: 'a1', uid: 'u1', pw: 'PW-SEC', tok: 'TOK-SEC' }] },
+    })
+    document.body.append(
+      elements.div(
+        ...twoIds.rows.tosi.listBinding(
+          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+          { idPath: 'id' }
+        )
+      ),
+      elements.div(
+        ...twoIds.rows.tosi.listBinding(
+          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.tok' })),
+          { idPath: 'uid' }
+        )
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    expect(agent.read('twoIds.rows[id=a1].pw')).toBe('⟨secret⟩')
+    expect(agent.read('twoIds.rows[uid=u1].tok')).toBe('⟨secret⟩')
+    const rows = agent.read('twoIds.rows') as any[]
+    expect(rows[0].pw).toBe('⟨secret⟩')
+    expect(rows[0].tok).toBe('⟨secret⟩') // leaked before
+    expect(JSON.stringify(agent.describe())).not.toContain('TOK-SEC')
+  })
+
+  test('SEC-2g: an index-spelled alias of a secret fails closed, including passively via changes()', async () => {
+    /*
+     * Round 3, B2. `rows[id=r1].pw` and `rows[0].pw` name the same value and
+     * have no string-prefix relation. The passive case is the serious one:
+     * tosijs's OWN id-path synthesis records both spellings on an ordinary
+     * write, so changes() handed them over side by side with the agent
+     * constructing nothing — and a manifest does not contain it, because the
+     * aliased path is inside the declared root.
+     */
+    const { p4 } = tosi({ p4: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] } })
+    document.body.append(
+      elements.div(
+        ...p4.rows.tosi.listBinding(
+          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+          { idPath: 'id' }
+        )
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({ quiet: true, expose: { roots: ['p4'] } }))
+
+    expect(agent.read('p4.rows[0].pw')).toBe('⟨secret⟩')
+    expect(agent.read('p4.rows.0.pw')).toBe('⟨secret⟩')
+    // an index-spelled ANCESTOR read still describes non-secret fields
+    const row = agent.read('p4.rows[0]') as any
+    expect(row.pw).toBe('⟨secret⟩')
+    expect(row.label).toBe('work')
+
+    xin.p4.rows[0].pw = 'rotated' // ordinary app write, no agent involvement
+    await updates()
+    const drained = agent.changes(0).changes
+    expect(JSON.stringify(drained)).not.toContain('rotated')
+    expect(drained.length).toBeGreaterThan(0)
+  })
+
   test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
     const hidden = elements.input({ type: 'hidden', id: 'csrf' })
     ;(hidden as any).value = 'CSRF-TOKEN-123'

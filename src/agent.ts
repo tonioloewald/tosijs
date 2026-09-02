@@ -606,14 +606,98 @@ const associatedLabel = (el: Element): string | undefined => {
  */
 const secretPaths = new Set<string>()
 
+/*
+ * FAIL CLOSED ON A SPELLING WE CANNOT RESOLVE.
+ *
+ * Matching is a string-prefix test, so `rows[id=r1].pw` has no prefix relation
+ * to `rows[0].pw` even though they name the same value. That is not only an
+ * agent constructing an odd query — tosijs's OWN id-path synthesis records
+ * both spellings on an ordinary write, and `changes()` handed them over side
+ * by side:
+ *
+ *   [{path:'rows[0].pw', value:'rotated'}, {path:'rows[id=r1].pw', value:'⟨secret⟩'}]
+ *
+ * The agent constructed nothing. A manifest does not contain it either — the
+ * aliased path is INSIDE the declared root, and declaring the manifest is what
+ * turns `read`/`changes` on in the first place.
+ *
+ * Full canonicalisation (resolve the index against live state, rewrite to the
+ * id spelling) is the right fix and is tracked in tosijs#32. This is the
+ * containment that can ship safely today: if a path indexes into an array that
+ * has BOTH a registered idPath and some registered secret beneath it, then it
+ * is an alias of a path we cannot cheaply resolve — so treat it as secret.
+ *
+ * Deliberately OVER-redacts (a non-secret sibling read by index is withheld
+ * too). That is the correct direction for a redaction predicate, and it is
+ * bounded to arrays that are both id-path-registered and actually carry a
+ * secret. Anything that throws in here must also mean "secret".
+ */
+// NOTE the required trailing separator: this must match `rows[0].pw` (a path
+// that could ALIAS a secret leaf) and NOT bare `rows[0]` (a row, which is an
+// ANCESTOR of the secret and belongs to redactWithin's descent). Without it
+// the rule blanket-redacted whole rows and `read('rows')` returned
+// ['⟨secret⟩'] instead of the row with one field withheld — destroying the
+// map's usefulness to buy nothing, since the descent already covers it.
+const INDEX_SEGMENT = /^(.*?)(?:\[(\d+)\]|\.(\d+))(?:([.[].*)|$)/
+const ID_SEGMENT = /^(.*?)\[[^\]=]+=[^\]]*\](?:([.[].*)|$)/
+
+/**
+ * Split a path at its first array-element segment: `[a, rest]`.
+ * `rows[0].pw` and `rows[id=r1].pw` both split to `['rows', '.pw']`, which is
+ * what lets one be recognised as an alias of the other.
+ */
+const splitAtElement = (
+  path: string,
+  pattern: RegExp
+): [string, string] | undefined => {
+  const m = pattern.exec(path)
+  if (m == null || m[1] === '') return undefined
+  return [m[1], m[m.length - 1] ?? '']
+}
+
+const indexSpellingAliasesSecret = (
+  path: string,
+  wantLeaf: boolean
+): boolean => {
+  try {
+    const split = splitAtElement(path, INDEX_SEGMENT)
+    if (split == null) return false
+    const [arrayPath, rest] = split
+    // only arrays whose rows are ALSO named by an idPath can be aliased
+    const idPaths = getArrayIdPaths(arrayPath)
+    if (idPaths == null || idPaths.size === 0) return false
+    for (const secret of secretPaths) {
+      if (!extendsPath(arrayPath, secret)) continue
+      const secretSplit = splitAtElement(secret, ID_SEGMENT)
+      if (secretSplit == null) continue
+      const secretRest = secretSplit[1]
+      // COMPARE THE REMAINDER, not just the array. `rows[0].pw` aliases
+      // `rows[id=r1].pw`; `rows[0].label` aliases nothing and must still be
+      // described — blanket-redacting the array withheld ordinary fields and
+      // made the map useless to buy nothing.
+      if (wantLeaf ? rest === secretRest : secretRest.startsWith(rest)) {
+        return true
+      }
+    }
+    return false
+  } catch {
+    return true // an error here means "possibly secret", never "not secret"
+  }
+}
+
 /** is this path, or an ancestor of it, bound to a secret-bearing control? */
 const isSecretPath = (path: string): boolean => {
   if (secretPaths.has(path)) return true
   for (const secret of secretPaths) {
     if (extendsPath(secret, path)) return true
   }
-  // ⚠️ KNOWN GAP — tosijs#32, and TODO.md "Agent surface — secret-path
-  // matching is spelling-sensitive". Matching is by SPELLING. A secret learned as
+  if (indexSpellingAliasesSecret(path, true)) return true
+  // ⚠️ NARROWED, NOT CLOSED — tosijs#32, and TODO.md "Agent surface —
+  // secret-path matching is spelling-sensitive". Matching is by SPELLING and
+  // the rule above is a conservative containment, not canonicalisation. An
+  // earlier version of this comment claimed ancestor descent was fully
+  // covered; that was FALSE, and it was load-bearing — it was the stated
+  // reason the remaining gap was accepted. A secret learned as
   // `list[id=a1].pw` is not matched by a DIRECT read spelled `list[0].pw`.
   // Descending from an ancestor IS covered — redactWithin tries every
   // spelling — so `read('list')` is safe; it is the direct index-spelled
@@ -628,7 +712,11 @@ const containsSecret = (path: string): boolean => {
   for (const secret of secretPaths) {
     if (extendsPath(path, secret)) return true
   }
-  return false
+  // an index-spelled ANCESTOR — `rows[0]` — has no prefix relation to a secret
+  // learned as `rows[id=r1].pw`, so without this the read returned the whole
+  // row in cleartext. Saying "contains" (rather than "is") keeps the descent,
+  // so only the secret field is withheld.
+  return indexSpellingAliasesSecret(path, false)
 }
 
 const SECRET_SENTINEL = '⟨secret⟩'
@@ -786,8 +874,19 @@ const redactWithin = (path: string, value: any): any => {
       clone[key] = SECRET_SENTINEL
       continue
     }
-    const deeper = candidates.find((candidate) => containsSecret(candidate))
-    if (deeper != null) clone[key] = redactWithin(deeper, clone[key])
+    // DESCEND UNDER *EVERY* SPELLING THAT CONTAINS A SECRET, not the first.
+    // The leaf test above is `some` — OR across spellings — and this used
+    // `find`, so with two idPaths registered on one array the recursion ran
+    // under one spelling and the secret registered under the other came back
+    // in cleartext, through `read()` AND through `describe()` in the
+    // read-only default posture. Both leaves redacted individually, which is
+    // exactly what made it invisible: every test used a single spelling per
+    // array, so the suite was structurally incapable of catching it.
+    for (const candidate of candidates) {
+      if (containsSecret(candidate)) {
+        clone[key] = redactWithin(candidate, clone[key])
+      }
+    }
   }
   return clone
 }

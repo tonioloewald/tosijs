@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.8.3] - 2026-09-02
+## [1.9.0] - 2026-09-02
 
 **The library stops warning its own users about API they never wrote** — and,
 found while fixing that, two ways the agent surface published secrets that
@@ -29,11 +29,21 @@ found while fixing that, two ways the agent surface published secrets that
   one spelling while the redaction walk used another — so `read('rows')`
   returned every secret it contained in cleartext. Every spelling that can name
   a row is now tried: bracket index, dot index, and each registered id-path.
-- ⚠️ **Still open, deliberately: [#32](https://github.com/tonioloewald/tosijs/issues/32).**
-  A *direct* read spelled by index — `read('list[0].pw')` — still returns
-  cleartext where `read('list[id=a1].pw')` redacts. Descending from an ancestor
-  is covered; the query side is not. If you expose reads over paths an agent
-  can construct, scope them with a manifest.
+- **Differently-spelled paths no longer leak.** `rows[0].pw`, `rows.0.pw` and
+  `rows[id=r1].pw` name the same value and had no string relation, so the
+  redaction missed all but the spelling the binding used. This was **not** only
+  an agent constructing an odd query: tosijs's own id-path synthesis records
+  both spellings on an ordinary write, so `changes()` handed them over side by
+  side with the agent constructing nothing — and a manifest did not contain it,
+  because the aliased path is *inside* the declared root and declaring the
+  manifest is what turns reads on. Now fails closed: an index-spelled path into
+  an array that has a registered idPath and a secret beneath it is treated as
+  secret, comparing the part after the index so ordinary fields still describe.
+- ⚠️ **Narrowed, not closed: [#32](https://github.com/tonioloewald/tosijs/issues/32).**
+  The containment above is a conservative rule, not full canonicalisation of a
+  queried path. An array with no registered `idPath`, or a spelling the rule
+  does not anticipate, can still diverge. Treat the agent surface as a
+  disclosure boundary, not a redaction guarantee.
 
 ### Fixed
 
@@ -54,14 +64,21 @@ found while fixing that, two ways the agent surface published secrets that
   shipped a **permanently disabled button**. They now branch on whether the
   value is a proxy or a path string, and say SPREAD where a spread is meant.
 
-### Changed
+### Breaking
 
 - **`.tosi.listBinding()` returns `{ bind: { value, binding: 'list', options } }`
   instead of `{ bindList: { value, ...options } }`.** Spreading the tuple —
   the supported usage — is unaffected. Code that *inspects* the props
   (`props.bindList.virtual = …`) breaks: `props.bindList` is now `undefined`.
   This repo's own tests did exactly that and had to be rewritten, which is the
-  evidence that a consumer plausibly does too.
+  evidence that a consumer plausibly does too. **This is why 1.9.0 and not
+  1.8.3**: `bindList` on that tuple was documented public API, the docs for it
+  were deleted this release, and the types are byte-identical across the break
+  so TypeScript gives no signal. `^1.8.0` still picks this up, so the security
+  fixes propagate; only `~1.8.x` pinners are held back, which is correct.
+
+### Changed
+
 - The inline `bind` form now forwards `options` to `bind()`'s fourth argument;
   it silently dropped them before, which is why a list binding could not be
   expressed without the deprecated key.

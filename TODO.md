@@ -1224,6 +1224,13 @@ lands it on the release line.
       Issue: https://github.com/tonioloewald/tosijs/issues/32 — carries the
       repro, the root cause and the test plan.
 
+- [ ] **`redactWithin`'s multi-spelling descent is not independently pinned.**
+      SEC-2f fails only when BOTH the descent loop and the index-alias
+      containment are reverted — the containment subsumes the descent for the
+      two-idPath shape. If the containment is ever narrowed, the `for`-over-
+      `find` behaviour loses its only guard silently. Wanted: a case where two
+      spellings both contain a secret and the containment does not apply.
+
 - [ ] **The dot-index assumption has a third copy** at `src/agent.ts` in the
       actions walk (`${path}.${key}`). A shared path-canonicalisation helper
       would close both this and the query side at once, rather than leaving a
