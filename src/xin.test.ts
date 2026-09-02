@@ -1910,11 +1910,10 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
    * It only failed when the file was run alone, which is the worst possible
    * property — it looked verified and was inert.
    */
-  const { _resetDeprecationWarnings } = await import('./metadata')
+  const { _resetDeprecationWarnings, warnDeprecated } = await import(
+    './metadata'
+  )
   _resetDeprecationWarnings()
-  // the control below binds a PROXY, which needs real state — a path string
-  // binds lazily, a proxy does not
-  tosi({ controlProbe: { x: 'hi' } })
 
   const warnings: string[] = []
   const original = console.warn
@@ -1923,15 +1922,17 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
     // POSITIVE CONTROL: prove the channel is live before asserting silence.
     // A muted channel and a clean one are indistinguishable without this.
     //
-    // …AND RESET AGAIN AFTERWARDS. The control trips `bindtext`, which
-    // RE-LATCHES the very key the assertion below depends on — so a control
-    // that is not followed by a second reset re-creates the exact vacuity it
-    // was added to disprove. Verified the hard way: with the reset missing,
-    // reverting the fix still left the whole suite green.
-    // a PROXY, not a path string: since 1.9.0 only the proxy form is
-    // deprecated (a path string has no exact plain-prop equivalent), so the
-    // string form is silent and would have made this control vacuous
-    elements.span({ bindText: boxed.controlProbe.x })
+    // …AND RESET AGAIN AFTERWARDS, because the control LATCHES whatever key
+    // it trips — a control not followed by a second reset re-creates the exact
+    // vacuity it was added to disprove. Verified the hard way: with the reset
+    // missing, reverting the fix still left the whole suite green.
+    //
+    // The control rings the BELL DIRECTLY rather than borrowing whichever API
+    // happens to be deprecated this month. It used to use `bindText`, which
+    // went silent when 1.9.1 removed that deprecation — so the control would
+    // have quietly stopped controlling for anything. What this test needs to
+    // know is only "is the capture live", and that is exactly what this asks.
+    warnDeprecated('__live_channel_probe__', 'probe: deprecated (test only)')
     expect(warnings.filter((w) => w.includes('deprecated')).length).toBe(1)
     _resetDeprecationWarnings()
     warnings.length = 0

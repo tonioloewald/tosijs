@@ -527,55 +527,39 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
     return seen.filter((m) => m.includes('deprecated'))
   }
 
-  test('no message tells you to write a key that is not a props key', async () => {
-    const { advice } = tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
-    // PROXY values — the only form that is deprecated, because it is the only
-    // form a plain prop expresses exactly
-    const msgs = [
-      ...(await capture(() => elements.button({ bindEnabled: advice.flag }))),
-      ...(await capture(() => elements.span({ bindText: advice.txt }))),
-      ...(await capture(() => elements.button({ bindDisabled: advice.flag }))),
-    ]
-    expect(msgs.length).toBe(3)
-    for (const m of msgs) {
-      // the two malformed fragments that shipped
-      expect(m).not.toContain('{ .tosi.listBinding():')
-      expect(m).not.toContain('disabled (with')
-    }
-  })
-
-  test('the PATH-STRING form is not deprecated — no plain prop expresses it', async () => {
+  test('NO bind* shortcut warns, in either form (1.9.1)', async () => {
     /*
-     * The rule this release codified is "deprecated IFF a plain prop expresses
-     * it exactly", and that depends on the VALUE, not just the key. With a
-     * path string no plain prop expresses any of these: `textContent: 'path'`
-     * sets literal text, and `disabled: 'path'` assigns a non-empty (always
-     * truthy) string. Warning here told the caller to write something strictly
-     * worse than what they had.
+     * The deprecation is gone, not narrowed.
      *
-     * tosijs-ui reached this independently for `bindText`; it is the same
-     * argument that kept `bindValue` and `bindList`, and applying it to only
-     * those two was the inconsistency.
+     * It warned for bindText/bindEnabled/bindDisabled on the rule "deprecated
+     * iff a plain prop expresses it exactly" — which is sound, but made
+     * deprecation-ness depend on the VALUE. TypeScript cannot express that, so
+     * the typings carried no `@deprecated` while the runtime still warned:
+     * a typings/runtime mismatch introduced while fixing the previous one, and
+     * reported by tosijs-ui against the published 1.9.0.
+     *
+     * The nudge was worth little (`bindText` is barely more writing than
+     * `textContent`) and the shortcut is the ONLY form that binds a path
+     * string — so it was console spam in someone else's build for a stylistic
+     * preference. It lives in the docs now.
      */
-    const { advice2 } = tosi({ advice2: { flag: true, txt: 'hi' } })
-    expect(
-      await capture(() => elements.button({ bindEnabled: 'advice2.flag' }))
-    ).toEqual([])
-    expect(
-      await capture(() => elements.button({ bindDisabled: 'advice2.flag' }))
-    ).toEqual([])
-    expect(
-      await capture(() => elements.span({ bindText: 'advice2.txt' }))
-    ).toEqual([])
-    // …and the reason is REAL: the naive plain-prop form really does kill it
-    const dead = elements.button('go', { disabled: 'advice2.flag' }) as any
+    const { advice } = tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
+    for (const props of [
+      { bindText: 'advice.txt' },
+      { bindText: advice.txt },
+      { bindEnabled: 'advice.flag' },
+      { bindEnabled: advice.flag },
+      { bindDisabled: 'advice.flag' },
+      { bindDisabled: advice.flag },
+      { bindValue: advice.txt },
+      { bindList: advice.items },
+    ] as any[]) {
+      expect(await capture(() => elements.div(props))).toEqual([])
+    }
+    // …and the REASON the string form could never have been deprecated is
+    // still true: the naive plain-prop form really does kill the control
+    const dead = elements.button('go', { disabled: 'advice.flag' }) as any
     expect(dead.disabled).toBe(true)
-    // POSITIVE CONTROL: the proxy form still warns, so silence above is the
-    // rule applying and not the warning having been deleted
-    expect(
-      (await capture(() => elements.button({ bindEnabled: advice2.flag })))
-        .length
-    ).toBe(1)
   })
 
   test('bindList does NOT warn — it is the primitive, not a deprecated shortcut', async () => {

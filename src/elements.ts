@@ -409,12 +409,7 @@ import {
 } from './xin-types'
 import { camelToKabob } from './string-case'
 import { processProp } from './css'
-import {
-  tosiPath,
-  warnDeprecated,
-  TAKE_DESCRIPTOR,
-  setElementContract,
-} from './metadata'
+import { tosiPath, TAKE_DESCRIPTOR, setElementContract } from './metadata'
 import { MATH, SVG, type ElementsProxy } from './elements-types'
 
 const templates: { [key: string]: Element } = {}
@@ -679,71 +674,27 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
     }
   } else if (key.match(/^bind[A-Z]/) != null) {
     const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5)
-    if (bindingType !== 'value') {
-      /*
-       * THE MESSAGE IS A WHOLE SENTENCE, not a `{ key: … }` fragment.
-       *
-       * It used to interpolate a replacement fragment into `Use { ${alt}: … }`,
-       * and two of the four entries were not props keys at all, so the library
-       * printed instructions that cannot be typed:
-       *
-       *   "Use { .tosi.listBinding(): ... } instead."            <- not a key
-       *   "Use { disabled (with .tosi.take(v => !v)): ... }"     <- not a key
-       *
-       * `bindList`'s real migration is a SPREAD, which no `{ key: value }`
-       * phrasing can express. And following the `bindEnabled` line literally
-       * yields `{ disabled: 'app.flag' }` → `<button disabled="">`: a non-empty
-       * string is truthy, so the advice ships a PERMANENTLY DEAD CONTROL — the
-       * exact opposite of what bindEnabled meant, and not "literal text" as an
-       * earlier version of this caveat claimed.
-       */
-      // the string form is no longer deprecated, so the messages below never
-      // need to name the `bind: { value, binding }` migration
-      const isPath = typeof value === 'string'
-      /*
-       * THE RULE, APPLIED UNIFORMLY: deprecated IFF a plain prop expresses it
-       * exactly — which depends on the VALUE, not only on the key.
-       *
-       * With a proxy, `{ textContent: proxy }` and `{ disabled: proxy }` are
-       * exact replacements and the warning steers to the durable spelling.
-       * With a PATH STRING no plain prop expresses it at all: `textContent`
-       * sets literal text, and `disabled` gets a non-empty (always truthy)
-       * string that permanently DISABLES the control. Warning there told the
-       * caller to write something worse than what they had, and the migration
-       * it named — `bind: { value, binding }` — is not the plain prop the rule
-       * is about.
-       *
-       * So the string form is NOT deprecated. tosijs-ui reached this
-       * independently for `bindText`; it is the same argument that kept
-       * `bindValue` and `bindList`, and applying it only to those two was the
-       * inconsistency. The `.d.ts` already documented the asymmetry per case,
-       * which was conceding the point in writing while still warning.
-       */
-      const advice = isPath
-        ? null
-        : bindingType === 'text'
-          ? 'Use { textContent: proxy }.'
-          : bindingType === 'disabled'
-          ? 'Use { disabled: proxy }.'
-          : bindingType === 'enabled'
-          ? 'Use { disabled: proxy.tosi.take(v => !v) } — note the inversion.'
-          : // `bindList` IS NOT DEPRECATED, deliberately. `.tosi.listBinding()`
-            // is SUGAR that emits it — deprecating the primitive your own
-            // sugar produces is circular, and it showed: the message read
-            // "Use { .tosi.listBinding(): ... }", which is not a props key,
-            // because the replacement is not a prop at all. Routing around it
-            // is what produced a silent list-destroying `bind` collision at
-            // two addresses and a breaking change to the public return shape.
-            // The other shortcuts have real prop equivalents (textContent,
-            // disabled); this one does not, so it stays.
-            null
-      if (advice) {
-        warnDeprecated(
-          `bind${bindingType}`,
-          `bind${key.substring(4)} is deprecated. ${advice}`
-        )
-      }
-    }
+    /*
+     * NO `bind*` SHORTCUT IS DEPRECATED. (1.9.1 — removed, not narrowed.)
+     *
+     * This warned for `bindText`/`bindEnabled`/`bindDisabled`, latterly only
+     * for the proxy form, on the rule "deprecated iff a plain prop expresses
+     * it exactly". The rule is sound and the narrowing was right, but it
+     * ended somewhere incoherent: deprecation-ness depended on the VALUE,
+     * which TypeScript cannot express, so the typings carried no
+     * `@deprecated` while the runtime still warned — a typings/runtime
+     * mismatch, reported by tosijs-ui, that we introduced trying to fix the
+     * previous one.
+     *
+     * The nudge was never worth much: `bindText` is barely more writing than
+     * `textContent`, and the shortcut is the ONLY form that binds a path
+     * string. So it is console spam in someone else's build for a stylistic
+     * preference. It belongs in the docs, and that is where it now lives.
+     *
+     * `bindValue` and `bindList` were never deprecated (two-way; and the
+     * primitive `.tosi.listBinding()` emits). Now nothing here is, and the
+     * types say exactly that.
+     */
     const binding = bindings[bindingType]
     if (binding !== undefined) {
       bind(elt, value, binding)

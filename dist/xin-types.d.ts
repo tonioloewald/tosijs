@@ -215,23 +215,24 @@ export interface ElementProps<T = Element> {
     bind?: TosiInlineBinding<T> | Array<TosiInlineBinding<T>>;
     /** TWO-WAY value binding; `value: proxy` is one-way (state -> DOM) only */
     bindValue?: TosiBindingShortcut;
-    /** Text binding. With a PROXY prefer `{ textContent: proxy }`, which says
-     * the same thing in a plain prop (this form warns). With a PATH STRING this
-     * is the right tool and is NOT deprecated: `textContent: 'path'` would set
-     * the literal text "path" and silently not bind — a mistake that typechecks
-     * and passes a unit suite, caught only by the browser doc-test lane. */
+    /** Text binding. With a proxy, `{ textContent: proxy }` says the same thing
+     * in a plain prop and is the more durable spelling; with a PATH STRING this
+     * is the only form that binds — `textContent: 'path'` sets the literal text
+     * "path" and silently does not bind (a mistake that typechecks and passes a
+     * unit suite; it was caught only by the browser doc-test lane). Not
+     * deprecated in either form. */
     bindText?: TosiBindingShortcut;
     /** the low-level list-binding prop; `.tosi.listBinding()` is sugar over it */
     bindList?: TosiBindingShortcut;
-    /** Enabled binding (inverted `disabled`). With a PROXY prefer
-     * `{ disabled: proxy.tosi.take(v => !v) }` (this form warns). With a PATH
-     * STRING this is the right tool and is NOT deprecated: `disabled: 'path'`
-     * assigns a non-empty — therefore always truthy — string, permanently
-     * DISABLING the control. */
+    /** Enabled binding (inverted `disabled`). With a proxy,
+     * `{ disabled: proxy.tosi.take(v => !v) }` is the plain-prop equivalent;
+     * with a PATH STRING this is the only form that works — `disabled: 'path'`
+     * assigns a non-empty, therefore always truthy, string and permanently
+     * DISABLES the control. Not deprecated in either form. */
     bindEnabled?: TosiBindingShortcut;
-    /** Disabled binding. With a PROXY prefer `{ disabled: proxy }` (this form
-     * warns). With a PATH STRING this is the right tool and is NOT deprecated,
-     * for the same always-truthy reason as `bindEnabled`. */
+    /** Disabled binding. With a proxy, `{ disabled: proxy }` is the plain-prop
+     * equivalent; with a PATH STRING this is the only form that works, for the
+     * same always-truthy reason as `bindEnabled`. Not deprecated. */
     bindDisabled?: TosiBindingShortcut;
     style?: TosiStyleRule;
     class?: TosiClassSpec;

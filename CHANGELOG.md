@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.9.1] - 2026-09-02
+
+### Changed
+
+- **No `bind*` element-prop shortcut is deprecated any more.** `bindText`,
+  `bindEnabled` and `bindDisabled` no longer warn in any form (`bindValue` and
+  `bindList` never did).
+
+  1.9.0 narrowed the deprecation to the *proxy* form, on the rule "deprecated
+  iff a plain prop expresses it exactly". The rule is sound and the narrowing
+  was right, but it left deprecation-ness depending on the **value** — which
+  TypeScript cannot express. So the typings carried no `@deprecated` while the
+  runtime still warned: a typings/runtime mismatch introduced while fixing the
+  previous one, reported by tosijs-ui against the published 1.9.0.
+
+  Removed rather than re-marked, because the nudge was never worth much:
+  `bindText` is barely more writing than `textContent`, and the shortcut is the
+  **only** form that binds a path string (`textContent: 'path'` sets literal
+  text; `disabled: 'path'` is a non-empty, always-truthy string that
+  permanently disables the control). That made it console spam in someone
+  else's build for a stylistic preference. The preference now lives in the
+  types and the docs, where it costs nobody a log line.
+
 ## [1.9.0] - 2026-09-02
 
 **The agent surface exposes nothing until you say so** — and the library stops
