@@ -8,28 +8,12 @@ path-addressed surface for *non-human users*: AI agents, test harnesses,
 automation. Nothing is recorded that tosijs doesn't already know; `describe()`
 assembles the picture on demand.
 
+**Nothing is exposed until you say so.** Say what an agent may see, and that
+is exactly what it sees:
+
     import { enableAgentInterface } from 'tosijs'
 
-    const agent = enableAgentInterface() // READ-ONLY introspection (the default)
-
-    agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
-    agent.read('app.filter')  // serializable value
-    agent.observe('app.cart', (path) => { ... }) // push; returns un-observe
-    agent.changes(cursor)     // turn-based drain: final value per changed path
-    await agent.when('app.order.status', (s) => s === 'confirmed') // await a condition
-    agent.log()               // the audit trail
-
-The verbs that CHANGE things need consent, so they are not in that list —
-`write()` and `call()` refuse on the default surface and say how to enable
-them. Declare a manifest (below), or `expose: 'all'` while developing:
-
-    const dev = enableAgentInterface({ expose: 'all' })
-    dev.write('app.filter', 'milk') // through the same observers as any write
-    dev.call('app.addItem', 'buy milk')          // invoke an action by path
-
-In production, expose only what you declare:
-
-    enableAgentInterface({
+    const agent = enableAgentInterface({
       expose: {
         roots: ['app.cart', 'app.filter'],
         actions: ['app.addItem', 'app.checkout'],
@@ -37,9 +21,30 @@ In production, expose only what you declare:
       },
     })
 
-A manifest scopes **sight**, not reach: `roots` says what may be seen,
+    agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
+    agent.read('app.filter')  // serializable value
+    agent.observe('app.cart', (path) => { ... }) // push; returns un-observe
+    agent.changes(cursor)     // turn-based drain: final value per changed path
+    await agent.when('app.order.status', (s) => s === 'confirmed') // await a condition
+    agent.write('app.filter', 'milk') // through the same observers as any write
+    agent.call('app.addItem', 'buy milk')         // invoke an action by path
+    agent.log()               // the audit trail
+
+Undeclared state is not redacted, it is **absent**: it never enters the map,
+the elements bound to it never appear in `wiring`, and every verb refuses the
+path. A manifest scopes **sight**, not reach — `roots` says what may be seen,
 `write: true` is a separate grant to change it, and declared `actions` stay
 callable either way. `describe().writable` reports which you have.
+
+While developing, one word opens everything:
+
+    const dev = enableAgentInterface({ expose: 'all' }) // and warns that it did
+
+`enableAgentInterface()` with no manifest is legal and **exposes nothing** —
+`describe()` reports an empty app and every verb refuses. That is deliberate:
+the default used to be read-only over the *entire registry*, which is how four
+separate secret leaks became reachable through one unargumented call. Scope is
+the control; the redaction described below is defence in depth beneath it.
 
 ## Secrets
 
@@ -51,6 +56,10 @@ sentinel `⟨secret⟩` rather than its value:
 
     agent.read('app.login.password')  // '⟨secret⟩'
     agent.read('app.login')           // { user: 'ada', password: '⟨secret⟩' }
+
+This matters for what you DID expose — an undeclared path is absent, not
+redacted, so redaction is what protects a secret sitting *inside* a declared
+root (and it is the only thing protecting you under `expose: 'all'`).
 
 **Secrecy is a property of the PATH, not of an element.** Marking one control
 secret withholds that path everywhere it surfaces — `read`, `describe`,
@@ -65,7 +74,7 @@ the agent surface. It exists because `describe()` output is *designed to
 leave the machine*: it is assembled to be handed to a model, and typically an
 off-device one. The guarantee is "tosijs will not volunteer your secrets into
 that channel", not "your secrets are safe from an attacker with code
-execution". Scope is still the real control — declare a manifest, and keep
+execution". Scope is the real control — declare a manifest, and keep
 secrets out of the roots you expose.
 
 > **Matching is by spelling (tosijs#32).** A secret learned as
@@ -245,11 +254,12 @@ export interface AgentExpose {
 
 export interface AgentInterfaceOptions {
   /**
-   * What this surface may touch. Omit for **read-only introspection**
-   * (describe/read/observe/changes/when/log over everything; write and call
-   * refuse). Pass a manifest — `{ roots, actions, contract }` — for the
-   * production shape. Pass the literal `'all'` to get full read/write/call
-   * over the whole registry, deliberately and with a warning.
+   * What this surface may expose. **Omit it and nothing is exposed** —
+   * `describe()` reports an empty app and every verb refuses (1.9.0; it used
+   * to mean read-only over the entire registry). Pass a manifest —
+   * `{ roots, actions, contract }` — for the production shape, or the literal
+   * `'all'` for full read/write/call over everything, deliberately and with a
+   * warning.
    */
   expose?: AgentExpose | 'all'
   /**
@@ -418,9 +428,12 @@ export interface AgentDescription {
   roots: Record<string, string>
   wiring: AgentWiringRecord[]
   actions: string[]
-  /** 'read-only' (the default: look, don't touch), 'introspection'
-   * (expose: 'all' — everything, deliberately), or 'manifest' */
-  exposure: 'read-only' | 'introspection' | 'manifest'
+  /** 'closed' (the default since 1.9.0: nothing is exposed until you say so),
+   * 'manifest' (the declared roots/actions), or 'all' (everything,
+   * deliberately). Renamed from 'read-only'/'introspection' when the default
+   * stopped exposing the whole registry — the old names described a posture
+   * that no longer exists. */
+  exposure: 'closed' | 'manifest' | 'all'
   /** whether `write()` can land at all. Orthogonal to `exposure`, because a
    * manifest scopes what may be SEEN: `expose: { roots }` is readable but
    * not writable until it says `write: true`. Read this rather than
@@ -1286,20 +1299,23 @@ export function enableAgentInterface(
   let webmcpRegistration:
     | { tools: string[]; unregister: () => void }
     | undefined
-  // THE POSTURE (1.8.0). Three modes, safest by default:
+  // THE POSTURE (1.9.0). Three modes, and the default is EMPTY:
   //
-  //   enableAgentInterface()                    read-only introspection
+  //   enableAgentInterface()                    nothing is exposed
   //   enableAgentInterface({ expose: {roots} }) manifest — the production shape
   //   enableAgentInterface({ expose: 'all' })   everything, deliberately
   //
-  // The docs have always said production posture is manifest-only,
-  // allowlist-never-denylist, and that open write() is a dev-mode
-  // affordance. The code used to ship the opposite as its DEFAULT: no
-  // `expose` meant read, write AND call over the entire registry, on a
-  // global any third-party script shares, with an unvalidated `tosi_write`
-  // auto-published to the browser's tool registry. Now the default keeps
-  // the part that only LOOKS (the map is the point) and requires consent
-  // for the verbs that change the world.
+  // This has taken two goes to get right. 1.8.0 narrowed a default that meant
+  // read, write AND call over the entire registry, on a global any script on
+  // the page shares, with an unvalidated `tosi_write` auto-published to the
+  // browser's tool registry — but it kept "the part that only LOOKS", on the
+  // reasoning that a map of the app is the point and looking is harmless.
+  //
+  // Looking was not harmless. Four review rounds then found four ways that
+  // read-only-over-everything default published secrets, each patched where
+  // it was found. The default WAS the defect: an allowlist makes all four
+  // unreachable, and leaves redaction as defence in depth rather than as the
+  // boundary. Say nothing, see nothing.
   const exposeAll = expose === 'all'
   const manifest =
     typeof expose === 'object' && expose !== null ? expose : undefined
@@ -1325,8 +1341,28 @@ export function enableAgentInterface(
     contract != null && contractRoots.some((root) => extendsPath(root, path))
 
   const manifestMode = manifest != null
-  /** read-only introspection: no manifest, and no explicit `expose: 'all'` */
-  const readOnly = !manifestMode && !exposeAll
+  /**
+   * IS AN ALLOWLIST IN FORCE? (1.9.0 — this replaced `manifestMode` at every
+   * disclosure gate.)
+   *
+   * The default used to be "read-only over EVERYTHING", and that one decision
+   * produced four separate secret leaks across four review rounds: each was
+   * only reachable because a caller who passed no arguments got the whole
+   * registry and every bound element on the page. Patching the leaks treated
+   * symptoms of a permissive default.
+   *
+   * Now the ladder is: say nothing and see nothing; declare roots and see
+   * those; ask for `'all'` and own it. Redaction stops being the boundary —
+   * it was never good at that — and goes back to being defence in depth for
+   * what you DID declare.
+   *
+   * Gating on `manifestMode` would have been the bug again: "no manifest"
+   * stopped meaning "no scoping" here, so any gate still asking that question
+   * would spill in the new default exactly as before.
+   */
+  const scoped = !exposeAll
+  /** nothing declared and nothing demanded: the surface describes an empty app */
+  const closed = !manifestMode && !exposeAll
   // A MANIFEST SCOPES SIGHT, NOT REACH. `expose: { roots }` used to confer
   // writes over those roots as a side effect of narrowing reads, which made
   // the safest-sounding posture the most permissive one available and left
@@ -1341,21 +1377,18 @@ export function enableAgentInterface(
   // and stayed silent through every later widening (SEC-14). Latching on the
   // posture keeps repeated identical enables quiet while making each change
   // of posture speak.
-  const posture = exposeAll ? 'all' : manifestMode ? 'manifest' : 'read-only'
+  const posture = exposeAll ? 'all' : manifestMode ? 'manifest' : 'closed'
   const announce = posture !== lastPostureAnnounced && settings.quiet !== true
   if (announce) lastPostureAnnounced = posture
-  if (readOnly && announce) {
+  if (closed && announce) {
+    // NOT a warning: exposing nothing is the correct, safe outcome. It is
+    // announced because it is also almost certainly not what the caller
+    // wanted, and an empty map with no explanation reads as a broken library.
     console.info(
-      'tosijs agent: read-only introspection. describe/read/observe/changes/' +
-        'when/log work over EVERYTHING in the registry — and this surface is ' +
-        `installed as globalThis.${
-          typeof global === 'string' ? global : 'tosiAgent'
-        }${
-          webmcp !== false
-            ? ' and published to any WebMCP host as tosi_describe/tosi_surface'
-            : ''
-        }. write() and call() refuse. Declare expose: { roots, actions } for ` +
-        "production, or expose: 'all' while developing."
+      'tosijs agent: nothing is exposed. describe() reports an empty app and ' +
+        'read/observe/changes/when refuse every path, because no manifest was ' +
+        "declared. Pass expose: 'all' while developing, or " +
+        'expose: { roots, actions } to declare what an agent may see.'
     )
   }
   if (exposeAll && announce) {
@@ -1376,7 +1409,7 @@ export function enableAgentInterface(
   }
 
   const inScope = (path: string): boolean =>
-    !manifestMode ||
+    !scoped ||
     (roots ?? []).some((root) => extendsPath(root, path)) ||
     (exposedActions ?? []).some((action) => extendsPath(action, path))
 
@@ -1396,12 +1429,16 @@ export function enableAgentInterface(
     )
   const writable = (path: string): boolean =>
     !hitsDeclaredAction(path) &&
-    (!manifestMode || (roots ?? []).some((root) => extendsPath(root, path)))
+    (!scoped || (roots ?? []).some((root) => extendsPath(root, path)))
 
   const assertScope = (path: string): void => {
     if (!inScope(path)) {
       throw new Error(
-        `agent interface: "${path}" is not exposed (manifest mode)`
+        closed
+          ? `agent interface: "${path}" is not exposed — this surface ` +
+            "declares no manifest, so nothing is. Pass expose: 'all' while " +
+            'developing, or expose: { roots } to declare what may be read.'
+          : `agent interface: "${path}" is not exposed (manifest mode)`
       )
     }
   }
@@ -1410,12 +1447,13 @@ export function enableAgentInterface(
   const assertMutable = (verb: string, path: string): void => {
     const allowed = verb === 'call' ? callsAllowed : writesAllowed
     if (allowed) return
-    if (readOnly) {
+    if (closed) {
       throw new Error(
-        `agent interface: ${verb}("${path}") refused — this surface is ` +
-          `read-only introspection. Declare expose: { roots${
+        `agent interface: ${verb}("${path}") refused — this surface exposes ` +
+          `nothing. Declare expose: { roots${
             verb === 'call' ? ', actions' : ''
-          } } to allow it, or expose: 'all' while developing.`
+          }${verb === 'write' ? ', write: true' : ''} } to allow it, or ` +
+          "expose: 'all' while developing."
       )
     }
     throw new Error(
@@ -1493,9 +1531,10 @@ export function enableAgentInterface(
       // visited before the password field that makes it secret
       refreshSecretPaths()
       const viewportView = options.view === 'viewport'
-      const rootNames = manifestMode
-        ? (roots ?? []).slice()
-        : Object.keys(registry)
+      // `scoped`, not `manifestMode`: with no manifest `roots` is undefined,
+      // so the closed posture lists nothing rather than enumerating every
+      // root name (and its type) in the registry.
+      const rootNames = scoped ? (roots ?? []).slice() : Object.keys(registry)
       const rootSummary: Record<string, string> = {}
       for (const root of rootNames) {
         rootSummary[root] = Array.isArray(tosiValue(xin[root]))
@@ -1619,9 +1658,9 @@ export function enableAgentInterface(
             }
             if (Object.keys(on).length > 0) {
               record.on = on
-              // in manifest mode, handlers that are ALL out of scope do not
+              // under an allowlist, handlers that are ALL out of scope do not
               // make this element part of the exposed surface
-              if (!manifestMode || anyHandlerInScope) wired = true
+              if (!scoped || anyHandlerInScope) wired = true
             }
           }
           // static text, when textContent isn't already surfaced as bound —
@@ -1632,12 +1671,15 @@ export function enableAgentInterface(
           }
           // an UNBOUND form control still holds a live value — harvest it
           // (no provenance arrow: a plain string means "current, not bound").
-          // NOT in manifest mode: an allowlist that hides `read('app.pin')`
-          // must not hand the same digits over as DOM content, and an
-          // unbound control's value is by definition outside every declared
-          // root.
+          // ONLY under `expose: 'all'`: an allowlist that hides
+          // `read('app.pin')` must not hand the same digits over as DOM
+          // content, and an unbound control's value is by definition outside
+          // every declared root. This gate asked `!manifestMode` until 1.9.0,
+          // which was the same question until the default became closed —
+          // after which it would have harvested live control values for a
+          // caller who exposed nothing at all.
           if (
-            !manifestMode &&
+            !scoped &&
             record.value === undefined &&
             record.checked === undefined &&
             record.secret !== true &&
@@ -1831,9 +1873,11 @@ export function enableAgentInterface(
         }
       }
 
-      // actions: functions reachable from exposed roots (bounded walk)
+      // actions: functions reachable from exposed roots (bounded walk).
+      // `scoped` again — the closed posture declares no actions, and must not
+      // fall through to walking the registry for them.
       const actions: string[] = []
-      if (manifestMode) {
+      if (scoped) {
         actions.push(...(exposedActions ?? []))
       } else {
         const walk = (value: any, path: string, depth: number): void => {
@@ -1855,11 +1899,7 @@ export function enableAgentInterface(
         roots: rootSummary,
         wiring,
         actions,
-        exposure: manifestMode
-          ? 'manifest'
-          : exposeAll
-          ? 'introspection'
-          : 'read-only',
+        exposure: manifestMode ? 'manifest' : exposeAll ? 'all' : 'closed',
         writable: writesAllowed,
       }
       // inline declarations fill the contract; top-level curation OVERRIDES

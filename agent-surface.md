@@ -105,8 +105,8 @@ import { enableAgentInterface } from 'tosijs'
 // separate bundle, which would carry its own copy of the state registry and
 // describe an empty app
 
-// the DEFAULT: read-only introspection. describe/read/observe/changes/when
-// see everything; write() and call() refuse.
+// the DEFAULT (1.9.0): NOTHING is exposed. describe() reports an empty app
+// and every verb refuses until a manifest says otherwise.
 const agent = enableAgentInterface()
 
 // DEV: everything, read/write/call, deliberately and with a warning
@@ -257,8 +257,8 @@ channel.)
    posture — see [Trust & Transports](/trust-and-transports/).
 2. **Introspection mode** (`expose: 'all'`) — everything tosijs knows,
    read/write/call, **dev-only and explicitly unstable**. (The name is the
-   code's: `describe().exposure` reports `'introspection'` for this tier and
-   `'read-only'` for the one above.) For exploration, debugging, agent-assisted development, and
+   code's: `describe().exposure` reports `'all'` for this tier, `'manifest'`
+   for a declared one, and `'closed'` for the empty default.) For exploration, debugging, agent-assisted development, and
    _discovering what belongs in the schema_. Also a better haltija/Playwright
    substrate than selector-scraping — but nothing durable (tests, agent
    workflows) should script against it, because its shape is whatever the
@@ -578,7 +578,7 @@ test('ship day: curation supersedes inline, the manifest narrows the world', () 
   expect(refused).toBe(true)
   curated.write('shipDay.qty', 7) // within the curated rule
   enableAgentInterface({ expose: 'all' }) // restore for the rest of the page
-  expect(globalThis.tosiAgent.describe().exposure).toBe('introspection')
+  expect(globalThis.tosiAgent.describe().exposure).toBe('all')
 })
 ```
 

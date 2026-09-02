@@ -124,15 +124,15 @@ export const webmcpTools = (
     },
   ]
   // DECLARED SCOPE, OR EXPLICIT CONSENT — the same gate as tosi_write, for
-  // the same reason. 'read-only' is the no-options default AND the widest
-  // read the surface has: with no manifest, inScope() is unconditionally
-  // true, so these two tools published the ENTIRE registry (and, via
-  // changes(), every value that settles in it) to a model-context host —
-  // a different principal — on the strength of one unargumented call.
-  // Declaring `expose: { roots }` or `expose: 'all'` is the opt-in; the
-  // introspection tools above stay, because they report the DOM an agent
-  // can already read for itself.
-  const canRead = description.exposure !== 'read-only' || allowReads
+  // the same reason. 'closed' is the no-options default, and until 1.9.0 it
+  // was ALSO the widest read the surface had: with no manifest, inScope()
+  // was unconditionally true, so these two tools published the ENTIRE
+  // registry (and, via changes(), every value that settles in it) to a
+  // model-context host — a different principal — on the strength of one
+  // unargumented call. The default is now empty, so this gate is belt and
+  // braces rather than the only thing standing there; it stays because
+  // `allowReads` can still open it.
+  const canRead = description.exposure !== 'closed' || allowReads
   if (canRead) {
     tools.push(
       {
@@ -164,7 +164,7 @@ export const webmcpTools = (
   // Only advertise what the surface will actually execute. A read-only
   // surface used to publish one tosi_act_* tool per discovered function —
   // a menu of the whole app where every item throws on invocation.
-  const canAct = description.exposure !== 'read-only'
+  const canAct = description.exposure !== 'closed'
   const actionNames = new Set<string>()
   for (const actionPath of canAct ? description.actions : []) {
     // toolName collapses every non-alphanumeric char, so `app.do.thing` and

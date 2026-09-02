@@ -363,7 +363,7 @@ describe('agent interface — describe()', () => {
     await updates()
 
     const description = agent.describe()
-    expect(description.exposure).toBe('introspection')
+    expect(description.exposure).toBe('all')
     expect(description.roots.agentDesc).toBe('object')
     expect(description.actions).toContain('agentDesc.submit')
 
@@ -946,25 +946,49 @@ describe('surface identity — ask, do not assume (tosijs#23)', () => {
 })
 
 describe('the posture: safe by default, full access behind one line', () => {
-  test('default = READ-ONLY introspection: the map works, the verbs refuse', async () => {
+  test('default = CLOSED: nothing is exposed until you say so', async () => {
+    /*
+     * 1.9.0 replaced the read-only-over-everything default.
+     *
+     * The old default was the root cause of four separate secret leaks found
+     * across four review rounds: each was reachable ONLY because a caller who
+     * passed no arguments got the whole registry plus every bound element on
+     * the page. Redaction was patched four times; the default was the defect.
+     */
     tosi({ postureApp: { n: 1, go() {} } })
     await updates()
-    const agent = (current = enableAgentInterface({ global: false }))
+    const el = elements.input({ id: 'posture-el' })
+    document.body.append(el)
+    bind(el, 'postureApp.n', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      quiet: true,
+    }))
 
-    // looking is the point, and it works over everything
-    expect(agent.read('postureApp.n')).toBe(1)
-    expect(agent.describe().exposure).toBe('read-only')
-    expect(Object.keys(agent.describe().roots)).toContain('postureApp')
-    const seen: string[] = []
-    const off = agent.observe('postureApp.n', (p) => seen.push(p))
-    expect(typeof off).toBe('function')
-    off()
+    expect(agent.describe().exposure).toBe('closed')
+    // the map describes an EMPTY app: no roots, and no wiring — the DOM walk
+    // must be scoped too, or the element would carry the value out anyway
+    expect(Object.keys(agent.describe().roots)).toEqual([])
+    expect(agent.describe().wiring).toEqual([])
+    expect(agent.describe().actions).toEqual([])
 
-    // the verbs that change the world need consent — and say how to give it
-    expect(() => agent.write('postureApp.n', 2)).toThrow(/read-only/)
-    expect(() => agent.write('postureApp.n', 2)).toThrow(/expose/)
-    expect(() => agent.call('postureApp.go')).toThrow(/read-only/)
-    expect(agent.read('postureApp.n')).toBe(1) // nothing happened
+    // and every verb refuses, saying how to open it
+    expect(() => agent.read('postureApp.n')).toThrow(/not exposed/)
+    expect(() => agent.read('postureApp.n')).toThrow(/expose/)
+    expect(() => agent.write('postureApp.n', 2)).toThrow(/exposes nothing/)
+    expect(() => agent.call('postureApp.go')).toThrow(/exposes nothing/)
+
+    // POSITIVE CONTROL: the same app is fully visible once declared, so the
+    // assertions above are about the posture and not about a broken fixture
+    current.disable()
+    const open = (current = enableAgentInterface({
+      global: false,
+      quiet: true,
+      expose: { roots: ['postureApp'] },
+    }))
+    expect(open.read('postureApp.n')).toBe(1)
+    expect(open.describe().wiring.length).toBeGreaterThan(0)
   })
 
   test("expose: 'all' is the deliberate override — everything, with a warning", async () => {
@@ -983,7 +1007,7 @@ describe('the posture: safe by default, full access behind one line', () => {
     }
     agent!.write('postureAll.n', 7)
     expect(agent!.read('postureAll.n')).toBe(7)
-    expect(agent!.describe().exposure).toBe('introspection')
+    expect(agent!.describe().exposure).toBe('all')
     // asserted UNCONDITIONALLY — the old form was `… || warnings.length === 0`,
     // which passes even if the warning is deleted outright
     expect(warnings.some((w) => w.includes('WRITABLE'))).toBe(true)
@@ -992,7 +1016,7 @@ describe('the posture: safe by default, full access behind one line', () => {
     )
   })
 
-  test('the read-only notice fires, names the escape hatches, and respects quiet', async () => {
+  test('the closed-posture notice fires, names the escape hatches, and respects quiet', async () => {
     const { _resetPostureNotices } = await import('./agent')
     const { settings } = await import('./settings')
     tosi({ noticeApp: { n: 1 } })
@@ -1007,7 +1031,7 @@ describe('the posture: safe by default, full access behind one line', () => {
     } finally {
       console.info = original
     }
-    expect(infos.some((i) => i.includes('read-only'))).toBe(true)
+    expect(infos.some((i) => i.includes('nothing is exposed'))).toBe(true)
     expect(infos.some((i) => i.includes('expose'))).toBe(true)
 
     // …and settings.quiet actually silences it
@@ -1438,7 +1462,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     bind(viaExact, 'secretDescribe.session.token', bindings.enabled)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true })) // read-only
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' })) // read-only
     const description = agent.describe()
 
     // the whole description, not just the records we happen to look at
@@ -1482,7 +1506,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     )
     document.body.append(container)
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
 
     expect(agent.read('secretList.rows[id=r1].pw')).toBe('⟨secret⟩')
     // the parent read must agree — this is what leaked
@@ -1515,7 +1539,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     expect(agent.read('noIdList.rows[0].pw')).toBe('⟨secret⟩')
     const rows = agent.read('noIdList.rows') as any[]
     expect(rows[0].pw).toBe('⟨secret⟩') // B2: leaked before
@@ -1537,7 +1561,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     expect(agent.read('nullRow.rows[id=a].pw')).toBe('⟨secret⟩')
 
     xin.nullRow.rows = [{ id: 'a', pw: 'p1' }, null]
@@ -1587,7 +1611,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     expect(agent.read('twoIds.rows[id=a1].pw')).toBe('⟨secret⟩')
     expect(agent.read('twoIds.rows[uid=u1].tok')).toBe('⟨secret⟩')
     const rows = agent.read('twoIds.rows') as any[]
@@ -1655,7 +1679,7 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     bind(box, 'inherit.creds', { toDOM() {} })
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     expect(agent.read('inherit.creds.pass')).toBe(SECRET_SENTINEL_TEXT)
     // and ARBITRARILY DEEP beneath it, not just one level
     expect(agent.read('inherit.creds.deep.k')).toBe(SECRET_SENTINEL_TEXT)
@@ -1709,7 +1733,16 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     document.body.append(ed)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true, global: false }))
+    // `expose: 'all'` DELIBERATELY — this test is about redaction, and under
+    // the 1.9.0 closed default the three not.toContain assertions below would
+    // pass because the map is EMPTY. Redaction has to be exercised where it
+    // is load-bearing: the widest posture. (The positive controls on `secret`
+    // are what caught this when the default changed.)
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
     const description = agent.describe()
     const json = JSON.stringify(description)
 
@@ -1963,7 +1996,7 @@ describe('attributes are described however they were declared (tosijs#29)', () =
     bind(contractEl, 'eqApp.b', bindings.value)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     const wiring = agent.describe().wiring as any[]
     const viaInit = wiring.find((w) => w.tag === 'eq-init')
     const viaContract = wiring.find((w) => w.tag === 'eq-contract')
@@ -1990,7 +2023,7 @@ describe('attributes are described however they were declared (tosijs#29)', () =
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true }))
+    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
     const tags = (agent.describe().wiring as any[]).map((w) => w.tag)
     // nothing binds it and it declares no contract, so it stays out of the
     // map. Otherwise every custom element on the page would flood it.

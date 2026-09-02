@@ -80,7 +80,7 @@ Instead of making the agent scrape the DOM, calling `enableAgentInterface()` exp
 
 <img alt="tosiAgent creating schematics" src="https://firebasestorage.googleapis.com/v0/b/liquid-force-425209-g2.appspot.com/o/blog%2FtosiAgent-creating-schematics?alt=media&token=a1ecbed0-2a51-4d4c-8d5c-b40f682a49bf" style="width: 678px; aspect-ratio: 678 / 324;">
 
-Nothing is exposed until you ask, and the default only *looks*: a bare `enableAgentInterface()` gives read-only introspection, where `write()` and `call()` refuse and tell you how to enable them. Production is an allowlist—you name the state roots and actions an agent may touch, and a manifest scopes what can be *seen*; letting an agent *change* things is a separate, explicit grant. Point a schema at those roots and refusals come back with reasons, which is what an agent actually needs to correct itself.
+Nothing is exposed until you ask — literally: a bare `enableAgentInterface()` describes an empty app and refuses every path, telling you how to open it. Production is an allowlist—you name the state roots and actions an agent may touch, and a manifest scopes what can be *seen*; letting an agent *change* things is a separate, explicit grant. Point a schema at those roots and refusals come back with reasons, which is what an agent actually needs to correct itself.
 
 Agents don't need to *guess* where to click, take screenshots, or mine the DOM. They receive a diagram of what the application *is* (the wiring diagram) and (if you provide it) a curated map (the floor plan). The browser stops being a display output that an agent has to hack its way into, and becomes a structured, interactive partner.
 

@@ -51,36 +51,40 @@ registry, the binding wiring, the event handlers — into a described,
 path-addressed surface for <em>non-human users</em>: AI agents, test harnesses,
 automation. Nothing is recorded that tosijs doesn&#39;t already know; <code>describe()</code>
 assembles the picture on demand.</p>
+<p><strong>Nothing is exposed until you say so.</strong> Say what an agent may see, and that
+is exactly what it sees:</p>
 <pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
 
-const agent = enableAgentInterface() // READ-ONLY introspection (the default)
-
-agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
-agent.read(&#39;app.filter&#39;)  // serializable value
-agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
-agent.changes(cursor)     // turn-based drain: final value per changed path
-await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
-agent.log()               // the audit trail
-</code></pre>
-<p>The verbs that CHANGE things need consent, so they are not in that list —
-<code>write()</code> and <code>call()</code> refuse on the default surface and say how to enable
-them. Declare a manifest (below), or <code>expose: &#39;all&#39;</code> while developing:</p>
-<pre><code>const dev = enableAgentInterface({ expose: &#39;all&#39; })
-dev.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
-dev.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)          // invoke an action by path
-</code></pre>
-<p>In production, expose only what you declare:</p>
-<pre><code>enableAgentInterface({
+const agent = enableAgentInterface({
   expose: {
     roots: [&#39;app.cart&#39;, &#39;app.filter&#39;],
     actions: [&#39;app.addItem&#39;, &#39;app.checkout&#39;],
     write: true, // omit for scoped reads with no writes
   },
 })
+
+agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
+agent.read(&#39;app.filter&#39;)  // serializable value
+agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
+agent.changes(cursor)     // turn-based drain: final value per changed path
+await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
+agent.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
+agent.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)         // invoke an action by path
+agent.log()               // the audit trail
 </code></pre>
-<p>A manifest scopes <strong>sight</strong>, not reach: <code>roots</code> says what may be seen,
+<p>Undeclared state is not redacted, it is <strong>absent</strong>: it never enters the map,
+the elements bound to it never appear in <code>wiring</code>, and every verb refuses the
+path. A manifest scopes <strong>sight</strong>, not reach — <code>roots</code> says what may be seen,
 <code>write: true</code> is a separate grant to change it, and declared <code>actions</code> stay
 callable either way. <code>describe().writable</code> reports which you have.</p>
+<p>While developing, one word opens everything:</p>
+<pre><code>const dev = enableAgentInterface({ expose: &#39;all&#39; }) // and warns that it did
+</code></pre>
+<p><code>enableAgentInterface()</code> with no manifest is legal and <strong>exposes nothing</strong> —
+<code>describe()</code> reports an empty app and every verb refuses. That is deliberate:
+the default used to be read-only over the <em>entire registry</em>, which is how four
+separate secret leaks became reachable through one unargumented call. Scope is
+the control; the redaction described below is defence in depth beneath it.</p>
 <h2>Secrets</h2>
 <p>A path bound to a password field, a <code>cc-*</code> autocomplete, a hidden CSRF token,
 or anything you mark <code>data-tosi-secret</code> is withheld — it reads back as the
@@ -90,6 +94,9 @@ sentinel <code>⟨secret⟩</code> rather than its value:</p>
 agent.read(&#39;app.login.password&#39;)  // &#39;⟨secret⟩&#39;
 agent.read(&#39;app.login&#39;)           // { user: &#39;ada&#39;, password: &#39;⟨secret⟩&#39; }
 </code></pre>
+<p>This matters for what you DID expose — an undeclared path is absent, not
+redacted, so redaction is what protects a secret sitting <em>inside</em> a declared
+root (and it is the only thing protecting you under <code>expose: &#39;all&#39;</code>).</p>
 <p><strong>Secrecy is a property of the PATH, not of an element.</strong> Marking one control
 secret withholds that path everywhere it surfaces — <code>read</code>, <code>describe</code>,
 <code>changes</code>, <code>when</code> — including from <em>other</em> elements bound to the same path,
@@ -102,7 +109,7 @@ the agent surface. It exists because <code>describe()</code> output is <em>desig
 leave the machine</em>: it is assembled to be handed to a model, and typically an
 off-device one. The guarantee is &quot;tosijs will not volunteer your secrets into
 that channel&quot;, not &quot;your secrets are safe from an attacker with code
-execution&quot;. Scope is still the real control — declare a manifest, and keep
+execution&quot;. Scope is the real control — declare a manifest, and keep
 secrets out of the roots you expose.</p>
 <blockquote>
 <p><strong>Matching is by spelling (tosijs#32).</strong> A secret learned as

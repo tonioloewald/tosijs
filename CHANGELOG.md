@@ -6,11 +6,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.8.3] - 2026-09-02
+## [1.9.0] - 2026-09-02
 
-**The library stops warning its own users about API they never wrote** — and,
-found while fixing that, two ways the agent surface published secrets that
-`read()` refuses.
+**The agent surface exposes nothing until you say so** — and the library stops
+warning its own users about API they never wrote.
+
+### Breaking
+
+- **`enableAgentInterface()` with no manifest now exposes NOTHING.** It used to
+  mean "read-only over the entire registry": every state root, every value,
+  every bound element on the page, published to `globalThis.tosiAgent` and to
+  any WebMCP host, on one unargumented call. `describe()` now reports an empty
+  app and every verb refuses.
+
+  This is the root-cause fix for four separate secret leaks found across four
+  review rounds of 1.8.3. **Every one of them was reachable only in that
+  default posture.** Each was patched where it was found — `boundValue`, then
+  the list-redaction walk, then the same walk's descent, then `describe()`'s
+  live-DOM harvests — which was four symptoms of one permissive default. An
+  allowlist would have made all four unreachable.
+
+  Undeclared state is now **absent, not redacted**: it never enters the map,
+  the elements bound to it never appear in `wiring`, and reads refuse the path.
+  Redaction returns to its honest role — defence in depth for what you *did*
+  declare, and the only guard under `expose: 'all'`.
+
+  **To restore the old behaviour, say so**: `expose: 'all'` while developing
+  (it warns), or `expose: { roots, actions }` to declare a surface. Nothing
+  else changes; the manifest path already did all of this.
+
+- **`describe().exposure` values renamed**: `'read-only'` → `'closed'`,
+  `'introspection'` → `'all'`. The old names described a posture that no longer
+  exists — `'read-only'` now reads nothing.
+
+- Internally, every disclosure gate that asked "is there a manifest?" now asks
+  "is an allowlist in force?". They were the same question until the default
+  became closed, after which the old one would have kept harvesting live
+  control values, root names and actions for a caller who exposed nothing.
 
 ### Security
 

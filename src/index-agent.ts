@@ -6,7 +6,8 @@ Everything that describes an app to a *non-human* user, behind one door:
 
     import { enableAgentInterface } from 'tosijs/agent'
 
-    const agent = enableAgentInterface()   // read-only introspection
+    // nothing is exposed until you say so
+    const agent = enableAgentInterface({ expose: { roots: ['app'] } })
     agent.describe()                       // the affordance map
 
 | export | what |

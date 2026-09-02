@@ -133,11 +133,12 @@ export interface AgentExpose {
 }
 export interface AgentInterfaceOptions {
     /**
-     * What this surface may touch. Omit for **read-only introspection**
-     * (describe/read/observe/changes/when/log over everything; write and call
-     * refuse). Pass a manifest — `{ roots, actions, contract }` — for the
-     * production shape. Pass the literal `'all'` to get full read/write/call
-     * over the whole registry, deliberately and with a warning.
+     * What this surface may expose. **Omit it and nothing is exposed** —
+     * `describe()` reports an empty app and every verb refuses (1.9.0; it used
+     * to mean read-only over the entire registry). Pass a manifest —
+     * `{ roots, actions, contract }` — for the production shape, or the literal
+     * `'all'` for full read/write/call over everything, deliberately and with a
+     * warning.
      */
     expose?: AgentExpose | 'all';
     /**
@@ -297,9 +298,12 @@ export interface AgentDescription {
     roots: Record<string, string>;
     wiring: AgentWiringRecord[];
     actions: string[];
-    /** 'read-only' (the default: look, don't touch), 'introspection'
-     * (expose: 'all' — everything, deliberately), or 'manifest' */
-    exposure: 'read-only' | 'introspection' | 'manifest';
+    /** 'closed' (the default since 1.9.0: nothing is exposed until you say so),
+     * 'manifest' (the declared roots/actions), or 'all' (everything,
+     * deliberately). Renamed from 'read-only'/'introspection' when the default
+     * stopped exposing the whole registry — the old names described a posture
+     * that no longer exists. */
+    exposure: 'closed' | 'manifest' | 'all';
     /** whether `write()` can land at all. Orthogonal to `exposure`, because a
      * manifest scopes what may be SEEN: `expose: { roots }` is readable but
      * not writable until it says `write: true`. Read this rather than

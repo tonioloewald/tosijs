@@ -154,7 +154,7 @@ type surface, from `tosijs/agent` — the SAME file, because a separate bundle
 would carry its own copy of the registry):
 
 - `agent.ts` - `enableAgentInterface()`: `describe`/`read`/`write`/`observe`/
-  `call`/`changes`/`when`/`log`, the exposure ladder (read-only default,
+  `call`/`changes`/`when`/`log`, the exposure ladder (CLOSED by default,
   manifest, `expose: 'all'`), the audit ledger, and `agent.version`
 - `webmcp.ts` - the generated WebMCP tool set + host adapter (auto-registered
   by `enableAgentInterface` where a model-context host exists)

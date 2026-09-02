@@ -138,8 +138,8 @@ framework where the WebMCP tools write themselves.</p>
 // separate bundle, which would carry its own copy of the state registry and
 // describe an empty app
 
-// the DEFAULT: read-only introspection. describe/read/observe/changes/when
-// see everything; write() and call() refuse.
+// the DEFAULT (1.9.0): NOTHING is exposed. describe() reports an empty app
+// and every verb refuses until a manifest says otherwise.
 const agent = enableAgentInterface()
 
 // DEV: everything, read/write/call, deliberately and with a warning
@@ -318,8 +318,8 @@ simultaneously the safest <strong>verb</strong> posture and the widest <strong>r
 posture — see <a href="/trust-and-transports/">Trust &amp; Transports</a>.</li>
 <li><strong>Introspection mode</strong> (<code>expose: &#39;all&#39;</code>) — everything tosijs knows,
 read/write/call, <strong>dev-only and explicitly unstable</strong>. (The name is the
-code&#39;s: <code>describe().exposure</code> reports <code>&#39;introspection&#39;</code> for this tier and
-<code>&#39;read-only&#39;</code> for the one above.) For exploration, debugging, agent-assisted development, and
+code&#39;s: <code>describe().exposure</code> reports <code>&#39;all&#39;</code> for this tier, <code>&#39;manifest&#39;</code>
+for a declared one, and <code>&#39;closed&#39;</code> for the empty default.) For exploration, debugging, agent-assisted development, and
 <em>discovering what belongs in the schema</em>. Also a better haltija/Playwright
 substrate than selector-scraping — but nothing durable (tests, agent
 workflows) should script against it, because its shape is whatever the
@@ -621,7 +621,7 @@ test(&#39;ship day: curation supersedes inline, the manifest narrows the world&#
   expect(refused).toBe(true)
   curated.write(&#39;shipDay.qty&#39;, 7) // within the curated rule
   enableAgentInterface({ expose: &#39;all&#39; }) // restore for the rest of the page
-  expect(globalThis.tosiAgent.describe().exposure).toBe(&#39;introspection&#39;)
+  expect(globalThis.tosiAgent.describe().exposure).toBe(&#39;all&#39;)
 })
 </code></pre>
 <p>Declaration is distributed; curation is central. The precedence ladder, most

@@ -113,7 +113,7 @@ describe('webmcpTools — the tools write themselves', () => {
     const drained = tools.tosi_changes.execute({ since: cursor })
     expect(drained.changes.length).toBeGreaterThan(0)
     const map = tools.tosi_describe.execute({})
-    expect(map.exposure).toBe('introspection')
+    expect(map.exposure).toBe('all')
   })
 })
 
@@ -343,16 +343,24 @@ describe('SEC-7: an unscoped read-only surface publishes no read tools', () => {
   test('read/changes need a declared scope — or explicit allowReads', async () => {
     tosi({ sec7: { x: 1 }, sec7Private: { token: 'CSRF-TOKEN-123' } })
     await updates()
-    // the no-options default reads the WHOLE registry: publishing that to a
-    // model-context host is a cross-principal disclosure nobody asked for
-    const bare = (current = enableAgentInterface({ global: false }))
+    // the no-options default is CLOSED as of 1.9.0. This gate predates that
+    // and was the ONLY thing between a bare enable and the whole registry
+    // reaching a model-context host; it stays, because `allowReads` can still
+    // open it and because publication and verbs are separate decisions.
+    const bare = (current = enableAgentInterface({
+      global: false,
+      quiet: true,
+    }))
     const bareNames = webmcpTools(bare).map((t) => t.name)
     expect(bareNames).toContain('tosi_describe')
     expect(bareNames).toContain('tosi_surface')
     expect(bareNames).not.toContain('tosi_read')
     expect(bareNames).not.toContain('tosi_changes')
-    // the surface can still read — this is a PUBLICATION gate, not a verb gate
-    expect(bare.read('sec7Private.token')).toBe('CSRF-TOKEN-123')
+    // and the verb now refuses too — this USED to read the token back in
+    // cleartext, documented as "a PUBLICATION gate, not a verb gate". With a
+    // closed default the two agree, so `allowReads` below re-publishes a tool
+    // over a surface that still exposes nothing.
+    expect(() => bare.read('sec7Private.token')).toThrow(/not exposed/)
     // …and the author can still opt in deliberately
     const consenting = webmcpTools(bare, { allowReads: true }).map(
       (t) => t.name
