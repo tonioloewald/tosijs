@@ -76,11 +76,6 @@ README + a test that reads it.
       real tarball rather than a substituted `dist/` is the point: it is what
       caught `isAgentRefusal` missing from the published export surface.
       Remaining: neither project's Playwright lane was run in that scratch copy.
-- [ ] ~~superseded~~ **No downstream consumer has been built against 1.9.0.** `tosijs-ui`
-      devDepends `tosijs 1.8.0` and is the doc-site build host; `bind`
-      accumulation in `create()`/`hydrate()` is a semantics change on the
-      hottest path in the library. Scratch-install and build tosijs-ui before
-      publish (release step 8c, applied pre-tag).
 - [ ] **Close tosijs#31 naming 1.9.0** — the `SYMBOL_MAP` split, the `create()`
       fix and the `listBinding()` fix close it, and it is still open, so
       downstream (including tosijs-ui#127) has no signal the fix shipped.
