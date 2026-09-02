@@ -423,12 +423,16 @@ which means that you can now write bindings with type-checking and autocomplete 
 never use string literals. So something like this *just works*:
 
 ```
-const div = elements.div({bindText: boxed.box.pie})
+const div = elements.div({textContent: boxed.box.pie})
 ```
 
 …because `boxed.box.pie` carries its `.tosi.path`, which is what is actually used for
-binding, whereas `xin.box.pie` is just a scalar value. Without `boxed` you could write
-`bindText: 'box.pie'` but you don't get lint support or autocomplete. (Also, in
+binding, whereas `xin.box.pie` is just a scalar value.
+
+Note the distinction: `textContent` binds a **proxy**. Given a path **string** it
+would set literal text, so the string form needs the inline binding —
+`bind: { value: 'box.pie', binding: 'text' }` — and you get no lint support or
+autocomplete either way. (Also, in
 some cases, you might even mangle the names of an object during minification and
 `boxed` will know the mangled name).
 

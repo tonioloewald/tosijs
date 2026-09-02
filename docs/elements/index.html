@@ -378,14 +378,14 @@ root.innerHTML = `
 `
 
 bindParts(root, {
-  title:  { bindText: app.title },
+  title:  { textContent: app.title },
   search: { bindValue: app.query },
   submit: { onClick: () =&gt; performSearch() },
 })
 </code></pre>
 <p>Each key in <code>bindingMap</code> is matched against the value of <code>data-part</code> (or whatever
 <code>dataAttribute</code> you specify). Matching elements receive the full <code>ElementProps</code>
-treatment — the same logic used by element creators — so <code>bind</code>, <code>bindText</code>,
+treatment — the same logic used by element creators — so <code>bind</code>, <code>textContent</code>,
 <code>on*</code> handlers, <code>style</code>, <code>class</code>, <code>apply</code>, and proxy values all work.</p>
 <p>Elements are tracked via a <code>WeakSet</code> so calling <code>bindParts()</code> again on the same
 root is safe — already-bound elements are skipped.</p>

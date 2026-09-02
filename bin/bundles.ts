@@ -35,6 +35,28 @@ export interface BundleSpec {
   sourcemap?: boolean
 }
 
+/*
+ * BUDGETS RAISED 2026-09-02, deliberately, in the commit that caused the
+ * growth — the gate's own instruction. Every bundle grew 215–610 gz bytes
+ * fixing the 1.8.3 pre-release review, and THREE were within 100 bytes of
+ * their ceiling (index.js was 35 OVER). Raised to the ~1 kB headroom this file
+ * already specifies, rather than nudged past the measurement: a gate that
+ * passes by a hair fails next week on something unrelated and teaches whoever
+ * hits it to raise the number without reading it. (1.8.1 shipped one that
+ * passed by SEVEN bytes; that is the mistake not being repeated.)
+ *
+ * What the bytes bought:
+ *   M1  `bind` accumulates instead of clobbering — a container can be
+ *       list-bound AND carry its own binding. Was silent data loss: one order
+ *       dropped the caller's binding, the other destroyed the entire list.
+ *   M2  create() stops emitting a deprecated key for `div(proxy)`, the most
+ *       idiomatic call form in the library.
+ *   M3  deprecation messages became whole sentences, because two of them told
+ *       users to write props keys that do not exist and one shipped a
+ *       permanently disabled button.
+ *   B1  describe() redacts secrets by PATH (agent-carrying bundles only —
+ *       index.js and core.js omit the agent surface, state.js is DOM-free).
+ */
 export const BUNDLES: BundleSpec[] = [
   {
     naming: 'index.js',
@@ -42,7 +64,7 @@ export const BUNDLES: BundleSpec[] = [
     // the IIFE cannot tree-shake, so it gets the slim entry (no agent
     // surface); ESM/CJS carry everything and consumers shake what they skip
     entry: './src/index-browser.ts',
-    budget: 29_000,
+    budget: 30_000,
     probe: 'load',
     stage: 'main',
   },
@@ -50,7 +72,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.js',
     format: 'esm',
     entry: './src/index.ts',
-    budget: 42_000,
+    budget: 43_000,
     probe: 'import',
     stage: 'main',
   },
@@ -58,7 +80,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'main.js',
     format: 'cjs',
     entry: './src/index.ts',
-    budget: 42_500,
+    budget: 43_500,
     probe: 'require',
     stage: 'main',
   },
@@ -68,7 +90,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'core.js',
     format: 'esm',
     entry: './src/index-core.ts',
-    budget: 26_500,
+    budget: 27_500,
     probe: 'import',
     stage: 'alt',
   },

@@ -504,3 +504,69 @@ describe('observed attributes on THIRD-PARTY elements (tosijs#24 regression guar
     el.remove()
   })
 })
+
+describe('deprecation advice must be typeable and true (review M2, M3)', () => {
+  /*
+   * Nothing pinned these messages — `grep "is deprecated. Use {"` across the
+   * test suite was empty — and two of the four told users to write props keys
+   * that do not exist. Following the `bindEnabled` one literally produced
+   * `<button disabled="">`: a non-empty string is truthy, so the advice
+   * shipped a permanently DEAD CONTROL.
+   */
+  const capture = async (fn: () => void): Promise<string[]> => {
+    const { _resetDeprecationWarnings } = await import('./metadata')
+    _resetDeprecationWarnings()
+    const seen: string[] = []
+    const original = console.warn
+    console.warn = (msg: any) => void seen.push(String(msg))
+    try {
+      fn()
+    } finally {
+      console.warn = original
+    }
+    return seen.filter((m) => m.includes('deprecated'))
+  }
+
+  test('no message tells you to write a key that is not a props key', async () => {
+    tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
+    const msgs = [
+      ...(await capture(() => elements.button({ bindEnabled: 'advice.flag' }))),
+      ...(await capture(() => elements.div({ bindList: 'advice.items' }))),
+      ...(await capture(() => elements.span({ bindText: 'advice.txt' }))),
+      ...(await capture(() => elements.button({ bindDisabled: 'advice.flag' }))),
+    ]
+    expect(msgs.length).toBe(4)
+    for (const m of msgs) {
+      // the two malformed fragments that shipped
+      expect(m).not.toContain('{ .tosi.listBinding():')
+      expect(m).not.toContain('disabled (with')
+    }
+  })
+
+  test('the enabled advice warns that the naive form DISABLES the control', async () => {
+    tosi({ advice2: { flag: true } })
+    const [msg] = await capture(() =>
+      elements.button({ bindEnabled: 'advice2.flag' })
+    )
+    expect(msg).toContain('permanently DISABLING')
+    // and the claim is true — following the naive form really does kill it
+    const dead = elements.button('go', { disabled: 'advice2.flag' }) as any
+    expect(dead.disabled).toBe(true)
+  })
+
+  test('the list advice says SPREAD, because no prop form expresses it', async () => {
+    tosi({ advice3: { items: ['a'] } })
+    const [msg] = await capture(() => elements.div({ bindList: 'advice3.items' }))
+    expect(msg).toContain('SPREAD')
+    expect(msg).toContain('listBinding')
+  })
+
+  test('a bare proxy child does not warn — create() is the most-used site', async () => {
+    const { advice4 } = tosi({ advice4: { name: 'Ada' } })
+    const msgs = await capture(() => {
+      const el = elements.div(advice4.name)
+      document.body.append(el)
+    })
+    expect(msgs).toEqual([])
+  })
+})

@@ -389,11 +389,14 @@ assign.</p>
 <p>As far as Typescript is concerned, <code>xinProxy</code> just passes back what you put into it,
 which means that you can now write bindings with type-checking and autocomplete and
 never use string literals. So something like this <em>just works</em>:</p>
-<pre><code>const div = elements.div({bindText: boxed.box.pie})
+<pre><code>const div = elements.div({textContent: boxed.box.pie})
 </code></pre>
 <p>…because <code>boxed.box.pie</code> carries its <code>.tosi.path</code>, which is what is actually used for
-binding, whereas <code>xin.box.pie</code> is just a scalar value. Without <code>boxed</code> you could write
-<code>bindText: &#39;box.pie&#39;</code> but you don&#39;t get lint support or autocomplete. (Also, in
+binding, whereas <code>xin.box.pie</code> is just a scalar value.</p>
+<p>Note the distinction: <code>textContent</code> binds a <strong>proxy</strong>. Given a path <strong>string</strong> it
+would set literal text, so the string form needs the inline binding —
+<code>bind: { value: &#39;box.pie&#39;, binding: &#39;text&#39; }</code> — and you get no lint support or
+autocomplete either way. (Also, in
 some cases, you might even mangle the names of an object during minification and
 <code>boxed</code> will know the mangled name).</p>
 <h3>If you need the thing itself or the path to the thing…</h3>

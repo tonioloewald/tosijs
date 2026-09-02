@@ -63,7 +63,7 @@ consy myProxy = tosi({
 
 // create an element and bind its textContent to myProxy.foo
 //
-const myDiv = elements.div({ bindText: myProxy.foo })
+const myDiv = elements.div({ textContent: myProxy.foo })
 
 myProxy.foo = &#39;now it is updated&#39;
 // wait until the next animation frame is rendered

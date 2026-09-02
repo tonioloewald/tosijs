@@ -377,14 +377,14 @@ event handlers, and properties without having to build the DOM programmatically.
     `
 
     bindParts(root, {
-      title:  { bindText: app.title },
+      title:  { textContent: app.title },
       search: { bindValue: app.query },
       submit: { onClick: () => performSearch() },
     })
 
 Each key in `bindingMap` is matched against the value of `data-part` (or whatever
 `dataAttribute` you specify). Matching elements receive the full `ElementProps`
-treatment — the same logic used by element creators — so `bind`, `bindText`,
+treatment — the same logic used by element creators — so `bind`, `textContent`,
 `on*` handlers, `style`, `class`, `apply`, and proxy values all work.
 
 Elements are tracked via a `WeakSet` so calling `bindParts()` again on the same
@@ -654,36 +654,56 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   } else if (key.match(/^bind[A-Z]/) != null) {
     const bindingType = key.substring(4, 5).toLowerCase() + key.substring(5)
     if (bindingType !== 'value') {
-      // NAME THE PROXY FORM EXPLICITLY. "Use { textContent: … }" is only true
-      // when the value is a PROXY. Given a path STRING — which is what these
-      // shortcuts were most used for — `textContent` sets literal text and the
-      // binding silently disappears. Following this advice mechanically broke
-      // six doc examples and the listBinding default content (tosijs#31), all
-      // of which typechecked and only surfaced in the browser doc-test lane.
-      const alt =
+      /*
+       * THE MESSAGE IS A WHOLE SENTENCE, not a `{ key: … }` fragment.
+       *
+       * It used to interpolate a replacement fragment into `Use { ${alt}: … }`,
+       * and two of the four entries were not props keys at all, so the library
+       * printed instructions that cannot be typed:
+       *
+       *   "Use { .tosi.listBinding(): ... } instead."            <- not a key
+       *   "Use { disabled (with .tosi.take(v => !v)): ... }"     <- not a key
+       *
+       * `bindList`'s real migration is a SPREAD, which no `{ key: value }`
+       * phrasing can express. And following the `bindEnabled` line literally
+       * yields `{ disabled: 'app.flag' }` → `<button disabled="">`: a non-empty
+       * string is truthy, so the advice ships a PERMANENTLY DEAD CONTROL — the
+       * exact opposite of what bindEnabled meant, and not "literal text" as an
+       * earlier version of this caveat claimed.
+       */
+      const shown = typeof value === 'string' ? `'${value}'` : 'proxy'
+      const inlineForm =
+        `{ bind: { value: ${shown}, binding: '${bindingType}' } }`
+      const isPath = typeof value === 'string'
+      const advice =
         bindingType === 'text'
-          ? 'textContent'
-          : bindingType === 'enabled'
-          ? 'disabled (with .tosi.take(v => !v))'
+          ? isPath
+            ? `Use ${inlineForm} — { textContent: ${shown} } would set literal ` +
+              `text, not bind.`
+            : 'Use { textContent: proxy }.'
           : bindingType === 'disabled'
-          ? 'disabled'
+          ? isPath
+            ? `Use ${inlineForm} — { disabled: ${shown} } sets the property to ` +
+              `a non-empty string, which is always truthy.`
+            : 'Use { disabled: proxy }.'
+          : bindingType === 'enabled'
+          ? isPath
+            ? `Use ${inlineForm} — { disabled: ${shown} } sets the property to ` +
+              `a non-empty string, which is always truthy, permanently ` +
+              `DISABLING the control.`
+            : 'Use { disabled: proxy.tosi.take(v => !v) } — note the inversion.'
           : bindingType === 'list'
-          ? '.tosi.listBinding()'
+          ? isPath
+            ? `Use ${inlineForm} with a <template> child, or spread ` +
+              `...proxy.tosi.listBinding(builder, options) — it is a SPREAD, ` +
+              `not a prop.`
+            : 'Spread ...proxy.tosi.listBinding(builder, options) — it is a ' +
+              'SPREAD, not a prop.'
           : null
-      if (alt) {
-        // THE CAVEAT IS NOT OPTIONAL. `{ textContent: x }` binds when `x` is a
-        // PROXY and sets literal text when it is a path STRING — which is what
-        // these shortcuts were most used for. Advice without that distinction
-        // is advice that silently deletes a binding.
-        const caveat =
-          typeof value === 'string'
-            ? ` Since you passed a PATH STRING, use ` +
-              `{ bind: { value: '${value}', binding: '${bindingType}' } } — ` +
-              `{ ${alt}: '${value}' } would set literal text, not bind.`
-            : ''
+      if (advice) {
         warnDeprecated(
           `bind${bindingType}`,
-          `bind${key.substring(4)} is deprecated. Use { ${alt}: ... } instead.${caveat}`
+          `bind${key.substring(4)} is deprecated. ${advice}`
         )
       }
     }
@@ -733,7 +753,13 @@ const create = (tagType: string, ...contents: ElementPart[]): HTMLElement => {
         elt.append(item as Node)
       }
     } else if (tosiPath(item)) {
-      elt.append(elements.span({ bindText: item }))
+      // `elements.div(proxy)` — the most idiomatic call form in the library.
+      // This used the DEPRECATED `bindText` key, so the library warned users
+      // about API they had not written, on the most ordinary call there is.
+      // It is verbatim cause #1 of tosijs#31 and the fix originally missed it,
+      // which is why the first live example on the list-binding page still
+      // warned after the release that was named for stopping exactly that.
+      elt.append(elements.span({ bind: { value: item, binding: 'text' } }))
     } else {
       // `bind` IS ACCUMULATED, NOT OVERWRITTEN. Everything else is
       // last-write-wins, which is right for scalar props — but a plain
