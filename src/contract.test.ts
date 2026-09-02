@@ -1510,3 +1510,91 @@ test('an empty field clears the violation latch, and so does null', async () => 
   }
   el.remove()
 })
+
+describe('a surface refusal is INCONCLUSIVE, never a pass', () => {
+  test('every refusal the surface can throw is recognised as one', async () => {
+    /*
+     * `refusedBySurface` used to substring-match the refusal's PROSE, coupling
+     * a security gate to its own wording. 1.9.0 rewrote every message and the
+     * coupling broke silently: all three substrings became unreachable, and
+     * the refusal that DOES fire here — "is callable, not writable", thrown
+     * when a write lands on a root CONTAINING a declared action — matched none
+     * of them, so the catch took the `passed = true` branch. This exact
+     * contract returned { passed: 2, failed: 0 }, byte-identical to a real run.
+     *
+     * The gate now asks `err.tosiRefusal`, which survives message edits.
+     */
+    const { enableAgentInterface } = await import('./agent')
+    const { tosi } = await import('./xin-proxy')
+    const { updates } = await import('./path-listener')
+    tosi({ refApp: { qty: 5, checkout() {} } })
+    await updates()
+    const contract = {
+      describe: () => ({
+        refApp: { type: 'object', $counterexamples: [{ qty: 999 }, { qty: -1 }] },
+      }),
+    }
+    const agent = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: {
+        roots: ['refApp'],
+        actions: ['refApp.checkout'],
+        contract,
+        write: true,
+      },
+    } as any)
+    try {
+      const report = exerciseContract(agent)
+      // NOT a pass: nothing was validated
+      expect(report.passed).toBe(0)
+      expect(report.failed).toBe(2)
+      for (const trial of report.trials) {
+        expect(trial.passed).toBe(false)
+        expect(trial.error).toContain('inconclusive')
+      }
+    } finally {
+      agent.disable()
+    }
+  })
+
+  test('the refusal tag is set at every site that refuses', async () => {
+    const { enableAgentInterface, isAgentRefusal } = await import('./agent')
+    const { tosi } = await import('./xin-proxy')
+    const { updates } = await import('./path-listener')
+    tosi({ tagApp: { n: 1, go() {} } })
+    await updates()
+    const grab = (fn: () => any) => {
+      try {
+        fn()
+        return null
+      } catch (e) {
+        return e
+      }
+    }
+    // closed: scope refusal on read, mutability refusal on write/call
+    const closed = enableAgentInterface({ quiet: true, global: false })
+    expect(isAgentRefusal(grab(() => closed.read('tagApp.n')))).toBe(true)
+    expect(isAgentRefusal(grab(() => closed.write('tagApp.n', 2)))).toBe(true)
+    expect(isAgentRefusal(grab(() => closed.call('tagApp.go')))).toBe(true)
+    closed.disable()
+    // manifest without write: the "reading only" refusal
+    const ro = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['tagApp'] },
+    })
+    expect(isAgentRefusal(grab(() => ro.write('tagApp.n', 2)))).toBe(true)
+    ro.disable()
+    // manifest WITH write: the callable-not-writable refusal
+    const rw = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['tagApp'], actions: ['tagApp.go'], write: true },
+    })
+    expect(isAgentRefusal(grab(() => rw.write('tagApp', {})))).toBe(true)
+    // …and an ordinary in-scope write is NOT a refusal
+    expect(grab(() => rw.write('tagApp.n', 7))).toBe(null)
+    rw.disable()
+  })
+})

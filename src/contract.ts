@@ -34,7 +34,12 @@ the whole conformance suite, shippable over the wire.
 
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
-import { AgentInterface, ComponentMap, ComponentTestStep } from './agent'
+import {
+  AgentInterface,
+  ComponentMap,
+  ComponentTestStep,
+  isAgentRefusal,
+} from './agent'
 import { ownContract } from './contract-check'
 import { updates } from './path-listener'
 
@@ -144,18 +149,30 @@ export const exerciseContract = (agent: AgentInterface): ContractReport => {
         // manifest-scoped surface refuses every write, so a contract with
         // only $counterexamples used to produce a fully green report from a
         // harness that had validated nothing at all.
-        // MATCHES THE MESSAGES `agent.ts` ACTUALLY THROWS. Keep in step with
-        // `assertScope`/`assertMutable` — 1.9.0 rewrote both and retired the
-        // phrase "read-only" entirely. That was safe only by luck: the closed
-        // posture's "exposes nothing" matches nothing here, and is unreachable
-        // because `writable` is false there and the guard above already threw.
-        // Listed anyway, because relying on an unrelated guard to cover a
-        // string match is exactly how this silently goes green again.
+        /*
+         * ASK THE ERROR, DON'T READ IT.
+         *
+         * This matched the refusal's PROSE, which coupled a security gate to
+         * its own wording. It broke as soon as 1.9.0 rewrote the messages: by
+         * the re-review all three substrings were unreachable, and the refusal
+         * that DOES fire — "is callable, not writable", thrown when a write
+         * lands on or contains a declared action — matched none of them. So
+         * `refusedBySurface` was false, the catch took the `passed = true`
+         * branch, and a contract of nothing but `$counterexamples` returned a
+         * green report having validated nothing. Exactly the outcome the
+         * comment here was written to prevent.
+         *
+         * `tosiRefusal` is set by `agent.ts` at every refusal site and survives
+         * message edits. The substrings stay as a fallback for a surface built
+         * against an older tosijs, and are now covered by tests.
+         */
         const message = (e as Error)?.message ?? ''
         const refusedBySurface =
+          isAgentRefusal(e) ||
           message.includes('exposes nothing') ||
           message.includes('reading only') ||
-          message.includes('not exposed')
+          message.includes('not exposed') ||
+          message.includes('is callable, not writable')
         if (refusedBySurface) {
           error =
             'inconclusive: the SURFACE refused this write before any ' +

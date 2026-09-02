@@ -32,6 +32,7 @@ nothing either way.
 */
 export {
   enableAgentInterface,
+  isAgentRefusal,
   BOUND_TO_DOM,
   BOUND_TWO_WAY,
   AGENT_SURFACE_VERSION,
@@ -46,6 +47,8 @@ export type {
   AgentLogEntry,
   AgentSurfaceVersion,
   AgentExpose,
+  AgentRefusalKind,
+  AgentRefusalError,
   ComponentMap,
   ComponentTestStep,
 } from './agent'

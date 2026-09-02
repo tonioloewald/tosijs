@@ -56,6 +56,33 @@ warning its own users about API they never wrote.
   the posture that logs "nothing is exposed". Of five ways an element could
   become `wired`, only two consulted posture. There is now one gate on the
   walk rather than five conditions to keep in step.
+- **A MANIFEST closes the DOM walk too.** The first attempt at the above put
+  one gate on the walk keyed to the *closed* posture — which closed the closed
+  posture and left the **manifest** posture, the one this page calls the
+  production floor, publishing exactly what `read()` refuses: a token in an
+  `<a href>`, a user's live contenteditable text, a private component's
+  description and action namespace, and the rendered text of a binding to an
+  undeclared path. Under any allowlist an element now earns its place on the
+  map by being *declared* — an in-scope binding or an in-scope handler — never
+  by merely existing in the DOM.
+- **The harvest guards can see out-of-scope bindings.** `boundPaths` was built
+  after the publishing loop's in-scope filter, so an element bound only to
+  undeclared paths reached the secrecy guard with an empty list and its text
+  was published. Scope-filtering what is *published* is right; scope-filtering
+  what the guards can *see* is what let it out.
+- **`aria-labelledby` / `aria-describedby` cannot launder a secret.** Those
+  resolve an id to any node in the document, while every other guard is a
+  subtree query — so a heading labelled from a `data-tosi-secret` span
+  published it, and an element whose own record was correctly suppressed had
+  its content republished as a neighbour's label.
+- **`exerciseContract()` no longer reports a false green.** It classified
+  "the surface refused before any contract ran" by substring-matching the
+  refusal's prose, which coupled a security gate to its own wording. 1.9.0
+  rewrote every message: all three substrings became unreachable and the
+  refusal that *does* fire ("is callable, not writable") matched none, so a
+  contract of nothing but `$counterexamples` returned `{ passed: 2, failed: 0 }`
+  — identical to a validated run, in an API consumers run in their own CI.
+  Refusals now carry `err.tosiRefusal`; `isAgentRefusal()` is exported.
 - **The structural tier obeys scope, secrecy and `aria-hidden`.** It re-visits
   elements the main walk deliberately rejected — and read their `textContent`
   with none of the main walk's guards, defeating all three independently *in

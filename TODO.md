@@ -69,7 +69,14 @@ README + a test that reads it.
       removes the sharp edge; the rule is still applied non-uniformly. Either
       warn only when the value is a proxy, or state the exception and why.
       (Not new in 1.9.0 — `git log -S` puts the deprecation at 1.5.7.)
-- [ ] **No downstream consumer has been built against 1.9.0.** `tosijs-ui`
+- [x] ~~**No downstream consumer has been built against 1.9.0.**~~ **DONE** —
+      the published tarball (`bun pm pack`), extracted into tosijs-ui exactly
+      as a consumer receives it: **1230 tests pass, 0 fail**, and the full
+      doc-site build succeeds (66 pages + epub), exit 0. Doing it against a
+      real tarball rather than a substituted `dist/` is the point: it is what
+      caught `isAgentRefusal` missing from the published export surface.
+      Remaining: neither project's Playwright lane was run in that scratch copy.
+- [ ] ~~superseded~~ **No downstream consumer has been built against 1.9.0.** `tosijs-ui`
       devDepends `tosijs 1.8.0` and is the doc-site build host; `bind`
       accumulation in `create()`/`hydrate()` is a semantics change on the
       hottest path in the library. Scratch-install and build tosijs-ui before

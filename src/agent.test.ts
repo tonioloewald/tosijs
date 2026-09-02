@@ -1063,6 +1063,153 @@ describe('the posture: safe by default, full access behind one line', () => {
     expect(rec.secret).toBe(true) // …and says why its content is missing
   })
 
+  test('a MANIFEST closes the DOM walk too, not just the closed default', async () => {
+    /*
+     * Re-review B-1 — the manifest twin of the closed-posture fixture above.
+     *
+     * The first fix put ONE gate on the walk keyed to `closed`, and I asserted
+     * in the commit message that this was the durable fix because it could not
+     * drift out of sync. It was durable for exactly one posture. The MANIFEST
+     * posture — the one the docs call the production floor, and the one where
+     * `tosi_read` is actually published — kept handing over a token in an
+     * href, a user's live contenteditable text, a private component's action
+     * namespace, and the rendered text of a binding `read()` refuses.
+     *
+     * Nothing broke when this was gated because no test exercised these shapes
+     * under a manifest at all: both were tested only under `expose: 'all'`.
+     * That absence is what this test is.
+     */
+    tosi({ mApp: { cart: 2 }, mPriv: { csrf: 'CSRF-TOKEN-8f31' } })
+    await updates()
+    const declared = elements.input({ id: 'm-declared' })
+    const link = elements.a({ id: 'm-link', href: '/reset?t=RESET-TOKEN' }, 'go')
+    const draft = elements.div(
+      { id: 'm-draft', contentEditable: 'true' },
+      'patient SSN 123-45-6789'
+    )
+    // bound to an UNDECLARED path: its rendered text is a value read() refuses
+    const mirror = elements.div({ id: 'm-mirror' })
+    /*
+     * The element that makes the GUARD matter, as opposed to the `wired`
+     * gates: bound to a DECLARED path (so it legitimately earns a place on the
+     * map) AND to an undeclared one whose value it renders as text. The `wired`
+     * gates cannot drop this — it is properly in scope — so only a guard that
+     * can SEE the out-of-scope binding stops its text going out. `boundPaths`
+     * is built after the publishing loop's `if (!inScope) continue`, so the
+     * guard was blind to precisely that binding.
+     */
+    const both = elements.div({ id: 'm-both' })
+    document.body.append(declared, link, draft, mirror, both)
+    bind(declared, 'mApp.cart', bindings.value)
+    bind(mirror, 'mPriv.csrf', {
+      toDOM(el: any, v: any) {
+        el.textContent = v
+      },
+    })
+    bind(both, 'mApp.cart', { toDOM() {} })
+    bind(both, 'mPriv.csrf', {
+      toDOM(el: any, v: any) {
+        el.textContent = v
+      },
+    })
+    // a self-declaring PRIVATE component: its contract is the component
+    // author's declaration, not the app author's grant
+    const { Component } = await import('./component')
+    class MPriv extends (Component as any) {
+      static preferredTagName = 'm-priv-widget'
+      static contract = {
+        description: 'internal admin panel — MANIFEST-KILL-SWITCH',
+        actions: { wipe: {} },
+      }
+      content = null
+    }
+    const widget = MPriv.elementCreator()() as any
+    document.body.append(widget)
+    await updates()
+    for (const el of [declared, link, draft, mirror, both, widget]) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+        configurable: true,
+      })
+    }
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['mApp'] },
+    }))
+    expect(agent.describe().exposure).toBe('manifest')
+    expect(() => agent.read('mPriv.csrf')).toThrow(/not exposed/)
+    const json = JSON.stringify(agent.describe())
+    // …and describe() must agree with read(), through tosi_describe, which is
+    // published in EVERY posture
+    for (const leak of [
+      'RESET-TOKEN',
+      '123-45-6789',
+      'CSRF-TOKEN-8f31',
+      'mPriv.csrf',
+      'MANIFEST-KILL-SWITCH',
+    ]) {
+      expect(json).not.toContain(leak)
+    }
+    // the dual-bound element IS on the map (its declared binding earns that)
+    // — with its out-of-scope value withheld, which is the guard's job
+    const bothRec = (agent.describe().wiring as any[]).find(
+      (w) => w.id === 'm-both'
+    )
+    expect(bothRec).toBeDefined()
+    expect(JSON.stringify(bothRec)).not.toContain('CSRF-TOKEN-8f31')
+    // POSITIVE CONTROL: the declared root is still fully described, so the
+    // assertions above are about scope and not about an empty map
+    expect(json).toContain('mApp.cart')
+    expect((agent.describe().wiring as any[]).length).toBeGreaterThan(0)
+  })
+
+  test('aria-labelledby/describedby cannot launder a secret', async () => {
+    /*
+     * Re-review M-2. `record.label` and `record.description` are built by
+     * following an id reference to ANY node in the document — while every
+     * other secrecy guard is a SUBTREE query, so a referenced node outside the
+     * element's own subtree was invisible to all of them. A heading labelled
+     * from a `data-tosi-secret` span published the secret as its label, and an
+     * element whose own record was correctly suppressed had its content
+     * republished as a neighbour's label.
+     */
+    tosi({ ariaApp: { n: 1 } })
+    await updates()
+    const secret = elements.span({ id: 'aria-secret' }, 'ARIA-LAUNDERED')
+    secret.setAttribute('data-tosi-secret', '')
+    const plain = elements.span({ id: 'aria-plain' }, 'ARIA-ORDINARY')
+    const viaLabel = elements.input({
+      id: 'aria-l',
+      'aria-labelledby': 'aria-secret',
+    })
+    const viaDesc = elements.input({
+      id: 'aria-d',
+      'aria-describedby': 'aria-secret',
+    })
+    const control = elements.input({
+      id: 'aria-ok',
+      'aria-labelledby': 'aria-plain',
+    })
+    document.body.append(secret, plain, viaLabel, viaDesc, control)
+    for (const el of [viaLabel, viaDesc, control]) {
+      bind(el, 'ariaApp.n', bindings.value)
+    }
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all', // the WIDEST posture: secrecy is the only guard left
+    }))
+    const json = JSON.stringify(agent.describe())
+    expect(json).not.toContain('ARIA-LAUNDERED')
+    // POSITIVE CONTROL — ordinary references still resolve, or this test
+    // would pass by breaking the accessible-name harvest entirely
+    expect(json).toContain('ARIA-ORDINARY')
+  })
+
   test('the structural tier obeys scope, secrecy and aria-hidden', async () => {
     /*
      * Review B-2 — a FOURTH unguarded harvest, and the nastiest, because it

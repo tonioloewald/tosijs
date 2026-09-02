@@ -470,6 +470,36 @@ export interface AgentLogEntry {
   note?: string
 }
 
+/**
+ * Why the SURFACE refused, as a tag rather than as prose.
+ *
+ * `exerciseContract()` has to tell "the surface refused this write before any
+ * contract ran" (inconclusive) from "the contract rejected it" (a pass), and
+ * it did so by substring-matching the error message. That is a coupling
+ * between a security gate and its own wording, and it broke exactly as you
+ * would expect: 1.9.0 rewrote every refusal message, and by the re-review ALL
+ * THREE substrings were unreachable while the one refusal that does fire —
+ * "is callable, not writable" — matched none of them, so a contract suite of
+ * nothing but `$counterexamples` returned `{ passed: 2, failed: 0 }`,
+ * byte-identical to a genuinely validated run, in a public API consumers run
+ * in their own CI.
+ */
+export type AgentRefusalKind = 'scope' | 'mutability' | 'callable'
+
+/** an Error carrying why the surface refused; `kind` survives message edits */
+export interface AgentRefusalError extends Error {
+  tosiRefusal: AgentRefusalKind
+}
+
+export const isAgentRefusal = (e: unknown): e is AgentRefusalError =>
+  e instanceof Error && typeof (e as any).tosiRefusal === 'string'
+
+const refuse = (kind: AgentRefusalKind, message: string): AgentRefusalError => {
+  const error = new Error(message) as AgentRefusalError
+  error.tosiRefusal = kind
+  return error
+}
+
 export interface AgentInterface {
   /**
    * `scope` limits the wiring walk to one element's SUBTREE — hierarchy
@@ -620,10 +650,43 @@ const referencedText = (el: Element, attr: string): string | null => {
   if (!ids) return null
   const text = ids
     .split(/\s+/)
-    .map((id) => el.ownerDocument?.getElementById(id)?.textContent?.trim())
+    .map((id) => {
+      const target = el.ownerDocument?.getElementById(id)
+      if (target == null) return undefined
+      /*
+       * AN ID REFERENCE ESCAPES THE SUBTREE. (Re-review M-2.)
+       *
+       * `aria-labelledby` / `aria-describedby` point at ANY node in the
+       * document, and this text became `record.label` / `record.description`
+       * with no secrecy check ever applied to those two fields. Every other
+       * guard here is a SUBTREE query (`el.querySelector(...)`), so a
+       * referenced node outside the element's own subtree was invisible to
+       * all of them — and a `<h2 aria-labelledby="x">` pointing at a
+       * `<span id="x" data-tosi-secret>` published the secret as a label.
+       * Worse, an element whose own record was correctly suppressed had its
+       * value republished as a NEIGHBOUR's label.
+       *
+       * So check the node we are about to read, and the ancestors that could
+       * have marked it — the same question `isSecretControl` asks, asked at
+       * the place the text is actually taken from.
+       */
+      if (referencedNodeIsSecret(target)) return undefined
+      return target.textContent?.trim()
+    })
     .filter(Boolean)
     .join(' ')
   return text || null
+}
+
+/** is this referenced node — or an ancestor of it — marked secret? */
+const referencedNodeIsSecret = (target: Element): boolean => {
+  try {
+    if (isSecretControl(target)) return true
+    if (target.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
+    return target.closest?.('[data-tosi-secret]') != null
+  } catch {
+    return true // cannot tell === must not publish
+  }
 }
 
 // a form control's <label> — wrapping, or associated via for="id" — names
@@ -1503,7 +1566,8 @@ export function enableAgentInterface(
 
   const assertScope = (path: string): void => {
     if (!inScope(path)) {
-      throw new Error(
+      throw refuse(
+        'scope',
         closed
           ? `agent interface: "${path}" is not exposed — this surface ` +
             "declares no manifest, so nothing is. Pass expose: 'all' while " +
@@ -1518,7 +1582,8 @@ export function enableAgentInterface(
     const allowed = verb === 'call' ? callsAllowed : writesAllowed
     if (allowed) return
     if (closed) {
-      throw new Error(
+      throw refuse(
+        'mutability',
         `agent interface: ${verb}("${path}") refused — this surface exposes ` +
           `nothing. Declare expose: { roots${
             verb === 'call' ? ', actions' : ''
@@ -1526,7 +1591,8 @@ export function enableAgentInterface(
           "expose: 'all' while developing."
       )
     }
-    throw new Error(
+    throw refuse(
+      'mutability',
       `agent interface: ${verb}("${path}") refused — this manifest exposes ` +
         'its roots for reading only. Add write: true to the manifest to ' +
         "allow writes, or use expose: 'all' while developing."
@@ -1662,6 +1728,28 @@ export function enableAgentInterface(
           let inlinePath: string | undefined
           let inlineTwoWay = false
           let wired = false
+          /*
+           * EVERY bound path, in scope or not — the GUARDS need the ones the
+           * publishing loop skips.
+           *
+           * `boundPaths` is built inside the loop below, AFTER its
+           * `if (!inScope) continue`, so an element bound only to undeclared
+           * paths reached `suppressHarvest` with an empty list. The guard then
+           * saw no secret and no scope violation, and the DOM arm found
+           * nothing because the element is not a secret *control* — so a
+           * contenteditable bound to an undeclared token published it as text.
+           * Scope-filtering what we PUBLISH is right; scope-filtering what the
+           * guards can SEE is what let it out.
+           */
+          const allBoundPaths =
+            dataBindings != null
+              ? dataBindings
+                  .map((b: any) => b.path)
+                  .filter((p: any) => p != null)
+              : []
+          const outOfScopeBinding = allBoundPaths.some(
+            (path: string) => !inScope(path)
+          )
           if (dataBindings != null) {
             for (const b of dataBindings) {
               if (!inScope(b.path)) continue
@@ -1756,8 +1844,16 @@ export function enableAgentInterface(
             }
           }
           // static text, when textContent isn't already surfaced as bound —
-          // NOT when harvesting it would publish a secret (round-4 B-1)
-          if (record.text === undefined && !suppressHarvest(el, record, boundPaths)) {
+          // NOT when harvesting it would publish a secret (round-4 B-1), and
+          // NOT when the element is bound to something out of scope: its text
+          // is then the rendered form of a value `read()` refuses.
+          // `allBoundPaths`, not `boundPaths` — the latter is scope-filtered,
+          // so the guard was blind to exactly the bindings that matter here.
+          if (
+            record.text === undefined &&
+            !outOfScopeBinding &&
+            !suppressHarvest(el, record, allBoundPaths)
+          ) {
             const text = stripArrows((el.textContent || '').trim()).slice(0, 40)
             if (text) record.text = text
           }
@@ -1784,19 +1880,41 @@ export function enableAgentInterface(
             ).slice(0, 40)
             if (liveValue) record.value = liveValue
           }
-          // links are affordances in themselves — a bare <a href> is on
-          // the map whether or not anything else wires it
-          if (record.href != null && record.tag === 'a') {
+          /*
+           * AN ALLOWLIST GOVERNS THESE TOO. (Re-review B-1.)
+           *
+           * These two, plus the self-declared component below, put an element
+           * on the map with no posture check at all. The first fix put ONE
+           * gate on the walk keyed to `closed` — which closed the closed
+           * posture and left the MANIFEST posture, the one the docs call the
+           * production floor, publishing exactly what `read()` refuses: a
+           * token in an href, a user's live contenteditable text, a private
+           * component's action namespace. Through `tosi_describe`, which is
+           * published in every posture.
+           *
+           * The tell was already in the file: the unbound-form-control
+           * harvest twenty lines up is gated `!scoped`, with the comment "an
+           * allowlist that hides read('app.pin') must not hand the same digits
+           * over as DOM content". Same invariant; these disagreed with it.
+           *
+           * So `scoped`, not `closed`. Under any allowlist an element earns a
+           * place on the map by being DECLARED — via an in-scope binding or an
+           * in-scope handler — never merely by existing in the DOM.
+           */
+          if (!scoped && record.href != null && record.tag === 'a') {
             wired = true
           }
           // contenteditable: live text is its value; the region is an
           // affordance in itself, mapped even before bindings attach
           if (record.contentEditable === true) {
             // a contenteditable region carrying `data-tosi-secret` is the
-            // author's own opt-in, and it was being ignored here
+            // author's own opt-in, and it was being ignored here.
+            // `allBoundPaths`, not `boundPaths`: the guard must see the
+            // bindings the publishing loop skipped as out of scope.
             if (
               record.value === undefined &&
-              !suppressHarvest(el, record, boundPaths)
+              !outOfScopeBinding &&
+              !suppressHarvest(el, record, allBoundPaths)
             ) {
               const liveText = stripArrows((el.textContent || '').trim()).slice(
                 0,
@@ -1804,7 +1922,7 @@ export function enableAgentInterface(
               )
               if (liveText) record.value = liveText
             }
-            wired = true
+            if (!scoped) wired = true
           }
           if (inline != null) {
             record.contract = inline
@@ -1831,8 +1949,11 @@ export function enableAgentInterface(
             }
             // a self-DECLARED component is an affordance by declaration:
             // carrying a contract announces it to the surface, shadow
-            // internals or not
-            if (record.component != null) {
+            // internals or not — but under an allowlist, declaring a contract
+            // is the COMPONENT author's decision, not the app author's, and it
+            // must not put a private widget (its description, action
+            // namespace and attribute defaults) on a scoped map
+            if (record.component != null && !scoped) {
               wired = true
             }
             // ATTRIBUTES, HOWEVER THEY WERE DECLARED (tosijs#29). Reading them
@@ -2070,7 +2191,8 @@ export function enableAgentInterface(
       assertMutable('write', path)
       assertScope(path)
       if (!writable(path)) {
-        throw new Error(
+        throw refuse(
+          'callable',
           `agent interface: "${path}" is callable, not writable (declare it under roots to allow writes)`
         )
       }

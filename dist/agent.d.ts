@@ -337,6 +337,26 @@ export interface AgentLogEntry {
     /** synthetic audit notes (e.g. when() arming/resolution) — not state touches */
     note?: string;
 }
+/**
+ * Why the SURFACE refused, as a tag rather than as prose.
+ *
+ * `exerciseContract()` has to tell "the surface refused this write before any
+ * contract ran" (inconclusive) from "the contract rejected it" (a pass), and
+ * it did so by substring-matching the error message. That is a coupling
+ * between a security gate and its own wording, and it broke exactly as you
+ * would expect: 1.9.0 rewrote every refusal message, and by the re-review ALL
+ * THREE substrings were unreachable while the one refusal that does fire —
+ * "is callable, not writable" — matched none of them, so a contract suite of
+ * nothing but `$counterexamples` returned `{ passed: 2, failed: 0 }`,
+ * byte-identical to a genuinely validated run, in a public API consumers run
+ * in their own CI.
+ */
+export type AgentRefusalKind = 'scope' | 'mutability' | 'callable';
+/** an Error carrying why the surface refused; `kind` survives message edits */
+export interface AgentRefusalError extends Error {
+    tosiRefusal: AgentRefusalKind;
+}
+export declare const isAgentRefusal: (e: unknown) => e is AgentRefusalError;
 export interface AgentInterface {
     /**
      * `scope` limits the wiring walk to one element's SUBTREE — hierarchy
