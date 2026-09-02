@@ -912,6 +912,43 @@ const isSecretControl = (el: Element, type?: string): boolean => {
   )
 }
 
+/**
+ * Would harvesting this element's LIVE DOM TEXT expose a secret?
+ *
+ * `describe()` has three live-DOM harvests. The unbound-form-control one gates
+ * on `record.secret`; the static-text and contenteditable ones gated on
+ * NOTHING, so `describe()` published in cleartext exactly what `read()`
+ * refuses — the invariant this release exists to restore, leaking at a third
+ * address after `boundValue` and `redactWithin` were fixed.
+ *
+ * Three signals, because no one of them covers the observed shapes:
+ *   - the element IS a secret control (`record.secret`) — a secret <select>
+ *     redacted its `value` and printed the card numbers in `text` beside it;
+ *   - the element is BOUND to a secret path, without being a secret control
+ *     itself — a plain <div> with a custom toDOM rendering a token has no
+ *     `secret` flag at all;
+ *   - the element CONTAINS a secret control or an author-marked region — a
+ *     wired ancestor otherwise launders its descendant's text, including the
+ *     author's own `data-tosi-secret` opt-in.
+ */
+const harvestWouldLeak = (
+  el: Element,
+  record: AgentWiringRecord,
+  boundPaths: string[]
+): boolean => {
+  if (record.secret === true) return true
+  for (const path of boundPaths) {
+    if (isSecretPath(path) || containsSecret(path)) return true
+  }
+  try {
+    if (el.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
+    if (el.querySelector?.('[data-tosi-secret]') != null) return true
+  } catch {
+    return true // cannot tell === must not publish
+  }
+  return false
+}
+
 const describeElement = (el: Element): AgentWiringRecord => {
   const record: AgentWiringRecord = {
     tag: el.tagName.toLowerCase(),
@@ -1348,6 +1385,9 @@ export function enableAgentInterface(
           if (ariaHidden(el)) return undefined // hidden from AT = hidden here
           const { dataBindings, eventBindings } = getElementBindings(el)
           const record = describeElement(el)
+          // every state path this element is bound to, so the live-DOM
+          // harvests below can ask whether any of them is secret
+          const boundPaths: string[] = []
           // inline contract: declared at the element, aggregated (below) into
           // describe().contract under the element's bound path — declaration
           // is distributed, curation is central
@@ -1379,6 +1419,7 @@ export function enableAgentInterface(
               // map publishes this path, so withholding only the DOM value
               // would just be telling the agent what to ask for
               if (record.secret === true) secretPaths.add(b.path)
+              boundPaths.push(b.path)
               if (name != null && record[name] === undefined) {
                 record[name] = boundValue(
                   b.path,
@@ -1397,6 +1438,8 @@ export function enableAgentInterface(
             }
           }
           if (eventBindings != null) {
+            // every state path this element is bound to, so a live-DOM
+            // harvest can ask whether any of them is secret
             const on: Record<string, string | string[]> = {}
             // SCOPE COMES FROM PROVENANCE, NEVER FROM THE RENDERED STRING.
             // This used to test `name !== 'ƒ'`, so a plain named function
@@ -1445,8 +1488,9 @@ export function enableAgentInterface(
               if (!manifestMode || anyHandlerInScope) wired = true
             }
           }
-          // static text, when textContent isn't already surfaced as bound
-          if (record.text === undefined) {
+          // static text, when textContent isn't already surfaced as bound —
+          // NOT when harvesting it would publish a secret (round-4 B-1)
+          if (record.text === undefined && !harvestWouldLeak(el, record, boundPaths)) {
             const text = stripArrows((el.textContent || '').trim()).slice(0, 40)
             if (text) record.text = text
           }
@@ -1478,7 +1522,12 @@ export function enableAgentInterface(
           // contenteditable: live text is its value; the region is an
           // affordance in itself, mapped even before bindings attach
           if (record.contentEditable === true) {
-            if (record.value === undefined) {
+            // a contenteditable region carrying `data-tosi-secret` is the
+            // author's own opt-in, and it was being ignored here
+            if (
+              record.value === undefined &&
+              !harvestWouldLeak(el, record, boundPaths)
+            ) {
               const liveText = stripArrows((el.textContent || '').trim()).slice(
                 0,
                 40

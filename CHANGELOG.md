@@ -29,6 +29,17 @@ found while fixing that, two ways the agent surface published secrets that
   one spelling while the redaction walk used another — so `read('rows')`
   returned every secret it contained in cleartext. Every spelling that can name
   a row is now tried: bracket index, dot index, and each registered id-path.
+- **`describe()`'s live-DOM harvests no longer publish secrets either.** Three
+  harvests read the DOM directly; one gated on secrecy and two gated on
+  nothing, so a secret reached the map as `text` or as a contenteditable
+  `value` while `read()` refused it — in the read-only default posture. Three
+  shapes, and no single signal covers them: an element **bound** to a secret
+  path without being a secret control itself (no flag at all), a secret
+  `<select>` that redacted its `value` and printed the option text beside it,
+  and a contenteditable carrying the author's own `data-tosi-secret`. All three
+  now suppress the harvest while keeping `secret: true` on the record, so
+  suppression does not read as absence.
+
 - **Differently-spelled paths no longer leak.** `rows[0].pw`, `rows.0.pw` and
   `rows[id=r1].pw` name the same value and had no string relation, so the
   redaction missed all but the spelling the binding used. This was **not** only

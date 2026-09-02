@@ -1631,6 +1631,63 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(drained.length).toBeGreaterThan(0)
   })
 
+  test('SEC-2h: the live-DOM harvests do not publish what read() refuses', async () => {
+    /*
+     * Round 4, B-1 — the SAME invariant as SEC-2b, at a THIRD address.
+     * `describe()` has three live-DOM harvests; the unbound-form-control one
+     * gated on `record.secret`, and the static-text and contenteditable ones
+     * gated on NOTHING. Three shapes leaked in the read-only default posture,
+     * and no single signal covers them:
+     *   - bound to a secret path but NOT itself a secret control (no flag);
+     *   - a secret <select> that redacted `value` and printed the option text
+     *     beside it, in the same object, having stamped itself secret:true;
+     *   - a contenteditable carrying the author's own `data-tosi-secret`.
+     */
+    tosi({ harvest: { token: 'eyJ-SUPER-SECRET', card: '4111 1111 1111 1111' } })
+    await updates()
+
+    // (a) bound to the secret path via a custom toDOM — no `secret` flag at all
+    const pw = elements.input({ type: 'password' })
+    document.body.append(pw)
+    bind(pw, 'harvest.token', bindings.value)
+    const mirror = elements.div({ id: 'h-mirror' })
+    document.body.append(mirror)
+    bind(mirror, 'harvest.token', {
+      toDOM(el: any, v: any) {
+        el.textContent = v
+      },
+    })
+
+    // (b) a secret <select> whose OPTION TEXT is the secret
+    const sel = elements.select(
+      { id: 'h-sel', autocomplete: 'cc-number' },
+      elements.option('4111 1111 1111 1111')
+    )
+    document.body.append(sel)
+    bind(sel, 'harvest.card', bindings.value)
+
+    // (c) the author's explicit opt-in on a contenteditable
+    const ed = elements.div({ id: 'h-ed', contentEditable: 'true' }, 'sk-live-DEADBEEF')
+    ed.setAttribute('data-tosi-secret', '')
+    document.body.append(ed)
+    await updates()
+
+    const agent = (current = enableAgentInterface({ quiet: true, global: false }))
+    const description = agent.describe()
+    const json = JSON.stringify(description)
+
+    expect(json).not.toContain('eyJ-SUPER-SECRET')
+    expect(json).not.toContain('4111 1111 1111 1111')
+    expect(json).not.toContain('sk-live-DEADBEEF')
+
+    // suppression must not read as absence — the flag survives
+    const wiring = description.wiring as any[]
+    expect(wiring.find((w) => w.id === 'h-sel')?.secret).toBe(true)
+    expect(wiring.find((w) => w.id === 'h-ed')?.secret).toBe(true)
+    // and describe() still agrees with read()
+    expect(agent.read('harvest.token')).toBe('⟨secret⟩')
+  })
+
   test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
     const hidden = elements.input({ type: 'hidden', id: 'csrf' })
     ;(hidden as any).value = 'CSRF-TOKEN-123'
