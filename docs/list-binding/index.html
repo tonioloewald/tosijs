@@ -77,7 +77,7 @@ the tags you need) and a placeholder proxy for the array item. Property access
 on the placeholder creates relative bindings (<code>^.name</code>, <code>^.score</code>, etc.)
 automatically.</p>
 <p>Spread the result into a container element — it returns an <code>[ElementProps, HTMLTemplateElement]</code>
-tuple. The props (an inline <code>bind</code> with <code>binding: &#39;list&#39;</code>) are applied to the container and the
+tuple. The props (containing <code>bindList</code>) are applied to the container and the
 <code>&lt;template&gt;</code> becomes a child; the <code>ListBinding</code> constructor then finds and removes
 the <code>&lt;template&gt;</code>, extracting its children as stamp templates. <strong>The <code>&lt;template&gt;</code>
 element never appears in the live DOM</strong> — it&#39;s consumed during initialization.</p>
@@ -88,15 +88,17 @@ element never appears in the live DOM</strong> — it&#39;s consumed during init
   virtual: { height: 30 } // virtualize for large lists
 })
 </code></pre>
-<h3>the low-level form — an inline <code>bind</code></h3>
-<p><code>.tosi.listBinding()</code> is sugar. The structure it generates is an ordinary inline
-binding with <code>binding: &#39;list&#39;</code>:</p>
+<h3><code>bindList</code> + <code>template</code> — the low-level form</h3>
+<p><code>.tosi.listBinding()</code> is <strong>sugar over <code>bindList</code></strong>, and <code>bindList</code> is not
+deprecated. A <code>bind*</code> shortcut is deprecated only when a plain prop expresses
+it exactly — <code>bindText</code> → <code>textContent</code>, <code>bindDisabled</code> → <code>disabled</code>. Neither
+<code>bindList</code> nor <code>bindValue</code> has such an equivalent (one needs a <code>&lt;template&gt;</code>
+sibling and options, the other is two-way), so both stay.</p>
 <pre><code>div( // container element
   {
-    bind: {
+    bindList: {
       value: boxed.path.to.array, // OR &#39;path.to.array&#39;
-      binding: &#39;list&#39;,
-      options: { idPath: &#39;id&#39; }, // (optional) unique id of array items
+      idPath: &#39;id&#39; // (optional) path to unique id of array items
     }
   },
   template( // template for the repeated item

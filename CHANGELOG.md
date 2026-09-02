@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.9.0] - 2026-09-02
+## [1.8.3] - 2026-09-02
 
 **The library stops warning its own users about API they never wrote** — and,
 found while fixing that, two ways the agent surface published secrets that
@@ -64,20 +64,23 @@ found while fixing that, two ways the agent surface published secrets that
   shipped a **permanently disabled button**. They now branch on whether the
   value is a proxy or a path string, and say SPREAD where a spread is meant.
 
-### Breaking
-
-- **`.tosi.listBinding()` returns `{ bind: { value, binding: 'list', options } }`
-  instead of `{ bindList: { value, ...options } }`.** Spreading the tuple —
-  the supported usage — is unaffected. Code that *inspects* the props
-  (`props.bindList.virtual = …`) breaks: `props.bindList` is now `undefined`.
-  This repo's own tests did exactly that and had to be rewritten, which is the
-  evidence that a consumer plausibly does too. **This is why 1.9.0 and not
-  1.8.3**: `bindList` on that tuple was documented public API, the docs for it
-  were deleted this release, and the types are byte-identical across the break
-  so TypeScript gives no signal. `^1.8.0` still picks this up, so the security
-  fixes propagate; only `~1.8.x` pinners are held back, which is correct.
-
 ### Changed
+
+- **`bindList` is no longer deprecated, and `.tosi.listBinding()` returns the
+  same shape it always did.** `.tosi.listBinding()` is *sugar over* `bindList`,
+  so deprecating the primitive made the recommended API warn its own callers
+  from inside itself — and the warning could not even be phrased as a props key
+  (*"Use `{ .tosi.listBinding(): ... }`"*), because the suggested replacement is
+  a spread, not a prop. That was a category error, and routing around it rather
+  than questioning it produced a silent list-destroying `bind` collision and a
+  breaking change to a documented public return shape. Both are now moot.
+
+  **The rule, stated so it does not recur: a `bind*` shortcut is deprecated iff
+  a plain prop expresses it exactly.** `bindText` → `textContent`,
+  `bindDisabled` → `disabled`, `bindEnabled` → `disabled` inverted — all
+  deprecated, and none saves more than a few characters. `bindValue` (two-way;
+  `value: proxy` is one-way only) and `bindList` (needs a `<template>` sibling
+  and options) have no plain-prop equivalent and are **kept**.
 
 - The inline `bind` form now forwards `options` to `bind()`'s fourth argument;
   it silently dropped them before, which is why a list binding could not be

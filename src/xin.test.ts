@@ -847,11 +847,9 @@ test('tosiListBinding method on boxed arrays', async () => {
   const [props, template] = listBindTest2.items.tosiListBinding(
     ({ li }, item) => li(item)
   )
-  // the NON-deprecated inline form — `bindList` warned its own callers
-  expect(props.bindList).toBeUndefined()
-  expect(props.bind).toBeDefined()
-  expect(props.bind.value).toBe('listBindTest2.items')
-  expect(props.bind.binding).toBe('list')
+  // `bindList` is the low-level form this sugar emits — a PUBLIC return shape
+  expect(props.bindList).toBeDefined()
+  expect(props.bindList.value).toBe('listBindTest2.items')
   expect(template).toBeInstanceOf(HTMLTemplateElement)
 })
 
@@ -1139,9 +1137,8 @@ test('boxed array new API - listBinding method', async () => {
   const [props, template] = arrListBindTest.items.listBinding(({ li }, item) =>
     li(item)
   )
-  expect(props.bindList).toBeUndefined()
-  expect(props.bind.value).toBe('arrListBindTest.items')
-  expect(props.bind.binding).toBe('list')
+  expect(props.bindList).toBeDefined()
+  expect(props.bindList.value).toBe('arrListBindTest.items')
   expect(template).toBeInstanceOf(HTMLTemplateElement)
 })
 
@@ -1156,14 +1153,10 @@ test('listBinding with itemsPerRow generates multiple templates', () => {
     },
     { idPath: 'id', virtual: { height: 30, itemsPerRow: 2 } }
   )
-  expect(props.bind).toBeDefined()
-  // OPTIONS SURVIVE. The inline `bind` form used to drop its fourth argument
-  // entirely, which is why listBinding had to route through the deprecated
-  // `bindList` key at all — so pin that they arrive.
-  expect(props.bind.options).toEqual({
-    idPath: 'id',
-    virtual: { height: 30, itemsPerRow: 2 },
-  })
+  expect(props.bindList).toBeDefined()
+  // options ride along on the same object, as they always did
+  expect(props.bindList.idPath).toBe('id')
+  expect(props.bindList.virtual).toEqual({ height: 30, itemsPerRow: 2 })
   expect(template).toBeInstanceOf(HTMLTemplateElement)
   expect(template.content.children.length).toBe(2)
 })

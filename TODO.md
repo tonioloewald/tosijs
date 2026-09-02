@@ -1267,7 +1267,7 @@ compatibility is preserving a design error (as the `initAttributes` /
 | `xin-slot` | `component.ts:2584` | `<tosi-slot>` markup |
 | `xinSlot` | `component.ts:2602` | `tosiSlot()` |
 | `initVars` | `css.ts:645` | `_` / `__` prefixes |
-| `bind<Type>` | `elements.ts:657` | `bindText`/`bindList`/`bindEnabled`/`bindDisabled` → binding objects |
+| `bind<Type>` | `elements.ts` | `bindText`→`textContent`, `bindEnabled`/`bindDisabled`→`disabled`. **`bindValue` and `bindList` are NOT deprecated** — no plain prop expresses either |
 | `boxedProxy` | `xin-proxy.ts:125` | `tosi()` |
 | `xinProxy-boxed` | `xin-proxy.ts:183` | `tosi()` |
 

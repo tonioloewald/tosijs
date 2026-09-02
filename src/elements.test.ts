@@ -531,11 +531,10 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
     tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
     const msgs = [
       ...(await capture(() => elements.button({ bindEnabled: 'advice.flag' }))),
-      ...(await capture(() => elements.div({ bindList: 'advice.items' }))),
       ...(await capture(() => elements.span({ bindText: 'advice.txt' }))),
       ...(await capture(() => elements.button({ bindDisabled: 'advice.flag' }))),
     ]
-    expect(msgs.length).toBe(4)
+    expect(msgs.length).toBe(3)
     for (const m of msgs) {
       // the two malformed fragments that shipped
       expect(m).not.toContain('{ .tosi.listBinding():')
@@ -554,11 +553,34 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
     expect(dead.disabled).toBe(true)
   })
 
-  test('the list advice says SPREAD, because no prop form expresses it', async () => {
+  test('bindList does NOT warn — it is the primitive, not a deprecated shortcut', async () => {
+    /*
+     * `.tosi.listBinding()` is SUGAR that emits `{ bindList: … }`, so
+     * deprecating `bindList` made the recommended API warn its own callers
+     * from inside itself. The message could not even be written as a props
+     * key ("Use { .tosi.listBinding(): ... }") because the suggested
+     * replacement is a SPREAD, not a prop — a category error surfacing as
+     * nonsense text.
+     *
+     * Routing around it, rather than questioning it, is what produced a
+     * silent list-destroying `bind` collision at two addresses and a breaking
+     * change to a documented public return shape. The other shortcuts have
+     * real prop equivalents; this one does not.
+     */
     tosi({ advice3: { items: ['a'] } })
-    const [msg] = await capture(() => elements.div({ bindList: 'advice3.items' }))
-    expect(msg).toContain('SPREAD')
-    expect(msg).toContain('listBinding')
+    const msgs = await capture(() => elements.div({ bindList: 'advice3.items' }))
+    expect(msgs).toEqual([])
+  })
+
+  test('listBinding() emits bindList and warns about nothing', async () => {
+    const { advice5 } = tosi({ advice5: { items: ['a', 'b'] } })
+    const msgs = await capture(() => {
+      const [props] = advice5.items.tosi.listBinding(
+        ({ span }: any, item: any) => span({ textContent: item })
+      )
+      expect((props as any).bindList).toBeDefined()
+    })
+    expect(msgs).toEqual([])
   })
 
   test('a bare proxy child does not warn — create() is the most-used site', async () => {

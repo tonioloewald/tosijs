@@ -718,14 +718,16 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
               `a non-empty string, which is always truthy, permanently ` +
               `DISABLING the control.`
             : 'Use { disabled: proxy.tosi.take(v => !v) } — note the inversion.'
-          : bindingType === 'list'
-          ? isPath
-            ? `Use ${inlineForm} with a <template> child, or spread ` +
-              `...proxy.tosi.listBinding(builder, options) — it is a SPREAD, ` +
-              `not a prop.`
-            : 'Spread ...proxy.tosi.listBinding(builder, options) — it is a ' +
-              'SPREAD, not a prop.'
-          : null
+          : // `bindList` IS NOT DEPRECATED, deliberately. `.tosi.listBinding()`
+            // is SUGAR that emits it — deprecating the primitive your own
+            // sugar produces is circular, and it showed: the message read
+            // "Use { .tosi.listBinding(): ... }", which is not a props key,
+            // because the replacement is not a prop at all. Routing around it
+            // is what produced a silent list-destroying `bind` collision at
+            // two addresses and a breaking change to the public return shape.
+            // The other shortcuts have real prop equivalents (textContent,
+            // disabled); this one does not, so it stays.
+            null
       if (advice) {
         warnDeprecated(
           `bind${bindingType}`,

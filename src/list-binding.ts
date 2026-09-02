@@ -40,7 +40,7 @@ on the placeholder creates relative bindings (`^.name`, `^.score`, etc.)
 automatically.
 
 Spread the result into a container element — it returns an `[ElementProps, HTMLTemplateElement]`
-tuple. The props (an inline `bind` with `binding: 'list'`) are applied to the container and the
+tuple. The props (containing `bindList`) are applied to the container and the
 `<template>` becomes a child; the `ListBinding` constructor then finds and removes
 the `<template>`, extracting its children as stamp templates. **The `<template>`
 element never appears in the live DOM** — it's consumed during initialization.
@@ -54,17 +54,19 @@ Pass options as the second argument:
       virtual: { height: 30 } // virtualize for large lists
     })
 
-### the low-level form — an inline `bind`
+### `bindList` + `template` — the low-level form
 
-`.tosi.listBinding()` is sugar. The structure it generates is an ordinary inline
-binding with `binding: 'list'`:
+`.tosi.listBinding()` is **sugar over `bindList`**, and `bindList` is not
+deprecated. A `bind*` shortcut is deprecated only when a plain prop expresses
+it exactly — `bindText` → `textContent`, `bindDisabled` → `disabled`. Neither
+`bindList` nor `bindValue` has such an equivalent (one needs a `<template>`
+sibling and options, the other is two-way), so both stay.
 
     div( // container element
       {
-        bind: {
+        bindList: {
           value: boxed.path.to.array, // OR 'path.to.array'
-          binding: 'list',
-          options: { idPath: 'id' }, // (optional) unique id of array items
+          idPath: 'id' // (optional) path to unique id of array items
         }
       },
       template( // template for the repeated item

@@ -1062,12 +1062,12 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
             templates.push(content(elements, listElement(), col))
           }
           return [
-            // NOT `{ bindList: … }`. That key is deprecated, so the RECOMMENDED
-            // api emitted a warning telling you to use the recommended api —
-            // fired from inside it, unavoidable, on every list in every app
-            // (tosijs#31). The inline `bind` form is the non-deprecated
-            // channel; it carries options as of this release.
-            { bind: { value: path, binding: 'list', options } },
+            // `bindList` is the low-level prop form and this is its sugar.
+            // (An earlier fix emitted `{ bind: { binding: 'list', options } }`
+            // to dodge a deprecation warning — which collided with a caller's
+            // own `bind:` and silently destroyed the list. The warning was the
+            // bug; the key is fine.)
+            { bindList: { value: path, ...options } },
             elements.template(...templates),
           ]
         }

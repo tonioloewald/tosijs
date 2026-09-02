@@ -306,7 +306,7 @@ export interface ElementProps<T = Element> {
   bindValue?: TosiBindingShortcut
   /** @deprecated Use { textContent: proxy } instead */
   bindText?: TosiBindingShortcut
-  /** @deprecated Use .tosi.listBinding() instead */
+  /** the low-level list-binding prop; `.tosi.listBinding()` is sugar over it */
   bindList?: TosiBindingShortcut
   /** @deprecated Use { disabled: proxy.tosi.take(v => !v) } instead */
   bindEnabled?: TosiBindingShortcut
