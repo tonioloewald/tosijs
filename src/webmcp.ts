@@ -11,7 +11,9 @@ generated, not authored**.
 
     import { enableAgentInterface, webmcpAdapter } from 'tosijs'
 
-    const agent = enableAgentInterface()
+    // declare what the tools may reach — a bare enableAgentInterface() is
+    // closed, so the generated tools would refuse every path
+    const agent = enableAgentInterface({ expose: { roots: ['app'] } })
     const mcp = webmcpAdapter(agent) // detect, generate, register
     // …
     mcp?.unregister()
@@ -44,12 +46,12 @@ unvalidated write tool is an RPC endpoint with good documentation.
 
 `tosi_read` and `tosi_changes` register only once the surface says what it
 exposes — `expose: { roots: [...] }` or `expose: 'all'` — or with an
-explicit `allowReads: true`. The no-options default is read-only over the
-**whole registry**, and a browser agent is a different principal: an
-unscoped read of everything shouldn't be published to the page's tool
-registry as a side effect of one unargumented call. The introspection tools
-still register: they report the DOM an agent can already see, and the map is
-the point.
+explicit `allowReads: true`. Since 1.9.0 the no-options default is **closed**
+— it exposes nothing, so those two tools would have nothing to read — and
+before that it was read-only over the *whole registry*, which a browser agent
+(a different principal) should not receive as a side effect of one
+unargumented call. The introspection tools still register in every posture:
+they report the shape of the surface, not its contents.
 
 Tool names are global to the page. Where another script (or a second
 surface) already owns `tosi_*`, pass a distinct `prefix` — the adapter
@@ -74,11 +76,12 @@ export interface WebMCPTool {
 export interface WebMCPAdapterOptions {
   /** explicit host (tests, or a future relocation of the API) */
   modelContext?: any
-  /** register tosi_write even outside introspection mode (default false) */
+  /** register tosi_write even outside `expose: 'all'` (default false) */
   allowWrites?: boolean
-  /** register tosi_read / tosi_changes on an UNSCOPED read-only surface
-   * (default false) — the deliberate opt-in for "publish a read of
-   * everything" when you don't want to declare an `expose` manifest */
+  /** register tosi_read / tosi_changes on a CLOSED surface (default false).
+   * Rarely what you want since 1.9.0: a closed surface exposes nothing, so
+   * the published tools refuse every path. Declare `expose: { roots }`
+   * instead — that publishes them AND gives them something to read. */
   allowReads?: boolean
   /** tool-name prefix (default 'tosi') — namespace this surface when the
    * page carries more than one, or when another script owns the plain names */
@@ -349,7 +352,7 @@ export const webmcpAdapter = (
     const held = hostRegistrations(mc)
     const publishing = new Set(tools.map((tool) => tool.name))
     // NARROWING IS REVOCATION. Re-enabling with a tighter posture (dropping
-    // tosi_write, or reads via the read-only gate) left the previous
+    // tosi_write, or reads via the read gate) left the previous
     // registration live on a host that cannot unregister — the tool an
     // author believes they revoked is still in the agent's menu. Restricted
     // to our own namespace: another surface's prefix is not ours to stub.

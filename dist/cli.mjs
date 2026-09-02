@@ -302,8 +302,9 @@ self-describes there and self-verifies via \`exerciseComponent()\`.
 scopes SIGHT — add \`write: true\` to let an agent change that state. Widen it
 while developing with \`enableAgentInterface({ expose: 'all' })\` — every
 state root readable, writable and callable — so it is a development
-affordance, not a default. Omitting \`expose\` entirely gives read-only
-introspection over everything.
+affordance, not a default. Omitting \`expose\` entirely exposes **nothing** —
+\`describe()\` reports an empty app and every verb refuses, so declaring a
+manifest is how the surface becomes useful at all.
 
 Two things to know either way. The surface installs itself as
 \`globalThis.tosiAgent\` unless you pass \`global: false\`; that global is a

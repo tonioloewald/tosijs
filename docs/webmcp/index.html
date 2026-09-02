@@ -54,7 +54,9 @@ already knows the app&#39;s state roots, wiring, and actions, so <strong>the too
 generated, not authored</strong>.</p>
 <pre><code>import { enableAgentInterface, webmcpAdapter } from &#39;tosijs&#39;
 
-const agent = enableAgentInterface()
+// declare what the tools may reach — a bare enableAgentInterface() is
+// closed, so the generated tools would refuse every path
+const agent = enableAgentInterface({ expose: { roots: [&#39;app&#39;] } })
 const mcp = webmcpAdapter(agent) // detect, generate, register
 // …
 mcp?.unregister()
@@ -108,12 +110,12 @@ registration shape the host offers (<code>registerTool</code> per tool, or
 unvalidated write tool is an RPC endpoint with good documentation.</p>
 <p><code>tosi_read</code> and <code>tosi_changes</code> register only once the surface says what it
 exposes — <code>expose: { roots: [...] }</code> or <code>expose: &#39;all&#39;</code> — or with an
-explicit <code>allowReads: true</code>. The no-options default is read-only over the
-<strong>whole registry</strong>, and a browser agent is a different principal: an
-unscoped read of everything shouldn&#39;t be published to the page&#39;s tool
-registry as a side effect of one unargumented call. The introspection tools
-still register: they report the DOM an agent can already see, and the map is
-the point.</p>
+explicit <code>allowReads: true</code>. Since 1.9.0 the no-options default is <strong>closed</strong>
+— it exposes nothing, so those two tools would have nothing to read — and
+before that it was read-only over the <em>whole registry</em>, which a browser agent
+(a different principal) should not receive as a side effect of one
+unargumented call. The introspection tools still register in every posture:
+they report the shape of the surface, not its contents.</p>
 <p>Tool names are global to the page. Where another script (or a second
 surface) already owns <code>tosi_*</code>, pass a distinct <code>prefix</code> — the adapter
 reports any generated tool the host did not take as a <code>console.error</code>,

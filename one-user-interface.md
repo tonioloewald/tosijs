@@ -13,7 +13,8 @@ _One source of truth for state, UI — and AI._
 > behind `tosijs/agent` (the same file, narrower types), and they are still
 > marked **EXPERIMENTAL**: the shapes have survived two producers and a
 > nine-lens review, but this is a first release and names may still move.
-> `enableAgentInterface()` is **read-only by default** — see
+> `enableAgentInterface()` exposes **nothing by default** since 1.9.0 — you
+> declare what an agent may see. See
 > [Trust & Transports](/trust-and-transports/) for the exposure ladder.
 
 ## The thesis, in five claims
@@ -68,9 +69,9 @@ const { oneUI } = tosi({
 })
 
 // The PRODUCTION posture, not the dev one: this manifest names exactly what
-// the agent side below touches. A bare enableAgentInterface() is read-only
-// introspection — describe and read work, call and write refuse — so the
-// demo would only be half a demo. (Also installs globalThis.tosiAgent.)
+// the agent side below touches. A bare enableAgentInterface() exposes NOTHING
+// (1.9.0) — describe() would report an empty app and every verb would refuse,
+// so the demo would not be a demo at all. (Also installs globalThis.tosiAgent.)
 const agent = enableAgentInterface({
   expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] },
 })
@@ -127,7 +128,7 @@ preview.append(
 import { enableAgentInterface } from 'tosijs'
 
 // The page's own demo is the release's headline proof, and it was a plain
-// ```js fence — so when the default posture became read-only, this page kept
+// ```js fence — so when the default posture was narrowed, this page kept
 // calling call() on a surface that refuses it and NOTHING went red. This
 // fence is the guard: it runs in Chromium and Firefox on every release.
 test('the manifesto demo posture can actually do what the demo does', () => {

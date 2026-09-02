@@ -35,6 +35,21 @@ warning its own users about API they never wrote.
   (it warns), or `expose: { roots, actions }` to declare a surface. Nothing
   else changes; the manifest path already did all of this.
 
+- **The closed posture maps nothing — including the DOM.** The first cut of
+  this change gated only *state*, and `describe()` still returned wiring
+  records for a bare `<a href>` (tokens in query strings), a contenteditable
+  (a user's live draft), a self-declaring custom element (its private action
+  namespace and attribute defaults) and the entire structural tier — including
+  **a heading printing the very secret `read()` refused on the next line**, in
+  the posture that logs "nothing is exposed". Of five ways an element could
+  become `wired`, only two consulted posture. There is now one gate on the
+  walk rather than five conditions to keep in step.
+- **The structural tier obeys scope, secrecy and `aria-hidden`.** It re-visits
+  elements the main walk deliberately rejected — and read their `textContent`
+  with none of the main walk's guards, defeating all three independently *in
+  every posture, including a correctly-narrowed manifest*. A heading bound to
+  an undeclared path published what a manifest refused; a heading containing a
+  `data-tosi-secret` descendant laundered the author's own opt-in.
 - **`describe().exposure` values renamed**: `'read-only'` → `'closed'`,
   `'introspection'` → `'all'`. The old names described a posture that no longer
   exists — `'read-only'` now reads nothing.
@@ -105,6 +120,18 @@ warning its own users about API they never wrote.
 
 ### Documentation
 
+- **The exposure ladder is documented consistently.** `agent-surface.md` still
+  taught "read-only introspection — what a bare `enableAgentInterface()` gives
+  you" *directly beneath* "Off (default) — nothing", and that contradiction
+  shipped in the served site. `src/webmcp.ts`'s doc block still described the
+  no-options default as read-only over the whole registry while its own code
+  comment twenty lines below said the opposite, and its worked example used a
+  posture where every generated tool refuses. Also fixed in
+  `one-user-interface.md` and the scaffolder's generated README — which
+  `bunx tosijs create` writes onto a user's disk, and which no test read until
+  now.
+- **`Migration.md` has a 1.9.0 section**, which is the one page whose job is
+  announcing breaks.
 - **The agent docs now document secrets at all.** The page never mentioned
   redaction, so neither the guarantee nor its limit was discoverable. Adds a
   *Secrets* section: secrecy is a property of the path (it follows the path to

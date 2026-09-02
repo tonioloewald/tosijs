@@ -144,9 +144,16 @@ export const exerciseContract = (agent: AgentInterface): ContractReport => {
         // manifest-scoped surface refuses every write, so a contract with
         // only $counterexamples used to produce a fully green report from a
         // harness that had validated nothing at all.
+        // MATCHES THE MESSAGES `agent.ts` ACTUALLY THROWS. Keep in step with
+        // `assertScope`/`assertMutable` — 1.9.0 rewrote both and retired the
+        // phrase "read-only" entirely. That was safe only by luck: the closed
+        // posture's "exposes nothing" matches nothing here, and is unreachable
+        // because `writable` is false there and the guard above already threw.
+        // Listed anyway, because relying on an unrelated guard to cover a
+        // string match is exactly how this silently goes green again.
         const message = (e as Error)?.message ?? ''
         const refusedBySurface =
-          message.includes('read-only') ||
+          message.includes('exposes nothing') ||
           message.includes('reading only') ||
           message.includes('not exposed')
         if (refusedBySurface) {

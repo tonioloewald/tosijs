@@ -1080,6 +1080,23 @@ const isSecretControl = (el: Element, type?: string): boolean => {
  *     wired ancestor otherwise launders its descendant's text, including the
  *     author's own `data-tosi-secret` opt-in.
  */
+/**
+ * The data-binding paths an element carries, or `[]`.
+ *
+ * Extracted so the STRUCTURAL tier can ask the same question `recordFor` asks
+ * — it re-visits elements `recordFor` deliberately rejected, and had no way to
+ * see what they were bound to.
+ */
+const bindingPathsOf = (el: Element): string[] => {
+  try {
+    const { dataBindings } = getElementBindings(el)
+    if (dataBindings == null) return []
+    return dataBindings.map((b: any) => b.path).filter((p: any) => p != null)
+  } catch {
+    return [] // callers pair this with a fail-closed secrecy check
+  }
+}
+
 const harvestWouldLeak = (
   el: Element,
   record: AgentWiringRecord,
@@ -1550,7 +1567,29 @@ export function enableAgentInterface(
       // inline element contracts aggregate here, keyed by bound path —
       // merged into describe().contract below (curation keys win)
       const inlineContracts: Record<string, any> = {}
-      if (typeof document !== 'undefined') {
+      /*
+       * THE CLOSED POSTURE MAPS NOTHING. (1.9.0 pre-minor review, B-1.)
+       *
+       * There are five ways an element becomes `wired`, and only two asked
+       * about posture: data bindings (via `inScope`) and event handlers. A
+       * bare `<a href>`, a contenteditable, a self-declaring custom element
+       * and the entire structural tier were gated on nothing — so a surface
+       * that printed "nothing is exposed", reported `roots: []` and refused
+       * every read still returned four wiring records, among them a heading
+       * carrying the very secret `read()` had just refused, plus a token in
+       * an href and a user's half-typed draft.
+       *
+       * The bug beneath the bug: I checked `wiring` was empty using a fixture
+       * of a bound input, an unbound input and a button — the three shapes
+       * that WERE gated. Every leak lived in a shape my fixture did not
+       * contain, and the guard test had the same blind spot, so it could not
+       * fail. That is the fifth time this release that an invariant restated
+       * per-site was wrong at a site nobody enumerated.
+       *
+       * Hence ONE gate on the walk, not five more conditions to keep in sync:
+       * a harvest added later inherits it by construction.
+       */
+      if (typeof document !== 'undefined' && !closed) {
         const walkRoot: Element =
           options.scope ?? (document.body as unknown as Element)
         const seen = new Set<Element>()
@@ -1798,6 +1837,28 @@ export function enableAgentInterface(
           }
           return record
         }
+        /*
+         * THE CLOSED POSTURE MAPS NOTHING. (1.9.0 pre-minor review, B-1.)
+         *
+         * Five ways an element can become `wired`, and only two of them asked
+         * about posture: data bindings (via `inScope`) and event handlers.
+         * A bare `<a href>`, a contenteditable, a self-declaring custom
+         * element and the whole structural tier were gated on nothing — so a
+         * surface that printed "nothing is exposed", reported `roots: []` and
+         * refused every read still returned four wiring records, including a
+         * heading bound to the very path `read()` had just refused.
+         *
+         * The bug beneath the bug: I verified `wiring` was empty using a
+         * fixture of a bound input, an unbound input and a button — the three
+         * shapes that WERE gated. Every leak lived in a shape the fixture did
+         * not contain, and the guard test at agent.test.ts had exactly the
+         * same blind spot, so it could not fail.
+         *
+         * So this is one gate at the top of the walk rather than five more
+         * conditions to keep in sync. A future harvest added below inherits
+         * it by construction; that is the whole point, because the last four
+         * times this invariant was restated per-site it was wrong per-site.
+         */
         for (const el of Array.from(
           walkRoot.getElementsByClassName(BOUND_CLASS)
         )) {
@@ -1851,10 +1912,36 @@ export function enableAgentInterface(
           for (const el of structural) {
             if (seen.has(el)) continue
             seen.add(el)
+            /*
+             * THE STRUCTURAL TIER IS A HARVEST TOO. (Review B-2.)
+             *
+             * `recordFor` guards its harvests with `ariaHidden`, `inScope`
+             * and `harvestWouldLeak` — and then RELEASES elements it rejected
+             * (`seen.delete`, "the structural tier may want it"), so this
+             * loop re-visited them and read their textContent with none of
+             * those guards. It therefore defeated all three independently, in
+             * EVERY posture: an `<h2>` bound to an undeclared path published
+             * the value a manifest refused; an `<h2>` containing a
+             * `data-tosi-secret` span laundered the author's own opt-in; and
+             * `aria-hidden` was ignored outright.
+             *
+             * Structure may be worth mapping, but a heading's TEXT is content,
+             * and content goes through the same gates as any other harvest.
+             */
+            if (ariaHidden(el)) continue
             const record = describeElement(el)
             record.structural = true
+            const structuralPaths = bindingPathsOf(el)
             const heading = /^H[1-6]$/.test(el.tagName)
-            if (heading && record.text === undefined) {
+            if (
+              heading &&
+              record.text === undefined &&
+              // SCOPE: a heading bound to an undeclared path must not print
+              // the value `read()` refuses on that same path
+              structuralPaths.every((p) => inScope(p)) &&
+              // SECRECY: and must not print one that is secret
+              !harvestWouldLeak(el, record, structuralPaths)
+            ) {
               const text = (el.textContent || '').trim().slice(0, 60)
               if (text) record.text = text
             }

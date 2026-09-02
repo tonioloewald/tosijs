@@ -1,6 +1,6 @@
 # Migrating from `xinjs` to `tosijs`
 
-<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 In a nutshell:
 
@@ -12,6 +12,37 @@ In a nutshell:
 should be the module names.
 
 > Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.
+
+# Upgrading to 1.9.0
+
+**One break, and only if you call `enableAgentInterface()`.** Nothing else
+changes; apps that never touch the agent surface upgrade with no action.
+
+**`enableAgentInterface()` with no manifest now exposes NOTHING.** It used to
+mean "read-only over the entire registry" — every state root, every value, and
+every bound element on the page, reachable through `globalThis.tosiAgent` and
+published to any WebMCP host, from one unargumented call. `describe()` now
+reports an empty app (`roots: {}`, `wiring: []`, `actions: []`) and
+`read`/`write`/`call`/`observe`/`when` refuse every path.
+
+| if you had                  | you now want                                                     |
+| --------------------------- | ---------------------------------------------------------------- |
+| `enableAgentInterface()`    | `enableAgentInterface({ expose: { roots: [...], actions: [...] } })` — name what an agent may see |
+| …and you're just exploring  | `enableAgentInterface({ expose: 'all' })` — everything, deliberately, with a warning |
+
+The surface tells you which it is: a bare call logs *"nothing is exposed"* and
+names both escape hatches, and `describe().exposure` reports `'closed'`.
+
+**Why:** four separate secret leaks were found in 1.8.x, and every one of them
+was reachable **only** in that default posture — a heading printing a password,
+a token in a link, a half-typed draft. Each was patched where it was found,
+which was four symptoms of one permissive default. Undeclared state is now
+*absent* rather than redacted: it never enters the map, and the elements bound
+to it never appear in `wiring`.
+
+**Also renamed:** `describe().exposure` values — `'read-only'` → `'closed'`,
+`'introspection'` → `'all'`. If you branched on those strings, update them;
+`'read-only'` in particular now describes a posture that no longer exists.
 
 # Upgrading to 1.8.0
 
@@ -48,10 +79,11 @@ neither had a prior deprecation warning:
   and a feature you turned off stayed on. It now lands as written, with one
   `console.error` naming both types.
 
-**New, and opt-in:** the agent surface (`enableAgentInterface()`) defaults
-to **read-only** introspection — `write()` and `call()` refuse until you
-declare `expose: { roots, actions }` (production) or `expose: 'all'`
-(development). A manifest scopes what may be **seen**; add `write: true` to
+**New, and opt-in:** the agent surface (`enableAgentInterface()`). In 1.8.0
+it defaulted to **read-only** introspection — `write()` and `call()` refused
+until you declared `expose: { roots, actions }` (production) or
+`expose: 'all'` (development). **1.9.0 closed that default entirely** — see
+above. A manifest scopes what may be **seen**; add `write: true` to
 let an agent change it. Nothing changes for apps that never call it.
 
 **License:** tosijs is **Apache-2.0** as of 1.8.0 (BSD-3-Clause through

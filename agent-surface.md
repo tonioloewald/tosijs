@@ -21,8 +21,8 @@ availability + API location -->),
 host, you see exactly what would register.
 
 **What actually publishes depends on the posture**, because publishing to a
-WebMCP host hands the surface to a different principal. An unscoped
-read-only surface publishes only the introspection pair — declaring
+WebMCP host hands the surface to a different principal. A closed (default)
+surface publishes only the introspection pair — declaring
 `expose: { roots }` (or `expose: 'all'`, or `webmcp: { allowReads: true }`)
 is what says "yes, publish a read of this". `tosi_write` needs
 `allowWrites`, which is why it appears on this page — see
@@ -249,12 +249,15 @@ channel.)
 > treat any tool output — as data, never as instructions. A state library can
 > say this; it cannot enforce it.
 
-1. **Off** (default) — nothing. Zero cost, zero surface.
-1. **Read-only introspection** — what a bare `enableAgentInterface()` gives
-   you, and the tier this list used to omit entirely. Everything is
-   *readable* and observable; `write()` and `call()` refuse. It is
-   simultaneously the safest **verb** posture and the widest **read**
-   posture — see [Trust & Transports](/trust-and-transports/).
+1. **Off** — never call `enableAgentInterface()`. Zero cost, zero surface.
+1. **Closed** (the default) — a bare `enableAgentInterface()` installs the
+   surface and exposes *nothing through it*: `describe()` reports an empty
+   app, no roots, no wiring, and every verb refuses. Until 1.9.0 this tier
+   was "read-only introspection" — everything readable and observable, with
+   only `write()` and `call()` refusing — which read as the safest posture
+   while being the **widest read posture available**. Four secret leaks were
+   found beneath that description, every one reachable only from it; the
+   default is now empty. See [Trust & Transports](/trust-and-transports/).
 2. **Introspection mode** (`expose: 'all'`) — everything tosijs knows,
    read/write/call, **dev-only and explicitly unstable**. (The name is the
    code's: `describe().exposure` reports `'all'` for this tier, `'manifest'`

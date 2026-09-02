@@ -59,7 +59,8 @@ every proof on these pages runs on the code you can install. They live
 behind <code>tosijs/agent</code> (the same file, narrower types), and they are still
 marked <strong>EXPERIMENTAL</strong>: the shapes have survived two producers and a
 nine-lens review, but this is a first release and names may still move.
-<code>enableAgentInterface()</code> is <strong>read-only by default</strong> — see
+<code>enableAgentInterface()</code> exposes <strong>nothing by default</strong> since 1.9.0 — you
+declare what an agent may see. See
 <a href="/trust-and-transports/">Trust &amp; Transports</a> for the exposure ladder.</p>
 </blockquote>
 <h2>The thesis, in five claims</h2>
@@ -109,9 +110,9 @@ const { oneUI } = tosi({
 })
 
 // The PRODUCTION posture, not the dev one: this manifest names exactly what
-// the agent side below touches. A bare enableAgentInterface() is read-only
-// introspection — describe and read work, call and write refuse — so the
-// demo would only be half a demo. (Also installs globalThis.tosiAgent.)
+// the agent side below touches. A bare enableAgentInterface() exposes NOTHING
+// (1.9.0) — describe() would report an empty app and every verb would refuse,
+// so the demo would not be a demo at all. (Also installs globalThis.tosiAgent.)
 const agent = enableAgentInterface({
   expose: { roots: [&#39;oneUI&#39;], actions: [&#39;oneUI.addItem&#39;] },
 })
@@ -166,7 +167,7 @@ preview.append(
 <pre><code class="language-test">import { enableAgentInterface } from &#39;tosijs&#39;
 
 // The page&#39;s own demo is the release&#39;s headline proof, and it was a plain
-// ```js fence — so when the default posture became read-only, this page kept
+// ```js fence — so when the default posture was narrowed, this page kept
 // calling call() on a surface that refuses it and NOTHING went red. This
 // fence is the guard: it runs in Chromium and Firefox on every release.
 test(&#39;the manifesto demo posture can actually do what the demo does&#39;, () =&gt; {

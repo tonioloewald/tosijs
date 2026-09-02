@@ -59,6 +59,18 @@ describe('the scaffolder — bunx tosijs create …', () => {
     expect(app).not.toMatch(/enableAgentInterface\(\)\s*$/m)
     // …and it must SAY how to widen it, so the dev affordance is a choice
     expect(app).toContain("expose: 'all'")
+    /*
+     * THE GENERATED README IS SHIPPED PROSE. (1.9.0 pre-minor review, M-1.)
+     *
+     * `bunx tosijs create app` writes this onto a machine we do not own, with
+     * no rollback, and it told the reader that omitting `expose` "gives
+     * read-only introspection over everything" for a whole release after that
+     * stopped being true. Nothing caught it because these assertions only ever
+     * read the generated app SOURCE, never the generated documentation.
+     */
+    const readme = readFileSync(join(dir, 'my-app/README.md'), 'utf-8')
+    expect(readme).not.toMatch(/read-only introspection/i)
+    expect(readme).toMatch(/exposes \*\*nothing\*\*|exposes nothing/i)
     const pkg = JSON.parse(
       readFileSync(join(dir, 'my-app/package.json'), 'utf-8')
     )

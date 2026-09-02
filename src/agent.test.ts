@@ -437,6 +437,10 @@ describe('post-hoc component contracts — lofting classes you do not control', 
 
     const agent = (current = enableAgentInterface({
       global: false,
+      quiet: true,
+      // posture is not what this test is about, and the closed default (1.9.0)
+      // maps nothing at all
+      expose: 'all',
       components: {
         'legacy-thing': {
           description: 'lofted from outside — the class never knew',
@@ -629,7 +633,9 @@ describe('ARIA is a two-way street', () => {
     expect(el.getAttribute('role')).toBe('spinbutton')
 
     // and the harvest reads it back
-    const agent = enableAgentInterface({ global: false })
+    // expose: 'all' — this test is about CONTRACT harvesting, not posture;
+    // the closed default maps nothing (1.9.0)
+    const agent = enableAgentInterface({ global: false, quiet: true, expose: 'all' })
     try {
       const record = agent
         .describe()
@@ -955,7 +961,7 @@ describe('the posture: safe by default, full access behind one line', () => {
      * passed no arguments got the whole registry plus every bound element on
      * the page. Redaction was patched four times; the default was the defect.
      */
-    tosi({ postureApp: { n: 1, go() {} } })
+    tosi({ postureApp: { n: 1, pin: 'PIN-9999', go() {} } })
     await updates()
     const el = elements.input({ id: 'posture-el' })
     document.body.append(el)
@@ -966,12 +972,42 @@ describe('the posture: safe by default, full access behind one line', () => {
       quiet: true,
     }))
 
+    /*
+     * THE FIXTURE IS THE TEST. (1.9.0 pre-minor review, B-1.)
+     *
+     * This assertion existed and passed while `describe()` published four
+     * records in the closed posture, because the fixture held only a bound
+     * input — one of the two shapes that WERE gated. Every leak lived in a
+     * shape it did not contain. So the shapes are the point: a bare `<a href>`
+     * (token in a query string), a contenteditable (a user's live draft), a
+     * heading bound to an undeclared secret, and a self-declaring custom
+     * element (its private action namespace and attribute defaults).
+     *
+     * Bounds are mocked because happy-dom reports zero-size rects, which
+     * suppressed the structural tier here and in NO real browser.
+     */
+    const link = elements.a({ href: '/admin/reset?token=SEKRIT' }, 'admin')
+    const draft = elements.div({ contentEditable: 'true' }, 'SSN 123-45-6789')
+    const head = elements.h2({ id: 'closed-h' })
+    document.body.append(link, draft, head)
+    bind(head, 'postureApp.pin', bindings.text)
+    await updates()
+    for (const el of [link, draft, head]) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+        configurable: true,
+      })
+    }
+
     expect(agent.describe().exposure).toBe('closed')
     // the map describes an EMPTY app: no roots, and no wiring — the DOM walk
-    // must be scoped too, or the element would carry the value out anyway
+    // must be scoped too, or these elements carry the values out anyway
     expect(Object.keys(agent.describe().roots)).toEqual([])
     expect(agent.describe().wiring).toEqual([])
     expect(agent.describe().actions).toEqual([])
+    const closedJson = JSON.stringify(agent.describe())
+    for (const leak of ['SEKRIT', '123-45-6789', 'PIN-9999', 'admin'])
+      expect(closedJson).not.toContain(leak)
 
     // and every verb refuses, saying how to open it
     expect(() => agent.read('postureApp.n')).toThrow(/not exposed/)
@@ -989,6 +1025,60 @@ describe('the posture: safe by default, full access behind one line', () => {
     }))
     expect(open.read('postureApp.n')).toBe(1)
     expect(open.describe().wiring.length).toBeGreaterThan(0)
+  })
+
+  test('the structural tier obeys scope, secrecy and aria-hidden', async () => {
+    /*
+     * Review B-2 — a FOURTH unguarded harvest, and the nastiest, because it
+     * survives every posture including a correctly-narrowed manifest.
+     *
+     * `recordFor` guards its harvests and then RELEASES the elements it
+     * rejected (`seen.delete`, "the structural tier may want it"). This loop
+     * re-visited them and read `textContent` with no scope check, no secrecy
+     * check and no aria-hidden check — defeating all three independently.
+     */
+    tosi({ sPub: { title: 'Public Title' }, sPriv: { key: 'sk-STRUCT-LEAK' } })
+    await updates()
+    const bad = elements.h2({ id: 's-bad' })
+    const good = elements.h2({ id: 's-good' })
+    const span = elements.span('ZX9-LAUNDERED')
+    span.setAttribute('data-tosi-secret', '')
+    const laundered = elements.h2({ id: 's-laundered' }, 'Recovery: ', span)
+    const hidden = elements.h2(
+      { id: 's-hidden', 'aria-hidden': 'true' },
+      'HIDDEN-STRUCT'
+    )
+    const plain = elements.h2({ id: 's-plain' }, 'Ordinary Section')
+    document.body.append(bad, good, laundered, hidden, plain)
+    bind(bad, 'sPriv.key', bindings.text)
+    bind(good, 'sPub.title', bindings.text)
+    await updates()
+    // happy-dom reports zero-size rects, which suppresses this tier here and
+    // in no real browser — the leak was invisible locally for that reason
+    for (const el of [bad, good, laundered, hidden, plain]) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+        configurable: true,
+      })
+    }
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['sPub'] },
+    }))
+    const json = JSON.stringify(agent.describe())
+    // SCOPE: read() refuses this path, so describe() must not print it
+    expect(() => agent.read('sPriv.key')).toThrow(/not exposed/)
+    expect(json).not.toContain('sk-STRUCT-LEAK')
+    // SECRECY: the author's own opt-in, laundered through an ancestor heading
+    expect(json).not.toContain('ZX9-LAUNDERED')
+    // ARIA-HIDDEN: hidden from assistive tech means hidden here
+    expect(json).not.toContain('HIDDEN-STRUCT')
+    // POSITIVE CONTROLS — structure is still mapped, and a declared binding
+    // still describes. Without these the three above pass on an empty map.
+    expect(json).toContain('Ordinary Section')
+    expect(json).toContain('Public Title')
   })
 
   test("expose: 'all' is the deliberate override — everything, with a warning", async () => {

@@ -7,7 +7,7 @@ const map = (wiring: any[]): AgentDescription =>
     version: { surface: '1.0.0', tosijs: 'test', capabilities: [] },
     roots: {},
     actions: [],
-    exposure: 'introspection',
+    exposure: 'all',
     wiring,
   } as AgentDescription)
 

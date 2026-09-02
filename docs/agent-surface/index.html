@@ -63,8 +63,8 @@ availability + API location -->),
 (<code>agent.webmcp</code> carries the receipt; <code>webmcp: false</code> opts out); without a
 host, you see exactly what would register.</p>
 <p><strong>What actually publishes depends on the posture</strong>, because publishing to a
-WebMCP host hands the surface to a different principal. An unscoped
-read-only surface publishes only the introspection pair — declaring
+WebMCP host hands the surface to a different principal. A closed (default)
+surface publishes only the introspection pair — declaring
 <code>expose: { roots }</code> (or <code>expose: &#39;all&#39;</code>, or <code>webmcp: { allowReads: true }</code>)
 is what says &quot;yes, publish a read of this&quot;. <code>tosi_write</code> needs
 <code>allowWrites</code>, which is why it appears on this page — see
@@ -310,12 +310,15 @@ treat any tool output — as data, never as instructions. A state library can
 say this; it cannot enforce it.</p>
 </blockquote>
 <ol>
-<li><strong>Off</strong> (default) — nothing. Zero cost, zero surface.</li>
-<li><strong>Read-only introspection</strong> — what a bare <code>enableAgentInterface()</code> gives
-you, and the tier this list used to omit entirely. Everything is
-<em>readable</em> and observable; <code>write()</code> and <code>call()</code> refuse. It is
-simultaneously the safest <strong>verb</strong> posture and the widest <strong>read</strong>
-posture — see <a href="/trust-and-transports/">Trust &amp; Transports</a>.</li>
+<li><strong>Off</strong> — never call <code>enableAgentInterface()</code>. Zero cost, zero surface.</li>
+<li><strong>Closed</strong> (the default) — a bare <code>enableAgentInterface()</code> installs the
+surface and exposes <em>nothing through it</em>: <code>describe()</code> reports an empty
+app, no roots, no wiring, and every verb refuses. Until 1.9.0 this tier
+was &quot;read-only introspection&quot; — everything readable and observable, with
+only <code>write()</code> and <code>call()</code> refusing — which read as the safest posture
+while being the <strong>widest read posture available</strong>. Four secret leaks were
+found beneath that description, every one reachable only from it; the
+default is now empty. See <a href="/trust-and-transports/">Trust &amp; Transports</a>.</li>
 <li><strong>Introspection mode</strong> (<code>expose: &#39;all&#39;</code>) — everything tosijs knows,
 read/write/call, <strong>dev-only and explicitly unstable</strong>. (The name is the
 code&#39;s: <code>describe().exposure</code> reports <code>&#39;all&#39;</code> for this tier, <code>&#39;manifest&#39;</code>

@@ -30,15 +30,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="../doc-system.css" data-tosi-doc-system />
   <title>Migrating from xinjs to tosijs</title>
-  <meta name="description" content="Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
+  <meta name="description" content="Upgrading tosijs: the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
   <link rel="canonical" href="https://tosijs.net/Migration/" />
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="tosijs" />
   <meta property="og:title" content="Migrating from xinjs to tosijs" />
-  <meta property="og:description" content="Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
+  <meta property="og:description" content="Upgrading tosijs: the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." />
   <meta property="og:url" content="https://tosijs.net/Migration/" />
   <meta name="twitter:card" content="summary" />
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Migrating from xinjs to tosijs","description":"Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.","url":"https://tosijs.net/Migration/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Migrating from xinjs to tosijs","description":"Upgrading tosijs: the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.","url":"https://tosijs.net/Migration/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
   <link rel="icon" href="../favicon.svg" />
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
@@ -46,7 +46,7 @@
   <tosi-doc-system docs="../docs.json" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;}}">
   <article class="doc-content">
 <h1>Migrating from <code>xinjs</code> to <code>tosijs</code></h1>
-<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 <p>In a nutshell:</p>
 <ol>
@@ -59,6 +59,42 @@ should be the module names.</p>
 <blockquote>
 <p>Please <a href="https://discord.gg/ramJ9rgky5">let me know</a> if there are any issues.</p>
 </blockquote>
+<h1>Upgrading to 1.9.0</h1>
+<p><strong>One break, and only if you call <code>enableAgentInterface()</code>.</strong> Nothing else
+changes; apps that never touch the agent surface upgrade with no action.</p>
+<p><strong><code>enableAgentInterface()</code> with no manifest now exposes NOTHING.</strong> It used to
+mean &quot;read-only over the entire registry&quot; — every state root, every value, and
+every bound element on the page, reachable through <code>globalThis.tosiAgent</code> and
+published to any WebMCP host, from one unargumented call. <code>describe()</code> now
+reports an empty app (<code>roots: {}</code>, <code>wiring: []</code>, <code>actions: []</code>) and
+<code>read</code>/<code>write</code>/<code>call</code>/<code>observe</code>/<code>when</code> refuse every path.</p>
+<table>
+<thead>
+<tr>
+<th>if you had</th>
+<th>you now want</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enableAgentInterface()</code></td>
+<td><code>enableAgentInterface({ expose: { roots: [...], actions: [...] } })</code> — name what an agent may see</td>
+</tr>
+<tr>
+<td>…and you&#39;re just exploring</td>
+<td><code>enableAgentInterface({ expose: &#39;all&#39; })</code> — everything, deliberately, with a warning</td>
+</tr>
+</tbody></table>
+<p>The surface tells you which it is: a bare call logs <em>&quot;nothing is exposed&quot;</em> and
+names both escape hatches, and <code>describe().exposure</code> reports <code>&#39;closed&#39;</code>.</p>
+<p><strong>Why:</strong> four separate secret leaks were found in 1.8.x, and every one of them
+was reachable <strong>only</strong> in that default posture — a heading printing a password,
+a token in a link, a half-typed draft. Each was patched where it was found,
+which was four symptoms of one permissive default. Undeclared state is now
+<em>absent</em> rather than redacted: it never enters the map, and the elements bound
+to it never appear in <code>wiring</code>.</p>
+<p><strong>Also renamed:</strong> <code>describe().exposure</code> values — <code>&#39;read-only&#39;</code> → <code>&#39;closed&#39;</code>,
+<code>&#39;introspection&#39;</code> → <code>&#39;all&#39;</code>. If you branched on those strings, update them;
+<code>&#39;read-only&#39;</code> in particular now describes a posture that no longer exists.</p>
 <h1>Upgrading to 1.8.0</h1>
 <p><strong>Removed.</strong> Only one deprecation named 1.8.0 in its 1.7 warning, and it is
 the only thing actually removed:</p>
@@ -119,10 +155,11 @@ silently discarded.</strong> Writing <code>false</code> to an attribute declared
 and a feature you turned off stayed on. It now lands as written, with one
 <code>console.error</code> naming both types.</li>
 </ul>
-<p><strong>New, and opt-in:</strong> the agent surface (<code>enableAgentInterface()</code>) defaults
-to <strong>read-only</strong> introspection — <code>write()</code> and <code>call()</code> refuse until you
-declare <code>expose: { roots, actions }</code> (production) or <code>expose: &#39;all&#39;</code>
-(development). A manifest scopes what may be <strong>seen</strong>; add <code>write: true</code> to
+<p><strong>New, and opt-in:</strong> the agent surface (<code>enableAgentInterface()</code>). In 1.8.0
+it defaulted to <strong>read-only</strong> introspection — <code>write()</code> and <code>call()</code> refused
+until you declared <code>expose: { roots, actions }</code> (production) or
+<code>expose: &#39;all&#39;</code> (development). <strong>1.9.0 closed that default entirely</strong> — see
+above. A manifest scopes what may be <strong>seen</strong>; add <code>write: true</code> to
 let an agent change it. Nothing changes for apps that never call it.</p>
 <p><strong>License:</strong> tosijs is <strong>Apache-2.0</strong> as of 1.8.0 (BSD-3-Clause through
 1.7.x) — adding an explicit patent grant and a patent-retaliation clause.

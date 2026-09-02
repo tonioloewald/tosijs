@@ -8,11 +8,12 @@ export interface WebMCPTool {
 export interface WebMCPAdapterOptions {
     /** explicit host (tests, or a future relocation of the API) */
     modelContext?: any;
-    /** register tosi_write even outside introspection mode (default false) */
+    /** register tosi_write even outside `expose: 'all'` (default false) */
     allowWrites?: boolean;
-    /** register tosi_read / tosi_changes on an UNSCOPED read-only surface
-     * (default false) — the deliberate opt-in for "publish a read of
-     * everything" when you don't want to declare an `expose` manifest */
+    /** register tosi_read / tosi_changes on a CLOSED surface (default false).
+     * Rarely what you want since 1.9.0: a closed surface exposes nothing, so
+     * the published tools refuse every path. Declare `expose: { roots }`
+     * instead — that publishes them AND gives them something to read. */
     allowReads?: boolean;
     /** tool-name prefix (default 'tosi') — namespace this surface when the
      * page carries more than one, or when another script owns the plain names */

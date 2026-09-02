@@ -3,7 +3,7 @@ import { schematicSVG } from './schematic'
 import { AgentDescription } from './agent'
 
 const description: AgentDescription = {
-  exposure: 'introspection',
+  exposure: 'all',
   roots: { app: 'object' },
   actions: ['app.restock'],
   wiring: [
@@ -92,7 +92,7 @@ describe('schematicSVG — pure, DOM-free rendering of the map', () => {
 
   test('empty map renders an empty svg rather than throwing', () => {
     const svg = schematicSVG({
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [],
@@ -125,7 +125,7 @@ describe('spatial scoping — within', () => {
 describe('containment-aware captions', () => {
   test('a container box gets no text-derived caption — its children speak', () => {
     const nested: AgentDescription = {
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [
@@ -154,7 +154,7 @@ describe('containment-aware captions', () => {
 
   test('a container with an explicit label keeps it', () => {
     const labeled: AgentDescription = {
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [
@@ -179,7 +179,7 @@ describe('containment-aware captions', () => {
 describe('viewport-fixed furniture', () => {
   test('pinned records neither stretch the viewBox nor sit mid-document', () => {
     const withChrome: AgentDescription = {
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [
@@ -207,7 +207,7 @@ describe('viewport-fixed furniture', () => {
 describe('off-page hiding', () => {
   test('fully negative-coordinate records are excluded — hidden is hidden', () => {
     const stashed: AgentDescription = {
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [
@@ -232,7 +232,7 @@ describe('off-page hiding', () => {
 describe('the affordance grammar — actionable is explicit', () => {
   test('handler-wired elements get a bold outline; editable boxes wear the badge', () => {
     const grammar: AgentDescription = {
-      exposure: 'introspection',
+      exposure: 'all',
       roots: {},
       actions: [],
       wiring: [
@@ -279,7 +279,7 @@ describe('schematicSVG — control-state truth', () => {
   const sink: any = {
     roots: {},
     actions: [],
-    exposure: 'introspection',
+    exposure: 'all',
     wiring: [
       // checkbox: checked and not — the state is the caption
       {
@@ -367,7 +367,7 @@ describe('focus — where the user is', () => {
     const focusMap: any = {
       roots: {},
       actions: [],
-      exposure: 'introspection',
+      exposure: 'all',
       wiring: [
         {
           tag: 'input',
@@ -395,7 +395,7 @@ describe('list containers are ground, not figure', () => {
     const listMap: any = {
       roots: {},
       actions: [],
-      exposure: 'introspection',
+      exposure: 'all',
       wiring: [
         {
           tag: 'ul',
@@ -426,7 +426,7 @@ describe('required and invalid — the form-truth grammar', () => {
   const formMap: any = {
     roots: {},
     actions: [],
-    exposure: 'introspection',
+    exposure: 'all',
     wiring: [
       {
         tag: 'input',
@@ -461,7 +461,7 @@ describe('contenteditable — drawn as an input', () => {
     const map: any = {
       roots: {},
       actions: [],
-      exposure: 'introspection',
+      exposure: 'all',
       wiring: [
         {
           tag: 'div',
