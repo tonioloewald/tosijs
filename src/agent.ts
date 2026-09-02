@@ -612,13 +612,13 @@ const isSecretPath = (path: string): boolean => {
   for (const secret of secretPaths) {
     if (extendsPath(secret, path)) return true
   }
-  // ⚠️ KNOWN GAP (review M4, tracked): matching is by SPELLING. A secret
-  // learned as `list[id=a1].pw` is not matched by `list[0].pw` or
-  // `list.0.pw`, which name the same location. Reading the PARENT array is
-  // now safe (redactWithin descends by id-path), but a direct read using an
-  // index spelling still returns cleartext. Fixing it needs canonicalisation
-  // of index segments to the registered id-path form — deliberately NOT
-  // attempted here rather than rushed into a security check.
+  // ⚠️ KNOWN GAP (tosijs#32): matching is by SPELLING. A secret learned as
+  // `list[id=a1].pw` is not matched by a DIRECT read spelled `list[0].pw`.
+  // Descending from an ancestor IS covered — redactWithin tries every
+  // spelling — so `read('list')` is safe; it is the direct index-spelled
+  // query that is not. Fixing it needs canonicalisation of the QUERY, which
+  // must fail closed: an error in the canonicaliser has to mean "possibly
+  // secret", never "not secret".
   return false
 }
 
@@ -742,35 +742,51 @@ const refreshSecretPaths = (): void => {
 const redactWithin = (path: string, value: any): any => {
   if (value == null || typeof value !== 'object') return value
   const clone: any = Array.isArray(value) ? [...value] : { ...value }
-  /*
-   * DESCEND INTO ARRAYS BY ID-PATH WHEN ONE IS REGISTERED (review M4).
-   *
-   * Secret paths are learned from bound controls, and a control inside a list
-   * template binds through the id-path spelling — `acct.list[id=a1].pw`. This
-   * walk built `acct.list.0.pw`, which is the same location under a different
-   * name, so nothing matched and reading the PARENT ARRAY handed back every
-   * secret it contained in cleartext:
-   *
-   *   read('acct.list[id=a1].pw') -> '⟨secret⟩'
-   *   read('acct.list')           -> [{ id:'a1', pw:'hunter2' }]   ← leaked
-   *
-   * The id-path registry that drives surgical list updates already knows the
-   * key field, so use the same spelling the binding used.
-   */
-  const idPaths = Array.isArray(value) ? getArrayIdPaths(path) : undefined
-  const idPath =
-    idPaths != null && idPaths.size > 0 ? [...idPaths][0] : undefined
+  const isArray = Array.isArray(value)
+  const idPaths = isArray ? getArrayIdPaths(path) : undefined
   for (const key of Object.keys(clone)) {
-    const idValue =
-      idPath != null ? getByPath(clone[key], idPath) : undefined
-    const childPath =
-      idValue !== undefined && idValue !== null
-        ? `${path}[${idPath}=${String(idValue)}]`
-        : `${path}.${key}`
-    if (isSecretPath(childPath)) clone[key] = SECRET_SENTINEL
-    else if (containsSecret(childPath)) {
-      clone[key] = redactWithin(childPath, clone[key])
+    /*
+     * EVERY SPELLING THAT CAN NAME THIS CHILD — because secrecy must not
+     * depend on which one the binding happened to use (review B2).
+     *
+     * A first attempt descended by id-path only, which fixed lists that
+     * register one and left two holes wide open:
+     *   - a list with NO idPath is a documented, supported configuration, and
+     *     `ListBinding` names its rows `rows[0]`; the walk built `rows.0`, so
+     *     nothing matched and `read('rows')` returned every secret in
+     *     cleartext — the exact bug the fix was written to close;
+     *   - two bindings registering DIFFERENT idPaths for one array meant
+     *     `[...idPaths][0]` picked one and secrets under the other leaked.
+     *
+     * So: collect the candidates, redact if ANY is secret, and recurse under
+     * whichever one actually contains a secret.
+     */
+    const candidates: string[] = []
+    if (isArray) {
+      candidates.push(`${path}[${key}]`, `${path}.${key}`)
+      if (idPaths != null) {
+        for (const idPath of idPaths) {
+          // `clone[key] == null` guard: getByPath tolerates undefined but
+          // THROWS on null, so a single null row (a cleared entry, a hole in
+          // a server payload) took read/describe/changes down for the page —
+          // and changes() threw inside its coalescing loop, killing every
+          // subsequent poll. Introduced by the first version of this fix.
+          const idValue =
+            clone[key] == null ? undefined : getByPath(clone[key], idPath)
+          if (idValue !== undefined && idValue !== null) {
+            candidates.push(`${path}[${idPath}=${String(idValue)}]`)
+          }
+        }
+      }
+    } else {
+      candidates.push(`${path}.${key}`)
     }
+    if (candidates.some((candidate) => isSecretPath(candidate))) {
+      clone[key] = SECRET_SENTINEL
+      continue
+    }
+    const deeper = candidates.find((candidate) => containsSecret(candidate))
+    if (deeper != null) clone[key] = redactWithin(deeper, clone[key])
   }
   return clone
 }

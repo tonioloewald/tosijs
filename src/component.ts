@@ -764,7 +764,7 @@ import {
   isBindingWrite,
 } from './dom'
 import { ElementsProxy } from './elements-types'
-import { elements, elementSet } from './elements'
+import { elements, elementSet, mergeElementProps } from './elements'
 import { tosiPath } from './metadata'
 import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
@@ -2420,7 +2420,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           ) {
             return true
           }
-          Object.assign(hostProps, item)
+          // SAME merge as create() — `bind` accumulates. This was a plain
+          // Object.assign, so a host-props object carrying `bind` and a
+          // spread `.tosi.listBinding()` clobbered each other and one order
+          // silently destroyed the whole list (review round 2, B1).
+          mergeElementProps(hostProps, item)
           return false
         })
         for (const key of Object.keys(hostProps)) {

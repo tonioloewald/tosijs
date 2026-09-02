@@ -1478,6 +1478,64 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(JSON.stringify(agent.read('secretList'))).not.toContain('hunter2')
   })
 
+  test('SEC-2d: a list WITHOUT idPath still redacts, and a null row does not crash', async () => {
+    /*
+     * Review round 2, B2 + B3 — both introduced or left open by the first
+     * attempt at this fix, which descended by id-path ONLY.
+     *
+     * B2: a list with no idPath is a documented, supported configuration.
+     * ListBinding names its rows `rows[0]`; the walk built `rows.0`, matched
+     * nothing, and `read('rows')` returned every secret in cleartext.
+     * B3: the id-path lookup called getByPath on the row unguarded, and
+     * getByPath tolerates undefined but THROWS on null — so one null row took
+     * read/describe/changes down for the whole page.
+     */
+    const { noIdList } = tosi({
+      noIdList: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] },
+    })
+    document.body.append(
+      elements.div(
+        ...noIdList.rows.tosi.listBinding(({ div, input }: any) =>
+          div(input({ type: 'password', bindValue: '^.pw' }))
+        )
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    expect(agent.read('noIdList.rows[0].pw')).toBe('⟨secret⟩')
+    const rows = agent.read('noIdList.rows') as any[]
+    expect(rows[0].pw).toBe('⟨secret⟩') // B2: leaked before
+    expect(rows[0].label).toBe('work')
+    expect(JSON.stringify(agent.read('noIdList'))).not.toContain('hunter2')
+  })
+
+  test('SEC-2e: a null row in an id-path list does not take the surface down', async () => {
+    const { nullRow } = tosi({
+      nullRow: { rows: [{ id: 'a', pw: 'p1' }, { id: 'b', pw: 'p2' }] },
+    })
+    document.body.append(
+      elements.div(
+        ...nullRow.rows.tosi.listBinding(
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.pw' })),
+          { idPath: 'id' }
+        )
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({ quiet: true }))
+    expect(agent.read('nullRow.rows[id=a].pw')).toBe('⟨secret⟩')
+
+    xin.nullRow.rows = [{ id: 'a', pw: 'p1' }, null]
+    await updates()
+    // all three threw `null is not an object` before the guard
+    const read = agent.read('nullRow.rows') as any[]
+    expect(read[0].pw).toBe('⟨secret⟩')
+    expect(read[1]).toBe(null)
+    expect(() => agent.describe()).not.toThrow()
+    expect(() => agent.changes(0)).not.toThrow()
+  })
+
   test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
     const hidden = elements.input({ type: 'hidden', id: 'csrf' })
     ;(hidden as any).value = 'CSRF-TOKEN-123'

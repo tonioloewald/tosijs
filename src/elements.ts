@@ -579,6 +579,32 @@ const elementPropBinding = (key: string): TosiBinding => {
   return propBindingCache[key]
 }
 
+/**
+ * Fold one props object into another — `bind` ACCUMULATES, everything else is
+ * last-write-wins.
+ *
+ * Last-write-wins is right for scalar props and WRONG for `bind`: since
+ * `.tosi.listBinding()` started emitting `bind` instead of the deprecated
+ * `bindList`, a plain `Object.assign` silently destroyed one of two bindings.
+ * Both orders failed without a word — caller's bind first dropped the caller's
+ * binding, listBinding first destroyed the ENTIRE LIST, template unconsumed.
+ *
+ * EXPORTED AND SHARED because there are TWO addresses that fold props this
+ * way: `create()` here and `Component.hydrate()`. The first fix landed only
+ * here, so the identical bug survived in hydrate() — where host props in a
+ * content array are documented to apply "just as they would be applied to the
+ * element being created by div()". One helper, so they cannot drift again.
+ */
+export const mergeElementProps = (target: any, item: any): void => {
+  if (item?.bind != null && target.bind != null) {
+    target.bind = ([] as any[]).concat(target.bind, item.bind)
+    const { bind: _accumulated, ...rest } = item
+    Object.assign(target, rest)
+    return
+  }
+  Object.assign(target, item)
+}
+
 export const elementSet = (elt: HTMLElement, key: string, value: any) => {
   if (key === 'apply') {
     value(elt)
@@ -770,17 +796,7 @@ const create = (tagType: string, ...contents: ElementPart[]): HTMLElement => {
       //   listBinding first    -> the ENTIRE LIST vanished, template unconsumed
       // A container that is both list-bound and carries its own binding (an
       // empty-state class, an aria-label) is ordinary composition.
-      const incoming: any = item
-      if (incoming?.bind != null && elementProps.bind != null) {
-        elementProps.bind = ([] as any[]).concat(
-          elementProps.bind,
-          incoming.bind
-        )
-        const { bind: _dropped, ...rest } = incoming
-        Object.assign(elementProps, rest)
-      } else {
-        Object.assign(elementProps, item)
-      }
+      mergeElementProps(elementProps, item)
     }
   }
   for (const key of Object.keys(elementProps)) {

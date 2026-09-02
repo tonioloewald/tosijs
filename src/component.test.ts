@@ -3,6 +3,8 @@ import { Component, tosiSlot } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
 import { _resetDeprecationWarnings } from './metadata'
+import { tosi } from './xin-proxy'
+import { updates } from './path-listener'
 
 // Simple test component
 class TestComponent extends Component {
@@ -2253,5 +2255,56 @@ describe('initAttributes and contract.attributes COMPOSE (tosijs#29)', () => {
       type: 'string',
       default: '',
     })
+  })
+})
+
+describe('host props in content compose with a list binding (round-2 B1)', () => {
+  /*
+   * `Component.hydrate()` folded host props with a bare Object.assign, so the
+   * `bind`-clobbering bug fixed in create() survived at its SECOND address.
+   * One order silently destroyed the entire list. There were NO list-binding
+   * tests in this file at all, which is why the first fix looked complete.
+   */
+  const mark = {
+    toDOM(el: any, v: any) {
+      el.setAttribute('data-title', String(v))
+    },
+  }
+
+  const build = async (tag: string, order: 'list-first' | 'bind-first') => {
+    const key = tag.replace(/-/g, '_')
+    const created: any = tosi({
+      [key]: { items: ['x', 'y'], title: 'hello' },
+    } as any)
+    const state = created[key]
+    const list = () =>
+      state.items.tosi.listBinding(({ span }: any, item: any) =>
+        span({ textContent: item })
+      )
+    const props = { bind: { value: `${key}.title`, binding: mark } }
+    class W extends Component {
+      static preferredTagName = tag
+      content =
+        order === 'list-first'
+          ? () => [...list(), props]
+          : () => [props, ...list()]
+    }
+    W.elementCreator()
+    const el = new (customElements.get(tag) as any)()
+    document.body.append(el)
+    await updates()
+    return el
+  }
+
+  test('listBinding first — the list must not vanish', async () => {
+    const el = await build('hp-list-first', 'list-first')
+    expect(el.querySelectorAll('span').length).toBe(2)
+    expect(el.getAttribute('data-title')).toBe('hello')
+  })
+
+  test("caller's bind first — both survive", async () => {
+    const el = await build('hp-bind-first', 'bind-first')
+    expect(el.querySelectorAll('span').length).toBe(2)
+    expect(el.getAttribute('data-title')).toBe('hello')
   })
 })
