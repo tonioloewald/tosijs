@@ -63,7 +63,7 @@ import { registry } from './registry'
 import { version } from './version'
 import { settings } from './settings'
 import { observe, unobserve, extendsPath, Listener } from './path-listener'
-import { setByPath } from './by-path'
+import { getByPath, setByPath } from './by-path'
 import { xin } from './xin'
 import {
   BOUND_CLASS,
@@ -73,6 +73,7 @@ import {
   anyInlineContracts,
   tosiValue,
   tosiPath,
+  getArrayIdPaths,
 } from './metadata'
 import { contractViolation, ownContract } from './contract-check'
 import { bindings } from './bindings'
@@ -611,6 +612,13 @@ const isSecretPath = (path: string): boolean => {
   for (const secret of secretPaths) {
     if (extendsPath(secret, path)) return true
   }
+  // ⚠️ KNOWN GAP (review M4, tracked): matching is by SPELLING. A secret
+  // learned as `list[id=a1].pw` is not matched by `list[0].pw` or
+  // `list.0.pw`, which name the same location. Reading the PARENT array is
+  // now safe (redactWithin descends by id-path), but a direct read using an
+  // index spelling still returns cleartext. Fixing it needs canonicalisation
+  // of index segments to the registered id-path form — deliberately NOT
+  // attempted here rather than rushed into a security check.
   return false
 }
 
@@ -734,8 +742,31 @@ const refreshSecretPaths = (): void => {
 const redactWithin = (path: string, value: any): any => {
   if (value == null || typeof value !== 'object') return value
   const clone: any = Array.isArray(value) ? [...value] : { ...value }
+  /*
+   * DESCEND INTO ARRAYS BY ID-PATH WHEN ONE IS REGISTERED (review M4).
+   *
+   * Secret paths are learned from bound controls, and a control inside a list
+   * template binds through the id-path spelling — `acct.list[id=a1].pw`. This
+   * walk built `acct.list.0.pw`, which is the same location under a different
+   * name, so nothing matched and reading the PARENT ARRAY handed back every
+   * secret it contained in cleartext:
+   *
+   *   read('acct.list[id=a1].pw') -> '⟨secret⟩'
+   *   read('acct.list')           -> [{ id:'a1', pw:'hunter2' }]   ← leaked
+   *
+   * The id-path registry that drives surgical list updates already knows the
+   * key field, so use the same spelling the binding used.
+   */
+  const idPaths = Array.isArray(value) ? getArrayIdPaths(path) : undefined
+  const idPath =
+    idPaths != null && idPaths.size > 0 ? [...idPaths][0] : undefined
   for (const key of Object.keys(clone)) {
-    const childPath = `${path}.${key}`
+    const idValue =
+      idPath != null ? getByPath(clone[key], idPath) : undefined
+    const childPath =
+      idValue !== undefined && idValue !== null
+        ? `${path}[${idPath}=${String(idValue)}]`
+        : `${path}.${key}`
     if (isSecretPath(childPath)) clone[key] = SECRET_SENTINEL
     else if (containsSecret(childPath)) {
       clone[key] = redactWithin(childPath, clone[key])

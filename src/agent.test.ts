@@ -1449,6 +1449,35 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     })
   })
 
+  test('SEC-2c: reading a list does not hand back the secrets inside it', async () => {
+    /*
+     * Review M4. Secrets are learned from bound controls, and a control in a
+     * list template binds through the id-path form (`list[id=a1].pw`), while
+     * redactWithin walked arrays by INDEX (`list.0.pw`) — the same location
+     * under a different name. Nothing matched, so reading the parent array
+     * returned every secret it contained in cleartext.
+     */
+    const { secretList } = tosi({
+      secretList: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] },
+    })
+    const container = elements.div(
+      ...secretList.rows.tosi.listBinding(
+        ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+        { idPath: 'id' }
+      )
+    )
+    document.body.append(container)
+    await updates()
+    const agent = (current = enableAgentInterface({ quiet: true }))
+
+    expect(agent.read('secretList.rows[id=r1].pw')).toBe('⟨secret⟩')
+    // the parent read must agree — this is what leaked
+    const rows = agent.read('secretList.rows') as any[]
+    expect(rows[0].pw).toBe('⟨secret⟩')
+    expect(rows[0].label).toBe('work') // non-secret fields still describe
+    expect(JSON.stringify(agent.read('secretList'))).not.toContain('hunter2')
+  })
+
   test('SEC-3: secrets are not just <input type=password>, and manifest mode withholds unbound values', async () => {
     const hidden = elements.input({ type: 'hidden', id: 'csrf' })
     ;(hidden as any).value = 'CSRF-TOKEN-123'
