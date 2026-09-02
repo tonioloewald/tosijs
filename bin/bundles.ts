@@ -128,11 +128,20 @@ export const BUNDLES: BundleSpec[] = [
   // worth it. Unlike the shipped-to-consumers bundles, these two are
   // EXPERIMENTAL and inert, so the number polices toolchain regressions, not
   // a promise to anyone: ~2 kB of room is the right slack for that job.
+  //
+  // RAISED 58_000 -> 59_500 in 1.9.0, deliberately and in the same commit the
+  // growth landed, exactly as the gate's message asks. The growth is the
+  // agent surface's content guard, the subtree binding walk and the tagged
+  // refusals — security code, on the opt-in surface, which these two bundles
+  // carry in full because they are whole-library builds. It went over by 30
+  // BYTES, and only under Bun's gzip; Node's measures the same artifact
+  // under. The slack is restored rather than shaved to the new number, so the
+  // gate keeps policing regressions instead of tripping on noise.
   {
     naming: 'module.debug.js',
     format: 'esm',
     entry: './tjs-out/index-debug.js',
-    budget: 58_000,
+    budget: 59_500,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -143,7 +152,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.safe.js',
     format: 'esm',
     entry: './tjs-out/index-safe.js',
-    budget: 58_000,
+    budget: 59_500,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

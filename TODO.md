@@ -61,21 +61,15 @@ README + a test that reads it.
       print a `bindText` warning (`elements.ts`; `grep 'permanently DISABLING'
       dist/*.js` hits all four). Keep the actionable half, move the explanation
       behind a docs anchor.
-- [ ] **Decide the `bind*` string-form question and write it down.** This
-      release codified "deprecated iff a plain prop expresses it exactly" and
-      un-deprecated `bindList` on that basis, but `bindText`/`bindEnabled`/
-      `bindDisabled` stay deprecated for the PATH-STRING form where the plain
-      prop provably does not express it. The `.d.ts` now says so per-case, which
-      removes the sharp edge; the rule is still applied non-uniformly. Either
-      warn only when the value is a proxy, or state the exception and why.
-      (Not new in 1.9.0 — `git log -S` puts the deprecation at 1.5.7.)
-- [x] ~~**No downstream consumer has been built against 1.9.0.**~~ **DONE** —
-      the published tarball (`bun pm pack`), extracted into tosijs-ui exactly
-      as a consumer receives it: **1230 tests pass, 0 fail**, and the full
-      doc-site build succeeds (66 pages + epub), exit 0. Doing it against a
-      real tarball rather than a substituted `dist/` is the point: it is what
-      caught `isAgentRefusal` missing from the published export surface.
-      Remaining: neither project's Playwright lane was run in that scratch copy.
+- [x] ~~**Decide the `bind*` string-form question.**~~ **DONE (1.9.0)** — the
+      rule now applies uniformly and turns on the VALUE: deprecated iff a
+      plain prop expresses it exactly, which is true for a proxy and false for
+      a path string. `bindText`/`bindEnabled`/`bindDisabled` warn only for the
+      proxy form. tosijs-ui reached this independently for `bindText`; it is
+      the same argument that kept `bindValue`/`bindList`, and applying it to
+      only those two was the inconsistency. The `.d.ts` no longer marks the
+      whole prop `@deprecated` (it was striking through correct code).
+      Follow-up: post the resolution on tosijs-ui#127 and mirror in UPSTREAM.md.
 - [ ] **Close tosijs#31 naming 1.9.0** — the `SYMBOL_MAP` split, the `create()`
       fix and the `listBinding()` fix close it, and it is still open, so
       downstream (including tosijs-ui#127) has no signal the fix shipped.

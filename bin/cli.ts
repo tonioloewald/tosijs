@@ -373,11 +373,13 @@ Two things to know either way. The surface installs itself as
 \`globalThis.tosiAgent\` unless you pass \`global: false\`; that global is a
 convenience, not a boundary — any script already running on your origin can
 reach your state with or without it — but it is worth turning off in a page
-that hosts third-party script. And \`expose\` scopes STATE, not the map:
-\`describe()\` walks the whole page in every mode, and \`describe({ scope })\`
-is the knob that narrows THAT. In a freshly scaffolded app \`roots: ['app']\`
-is the entire state tree, so the narrowing starts out nil — it becomes real
-as your state grows past what an agent needs.
+that hosts third-party script. And \`expose\` scopes the MAP as well as the
+state: an element reaches \`describe()\` by being declared — bound to an
+in-scope path, or carrying an in-scope handler — never by merely existing in
+the DOM. \`describe({ scope })\` narrows to a subtree on top of that. In a
+freshly scaffolded app \`roots: ['app']\` is the entire state tree, so the
+narrowing starts out nil — it becomes real as your state grows past what an
+agent needs.
 `
   )
   console.log(`\ncd ${name} && bun install && bun start`)

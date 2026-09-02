@@ -294,12 +294,17 @@ doubling as the existence proof that the standard needs a real notification
 channel.)</p>
 <h3>Exposure tiers (what &quot;or what the programmer explicitly tells it&quot; means)</h3>
 <blockquote>
-<p><strong><code>expose</code> scopes STATE, not the map.</strong> It says what the surface may read,
-write and call <em>as state</em>. It does not narrow what <code>describe()</code> walks —
-the map covers the whole page in every mode: headings, landmarks, links and
-their <code>href</code>s, contenteditable text, labels, placeholders and geometry.
-<code>describe({ scope: el })</code> is the DOM knob; <code>expose</code> is the state knob. Two
-separate decisions, and a production surface usually wants both.</p>
+<p><strong><code>expose</code> scopes the MAP as well as the state</strong> (changed in 1.9.0 — it used
+to scope state only, and this callout used to say so). An element earns a
+place in <code>describe().wiring</code> by being <em>declared</em>: bound to an in-scope path,
+or carrying an in-scope handler. Merely existing in the DOM is not enough, so
+an undeclared link&#39;s <code>href</code>, an undeclared region&#39;s contenteditable text, a
+private component&#39;s contract, and any label or heading rendering a value
+<code>read()</code> refuses are all <strong>absent</strong> rather than redacted.</p>
+<p>The old split — state scoped, map global — is what made four secret leaks
+reachable: the map is assembled to be handed to a model, so &quot;it&#39;s only the
+DOM&quot; was never only the DOM. <code>describe({ scope: el })</code> remains the DOM knob
+for narrowing to a subtree; <code>expose</code> now governs both.</p>
 <p>Two more facts worth stating plainly. <code>enableAgentInterface()</code> installs
 <code>globalThis.tosiAgent</code> unless you pass <code>global: false</code> — that global is a
 convenience, never a boundary (any script already on your origin can reach

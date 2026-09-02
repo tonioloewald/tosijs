@@ -528,11 +528,13 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
   }
 
   test('no message tells you to write a key that is not a props key', async () => {
-    tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
+    const { advice } = tosi({ advice: { flag: true, items: ['a'], txt: 'hi' } })
+    // PROXY values — the only form that is deprecated, because it is the only
+    // form a plain prop expresses exactly
     const msgs = [
-      ...(await capture(() => elements.button({ bindEnabled: 'advice.flag' }))),
-      ...(await capture(() => elements.span({ bindText: 'advice.txt' }))),
-      ...(await capture(() => elements.button({ bindDisabled: 'advice.flag' }))),
+      ...(await capture(() => elements.button({ bindEnabled: advice.flag }))),
+      ...(await capture(() => elements.span({ bindText: advice.txt }))),
+      ...(await capture(() => elements.button({ bindDisabled: advice.flag }))),
     ]
     expect(msgs.length).toBe(3)
     for (const m of msgs) {
@@ -542,15 +544,38 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
     }
   })
 
-  test('the enabled advice warns that the naive form DISABLES the control', async () => {
-    tosi({ advice2: { flag: true } })
-    const [msg] = await capture(() =>
-      elements.button({ bindEnabled: 'advice2.flag' })
-    )
-    expect(msg).toContain('permanently DISABLING')
-    // and the claim is true — following the naive form really does kill it
+  test('the PATH-STRING form is not deprecated — no plain prop expresses it', async () => {
+    /*
+     * The rule this release codified is "deprecated IFF a plain prop expresses
+     * it exactly", and that depends on the VALUE, not just the key. With a
+     * path string no plain prop expresses any of these: `textContent: 'path'`
+     * sets literal text, and `disabled: 'path'` assigns a non-empty (always
+     * truthy) string. Warning here told the caller to write something strictly
+     * worse than what they had.
+     *
+     * tosijs-ui reached this independently for `bindText`; it is the same
+     * argument that kept `bindValue` and `bindList`, and applying it to only
+     * those two was the inconsistency.
+     */
+    const { advice2 } = tosi({ advice2: { flag: true, txt: 'hi' } })
+    expect(
+      await capture(() => elements.button({ bindEnabled: 'advice2.flag' }))
+    ).toEqual([])
+    expect(
+      await capture(() => elements.button({ bindDisabled: 'advice2.flag' }))
+    ).toEqual([])
+    expect(
+      await capture(() => elements.span({ bindText: 'advice2.txt' }))
+    ).toEqual([])
+    // …and the reason is REAL: the naive plain-prop form really does kill it
     const dead = elements.button('go', { disabled: 'advice2.flag' }) as any
     expect(dead.disabled).toBe(true)
+    // POSITIVE CONTROL: the proxy form still warns, so silence above is the
+    // rule applying and not the warning having been deleted
+    expect(
+      (await capture(() => elements.button({ bindEnabled: advice2.flag })))
+        .length
+    ).toBe(1)
   })
 
   test('bindList does NOT warn — it is the primitive, not a deprecated shortcut', async () => {

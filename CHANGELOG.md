@@ -157,6 +157,20 @@ warning its own users about API they never wrote.
   The ordinary shape — a few secrets and many rows — was already linear and
   sub-millisecond, and still is.
 
+### Changed
+
+- **The `bind*` deprecation rule now applies uniformly, and depends on the
+  VALUE.** A shortcut is deprecated iff a plain prop expresses it *exactly*:
+  true for a **proxy** (`{ textContent: proxy }`, `{ disabled: proxy }`), false
+  for a **path string**, where `textContent: 'path'` sets literal text and
+  `disabled: 'path'` assigns an always-truthy string that permanently disables
+  the control. So `bindText` / `bindEnabled` / `bindDisabled` warn only for the
+  proxy form; the string form is legitimate and silent. tosijs-ui reached this
+  independently for `bindText` — it is the same argument that kept `bindValue`
+  and `bindList`, and applying it to only those two was the inconsistency. The
+  published `.d.ts` no longer marks the whole prop `@deprecated`, which had
+  been striking through correct code in every editor.
+
 ### Documentation
 
 - **The exposure ladder is documented consistently.** `agent-surface.md` still

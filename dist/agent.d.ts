@@ -417,6 +417,21 @@ export interface AgentInterface {
     };
 }
 /**
+ * May this node's RENDERED CONTENT be published?
+ *
+ * ONE predicate, threaded in, rather than a guard restated at each harvest.
+ * Six review findings across three rounds were all the same invariant wrong at
+ * a site nobody had enumerated — `boundValue`, the list-redaction walk, its
+ * descent, three `describe()` harvests, the structural tier, and then
+ * `associatedLabel`, which had no guard at all. Restating it a seventh time
+ * would be the same bet that lost six times.
+ *
+ * `describeElement` is module-level and pure, so it cannot see `inScope`
+ * (per-surface). Callers that have a posture pass this in; callers that don't
+ * omit it and get today's unguarded behaviour, which is correct for them.
+ */
+export type ContentGuard = (node: Element) => boolean;
+/**
  * Reset the once-per-process posture notices (testing only). Without this
  * the `expose: 'all'` consent warning could not be asserted — the latch is
  * spent by the first surface any test creates, so the assertion had to be

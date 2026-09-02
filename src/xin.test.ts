@@ -1912,6 +1912,9 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
    */
   const { _resetDeprecationWarnings } = await import('./metadata')
   _resetDeprecationWarnings()
+  // the control below binds a PROXY, which needs real state — a path string
+  // binds lazily, a proxy does not
+  tosi({ controlProbe: { x: 'hi' } })
 
   const warnings: string[] = []
   const original = console.warn
@@ -1925,7 +1928,10 @@ test('the recommended list API emits NO deprecation warnings (tosijs#31)', async
     // that is not followed by a second reset re-creates the exact vacuity it
     // was added to disprove. Verified the hard way: with the reset missing,
     // reverting the fix still left the whole suite green.
-    elements.span({ bindText: 'controlProbe.x' })
+    // a PROXY, not a path string: since 1.9.0 only the proxy form is
+    // deprecated (a path string has no exact plain-prop equivalent), so the
+    // string form is silent and would have made this control vacuous
+    elements.span({ bindText: boxed.controlProbe.x })
     expect(warnings.filter((w) => w.includes('deprecated')).length).toBe(1)
     _resetDeprecationWarnings()
     warnings.length = 0

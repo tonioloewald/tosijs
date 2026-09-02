@@ -697,27 +697,36 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
        * exact opposite of what bindEnabled meant, and not "literal text" as an
        * earlier version of this caveat claimed.
        */
-      const shown = typeof value === 'string' ? `'${value}'` : 'proxy'
-      const inlineForm =
-        `{ bind: { value: ${shown}, binding: '${bindingType}' } }`
+      // the string form is no longer deprecated, so the messages below never
+      // need to name the `bind: { value, binding }` migration
       const isPath = typeof value === 'string'
-      const advice =
-        bindingType === 'text'
-          ? isPath
-            ? `Use ${inlineForm} — { textContent: ${shown} } would set literal ` +
-              `text, not bind.`
-            : 'Use { textContent: proxy }.'
+      /*
+       * THE RULE, APPLIED UNIFORMLY: deprecated IFF a plain prop expresses it
+       * exactly — which depends on the VALUE, not only on the key.
+       *
+       * With a proxy, `{ textContent: proxy }` and `{ disabled: proxy }` are
+       * exact replacements and the warning steers to the durable spelling.
+       * With a PATH STRING no plain prop expresses it at all: `textContent`
+       * sets literal text, and `disabled` gets a non-empty (always truthy)
+       * string that permanently DISABLES the control. Warning there told the
+       * caller to write something worse than what they had, and the migration
+       * it named — `bind: { value, binding }` — is not the plain prop the rule
+       * is about.
+       *
+       * So the string form is NOT deprecated. tosijs-ui reached this
+       * independently for `bindText`; it is the same argument that kept
+       * `bindValue` and `bindList`, and applying it only to those two was the
+       * inconsistency. The `.d.ts` already documented the asymmetry per case,
+       * which was conceding the point in writing while still warning.
+       */
+      const advice = isPath
+        ? null
+        : bindingType === 'text'
+          ? 'Use { textContent: proxy }.'
           : bindingType === 'disabled'
-          ? isPath
-            ? `Use ${inlineForm} — { disabled: ${shown} } sets the property to ` +
-              `a non-empty string, which is always truthy.`
-            : 'Use { disabled: proxy }.'
+          ? 'Use { disabled: proxy }.'
           : bindingType === 'enabled'
-          ? isPath
-            ? `Use ${inlineForm} — { disabled: ${shown} } sets the property to ` +
-              `a non-empty string, which is always truthy, permanently ` +
-              `DISABLING the control.`
-            : 'Use { disabled: proxy.tosi.take(v => !v) } — note the inversion.'
+          ? 'Use { disabled: proxy.tosi.take(v => !v) } — note the inversion.'
           : // `bindList` IS NOT DEPRECATED, deliberately. `.tosi.listBinding()`
             // is SUGAR that emits it — deprecating the primitive your own
             // sugar produces is circular, and it showed: the message read

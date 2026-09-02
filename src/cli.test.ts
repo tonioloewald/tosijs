@@ -71,6 +71,9 @@ describe('the scaffolder — bunx tosijs create …', () => {
     const readme = readFileSync(join(dir, 'my-app/README.md'), 'utf-8')
     expect(readme).not.toMatch(/read-only introspection/i)
     expect(readme).toMatch(/exposes \*\*nothing\*\*|exposes nothing/i)
+    // and it must not teach the pre-1.9.0 model, in which `expose` scoped
+    // state only and `describe()` walked the whole page regardless
+    expect(readme).not.toMatch(/scopes STATE, not the map/i)
     const pkg = JSON.parse(
       readFileSync(join(dir, 'my-app/package.json'), 'utf-8')
     )

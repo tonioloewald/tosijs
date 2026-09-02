@@ -233,12 +233,18 @@ channel.)
 
 ### Exposure tiers (what "or what the programmer explicitly tells it" means)
 
-> **`expose` scopes STATE, not the map.** It says what the surface may read,
-> write and call _as state_. It does not narrow what `describe()` walks —
-> the map covers the whole page in every mode: headings, landmarks, links and
-> their `href`s, contenteditable text, labels, placeholders and geometry.
-> `describe({ scope: el })` is the DOM knob; `expose` is the state knob. Two
-> separate decisions, and a production surface usually wants both.
+> **`expose` scopes the MAP as well as the state** (changed in 1.9.0 — it used
+> to scope state only, and this callout used to say so). An element earns a
+> place in `describe().wiring` by being *declared*: bound to an in-scope path,
+> or carrying an in-scope handler. Merely existing in the DOM is not enough, so
+> an undeclared link's `href`, an undeclared region's contenteditable text, a
+> private component's contract, and any label or heading rendering a value
+> `read()` refuses are all **absent** rather than redacted.
+>
+> The old split — state scoped, map global — is what made four secret leaks
+> reachable: the map is assembled to be handed to a model, so "it's only the
+> DOM" was never only the DOM. `describe({ scope: el })` remains the DOM knob
+> for narrowing to a subtree; `expose` now governs both.
 >
 > Two more facts worth stating plainly. `enableAgentInterface()` installs
 > `globalThis.tosiAgent` unless you pass `global: false` — that global is a

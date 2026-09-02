@@ -645,7 +645,11 @@ const measureBounds = (
 
 // the join: the element's own semantic self-description, harvested from
 // attributes the developer wrote for humans and a11y
-const referencedText = (el: Element, attr: string): string | null => {
+const referencedText = (
+  el: Element,
+  attr: string,
+  withheld?: ContentGuard
+): string | null => {
   const ids = el.getAttribute(attr)
   if (!ids) return null
   const text = ids
@@ -670,7 +674,11 @@ const referencedText = (el: Element, attr: string): string | null => {
        * have marked it — the same question `isSecretControl` asks, asked at
        * the place the text is actually taken from.
        */
+      // secrecy (M-2) AND scope (round 3): the referenced node may be bound
+      // to a path this surface refuses, and an id reference escapes the
+      // subtree every other guard queries
       if (referencedNodeIsSecret(target)) return undefined
+      if (withheld?.(target) === true) return undefined
       return target.textContent?.trim()
     })
     .filter(Boolean)
@@ -692,7 +700,10 @@ const referencedNodeIsSecret = (target: Element): boolean => {
 // a form control's <label> — wrapping, or associated via for="id" — names
 // it, exactly as the accessible-name algorithm says (the kitchen-sink
 // lesson: real HTML names controls with <label>, not aria-label)
-const associatedLabel = (el: Element): string | undefined => {
+const associatedLabel = (
+  el: Element,
+  withheld?: ContentGuard
+): string | undefined => {
   const tag = el.tagName
   if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
     return undefined
@@ -713,7 +724,19 @@ const associatedLabel = (el: Element): string | undefined => {
       labelEl = null // a shim without CSS.escape and an exotic id: no label
     }
   }
-  const text = labelEl?.textContent?.trim().slice(0, 60)
+  if (labelEl == null) return undefined
+  /*
+   * A `<label>` ESCAPES THE SUBTREE, exactly as an aria-* id reference does —
+   * `closest('label')` walks UP and `label[for=…]` searches the whole
+   * document. This had no guard of any kind: not secrecy, not scope. It is the
+   * most common naming idiom in real HTML (the comment above says so), so it
+   * was the highest-traffic of the three name sources and the only completely
+   * unguarded one. `harvestWouldLeak` could never have caught it — its DOM arm
+   * is a SUBTREE query on an `<input>`, which has no children.
+   */
+  if (referencedNodeIsSecret(labelEl)) return undefined
+  if (withheld?.(labelEl) === true) return undefined
+  const text = labelEl.textContent?.trim().slice(0, 60)
   return text || undefined
 }
 
@@ -1202,6 +1225,25 @@ const suppressHarvest = (
   return true
 }
 
+/**
+ * Binding paths on this element AND everything under it.
+ *
+ * `outOfScopeBinding` was element-local, and `harvestWouldLeak`'s DOM arm
+ * matches secret *controls* and `data-tosi-secret` marks — never a plain
+ * `<span>` merely BOUND to a refused path. So a wrapper made `wired` by one
+ * in-scope binding published a child's out-of-scope value in its own text,
+ * while the child's own record was correctly suppressed: the same response
+ * contradicted itself.
+ */
+const subtreeBindingPaths = (el: Element): string[] => {
+  const paths = bindingPathsOf(el)
+  const bound = el.getElementsByClassName?.(BOUND_CLASS)
+  if (bound != null) {
+    for (const child of Array.from(bound)) paths.push(...bindingPathsOf(child))
+  }
+  return paths
+}
+
 const harvestWouldLeak = (
   el: Element,
   record: AgentWiringRecord,
@@ -1224,7 +1266,26 @@ const harvestWouldLeak = (
   return false
 }
 
-const describeElement = (el: Element): AgentWiringRecord => {
+/**
+ * May this node's RENDERED CONTENT be published?
+ *
+ * ONE predicate, threaded in, rather than a guard restated at each harvest.
+ * Six review findings across three rounds were all the same invariant wrong at
+ * a site nobody had enumerated — `boundValue`, the list-redaction walk, its
+ * descent, three `describe()` harvests, the structural tier, and then
+ * `associatedLabel`, which had no guard at all. Restating it a seventh time
+ * would be the same bet that lost six times.
+ *
+ * `describeElement` is module-level and pure, so it cannot see `inScope`
+ * (per-surface). Callers that have a posture pass this in; callers that don't
+ * omit it and get today's unguarded behaviour, which is correct for them.
+ */
+export type ContentGuard = (node: Element) => boolean
+
+const describeElement = (
+  el: Element,
+  withheld?: ContentGuard
+): AgentWiringRecord => {
   const record: AgentWiringRecord = {
     tag: el.tagName.toLowerCase(),
   }
@@ -1238,8 +1299,8 @@ const describeElement = (el: Element): AgentWiringRecord => {
   // conflating them makes an empty input read like it has content
   const label =
     el.getAttribute('aria-label') ||
-    referencedText(el, 'aria-labelledby') ||
-    associatedLabel(el) ||
+    referencedText(el, 'aria-labelledby', withheld) ||
+    associatedLabel(el, withheld) ||
     el.getAttribute('title') ||
     el.getAttribute('alt')
   if (label) record.label = label
@@ -1281,7 +1342,7 @@ const describeElement = (el: Element): AgentWiringRecord => {
     }
   }
   const description =
-    referencedText(el, 'aria-describedby') ||
+    referencedText(el, 'aria-describedby', withheld) ||
     el.getAttribute('aria-description')
   if (description) record.description = description
   if (
@@ -1546,6 +1607,29 @@ export function enableAgentInterface(
     (roots ?? []).some((root) => extendsPath(root, path)) ||
     (exposedActions ?? []).some((action) => extendsPath(action, path))
 
+  /**
+   * THE ONE CONTENT GUARD. Would publishing this node's rendered content
+   * disclose something this surface refuses?
+   *
+   * Answers secrecy and scope together, over the node AND its subtree, so
+   * every harvest asks one question instead of each asking a slightly
+   * different one. Fails closed: if we cannot tell, we do not publish.
+   */
+  const contentWithheld: ContentGuard = (node: Element): boolean => {
+    try {
+      if (isSecretControl(node)) return true
+      if (node.closest?.('[data-tosi-secret]') != null) return true
+      if (node.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
+      for (const path of subtreeBindingPaths(node)) {
+        if (!inScope(path)) return true
+        if (isSecretPath(path) || containsSecret(path)) return true
+      }
+      return false
+    } catch {
+      return true // cannot tell === must not publish
+    }
+  }
+
   // writes are gated on declared ROOTS only: a declared action is callable,
   // not writable — otherwise `actions: ['app.checkout']` would let an agent
   // REPLACE app.checkout (a function) with agent-supplied data.
@@ -1717,7 +1801,7 @@ export function enableAgentInterface(
           seen.add(el)
           if (ariaHidden(el)) return undefined // hidden from AT = hidden here
           const { dataBindings, eventBindings } = getElementBindings(el)
-          const record = describeElement(el)
+          const record = describeElement(el, contentWithheld)
           // every state path this element is bound to, so the live-DOM
           // harvests below can ask whether any of them is secret
           const boundPaths: string[] = []
@@ -1747,9 +1831,6 @@ export function enableAgentInterface(
                   .map((b: any) => b.path)
                   .filter((p: any) => p != null)
               : []
-          const outOfScopeBinding = allBoundPaths.some(
-            (path: string) => !inScope(path)
-          )
           if (dataBindings != null) {
             for (const b of dataBindings) {
               if (!inScope(b.path)) continue
@@ -1851,8 +1932,8 @@ export function enableAgentInterface(
           // so the guard was blind to exactly the bindings that matter here.
           if (
             record.text === undefined &&
-            !outOfScopeBinding &&
-            !suppressHarvest(el, record, allBoundPaths)
+            !suppressHarvest(el, record, allBoundPaths) &&
+            !contentWithheld(el)
           ) {
             const text = stripArrows((el.textContent || '').trim()).slice(0, 40)
             if (text) record.text = text
@@ -1913,8 +1994,8 @@ export function enableAgentInterface(
             // bindings the publishing loop skipped as out of scope.
             if (
               record.value === undefined &&
-              !outOfScopeBinding &&
-              !suppressHarvest(el, record, allBoundPaths)
+              !suppressHarvest(el, record, allBoundPaths) &&
+              !contentWithheld(el)
             ) {
               const liveText = stripArrows((el.textContent || '').trim()).slice(
                 0,
@@ -2103,7 +2184,7 @@ export function enableAgentInterface(
              * and content goes through the same gates as any other harvest.
              */
             if (ariaHidden(el)) continue
-            const record = describeElement(el)
+            const record = describeElement(el, contentWithheld)
             record.structural = true
             const structuralPaths = bindingPathsOf(el)
             const heading = /^H[1-6]$/.test(el.tagName)
@@ -2112,9 +2193,8 @@ export function enableAgentInterface(
               record.text === undefined &&
               // SCOPE: a heading bound to an undeclared path must not print
               // the value `read()` refuses on that same path
-              structuralPaths.every((p) => inScope(p)) &&
-              // SECRECY: and must not print one that is secret
-              !suppressHarvest(el, record, structuralPaths)
+              !suppressHarvest(el, record, structuralPaths) &&
+              !contentWithheld(el)
             ) {
               const text = (el.textContent || '').trim().slice(0, 60)
               if (text) record.text = text

@@ -1210,6 +1210,104 @@ describe('the posture: safe by default, full access behind one line', () => {
     expect(json).toContain('ARIA-ORDINARY')
   })
 
+  test('every accessible-name source obeys secrecy and scope', async () => {
+    /*
+     * Round 3, B-1. `record.label` has THREE sources and the previous round
+     * guarded exactly one. `associatedLabel()` — `<label for=…>` and a
+     * wrapping `<label>`, the most common naming idiom in real HTML — had no
+     * guard of any kind, and `harvestWouldLeak` could never have caught it:
+     * its DOM arm is a SUBTREE query on an `<input>`, which has no children.
+     *
+     * All three sources now run through one `ContentGuard` threaded into
+     * `describeElement`, rather than a fourth per-site restatement. This is
+     * the matrix: {label[for], wrapping label, aria-labelledby,
+     * aria-describedby} × {out-of-scope, secret}.
+     */
+    tosi({ nApp: { qty: 1 }, nPriv: { tok: 'NAME-SCOPE-LEAK' } })
+    await updates()
+    const mk = (id: string, path: string) => {
+      const s = elements.span({ id })
+      bind(s, path, bindings.text)
+      return s
+    }
+    // (a) label[for] wrapping a span bound OUT OF SCOPE
+    const la = elements.label('Qty ', mk('n-a', 'nPriv.tok'))
+    la.setAttribute('for', 'n-in-a')
+    const ia = elements.input({ id: 'n-in-a' })
+    // (b) WRAPPING label containing an author-marked secret
+    const sec = elements.span('NAME-SECRET-LEAK')
+    sec.setAttribute('data-tosi-secret', '')
+    const ib = elements.input({ id: 'n-in-b' })
+    const lb = elements.label('Key: ', sec, ib)
+    // (c) aria-labelledby, (d) aria-describedby
+    const ic = elements.input({ id: 'n-in-c', 'aria-labelledby': 'n-c' })
+    const idd = elements.input({ id: 'n-in-d', 'aria-describedby': 'n-d' })
+    // POSITIVE CONTROL: an ordinary label must still name its control
+    const lok = elements.label('Ordinary Name ', elements.input({ id: 'n-ok' }))
+    document.body.append(
+      la,
+      ia,
+      lb,
+      mk('n-c', 'nPriv.tok'),
+      ic,
+      mk('n-d', 'nPriv.tok'),
+      idd,
+      lok
+    )
+    for (const el of [ia, ib, ic, idd, lok.querySelector('input')!]) {
+      bind(el as any, 'nApp.qty', bindings.value)
+    }
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['nApp'] },
+    }))
+    const json = JSON.stringify(agent.describe())
+    expect(() => agent.read('nPriv.tok')).toThrow(/not exposed/)
+    // no name source may carry it out
+    expect(json).not.toContain('NAME-SCOPE-LEAK')
+    // …and the author's own opt-in holds in every posture
+    expect(json).not.toContain('NAME-SECRET-LEAK')
+    // POSITIVE CONTROL — without this, breaking the name harvest outright
+    // would pass every assertion above
+    expect(json).toContain('Ordinary Name')
+  })
+
+  test('a wired ancestor cannot publish a bound DESCENDANT it may not read', async () => {
+    /*
+     * Round 3, B-2. `outOfScopeBinding` was element-local, and
+     * `harvestWouldLeak`'s subtree arm matches secret CONTROLS and
+     * `data-tosi-secret` marks — never a plain `<span>` merely BOUND to a
+     * refused path. So a wrapper made `wired` by one in-scope handler
+     * published its child's out-of-scope value in its own text, while the
+     * child's own record was correctly suppressed: one response contradicting
+     * itself. `contentWithheld` now walks the subtree's bindings.
+     */
+    tosi({ aApp: { n: 1 }, aPriv: { token: 'DESC-TOKEN-LEAK' } })
+    await updates()
+    const child = elements.span({ id: 'a-child' })
+    bind(child, 'aPriv.token', bindings.text)
+    const panel = elements.div({ id: 'a-panel' }, 'Session: ', child)
+    const plain = elements.div({ id: 'a-plain' }, 'Ordinary panel text')
+    document.body.append(panel, plain)
+    on(panel, 'click', 'aApp.noop')
+    on(plain, 'click', 'aApp.noop')
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['aApp'] },
+    }))
+    expect(() => agent.read('aPriv.token')).toThrow(/not exposed/)
+    const json = JSON.stringify(agent.describe())
+    expect(json).not.toContain('DESC-TOKEN-LEAK')
+    // POSITIVE CONTROL: an ordinary wired panel still reports its text
+    expect(json).toContain('Ordinary panel text')
+  })
+
   test('the structural tier obeys scope, secrecy and aria-hidden', async () => {
     /*
      * Review B-2 — a FOURTH unguarded harvest, and the nastiest, because it
