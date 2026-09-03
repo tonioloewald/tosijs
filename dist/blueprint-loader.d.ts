@@ -22,6 +22,9 @@ export declare class Blueprint extends Component {
         src: string;
         property: string;
     };
+    tag: string;
+    src: string;
+    property: string;
     loaded?: TosiPackagedComponent;
     blueprintLoaded: (_pkg: TosiPackagedComponent) => void;
     packaged(): Promise<TosiPackagedComponent>;

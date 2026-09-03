@@ -31,8 +31,8 @@ export type {
 // `static contract` is a component-authoring act, and it is type-only
 export type { ComponentMap, ComponentTestStep } from './agent'
 export { Color } from './color'
-export { Component, tosiSlot, xinSlot } from './component'
-export type { PartsOf } from './component'
+export { Component, withAttributes, tosiSlot, xinSlot } from './component'
+export type { PartsOf, ComponentAttrs } from './component'
 // exported from their own module (component.ts re-exports the setter for
 // historical reasons) — the plug is a security boundary, and a getter that
 // lives anywhere but beside the setter is a getter nobody finds

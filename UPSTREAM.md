@@ -55,6 +55,24 @@ tosijs 1.8.0 is the event that unblocks it — and `agent.version`
 SHAPE instead of duck-typing `describe`. Answer the convergence questions
 there when the rc publishes.
 
+### OPEN: tjs-lang#49 — `convert` rejects class/interface declaration merging
+
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/49
+
+`✗ Identifier 'Blueprint' has already been declared` on valid TypeScript. It
+blocks tosijs from dogfooding the migration it documents for tosijs#36 — the
+one-line `export interface X extends ComponentAttrs<typeof X.initAttributes> {}`
+that declares what `static initAttributes` installs. Consumers can write it;
+`src/` cannot, because every file there goes through `tjs convert` for the
+debug/safe bundles. So the library writes those members out by hand.
+
+Types-only, so the cheapest correct fix is probably for `convert` to ignore a
+same-named interface: it emits nothing either way.
+
+**Watch for:** when this lands, `blueprint-loader.ts` and any other in-repo
+component collapse to the one-liner, and the docs stop having to say "do as we
+say, not as we do".
+
 ## tosijs-ui
 
 ### RESOLVED (by us, upstream-of-them): tosijs-ui#127 — deprecated binding shortcuts

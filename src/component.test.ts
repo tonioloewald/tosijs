@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll } from 'bun:test'
-import { Component, tosiSlot } from './component'
+import { Component, tosiSlot, withAttributes } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
 import { _resetDeprecationWarnings } from './metadata'
@@ -2306,5 +2306,143 @@ describe('host props in content compose with a list binding (round-2 B1)', () =>
     const el = await build('hp-bind-first', 'bind-first')
     expect(el.querySelectorAll('span').length).toBe(2)
     expect(el.getAttribute('data-title')).toBe('hello')
+  })
+})
+
+describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
+  test('installs attributes, coerces them, and keeps statics working', async () => {
+    /*
+     * `static initAttributes` installs INSTANCE properties, and TypeScript
+     * cannot derive an instance type from a static declared in the same class
+     * — which is why `Component` carried `[key: string]: any` and why every
+     * component anyone wrote accepted every typo. Passing the map as a VALUE
+     * lets inference do the work with no extra declaration.
+     *
+     * This test is the runtime half: the new form must behave EXACTLY like
+     * `static initAttributes`, because it is the same mechanism underneath.
+     */
+    class Typed extends withAttributes({ label: 'hi', count: 0, on: false }) {
+      static preferredTagName = 'wa-typed'
+      content = null
+    }
+    const el = (Typed as any).elementCreator()() as any
+    document.body.append(el)
+    await updates()
+    expect(el.label).toBe('hi')
+    expect(el.count).toBe(0)
+    expect(el.on).toBe(false)
+    // the static survives the factory, and is what the machinery reads
+    expect((Typed as any).initAttributes).toEqual({
+      label: 'hi',
+      count: 0,
+      on: false,
+    })
+    // attribute -> property, with the declared type's coercion
+    el.setAttribute('count', '7')
+    await updates()
+    expect(el.count).toBe(7)
+    expect(typeof el.count).toBe('number')
+    el.remove()
+  })
+
+  test('a blueprint can reach it through the hydration factory', async () => {
+    /*
+     * Blueprints are dependency-free — they receive everything as the factory
+     * argument, so a helper missing from that object is unusable from a
+     * blueprint no matter that it is exported. `withAttributes` was missing
+     * when this was first written, which is exactly the gap this pins.
+     */
+    const { makeComponent } = await import('./make-component')
+    const blueprint = (_tag: string, factory: any) => {
+      expect(typeof factory.withAttributes).toBe('function')
+      class Counter extends factory.withAttributes({ label: 'bp', count: 2 }) {
+        content = null
+      }
+      return { type: Counter as any }
+    }
+    const { creator } = await makeComponent('wa-blueprint', blueprint as any)
+    const el = creator() as any
+    document.body.append(el)
+    await updates()
+    expect(el.label).toBe('bp')
+    expect(el.count).toBe(2)
+    el.remove()
+  })
+  test('computed attributes work, and their setter may queueRender()', async () => {
+    /*
+     * `Component.computed()` means "this class implements the property
+     * itself", so `withAttributes` deliberately OMITS computed keys from the
+     * type it declares (see DeclaredAttributes). Without that the marker type
+     * leaks — `fullName` would type as `ComputedAttribute` while the accessor
+     * returns a string, and a base-property/derived-accessor pair is TS2611.
+     *
+     * The runtime half: a computed SETTER calling `queueRender()` must not
+     * re-enter. It does not — one render per change, not a loop.
+     */
+    let renders = 0
+    class NameTag extends withAttributes({ fullName: Component.computed('') }) {
+      static preferredTagName = 'wa-nametag'
+      first = 'Ada'
+      last = 'Lovelace'
+      get fullName(): string {
+        return `${this.first} ${this.last}`
+      }
+      set fullName(v: string) {
+        const [f, ...rest] = String(v).split(' ')
+        this.first = f
+        this.last = rest.join(' ')
+        this.queueRender()
+      }
+      content = ({ span }: any) => [span({ part: 'out' })]
+      render(): void {
+        renders++
+        ;(this.parts as any).out.textContent = this.fullName
+      }
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const el = (NameTag as any).elementCreator()() as any
+    document.body.append(el)
+    await raf()
+    expect(renders).toBe(1)
+    el.setAttribute('full-name', 'Grace Hopper')
+    await raf()
+    expect(el.fullName).toBe('Grace Hopper')
+    expect((el.parts as any).out.textContent).toBe('Grace Hopper')
+    expect(renders).toBe(2) // exactly one more — the setter did not re-enter
+    el.remove()
+  })
+
+  test('a component built with withAttributes can still be EXTENDED', async () => {
+    /*
+     * Why `static initAttributes` is NOT deprecated: `withAttributes` always
+     * extends `Component`, so it cannot add attributes to an existing
+     * component class. A subclass does that with `static initAttributes`, and
+     * the two compose. (`withAttributes` also SETS that static — deprecating
+     * it would deprecate the primitive its own sugar emits, which is the
+     * `bindList` category error this project has already paid for once.)
+     */
+    class BaseWidget extends withAttributes({ label: 'base' }) {
+      static preferredTagName = 'wa-base'
+      content = null
+      greet(): string {
+        return `hi ${this.label}`
+      }
+    }
+    class SubWidget extends BaseWidget {
+      static preferredTagName = 'wa-derived'
+      static initAttributes = {
+        ...(BaseWidget as any).initAttributes,
+        extra: 7,
+      }
+      content = null
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const sub = (SubWidget as any).elementCreator()() as any
+    document.body.append(sub)
+    await raf()
+    expect(sub.label).toBe('base') // inherited attribute
+    expect(sub.extra).toBe(7) // and the added one
+    expect(sub.greet()).toBe('hi base') // inherited behaviour
+    sub.remove()
   })
 })

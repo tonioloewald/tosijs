@@ -49,6 +49,69 @@ interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
     styleSpec?: TosiStyleSheet;
 }
+/**
+ * The instance properties a component's `static initAttributes` installs.
+ *
+ * `initAttributes` keys become instance properties at hydration, which the
+ * type system cannot infer from a static. Declare them in ONE line, using the
+ * same declaration-merging trick `Component` uses internally:
+ *
+ *     export class Widget extends Component {
+ *       static initAttributes = { month: 0, label: '' }
+ *       render() { this.month + 1; this.label.trim() }   // typed, not `any`
+ *     }
+ *     export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}
+ *
+ * You get real types (`number`, `string`) instead of the `any` the old
+ * `[key: string]: any` index signature handed out — and typos still fail,
+ * which is the point (tosijs#36).
+ */
+export type ComponentAttrs<T> = {
+    -readonly [K in keyof T]: T[K];
+};
+/**
+ * Declare a component's attributes as a VALUE, and get them typed on `this`.
+ *
+ *     export class TosiMonth extends withAttributes({
+ *       month: 0,
+ *       label: '',
+ *     })<MonthParts> {
+ *       render() {
+ *         this.month + 1        // number
+ *         this.label.trim()     // string
+ *         this.nope()           // still a type error
+ *       }
+ *     }
+ *
+ * THE UNDERLYING PROBLEM: `static initAttributes` installs *instance*
+ * properties at hydration, and TypeScript cannot derive an instance type from
+ * a static declared in the same class — so `this.month` was only ever typed by
+ * `Component`'s `[key: string]: any`, which typed it as `any` and, far worse,
+ * accepted every typo in every component anyone wrote (tosijs#36).
+ *
+ * Passing the map as a value instead lets inference do the work: there is no
+ * extra declaration to write and keep in step, and the attribute types are
+ * read off the object you already had. `static initAttributes` still works
+ * exactly as before — this is additive, and the two forms produce the same
+ * runtime.
+ */
+/**
+ * The attributes `withAttributes` declares ON the instance.
+ *
+ * COMPUTED attributes are deliberately excluded: `Component.computed()` means
+ * "this class implements the property itself", normally as `get`/`set`. If the
+ * synthesised base declared them too, every computed attribute would be a
+ * property in the base and an accessor in the derived class — TS2611 — and its
+ * type would be the `ComputedAttribute` marker rather than what the accessor
+ * actually returns. Omitting them is not a workaround: the class IS the
+ * declaration for those, which is the whole point of `computed()`.
+ */
+export type DeclaredAttributes<A> = {
+    [K in keyof A as A[K] extends ComputedAttribute ? never : K]: A[K];
+};
+export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) & Omit<typeof Component, "prototype" | "initAttributes"> & {
+    initAttributes: A;
+};
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;
     private static _elementCreator?;
@@ -144,7 +207,9 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     isSlotted?: boolean;
     private static _tagName;
     static get tagName(): null | string;
-    [key: string]: any;
+    /** the component's value — a special property, NOT an attribute. Setting it
+     * fires a `change` event and re-renders. Deliberately `any`: a component
+     * narrows it (`value = 0`, `value: Thing[] = []`) in its own declaration. */
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
     private _valueChanged;
@@ -264,6 +329,8 @@ declare class TosiSlot extends Component<SlotParts> {
     static initAttributes: {
         name: string;
     };
+    /** installed by `initAttributes` at hydration — see the Blueprint note */
+    name: string;
     content: null;
     static replaceSlot(slot: HTMLSlotElement): void;
 }
