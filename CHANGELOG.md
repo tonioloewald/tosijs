@@ -6,6 +6,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.9.2] - 2026-09-03
+
+### Fixed
+
+- **A held boxed proxy is now a live view of its path, not a snapshot of the
+  object it was created over** ([#35](https://github.com/tonioloewald/tosijs/issues/35)).
+
+  ```js
+  const store = tosi({ doc: { name: 'empty' } })
+  const held = store.doc                    // captured once, e.g. in a field
+  held.tosi.value = { name: 'loaded' }      // the write ALWAYS worked
+  held.tosi.value.name                      // was 'empty' forever — now 'loaded'
+  ```
+
+  `.value` resolved the path for **scalar** proxies and returned the captured
+  target for **object** proxies, so the two halves of one API disagreed. That
+  asymmetry is what made it cost an afternoon downstream: it presents as a
+  failed *write*, so every hypothesis goes to the writer. `valueOf()`,
+  `toJSON()` and therefore `JSON.stringify()` were stale too — the worse half,
+  because serialization is implicit and a stale object travels into a fetch
+  body with nothing at the call site to suggest it.
+
+### ⚠️ Potentially breaking — a bug fix you may have been relying on
+
+This is a fix, and the suite passed both before and after it. But code written
+against the old behaviour can change meaning, so it is called out rather than
+buried. Four observable changes, each pinned by a test that fails on 1.9.1:
+
+- **A held proxy to a deleted key now reads `undefined`** instead of the value
+  it was created over. `held.value.x` throws where it used to work.
+- **An INDEX path names a slot, not an item.** A held `rows[0]` is a live view
+  of *index 0*, so after a splice or reorder it reports a **different item**,
+  silently. Use the id-path form (`rows[id=x]`) when you mean the item — that
+  is what id-paths are for, and it follows the item across a reorder.
+- **`valueOf()` / `toJSON()` / `JSON.stringify()` follow the registry**, so
+  anything that serialized a held proxy now emits current data.
+- **A held proxy no longer retains the object it was created over**, which is a
+  behaviour change if you were (accidentally) relying on it to keep a replaced
+  graph alive.
+
+If you were depending on a captured proxy as an immutable snapshot, take one
+explicitly: `structuredClone(proxy.value)` at capture time.
+
 ## [1.9.1] - 2026-09-02
 
 ### Changed

@@ -89,6 +89,25 @@ unobserve(listener);
 be passed the path that changed and you can do whatever you like. It returns
 a reference to the listener to allow you to dispose of it later.</p>
 <p><code>unobserve(listener)</code> removes the listener.</p>
+<h3>Which path does the callback receive?</h3>
+<p><strong>The path that was TOUCHED — as specific as the write was — not the path you
+observed.</strong> An observer on a root therefore sees different spellings depending
+on what happened, and that is the rule rather than an inconsistency:</p>
+<pre><code>observe(&#39;app&#39;, cb)
+
+app.rows[id=a].f.k = 2   // cb(&#39;app.rows[id=a].f.k&#39;)  — a leaf write
+app.value = nextDoc      // cb(&#39;app&#39;)                 — the root replaced
+touch(&#39;app&#39;)             // cb(&#39;app&#39;)                 — an explicit touch
+</code></pre>
+<p>So a callback that <em>parses</em> the path must handle the root case explicitly.
+Rounding &quot;the field this path names&quot; silently does nothing when the path IS
+the root, and code that then falls through to a full re-render will destroy the
+widget under the user&#39;s pointer — reported that way in tosijs#35. If you only
+care that <em>something</em> under a path changed, ignore the argument and re-read
+what you need.</p>
+<p>Note also that <code>tosi()</code> schedules a touch on the root as it registers, so an
+observer installed immediately afterwards sees that root touch first. <code>await updates()</code> between registering state and observing it drains that, and is
+usually what you want in tests.</p>
 <blockquote>
 <p>This is how binding works. When you bind a path to an interface element, an
 observer is created that knows when to update the interface element. (If the

@@ -2028,3 +2028,111 @@ describe('a container can be list-bound AND carry its own bind (review M1)', () 
     expect(el.getAttribute('data-second')).toBe('two')
   })
 })
+
+describe('a boxed proxy is a live view of its PATH, not a snapshot (tosijs#35)', () => {
+  /*
+   * Reported by tosijs-3d-ensemble. `this._store = store[key]` captured in a
+   * field initialiser, then `this._store.tosi.value = loadedDoc` — the write
+   * landed, and reading it back through the captured reference returned the
+   * pre-write document forever. It presents as a failed WRITE, so every
+   * diagnosis goes to the writer; the reporter wrote a passing test for the
+   * wrong hypothesis and "fixed" working code before the read was suspected.
+   *
+   * Cause: `.value` on an OBJECT proxy returned the target the proxy was
+   * created over; on a SCALAR proxy it resolved the path. Two halves of one
+   * API disagreeing, which is what made it surprising rather than merely
+   * wrong.
+   *
+   * THESE TESTS ALL FAIL ON 1.9.1 — that is the point of them. They pin the
+   * new behaviour AND document the parts of the change nobody reported.
+   */
+  test('a held object proxy sees a write through its own parent', async () => {
+    const store: any = tosi({ h35a: { name: 'empty' } })
+    await updates()
+    const held = store.h35a
+    held.tosi.value = { name: 'loaded' }
+    expect(store.h35a.tosi.value.name).toBe('loaded') // the write always landed
+    expect(held.tosi.value.name).toBe('loaded') // …and now the read agrees
+    expect(held.value.name).toBe('loaded')
+  })
+
+  test('valueOf / toJSON / JSON.stringify are live too — the silent half', async () => {
+    /*
+     * Worse than `.value` in practice: serialization is implicit, so a stale
+     * `JSON.stringify(held)` travels into a fetch body or localStorage with
+     * nothing at the call site to suggest it is wrong.
+     */
+    const store: any = tosi({ h35b: { name: 'empty' } })
+    await updates()
+    const held = store.h35b
+    held.tosi.value = { name: 'loaded' }
+    expect(held.valueOf().name).toBe('loaded')
+    expect(held.toJSON().name).toBe('loaded')
+    expect(JSON.parse(JSON.stringify(held)).name).toBe('loaded')
+  })
+
+  test('a held proxy to a DELETED key reads undefined, not the last value', async () => {
+    // BEHAVIOUR CHANGE, unreported: it used to answer with the object it was
+    // created over, forever. `held.value.x` now throws where it used to work —
+    // correctly, but code that leaned on the stale read will notice.
+    const store: any = tosi({ h35c: { gone: { x: 1 } } })
+    await updates()
+    const held = store.h35c.gone
+    expect(held.value.x).toBe(1)
+    delete (xin.h35c as any).gone
+    expect(held.value).toBeUndefined()
+  })
+
+  test('an INDEX path names a slot; an ID path names the item', async () => {
+    /*
+     * The sharpest edge of "live", and nobody asked for it: `rows[0]` is a
+     * live view of *index 0*, so after a splice or reorder a held proxy
+     * reports a DIFFERENT item — silently, and with no error. `rows[id=x]`
+     * follows the item, which is the whole reason id-paths exist.
+     *
+     * Before this change the index proxy answered with the item it was
+     * created over, which happens to look right after a reorder and is wrong
+     * after a mutation. Neither old nor new is "safe"; the new one is at
+     * least consistent with what the path says.
+     */
+    tosi({ h35d: { rows: [{ id: 'x', n: 1 }, { id: 'y', n: 2 }] } })
+    await updates()
+    const bySlot = boxed.h35d.rows[0]
+    const byId = boxed['h35d.rows[id=x]']
+    expect(bySlot.tosi.path).toBe('h35d.rows[0]')
+    expect(byId.tosi.path).toBe('h35d.rows[id=x]')
+
+    xin.h35d.rows = [{ id: 'y', n: 22 }, { id: 'x', n: 11 }]
+    await updates()
+    expect(bySlot.value.id).toBe('y') // the SLOT — a different item now
+    expect(byId.value.id).toBe('x') // the ITEM — followed the reorder
+    expect(byId.value.n).toBe(11)
+  })
+
+  test('scalars were always live — the two halves now agree', async () => {
+    // the control: this half never had the bug, and must not acquire one
+    const store: any = tosi({ h35e: { s: 'before' } })
+    await updates()
+    const held = store.h35e.s
+    held.tosi.value = 'after'
+    expect(held.tosi.value).toBe('after')
+    expect(held.valueOf()).toBe('after')
+  })
+
+  test('array proxies keep their array-ness (Array.isArray, JSON, spread)', async () => {
+    /*
+     * Guards the obvious next step — making every proxy target an empty
+     * object. `Array.isArray` and `JSON.stringify` read the TARGET, not the
+     * traps, so a `{}`-targeted array proxy reports `false` and serializes as
+     * `{}` with no error anywhere. Any move to shared empty targets needs TWO
+     * of them ({} and []), and this test is what will say so.
+     */
+    tosi({ h35f: { arr: [1, 2, 3] } })
+    await updates()
+    const arr = boxed.h35f.arr
+    expect(Array.isArray(arr)).toBe(true)
+    expect(Object.prototype.toString.call(arr)).toBe('[object Array]')
+    expect(JSON.stringify(arr)).toBe('[1,2,3]')
+    expect([...(arr as any)].map((v: any) => v.valueOf())).toEqual([1, 2, 3])
+  })
+})

@@ -1009,11 +1009,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
   get(_t, prop) {
     switch (prop) {
       case 'value':
-        return target === boxedScalarTarget
-          ? getByPath(registry, path)
-          : target.valueOf
-          ? target.valueOf()
-          : target
+        return getByPath(registry, path)
       case 'path':
         return path
       case 'touch':
@@ -1227,9 +1223,11 @@ const regHandler = (
       return undefined
     }
 
-    // valueOf/toJSON — must override the inherited Object.prototype versions
+    // valueOf/toJSON — must override the inherited Object.prototype versions.
+    // RESOLVED BY PATH, not from the captured target: a held object proxy whose
+    // parent was replaced must not serialize the value it was created over.
     if (boxScalars && (_prop === 'valueOf' || _prop === 'toJSON')) {
-      return () => (target.valueOf ? target.valueOf() : target)
+      return () => getByPath(registry, path)
     }
 
     // For non-boxed-scalar objects: accessor API (only when not shadowed by target)

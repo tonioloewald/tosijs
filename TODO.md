@@ -1,5 +1,45 @@
 # todo
 
+## Empty proxy targets — the 2.0-shaped follow-on to tosijs#35
+
+1.9.2 made `.value`/`valueOf`/`toJSON` resolve the path instead of returning
+the captured target. The obvious next step is to stop wrapping the target at
+all — every proxy over a **shared near-empty target**, the way scalar proxies
+already work.
+
+**Why it is worth doing, in order of actual value:**
+
+- [ ] It makes a proxy a **pure function of its path**, which is what makes it
+      **cacheable**. Today it is not: a cached proxy would embed the same stale
+      snapshot #35 was about. Measured churn on the current design: a 5-hop
+      `boxed.a.b.c.d.value` read allocates **10 objects** (5 Proxy + 5 handler
+      closures) and costs **0.55µs**; a path-keyed cache is ~0. That is the
+      saving — not the target slot.
+- [ ] Caching also gives **stable proxy identity** (`boxed.a.o === boxed.a.o`
+      is currently **false**), which is exactly what
+      [#17](https://github.com/tonioloewald/tosijs/issues/17) asks for on
+      behalf of React-style integrations. One change closes both.
+- [ ] A held proxy stops **retaining** the object it was created over — the
+      long-lived-capture leak in the #35 reporter's own shape (`this._store`
+      held for a component's lifetime across document loads).
+- [ ] It collapses the `target === boxedScalarTarget ? … : target.valueOf ? …`
+      branching to one rule.
+
+**The constraint that makes it TWO targets, not one** — verified by execution,
+and pinned by `xin.test.ts` "array proxies keep their array-ness":
+`Array.isArray` and `JSON.stringify` read the **target**, not the traps. A
+`{}`-targeted array proxy reports `isArray === false` and serializes to `{}`,
+silently. So it needs a shared `{}` **and** a shared `[]`, and `ownKeys` /
+`getOwnPropertyDescriptor` / `has` / `deleteProperty` all have to be
+synthesised from the registry rather than answered for free by a real target.
+`[].length` is non-configurable, so the gOPD trap must keep reporting it
+non-configurable (legal: values may differ for writable props).
+
+**Why not now:** stable `===` is itself an observable change, the trap surface
+grows, and 1.9.2 already ships a behaviour change in this area. Sequence it
+with 2.0, and land the cache in the same move or the main benefit is left on
+the table.
+
 ## 1.9.0 pre-minor review — deferred follow-ups
 
 Report: `reviews/1.9.0-preminor.md` (BLOCK; 3 blockers + 2 majors fixed before
