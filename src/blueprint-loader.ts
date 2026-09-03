@@ -357,11 +357,20 @@ export class Blueprint extends Component {
   static lightStyleSpec = HIDDEN_STYLE
   static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
   /*
-   * DECLARE WHAT `initAttributes` INSTALLS. Those keys become instance
-   * properties at hydration, and `Component`'s `[key: string]: any` used to
-   * make them typecheck for free — at the cost of accepting every typo in
-   * every component anyone wrote (tosijs#36). Declaring them is the migration,
-   * and it buys real types (`string`) instead of `any`.
+   * WHAT `initAttributes` INSTALLS (tosijs#36). Those keys become instance
+   * properties at hydration, which no static can tell the type system about.
+   *
+   * Consumers get this in ONE line via the exported `ComponentAttrs<T>`:
+   *
+   *     export interface Blueprint
+   *       extends ComponentAttrs<typeof Blueprint.initAttributes> {}
+   *
+   * tosijs itself CANNOT use its own recommendation here: every file in `src/`
+   * goes through `tjs convert` for the debug/safe bundles, and that rejects
+   * class/interface declaration merging ("Identifier 'Blueprint' has already
+   * been declared"). So the library writes the members out by hand and the
+   * docs recommend the one-liner. Filed upstream; when tjs-lang supports
+   * merging, this becomes one line too.
    */
   declare tag: string
   declare src: string
