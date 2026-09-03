@@ -355,6 +355,45 @@ a rewrite. The contract wins per key.</p>
 attributes were read from the contract alone, so a component using
 <code>initAttributes</code> — nearly all of them — appeared in the map with no attribute
 description at all. tosijs#29.)</p>
+<h3>withAttributes: attributes that are typed on <code>this</code></h3>
+<p><code>static initAttributes</code> installs <em>instance</em> properties at hydration, and
+TypeScript cannot derive an instance type from a static declared in the same
+class. Declare the map as a <strong>value</strong> instead and inference does the work:</p>
+<pre><code>import { withAttributes } from &#39;tosijs&#39;
+
+export class Stepper extends withAttributes({
+  count: 0,
+  mode: &#39;add&#39;,
+})&lt;StepperParts&gt; {
+  static preferredTagName = &#39;my-stepper&#39;
+
+  render() {
+    this.count + 1        // number
+    this.mode.trim()      // string
+    this.nope()           // a type error, as it should be
+  }
+}
+</code></pre>
+<p>This is a <strong>move</strong> of the <code>static initAttributes = {…}</code> you already had, not an
+extra declaration — the same object, somewhere inference can see it. It is the
+recommended form for new components.</p>
+<p>Until 1.10.0 <code>Component</code> carried <code>[key: string]: any</code> so those properties would
+compile, which had the side effect of accepting <em>every</em> typo in <em>every</em>
+component anyone wrote (tosijs#36). Removing it is why this exists.</p>
+<ul>
+<li><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
+<code>withAttributes()</code> sets it, and it remains the only way to add attributes to
+an <strong>existing</strong> component class — <code>withAttributes</code> always extends
+<code>Component</code>. Build a base with one, extend and add with the other; they
+compose.</li>
+<li><strong>Computed attributes are excluded from the declared type, deliberately.</strong>
+<code>Component.computed()</code> means your class implements the property itself,
+normally as <code>get</code>/<code>set</code>, so declaring it here as well is what breaks. Its
+setter may call <code>this.queueRender()</code>.</li>
+<li><strong>If you cannot restructure the class</strong>, <code>ComponentAttrs&lt;T&gt;</code> says the same
+thing in one line:
+<code>export interface Widget extends ComponentAttrs&lt;typeof Widget.initAttributes&gt; {}</code></li>
+</ul>
 <h4>static initAttributes: Record&lt;string, any&gt;</h4>
 <p>Declares attributes that should be watched and synced with properties. The keys are
 property names (camelCase), and the values are the defaults which also determine the type.</p>

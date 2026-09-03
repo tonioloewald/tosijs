@@ -367,6 +367,48 @@ attributes were read from the contract alone, so a component using
 `initAttributes` — nearly all of them — appeared in the map with no attribute
 description at all. tosijs#29.)
 
+### withAttributes: attributes that are typed on `this`
+
+`static initAttributes` installs *instance* properties at hydration, and
+TypeScript cannot derive an instance type from a static declared in the same
+class. Declare the map as a **value** instead and inference does the work:
+
+    import { withAttributes } from 'tosijs'
+
+    export class Stepper extends withAttributes({
+      count: 0,
+      mode: 'add',
+    })<StepperParts> {
+      static preferredTagName = 'my-stepper'
+
+      render() {
+        this.count + 1        // number
+        this.mode.trim()      // string
+        this.nope()           // a type error, as it should be
+      }
+    }
+
+This is a **move** of the `static initAttributes = {…}` you already had, not an
+extra declaration — the same object, somewhere inference can see it. It is the
+recommended form for new components.
+
+Until 1.10.0 `Component` carried `[key: string]: any` so those properties would
+compile, which had the side effect of accepting *every* typo in *every*
+component anyone wrote (tosijs#36). Removing it is why this exists.
+
+- **`static initAttributes` still works and is not deprecated.**
+  `withAttributes()` sets it, and it remains the only way to add attributes to
+  an **existing** component class — `withAttributes` always extends
+  `Component`. Build a base with one, extend and add with the other; they
+  compose.
+- **Computed attributes are excluded from the declared type, deliberately.**
+  `Component.computed()` means your class implements the property itself,
+  normally as `get`/`set`, so declaring it here as well is what breaks. Its
+  setter may call `this.queueRender()`.
+- **If you cannot restructure the class**, `ComponentAttrs<T>` says the same
+  thing in one line:
+  `export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}`
+
 #### static initAttributes: Record<string, any>
 
 Declares attributes that should be watched and synced with properties. The keys are

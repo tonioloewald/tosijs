@@ -262,6 +262,15 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
 - **`static lightStyleSpec`** — global styles appended to `document.head`. `:host` selectors are rewritten to the tag name.
 - **`static extends`** — for customized built-in elements (passed to `customElements.define()`).
 - **`static initAttributes`** declares attributes synced to properties with automatic type inference from default values (string, number, boolean).
+- **`withAttributes({...})`** is the preferred form since 1.10.0: it sets
+  `static initAttributes` from a VALUE, so the attributes are typed on `this`.
+  `Component`'s `[key: string]: any` index signature is GONE (tosijs#36) — it
+  propagated to every subclass and made every typo compile. `initAttributes` is
+  NOT deprecated: `withAttributes` emits it, and it is the only way to add
+  attributes to an existing component class. Computed attributes are excluded
+  from the declared type by design (the class implements them itself).
+  `ComponentAttrs<T>` is the declaration-merging fallback — which the library
+  itself cannot use, because `tjs convert` rejects merging (tjs-lang#49).
 - **`static contract`** (`ComponentMap`) is the component's self-declaration —
   description, attribute constraints, parts, test fixture — feeding the docs,
   the agent surface and `exerciseComponent()`. **`initAttributes` DECLARES,

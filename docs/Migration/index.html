@@ -59,6 +59,70 @@ should be the module names.</p>
 <blockquote>
 <p>Please <a href="https://discord.gg/ramJ9rgky5">let me know</a> if there are any issues.</p>
 </blockquote>
+<h1>Upgrading to 1.10.0</h1>
+<p><strong>Type-only. Nothing changes at runtime</strong>, and if you do not write components
+in TypeScript there is nothing to do.</p>
+<p><code>Component</code> declared <code>[key: string]: any</code>. An index signature on a class
+propagates to every subclass, so TypeScript accepted <strong>any property or method
+name at all</strong> on every component anyone has ever written:</p>
+<pre><code class="language-typescript">class Thing extends Component {
+  greet() {
+    this.definitelyNotAMethod()          // compiled clean
+    const n: number = this.alsoNotAThing // compiled clean, typed as number
+  }
+}
+</code></pre>
+<p>Removing it means <code>tsc</code> now reports real errors in your components. Expect
+them; they were always there.</p>
+<h2>The migration: move <code>initAttributes</code> into the class header</h2>
+<p>Attribute keys become <em>instance</em> properties at hydration, and TypeScript cannot
+derive an instance type from a static declared in the same class — which is why
+the index signature existed. Passing the map as a <strong>value</strong> lets inference do
+the work:</p>
+<pre><code class="language-typescript">// before — `this.month` was `any`
+export class TosiMonth extends Component&lt;MonthParts&gt; {
+  static initAttributes = { month: NaN, year: NaN, selectable: false }
+  render() { this.month + 1 }
+}
+
+// after — `this.month` is a number
+import { withAttributes } from &#39;tosijs&#39;
+
+export class TosiMonth extends withAttributes({
+  month: NaN,
+  year: NaN,
+  selectable: false,
+})&lt;MonthParts&gt; {
+  render() { this.month + 1 }
+}
+</code></pre>
+<p>It is a <strong>move</strong>, not an addition — the attribute map is the same object, just
+declared where inference can reach it. In tosijs-ui this took one component
+from 44 errors to 0, and 413 of that project&#39;s 415 errors are this one pattern.</p>
+<p><strong>If you cannot restructure the class</strong>, declare the same thing in one line:</p>
+<pre><code class="language-typescript">import type { ComponentAttrs } from &#39;tosijs&#39;
+export interface Widget extends ComponentAttrs&lt;typeof Widget.initAttributes&gt; {}
+</code></pre>
+<h2>What does NOT change</h2>
+<ul>
+<li><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
+<code>withAttributes()</code> sets it, and it is still the only way to add attributes to
+an <strong>existing</strong> component class. Build a base with <code>withAttributes</code>, extend
+it and add more with <code>static initAttributes</code> — they compose.</li>
+<li><strong>Computed attributes</strong> (<code>Component.computed()</code>) work unchanged. They are
+deliberately excluded from the type <code>withAttributes</code> declares, because your
+class implements them itself — usually as <code>get</code>/<code>set</code>. A computed setter may
+call <code>this.queueRender()</code>.</li>
+<li><strong>Runtime behaviour is identical.</strong> Attributes install the same way, coerce
+the same way, and trigger renders the same way, whichever form you use.</li>
+</ul>
+<h2>Also worth knowing</h2>
+<p><code>TosiComponentSpec.type</code> and <code>TosiPackagedComponent.type</code> are now typed as a
+class (<code>ComponentClass&lt;T&gt;</code>) rather than <code>Component&lt;T&gt;</code>. They always held a
+constructor — the instance-type declaration was simply wrong, and invisible
+because the index signature made any object assignable to <code>Component</code>. If you
+author blueprints you should see no change; if you were relying on that field
+accepting arbitrary objects, you will now get an error.</p>
 <h1>Upgrading to 1.9.0</h1>
 <p><strong>One break, and only if you call <code>enableAgentInterface()</code>.</strong> Nothing else
 changes; apps that never touch the agent surface upgrade with no action.</p>

@@ -6,6 +6,91 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.0] - 2026-09-03
+
+**`Component` no longer disables type checking for every component you write.**
+
+### Breaking (types only — no runtime change)
+
+- **`Component`'s `[key: string]: any` index signature is gone**
+  ([#36](https://github.com/tonioloewald/tosijs/issues/36)). An index signature
+  on a class propagates to every subclass, so this compiled cleanly in *any*
+  component:
+
+  ```ts
+  class Thing extends Component {
+    greet() {
+      this.definitelyNotAMethod()          // no error
+      const n: number = this.alsoNotAThing // no error, and it typed as number
+    }
+  }
+  ```
+
+  It was reported after five methods were lost to a mis-splice: typecheck
+  green, 312 tests green, and the failure found by clicking on the page. That
+  is the worst shape a type error can have — the tool that exists to catch it
+  reports success, so you trust it and look elsewhere.
+
+  **Nothing changes at runtime.** What changes is that `tsc` now tells you the
+  truth about your own components.
+
+- **Migration: move `static initAttributes` into the class header.** Attributes
+  are now typed from the *value*, so there is no second declaration to keep in
+  step — and this is a **move**, not an addition:
+
+  ```ts
+  // before — `this.month` was `any`
+  export class TosiMonth extends Component<MonthParts> {
+    static initAttributes = { month: NaN, year: NaN, selectable: false }
+  }
+
+  // after — `this.month` is a number
+  export class TosiMonth extends withAttributes({
+    month: NaN, year: NaN, selectable: false,
+  })<MonthParts> {}
+  ```
+
+  Measured on tosijs-ui: `month.ts` went from **44 errors to 0**. Across the
+  project, **413 of 415** errors are this one pattern, at roughly one migration
+  per component. The other 2 were a genuine bug the index signature had been
+  hiding (`this.elements` — a static reached through an instance).
+
+- **`static initAttributes` is NOT deprecated and is not going away.**
+  `withAttributes()` *sets* it, and it remains the only way to add attributes
+  to an **existing** component class (`withAttributes` always extends
+  `Component`). The two compose: build a base with `withAttributes`, extend it
+  and add more with `static initAttributes`.
+
+- **`TosiComponentSpec.type` / `TosiPackagedComponent.type` are now typed as a
+  CLASS** (`ComponentClass<T>`), not as `Component<T>`. They always held a
+  constructor; the instance-type declaration was wrong, and invisible because
+  the index signature made *any* object structurally assignable to `Component`
+  — so those public fields accepted anything at all.
+
+### Added
+
+- **`withAttributes(attributes)`** — declares a component's attributes as a
+  value and types them on `this`. Available as a normal export and through the
+  blueprint hydration factory, so blueprints can use it too. Computed
+  attributes (`Component.computed()`) are deliberately excluded from the
+  declared shape: the class implements those itself, so declaring them twice
+  was the bug. A computed setter may call `this.queueRender()` — verified
+  non-re-entrant.
+- **`ComponentAttrs<T>`** — the declaration-merging alternative, for a class
+  you cannot restructure:
+  `export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}`
+
+### Fixed
+
+- Three separate class/instance confusions inside the library, all masked by
+  the index signature: `elementCreator()` and the shadow-style resolver both
+  cast the class to the *instance* type inside static methods, and the two
+  spec interfaces above. Every static access through them was wrong.
+- Members the library used but never declared — `value` (documented as *the*
+  special property), `_value`, `defaultValue`, `handleResize`, `onResize`,
+  `_onResize` — now reached through a named `dynamic()` seam rather than by
+  every subclass paying for an index signature.
+
 ## [1.9.2] - 2026-09-03
 
 ### Fixed

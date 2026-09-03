@@ -13,6 +13,86 @@ should be the module names.
 
 > Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.
 
+# Upgrading to 1.10.0
+
+**Type-only. Nothing changes at runtime**, and if you do not write components
+in TypeScript there is nothing to do.
+
+`Component` declared `[key: string]: any`. An index signature on a class
+propagates to every subclass, so TypeScript accepted **any property or method
+name at all** on every component anyone has ever written:
+
+```typescript
+class Thing extends Component {
+  greet() {
+    this.definitelyNotAMethod()          // compiled clean
+    const n: number = this.alsoNotAThing // compiled clean, typed as number
+  }
+}
+```
+
+Removing it means `tsc` now reports real errors in your components. Expect
+them; they were always there.
+
+## The migration: move `initAttributes` into the class header
+
+Attribute keys become *instance* properties at hydration, and TypeScript cannot
+derive an instance type from a static declared in the same class — which is why
+the index signature existed. Passing the map as a **value** lets inference do
+the work:
+
+```typescript
+// before — `this.month` was `any`
+export class TosiMonth extends Component<MonthParts> {
+  static initAttributes = { month: NaN, year: NaN, selectable: false }
+  render() { this.month + 1 }
+}
+
+// after — `this.month` is a number
+import { withAttributes } from 'tosijs'
+
+export class TosiMonth extends withAttributes({
+  month: NaN,
+  year: NaN,
+  selectable: false,
+})<MonthParts> {
+  render() { this.month + 1 }
+}
+```
+
+It is a **move**, not an addition — the attribute map is the same object, just
+declared where inference can reach it. In tosijs-ui this took one component
+from 44 errors to 0, and 413 of that project's 415 errors are this one pattern.
+
+**If you cannot restructure the class**, declare the same thing in one line:
+
+```typescript
+import type { ComponentAttrs } from 'tosijs'
+export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}
+```
+
+## What does NOT change
+
+- **`static initAttributes` still works and is not deprecated.**
+  `withAttributes()` sets it, and it is still the only way to add attributes to
+  an **existing** component class. Build a base with `withAttributes`, extend
+  it and add more with `static initAttributes` — they compose.
+- **Computed attributes** (`Component.computed()`) work unchanged. They are
+  deliberately excluded from the type `withAttributes` declares, because your
+  class implements them itself — usually as `get`/`set`. A computed setter may
+  call `this.queueRender()`.
+- **Runtime behaviour is identical.** Attributes install the same way, coerce
+  the same way, and trigger renders the same way, whichever form you use.
+
+## Also worth knowing
+
+`TosiComponentSpec.type` and `TosiPackagedComponent.type` are now typed as a
+class (`ComponentClass<T>`) rather than `Component<T>`. They always held a
+constructor — the instance-type declaration was simply wrong, and invisible
+because the index signature made any object assignable to `Component`. If you
+author blueprints you should see no change; if you were relying on that field
+accepting arbitrary objects, you will now get an error.
+
 # Upgrading to 1.9.0
 
 **One break, and only if you call `enableAgentInterface()`.** Nothing else
