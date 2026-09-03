@@ -49,6 +49,26 @@ interface ElementCreatorOptions extends ElementDefinitionOptions {
     tag?: string;
     styleSpec?: TosiStyleSheet;
 }
+/**
+ * The instance properties a component's `static initAttributes` installs.
+ *
+ * `initAttributes` keys become instance properties at hydration, which the
+ * type system cannot infer from a static. Declare them in ONE line, using the
+ * same declaration-merging trick `Component` uses internally:
+ *
+ *     export class Widget extends Component {
+ *       static initAttributes = { month: 0, label: '' }
+ *       render() { this.month + 1; this.label.trim() }   // typed, not `any`
+ *     }
+ *     export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}
+ *
+ * You get real types (`number`, `string`) instead of the `any` the old
+ * `[key: string]: any` index signature handed out — and typos still fail,
+ * which is the point (tosijs#36).
+ */
+export type ComponentAttrs<T> = {
+    -readonly [K in keyof T]: T[K];
+};
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;
     private static _elementCreator?;
@@ -144,7 +164,9 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     isSlotted?: boolean;
     private static _tagName;
     static get tagName(): null | string;
-    [key: string]: any;
+    /** the component's value — a special property, NOT an attribute. Setting it
+     * fires a `change` event and re-renders. Deliberately `any`: a component
+     * narrows it (`value = 0`, `value: Thing[] = []`) in its own declaration. */
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
     private _valueChanged;
@@ -264,6 +286,8 @@ declare class TosiSlot extends Component<SlotParts> {
     static initAttributes: {
         name: string;
     };
+    /** installed by `initAttributes` at hydration — see the Blueprint note */
+    name: string;
     content: null;
     static replaceSlot(slot: HTMLSlotElement): void;
 }

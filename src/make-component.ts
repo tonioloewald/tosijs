@@ -59,8 +59,26 @@ export interface TosiFactory {
   version: string
 }
 
+/**
+ * The CLASS a blueprint returns — not an instance of it.
+ *
+ * `TosiComponentSpec.type` and `TosiPackagedComponent.type` were both declared
+ * `Component<T>` — the INSTANCE type — while every producer assigns a
+ * constructor. The mis-typing was invisible because `Component` carried
+ * `[key: string]: any`, which makes *any* object structurally assignable to
+ * it, so these fields accepted anything at all (tosijs#36). The same
+ * class/instance confusion appeared at two more sites in `component.ts`.
+ */
+export type ComponentClass<T = PartsMap> = (new () => Component<T>) &
+  Pick<typeof Component, 'elementCreator'> & {
+    preferredTagName?: string
+    contract?: import('./agent').ComponentMap
+    lightStyleSpec?: TosiStyleSheet
+    styleSpec?: TosiStyleSheet
+  }
+
 export interface TosiComponentSpec<T = PartsMap> {
-  type: Component<T>
+  type: ComponentClass<T>
   lightStyleSpec?: TosiStyleSheet
   /** @deprecated Use lightStyleSpec instead */
   styleSpec?: TosiStyleSheet
@@ -76,7 +94,7 @@ export interface TosiComponentSpec<T = PartsMap> {
 }
 
 export interface TosiPackagedComponent<T = PartsMap> {
-  type: Component<T>
+  type: ComponentClass<T>
   creator: ElementCreator
 }
 

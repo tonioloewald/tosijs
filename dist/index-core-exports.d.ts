@@ -7,7 +7,7 @@ export type { XinStyleSheet, XinStyleMap, XinStyleRule, } from './css-types';
 export type { ComponentMap, ComponentTestStep } from './agent';
 export { Color } from './color';
 export { Component, tosiSlot, xinSlot } from './component';
-export type { PartsOf } from './component';
+export type { PartsOf, ComponentAttrs } from './component';
 export { setContractValidator, getContractValidator } from './contract-check';
 export type { ContractValidator, SetContractValidatorOptions, } from './contract-check';
 export { validateAgainstConstraints, type FormValidation, } from './form-validation';

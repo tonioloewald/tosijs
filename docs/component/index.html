@@ -108,7 +108,7 @@ class LabeledInput extends Component {
     super.connectedCallback()
     const {input} = this.parts
     input.addEventListener(&#39;input&#39;, () =&gt; {
-      this.value = input.value
+      dynamic(this).value = input.value
     })
   }
 
@@ -116,8 +116,8 @@ class LabeledInput extends Component {
     super.render()
     const {span, input} = this.parts
     span.textContent = this.caption
-    if (input.value !== this.value) {
-      input.value = this.value
+    if (input.value !== dynamic(this).value) {
+      input.value = dynamic(this).value
     }
   }
 }
@@ -271,8 +271,8 @@ which will then penetrate the <code>shadowDOM</code>.</p>
   super.render() // see note
   const {span, input} = this.parts
   span.textContent = this.caption
-  if (input.value !== this.value) {
-    input.value = this.value
+  if (input.value !== dynamic(this).value) {
+    input.value = dynamic(this).value
   }
 }
 </code></pre>

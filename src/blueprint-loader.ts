@@ -356,6 +356,16 @@ export class Blueprint extends Component {
   static preferredTagName = 'tosi-blueprint'
   static lightStyleSpec = HIDDEN_STYLE
   static initAttributes = { tag: 'anon-elt', src: '', property: 'default' }
+  /*
+   * DECLARE WHAT `initAttributes` INSTALLS. Those keys become instance
+   * properties at hydration, and `Component`'s `[key: string]: any` used to
+   * make them typecheck for free — at the cost of accepting every typo in
+   * every component anyone wrote (tosijs#36). Declaring them is the migration,
+   * and it buys real types (`string`) instead of `any`.
+   */
+  declare tag: string
+  declare src: string
+  declare property: string
   loaded?: TosiPackagedComponent
   blueprintLoaded = (_pkg: TosiPackagedComponent) => {}
 

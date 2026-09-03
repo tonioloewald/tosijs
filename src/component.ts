@@ -74,7 +74,7 @@ class LabeledInput extends Component {
     super.connectedCallback()
     const {input} = this.parts
     input.addEventListener('input', () => {
-      this.value = input.value
+      dynamic(this).value = input.value
     })
   }
 
@@ -82,8 +82,8 @@ class LabeledInput extends Component {
     super.render()
     const {span, input} = this.parts
     span.textContent = this.caption
-    if (input.value !== this.value) {
-      input.value = this.value
+    if (input.value !== dynamic(this).value) {
+      input.value = dynamic(this).value
     }
   }
 }
@@ -266,8 +266,8 @@ which will then penetrate the `shadowDOM`.
       super.render() // see note
       const {span, input} = this.parts
       span.textContent = this.caption
-      if (input.value !== this.value) {
-        input.value = this.value
+      if (input.value !== dynamic(this).value) {
+        input.value = dynamic(this).value
       }
     }
 
@@ -1045,6 +1045,37 @@ function capturePartsFrom(content: unknown): Record<string, Element> {
   return parts
 }
 
+/**
+ * Dynamic property access on a component, said OUT LOUD at the call site.
+ *
+ * `Component` used to carry `[key: string]: any` so that the handful of places
+ * indexing by a runtime attribute name would compile. That turned off property
+ * checking for every subclass anyone wrote, forever, to serve four call sites
+ * (tosijs#36). The cost now lands where the dynamism actually is.
+ */
+const dynamic = (el: unknown): Record<string, any> =>
+  el as Record<string, any>
+
+/**
+ * The instance properties a component's `static initAttributes` installs.
+ *
+ * `initAttributes` keys become instance properties at hydration, which the
+ * type system cannot infer from a static. Declare them in ONE line, using the
+ * same declaration-merging trick `Component` uses internally:
+ *
+ *     export class Widget extends Component {
+ *       static initAttributes = { month: 0, label: '' }
+ *       render() { this.month + 1; this.label.trim() }   // typed, not `any`
+ *     }
+ *     export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}
+ *
+ * You get real types (`number`, `string`) instead of the `any` the old
+ * `[key: string]: any` index signature handed out — and typos still fail,
+ * which is the point (tosijs#36).
+ */
+export type ComponentAttrs<T> = { -readonly [K in keyof T]: T[K] }
+
+ 
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
@@ -1263,8 +1294,34 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   static get tagName(): null | string {
     return this._tagName
   }
-  [key: string]: any
 
+  /*
+   * THE MEMBERS THE INDEX SIGNATURE WAS HIDING. (tosijs#36.)
+   *
+   * `Component` declared `[key: string]: any`, which propagates to every
+   * subclass — so `this.definitelyNotAMethod()` typechecked in every component
+   * anyone wrote, and a deleted method compiled clean. Reported after five
+   * methods were lost to a mis-splice: typecheck green, 312 tests green, and
+   * the failure surfaced by clicking on the page.
+   *
+   * Removing it revealed that the library was leaning on it too. These are
+   * real members that were simply never declared — `value` most of all, which
+   * the component reference documents as *the* special property. Declaring
+   * them is the fix; the dynamic accesses that genuinely need it now say so at
+   * the call site instead of the whole class paying for them.
+   */
+  /*
+   * `declare`, NOT a bare field declaration. Under ES2022 class-fields
+   * semantics a bare `onResize?: () => void` EMITS `dynamic(this).onResize = undefined`
+   * in the constructor — so every component would own these keys, and the
+   * on<Event> collision detector (which walks member names) fired on a
+   * component that declared nothing. A type-only intention with a runtime
+   * effect; caught by the suite, not by tsc.
+   */
+  /** the component's value — a special property, NOT an attribute. Setting it
+   * fires a `change` event and re-renders. Deliberately `any`: a component
+   * narrows it (`value = 0`, `value: Thing[] = []`) in its own declaration. */
+  // (declared by interface merging below — see the note above)
   // For legacy initAttributes method - tracks which attrs this instance watches
   _legacyTrackedAttrs?: Set<string>
   // Tracks attribute values for property accessors
@@ -1284,7 +1341,16 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     this: new () => C,
     options: ElementCreatorOptions = {}
   ): ElementCreator<C> {
-    const componentClass = this as unknown as Component
+    /*
+     * THE CLASS, TYPED AS THE CLASS. This said `as unknown as Component` —
+     * the INSTANCE type — inside a static method, where `this` is the
+     * constructor. Every static access through it (`preferredTagName`,
+     * `_tagName`, `lightStyleSpec`, `extends`, `_elementCreator`) was
+     * therefore wrong, and compiled only because `Component` carried a
+     * `[key: string]: any` index signature that answered for anything
+     * (tosijs#36).
+     */
+    const componentClass = this as unknown as typeof Component
     if (
       !Object.prototype.hasOwnProperty.call(componentClass, '_elementCreator')
     ) {
@@ -1381,7 +1447,14 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       )
       componentClass._elementCreator = elements[tagName]
     }
-    return componentClass._elementCreator
+    /*
+     * The memo is stored on the base-class static (`ElementCreator<Component>`)
+     * while this getter is generic over the CONCRETE class, so the narrowing
+     * cannot be expressed — the cache is per-class at runtime and the field
+     * that holds it is not. Non-null because the branch above assigns it when
+     * absent.
+     */
+    return componentClass._elementCreator as unknown as ElementCreator<C>
   }
 
   /**
@@ -1411,7 +1484,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     const attributeValues: { [key: string]: any } = {}
 
     attributeNames.forEach((attributeName) => {
-      attributes[attributeName] = deepClone(this[attributeName])
+      attributes[attributeName] = deepClone(dynamic(this)[attributeName])
       const attributeKabob = camelToKabob(attributeName)
       Object.defineProperty(this, attributeName, {
         enumerable: false,
@@ -1525,8 +1598,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
     let value = this.hasAttribute('value')
       ? this.getAttribute('value')
-      : deepClone(this.value)
-    delete this.value
+      : deepClone(dynamic(this).value)
+    delete dynamic(this).value
     Object.defineProperty(this, 'value', {
       enumerable: false,
       get() {
@@ -1586,7 +1659,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
               // reserved for refs that never resolved at all. (tosijs#21: the
               // 1.7.7 eviction turned that lenient case into a throw inside
               // change handlers, killing the handler before it committed
-              // this.value.)
+              // dynamic(this).value.)
               if (element == null && cached != null) {
                 return cached
               }
@@ -1691,7 +1764,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     }
 
     this.instanceId = `${this.tagName.toLocaleLowerCase()}-${instanceCount}`
-    this._value = deepClone(this.defaultValue)
+    dynamic(this)._value = deepClone(dynamic(this).defaultValue)
 
     this._warnOnHandlerCollisions()
   }
@@ -1722,7 +1795,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       // onResize is the legacy resize hook — still honored, but deprecated in
       // favor of handleResize (the on<Event> prefix is reserved for event sugar).
       const usesLegacyOnResize =
-        names.delete('onResize') && this.handleResize === undefined
+        names.delete('onResize') && dynamic(this).handleResize === undefined
       if (usesLegacyOnResize) {
         console.warn(
           `<${tag}> defines 'onResize', which is deprecated. Rename it to ` +
@@ -2151,7 +2224,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           }
         }
         if (typeof defaultValue === 'boolean') {
-          if (value !== this[attrName]) {
+          if (value !== dynamic(this)[attrName]) {
             if (value) {
               this.setAttribute(attrKabob, '')
             } else {
@@ -2161,7 +2234,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             this._attrValues!.set(attrName, !!value)
           }
         } else if (typeof defaultValue === 'number') {
-          if (value !== parseFloat(this[attrName])) {
+          if (value !== parseFloat(dynamic(this)[attrName])) {
             this.setAttribute(attrKabob, value)
             this.queueRender()
             this._attrValues!.set(attrName, value)
@@ -2169,7 +2242,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         } else {
           if (
             typeof value === 'object' ||
-            `${value as string}` !== `${this[attrName] as string}`
+            `${value as string}` !== `${dynamic(this)[attrName] as string}`
           ) {
             if (
               value === null ||
@@ -2289,20 +2362,20 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     }
     // handleResize is the current name; onResize is the deprecated legacy hook
     // (the deprecation warning is emitted once per class in _warnOnHandlerCollisions).
-    const resizeHandler = this.handleResize ?? this.onResize
+    const resizeHandler = dynamic(this).handleResize ?? dynamic(this).onResize
     if (resizeHandler !== undefined) {
       resizeObserver.observe(this)
-      if (this._onResize == null) {
-        this._onResize = resizeHandler.bind(this)
+      if (dynamic(this)._onResize == null) {
+        dynamic(this)._onResize = resizeHandler.bind(this)
       }
-      this.addEventListener('resize', this._onResize)
+      this.addEventListener('resize', dynamic(this)._onResize)
     }
-    if (this.value != null && this.getAttribute('value') != null) {
-      this._value = this.getAttribute('value')
+    if (dynamic(this).value != null && this.getAttribute('value') != null) {
+      dynamic(this)._value = this.getAttribute('value')
     }
     // Sync initial form value and validate for formAssociated components
-    if (this.internals && this.value !== undefined) {
-      this.internals.setFormValue(this.value)
+    if (this.internals && dynamic(this).value !== undefined) {
+      this.internals.setFormValue(dynamic(this).value)
       this.validateValue()
     }
     this.queueRender()
@@ -2317,8 +2390,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * Default: resets value to defaultValue or empty string.
    */
   formResetCallback(): void {
-    if (this.value !== undefined) {
-      this.value = this.defaultValue ?? ''
+    if (dynamic(this).value !== undefined) {
+      dynamic(this).value = dynamic(this).defaultValue ?? ''
     }
   }
 
@@ -2339,8 +2412,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * Default: restores the value.
    */
   formStateRestoreCallback(state: string | File | FormData | null): void {
-    if (this.value !== undefined && typeof state === 'string') {
-      this.value = state
+    if (dynamic(this).value !== undefined && typeof state === 'string') {
+      dynamic(this).value = state
     }
   }
 
@@ -2359,8 +2432,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           // even when the component lives inside a shadow root
           dispatch(this, 'change', { bubbles: true, composed: true })
           // Sync form value for formAssociated components
-          if (this.internals && this.value !== undefined) {
-            this.internals.setFormValue(this.value)
+          if (this.internals && dynamic(this).value !== undefined) {
+            this.internals.setFormValue(dynamic(this).value)
           }
         }
         this._changeQueued = false
@@ -2432,7 +2505,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       }
 
-      const ctor = this.constructor as unknown as Component
+      const ctor = this.constructor as unknown as typeof Component
       const shadowStyle = ctor.shadowStyleSpec ?? ctor.styleSpec
       if (ctor.styleSpec && !ctor.shadowStyleSpec) {
         warnDeprecated(
@@ -2521,8 +2594,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   render(): void {
     // Sync form value and validate when value actually changed
-    if (this._valueChanged && this.internals && this.value !== undefined) {
-      this.internals.setFormValue(this.value)
+    if (this._valueChanged && this.internals && dynamic(this).value !== undefined) {
+      this.internals.setFormValue(dynamic(this).value)
       this.validateValue()
     }
     this._valueChanged = false
@@ -2536,9 +2609,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * See [web-component-validation](/form-validation/) for details.
    */
   validateValue(): void {
-    if (!this.internals || this.value === undefined) return
+    if (!this.internals || dynamic(this).value === undefined) return
     const value =
-      typeof this.value === 'string' ? this.value : String(this.value)
+      typeof dynamic(this).value === 'string' ? dynamic(this).value : String(dynamic(this).value)
     validateAgainstConstraints(this, value)
   }
 }
@@ -2547,9 +2620,27 @@ interface SlotParts extends PartsMap {
   slotty: HTMLSlotElement
 }
 
+/*
+ * DECLARED BY MERGING, NOT AS CLASS FIELDS. (tosijs#36.)
+ *
+ * Two reasons, both found by building a real consumer against it:
+ *   - a class FIELD is emitted under ES2022 class-fields semantics, so bare
+ *     declarations installed `undefined` own-properties on every component and
+ *     tripped the on<Event> collision detector;
+ *   - a field also forbids the shapes components actually use — `get value()`
+ *     is TS2611 against a base-class property, and `handleResize() {}` as a
+ *     method is TS2425. Both are the normal way to write a component, and
+ *     both broke in tosijs-ui until these moved here.
+ *
+ * An interface declares existence without dictating property-vs-accessor or
+ * property-vs-method, and emits nothing. It is also exactly the one-line
+ * pattern consumers use for their own `initAttributes` keys.
+ */
 class TosiSlot extends Component<SlotParts> {
   static preferredTagName = 'tosi-slot'
   static initAttributes = { name: '' }
+  /** installed by `initAttributes` at hydration — see the Blueprint note */
+  declare name: string
   content = null
 
   static replaceSlot(slot: HTMLSlotElement): void {
