@@ -1075,6 +1075,49 @@ const dynamic = (el: unknown): Record<string, any> =>
  */
 export type ComponentAttrs<T> = { -readonly [K in keyof T]: T[K] }
 
+/**
+ * Declare a component's attributes as a VALUE, and get them typed on `this`.
+ *
+ *     export class TosiMonth extends withAttributes({
+ *       month: 0,
+ *       label: '',
+ *     })<MonthParts> {
+ *       render() {
+ *         this.month + 1        // number
+ *         this.label.trim()     // string
+ *         this.nope()           // still a type error
+ *       }
+ *     }
+ *
+ * THE UNDERLYING PROBLEM: `static initAttributes` installs *instance*
+ * properties at hydration, and TypeScript cannot derive an instance type from
+ * a static declared in the same class — so `this.month` was only ever typed by
+ * `Component`'s `[key: string]: any`, which typed it as `any` and, far worse,
+ * accepted every typo in every component anyone wrote (tosijs#36).
+ *
+ * Passing the map as a value instead lets inference do the work: there is no
+ * extra declaration to write and keep in step, and the attribute types are
+ * read off the object you already had. `static initAttributes` still works
+ * exactly as before — this is additive, and the two forms produce the same
+ * runtime.
+ */
+export const withAttributes = <A extends Record<string, any>>(
+  initAttributes: A
+): (new <T = PartsMap>() => Component<T> & A) &
+  Omit<typeof Component, 'prototype' | 'initAttributes'> & {
+    initAttributes: A
+  } => {
+  class ComponentWithAttributes extends Component {
+    static initAttributes = initAttributes
+  }
+  return ComponentWithAttributes as unknown as (new <
+    T = PartsMap,
+  >() => Component<T> & A) &
+    Omit<typeof Component, 'prototype' | 'initAttributes'> & {
+      initAttributes: A
+    }
+}
+
  
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements

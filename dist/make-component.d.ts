@@ -1,5 +1,5 @@
 import { Color } from './color';
-import { Component } from './component';
+import { Component, withAttributes } from './component';
 import { vars, varDefault } from './css';
 import { TosiStyleSheet } from './css-types';
 import { bind, on } from './bind';
@@ -10,6 +10,10 @@ import { xinProxy, tosi, boxedProxy } from './xin-proxy';
 export interface TosiFactory {
     Color: typeof Color;
     Component: typeof Component;
+    /** build a base class whose attributes are typed from a concrete object —
+     * blueprints get everything through this factory, so it has to be here or
+     * a blueprint cannot use the form the docs recommend */
+    withAttributes: typeof withAttributes;
     elements: typeof elements;
     svgElements: typeof svgElements;
     mathML: typeof mathML;

@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll } from 'bun:test'
-import { Component, tosiSlot } from './component'
+import { Component, tosiSlot, withAttributes } from './component'
 import { elements } from './elements'
 import { dispatch } from './dom'
 import { _resetDeprecationWarnings } from './metadata'
@@ -2306,5 +2306,66 @@ describe('host props in content compose with a list binding (round-2 B1)', () =>
     const el = await build('hp-bind-first', 'bind-first')
     expect(el.querySelectorAll('span').length).toBe(2)
     expect(el.getAttribute('data-title')).toBe('hello')
+  })
+})
+
+describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
+  test('installs attributes, coerces them, and keeps statics working', async () => {
+    /*
+     * `static initAttributes` installs INSTANCE properties, and TypeScript
+     * cannot derive an instance type from a static declared in the same class
+     * — which is why `Component` carried `[key: string]: any` and why every
+     * component anyone wrote accepted every typo. Passing the map as a VALUE
+     * lets inference do the work with no extra declaration.
+     *
+     * This test is the runtime half: the new form must behave EXACTLY like
+     * `static initAttributes`, because it is the same mechanism underneath.
+     */
+    class Typed extends withAttributes({ label: 'hi', count: 0, on: false }) {
+      static preferredTagName = 'wa-typed'
+      content = null
+    }
+    const el = (Typed as any).elementCreator()() as any
+    document.body.append(el)
+    await updates()
+    expect(el.label).toBe('hi')
+    expect(el.count).toBe(0)
+    expect(el.on).toBe(false)
+    // the static survives the factory, and is what the machinery reads
+    expect((Typed as any).initAttributes).toEqual({
+      label: 'hi',
+      count: 0,
+      on: false,
+    })
+    // attribute -> property, with the declared type's coercion
+    el.setAttribute('count', '7')
+    await updates()
+    expect(el.count).toBe(7)
+    expect(typeof el.count).toBe('number')
+    el.remove()
+  })
+
+  test('a blueprint can reach it through the hydration factory', async () => {
+    /*
+     * Blueprints are dependency-free — they receive everything as the factory
+     * argument, so a helper missing from that object is unusable from a
+     * blueprint no matter that it is exported. `withAttributes` was missing
+     * when this was first written, which is exactly the gap this pins.
+     */
+    const { makeComponent } = await import('./make-component')
+    const blueprint = (_tag: string, factory: any) => {
+      expect(typeof factory.withAttributes).toBe('function')
+      class Counter extends factory.withAttributes({ label: 'bp', count: 2 }) {
+        content = null
+      }
+      return { type: Counter as any }
+    }
+    const { creator } = await makeComponent('wa-blueprint', blueprint as any)
+    const el = creator() as any
+    document.body.append(el)
+    await updates()
+    expect(el.label).toBe('bp')
+    expect(el.count).toBe(2)
+    el.remove()
   })
 })
