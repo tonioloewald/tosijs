@@ -57,6 +57,22 @@ there when the rc publishes.
 
 ## tosijs-ui
 
+### RESOLVED (by us, upstream-of-them): tosijs-ui#127 — deprecated binding shortcuts
+
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/127
+
+Reversed direction: tosijs-ui reported that *our* deprecation was unfixable at
+their call sites, and they were right. No `bind*` shortcut is deprecated as of
+**tosijs 1.9.1** — all eight of their sites go quiet on upgrade with no edits.
+Also closed on our side: tosijs#31 and tosijs#33.
+
+**The part worth remembering:** they found the 1.9.0 residue by **grepping the
+built bundles**, not the source. Our own release checks had passed. That is the
+"execute/inspect the artifact, not the repo" rule arriving from a consumer
+instead of from us — the second time this quarter (the first was the tjs-lang
+0.13.x `new`-stripping bug, caught only by the published-bundle smoke gate).
+
+
 ### 🚧 FILED — `/__docstore/source` is CSRF-able: local code execution
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/90
