@@ -2368,4 +2368,81 @@ describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
     expect(el.count).toBe(2)
     el.remove()
   })
+  test('computed attributes work, and their setter may queueRender()', async () => {
+    /*
+     * `Component.computed()` means "this class implements the property
+     * itself", so `withAttributes` deliberately OMITS computed keys from the
+     * type it declares (see DeclaredAttributes). Without that the marker type
+     * leaks — `fullName` would type as `ComputedAttribute` while the accessor
+     * returns a string, and a base-property/derived-accessor pair is TS2611.
+     *
+     * The runtime half: a computed SETTER calling `queueRender()` must not
+     * re-enter. It does not — one render per change, not a loop.
+     */
+    let renders = 0
+    class NameTag extends withAttributes({ fullName: Component.computed('') }) {
+      static preferredTagName = 'wa-nametag'
+      first = 'Ada'
+      last = 'Lovelace'
+      get fullName(): string {
+        return `${this.first} ${this.last}`
+      }
+      set fullName(v: string) {
+        const [f, ...rest] = String(v).split(' ')
+        this.first = f
+        this.last = rest.join(' ')
+        this.queueRender()
+      }
+      content = ({ span }: any) => [span({ part: 'out' })]
+      render(): void {
+        renders++
+        ;(this.parts as any).out.textContent = this.fullName
+      }
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const el = (NameTag as any).elementCreator()() as any
+    document.body.append(el)
+    await raf()
+    expect(renders).toBe(1)
+    el.setAttribute('full-name', 'Grace Hopper')
+    await raf()
+    expect(el.fullName).toBe('Grace Hopper')
+    expect((el.parts as any).out.textContent).toBe('Grace Hopper')
+    expect(renders).toBe(2) // exactly one more — the setter did not re-enter
+    el.remove()
+  })
+
+  test('a component built with withAttributes can still be EXTENDED', async () => {
+    /*
+     * Why `static initAttributes` is NOT deprecated: `withAttributes` always
+     * extends `Component`, so it cannot add attributes to an existing
+     * component class. A subclass does that with `static initAttributes`, and
+     * the two compose. (`withAttributes` also SETS that static — deprecating
+     * it would deprecate the primitive its own sugar emits, which is the
+     * `bindList` category error this project has already paid for once.)
+     */
+    class BaseWidget extends withAttributes({ label: 'base' }) {
+      static preferredTagName = 'wa-base'
+      content = null
+      greet(): string {
+        return `hi ${this.label}`
+      }
+    }
+    class SubWidget extends BaseWidget {
+      static preferredTagName = 'wa-derived'
+      static initAttributes = {
+        ...(BaseWidget as any).initAttributes,
+        extra: 7,
+      }
+      content = null
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const sub = (SubWidget as any).elementCreator()() as any
+    document.body.append(sub)
+    await raf()
+    expect(sub.label).toBe('base') // inherited attribute
+    expect(sub.extra).toBe(7) // and the added one
+    expect(sub.greet()).toBe('hi base') // inherited behaviour
+    sub.remove()
+  })
 })

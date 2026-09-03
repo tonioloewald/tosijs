@@ -95,7 +95,21 @@ export type ComponentAttrs<T> = {
  * exactly as before — this is additive, and the two forms produce the same
  * runtime.
  */
-export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => (new <T = PartsMap>() => Component<T> & A) & Omit<typeof Component, "prototype" | "initAttributes"> & {
+/**
+ * The attributes `withAttributes` declares ON the instance.
+ *
+ * COMPUTED attributes are deliberately excluded: `Component.computed()` means
+ * "this class implements the property itself", normally as `get`/`set`. If the
+ * synthesised base declared them too, every computed attribute would be a
+ * property in the base and an accessor in the derived class — TS2611 — and its
+ * type would be the `ComputedAttribute` marker rather than what the accessor
+ * actually returns. Omitting them is not a workaround: the class IS the
+ * declaration for those, which is the whole point of `computed()`.
+ */
+export type DeclaredAttributes<A> = {
+    [K in keyof A as A[K] extends ComputedAttribute ? never : K]: A[K];
+};
+export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) & Omit<typeof Component, "prototype" | "initAttributes"> & {
     initAttributes: A;
 };
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
