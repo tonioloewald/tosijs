@@ -93,6 +93,20 @@ that channel", not "your secrets are safe from an attacker with code
 execution". Scope is the real control — declare a manifest, and keep
 secrets out of the roots you expose.
 
+**Shadow roots are covered (since 1.10.0).** Every secret scan used to be
+light-DOM only — `querySelectorAll` and `closest` both stop at a shadow
+boundary — while the *write* path deliberately crosses it. So a password
+inside a styled `Component` wrote to state normally and was never redacted:
+`read`, `changes` and `describe` all returned it in cleartext, against the
+guarantee above, for anything using the supported shadow-DOM pattern. Three
+things now cross the boundary: the document sweep descends into open shadow
+trees, a `[data-tosi-secret]` region marks the paths bound *inside* it (it
+previously withheld rendered content while leaving `read()` of the same path
+in cleartext — half of what its name promises), and a component that renders
+a secret control marks the path bound on its own **host**, which is where such
+a binding actually lives. Closed shadow roots stay invisible, correctly:
+nothing outside can bind into one either.
+
 > **Matching is by spelling (tosijs#32).** A secret learned as
 > `rows[id=r1].pw` is withheld from `read('rows')`, `read('rows[0])`, and
 > `read('rows[0].pw')` — descent and index-aliasing are both covered. The
@@ -770,12 +784,72 @@ const referencedText = (
   return text || null
 }
 
+/**
+ * SHADOW ROOTS ARE PART OF THE PAGE, AND SECRETS LIVE IN THEM.
+ *
+ * `querySelectorAll` and `closest` both stop at a shadow boundary, so every
+ * secret scan in this module was light-DOM only — while the WRITE path
+ * deliberately crosses the boundary (`bind.ts`'s `closestAcrossShadow`).
+ * Typing into a `<input type="password">` inside a styled Component wrote to
+ * state normally, and the redaction that was supposed to cover it never saw
+ * the element: `read()`, `changes()` and `describe()` all returned the
+ * password in cleartext, against a guarantee this module's own docs state
+ * unconditionally.
+ *
+ * It is not an exotic case. It is the supported one — a Component with
+ * `shadowStyleSpec`, bound from outside, exactly as `component.ts` advises.
+ * And no test could have caught it: ~15 secret tests, zero `attachShadow`.
+ *
+ * Closed shadow roots are invisible here, and that is correct: nothing
+ * outside can bind into one either, so there is no path for it to leak.
+ */
+const deepQueryAll = (
+  root: Document | ShadowRoot | Element,
+  selector: string
+): Element[] => {
+  const found: Element[] = Array.from(root.querySelectorAll(selector))
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const shadow = (el as any).shadowRoot as ShadowRoot | null | undefined
+    if (shadow != null) found.push(...deepQueryAll(shadow, selector))
+  }
+  return found
+}
+
+/** does this node, or anything in its subtree INCLUDING shadow trees, match? */
+const deepHas = (node: Element, selector: string): boolean => {
+  if (node.querySelector?.(selector) != null) return true
+  const shadow = (node as any).shadowRoot as ShadowRoot | null | undefined
+  if (shadow != null && deepQueryAll(shadow, selector).length > 0) return true
+  for (const el of Array.from(node.querySelectorAll('*'))) {
+    const inner = (el as any).shadowRoot as ShadowRoot | null | undefined
+    if (inner != null && deepQueryAll(inner, selector).length > 0) return true
+  }
+  return false
+}
+
+/**
+ * `closest`, but stepping out through shadow hosts — the read-side twin of
+ * bind.ts's `closestAcrossShadow`. A `[data-tosi-secret]` wrapper in the
+ * light DOM must still cover content rendered inside a component's shadow.
+ */
+const closestAcrossRoots = (
+  node: Element | null | undefined,
+  selector: string
+): Element | null => {
+  if (node == null) return null
+  const hit = node.closest?.(selector)
+  if (hit != null) return hit
+  const root = node.getRootNode?.() as ShadowRoot | Document | undefined
+  const host = (root as ShadowRoot | undefined)?.host
+  return host != null ? closestAcrossRoots(host, selector) : null
+}
+
 /** is this referenced node — or an ancestor of it — marked secret? */
 const referencedNodeIsSecret = (target: Element): boolean => {
   try {
     if (isSecretControl(target)) return true
-    if (target.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
-    return target.closest?.('[data-tosi-secret]') != null
+    if (deepHas(target, SECRET_CONTROL_SELECTOR)) return true
+    return closestAcrossRoots(target, '[data-tosi-secret]') != null
   } catch {
     return true // cannot tell === must not publish
   }
@@ -1134,15 +1208,51 @@ const refreshSecretPaths = (): void => {
   try {
     // Array.from, not for-of: the lib target types NodeListOf without
     // Symbol.iterator, and happy-dom's list is not iterable either
-    candidates = Array.from(document.querySelectorAll(SECRET_CONTROL_SELECTOR))
+    // deep: shadow roots are part of the page (see deepQueryAll)
+    candidates = deepQueryAll(document, SECRET_CONTROL_SELECTOR)
   } catch (_e) {
     return // a DOM shim without full selector support: nothing to learn
   }
   for (const el of candidates) {
     if (!isSecretControl(el)) continue
-    const { dataBindings } = getElementBindings(el)
-    if (dataBindings == null) continue
-    for (const b of dataBindings) addSecretPath(b.path)
+    // A REGION MARKER COVERS ITS SUBTREE, NOT JUST ITSELF.
+    //
+    // `[data-tosi-secret]` is the first arm of SECRET_CONTROL_SELECTOR and is
+    // plainly meant as a WRAPPER — `contentWithheld` asks
+    // `closest('[data-tosi-secret]')`, i.e. "am I inside a secret region".
+    // But this loop only ever read bindings off the MATCHED element, and a
+    // wrapper carries none: its children do. So marking a region withheld its
+    // rendered CONTENT while `read()` of the very path bound inside it still
+    // returned cleartext — the attribute did half of what its name promises,
+    // in both light and shadow DOM. Collect the subtree's bindings too.
+    //
+    // For a bare `input[type="password"]` there is no subtree, so this costs
+    // nothing and changes nothing.
+    const bound: Element[] = [el, ...deepQueryAll(el, '*')]
+    // AND THE SHADOW HOSTS ABOVE IT. A component that RENDERS a secret
+    // control carries the binding on its host — `bind(pwField, path,
+    // bindings.value)`, the supported pattern — while the control itself sits
+    // in the shadow tree with no binding of its own. Walking down finds the
+    // control and learns nothing; the path lives one step UP, across the
+    // boundary. Without this, `read()` returned the password in cleartext
+    // unless a `describe()` happened to have run first and marked the record.
+    //
+    // Only shadow HOSTS, never light-DOM parents: a host renders the control,
+    // so its value IS the secret, whereas an arbitrary ancestor merely
+    // contains one and marking its paths secret would over-redact the page.
+    let node: Element | null = el
+    while (node != null) {
+      const root = node.getRootNode?.() as ShadowRoot | Document | undefined
+      const host = (root as ShadowRoot | undefined)?.host
+      if (host == null) break
+      bound.push(host)
+      node = host
+    }
+    for (const boundNode of bound) {
+      const { dataBindings } = getElementBindings(boundNode)
+      if (dataBindings == null) continue
+      for (const b of dataBindings) addSecretPath(b.path)
+    }
   }
 }
 
@@ -1343,7 +1453,7 @@ const harvestWouldLeak = (
     // of SECRET_CONTROL_SELECTOR, so reaching it means it already didn't
     // match. Deleted — zero behaviour change, one less subtree scan per
     // described element.
-    if (el.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
+    if (deepHas(el, SECRET_CONTROL_SELECTOR)) return true
   } catch {
     return true // cannot tell === must not publish
   }
@@ -1734,8 +1844,8 @@ export function enableAgentInterface(
   const contentWithheld: ContentGuard = (node: Element): boolean => {
     try {
       if (isSecretControl(node)) return true
-      if (node.closest?.('[data-tosi-secret]') != null) return true
-      if (node.querySelector?.(SECRET_CONTROL_SELECTOR) != null) return true
+      if (closestAcrossRoots(node, '[data-tosi-secret]') != null) return true
+      if (deepHas(node, SECRET_CONTROL_SELECTOR)) return true
       for (const path of subtreeBindingPaths(node)) {
         if (!inScope(path)) return true
         if (isSecretPath(path) || containsSecret(path)) return true

@@ -109,7 +109,32 @@ accessor at runtime, so add `declare value: T` to match.
 - **`static initAttributes` still works and is not deprecated.**
   `withAttributes()` sets it, and it is still the only way to add attributes to
   an **existing** component class. Build a base with `withAttributes`, extend
-  it and add more with `static initAttributes` — they compose.
+  it and add more with `static initAttributes` — they compose, with the
+  subclass winning per key:
+
+  ```ts
+  class Base extends withAttributes({ label: 'base' }) {
+    /* … */
+  }
+
+  class Sub extends Base {
+    static initAttributes = { extra: 7 } // declare ONLY what you add
+  }
+  export interface Sub extends ComponentAttrs<typeof Sub.initAttributes> {}
+  ```
+
+  Two things that are easy to get wrong, and were wrong here before 1.10.0:
+
+  - **Declare only the new keys.** Do not spread the base's map in. tosijs
+    merges the whole prototype chain for you, so a spread is redundant — and
+    it silently papers over the merge, which is how a version of this shipped
+    where declaring `extra` dropped `label` from the instance _and_ from
+    `observedAttributes`, with no error.
+  - **The `interface` line is required on a subclass that adds attributes.**
+    `withAttributes` types the instance of the class it creates; it cannot
+    reach back into a class it did not create, so `this.extra` has no type
+    without it. `this.label`, being inherited, is typed already.
+
 - **Computed attributes** (`Component.computed()`) work unchanged. They are
   deliberately excluded from the type `withAttributes` declares, because your
   class implements them itself — usually as `get`/`set`. A computed setter may

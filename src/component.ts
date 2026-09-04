@@ -400,7 +400,23 @@ component anyone wrote (tosijs#36). Removing it is why this exists.
   `withAttributes()` sets it, and it remains the only way to add attributes to
   an **existing** component class — `withAttributes` always extends
   `Component`. Build a base with one, extend and add with the other; they
-  compose.
+  compose at runtime, and the subclass's own declaration wins per key:
+
+      class Base extends withAttributes({ label: 'base' }) { … }
+      class Sub extends Base {
+        static initAttributes = { extra: 7 }   // declare ONLY what you add
+      }
+      export interface Sub extends ComponentAttrs<typeof Sub.initAttributes> {}
+
+  **Declare only the new keys** — do not spread the base's map in. tosijs
+  merges the whole prototype chain, so spreading is redundant, and it hides
+  the case the merge exists for.
+
+  **The interface line is required on the subclass**, and it is the one place
+  it cannot be avoided: `withAttributes` types the instance for the class it
+  creates, and it cannot reach back into a class it did not create, so
+  `this.extra` has no type without it. `this.label` is inherited and typed
+  already.
 - **Computed attributes are excluded from the declared type, deliberately.**
   `Component.computed()` means your class implements the property itself,
   normally as `get`/`set`, so declaring it here as well is what breaks. Its
@@ -1161,16 +1177,36 @@ export const withAttributes = <A extends Record<string, any>>(
   initAttributes: A
 ): (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) &
   Omit<typeof Component, 'prototype' | 'initAttributes'> & {
-    initAttributes: A
+    initAttributes: Record<string, any>
   } => {
   class ComponentWithAttributes extends Component {
     static initAttributes = initAttributes
   }
+  // THE STATIC IS TYPED WIDE ON PURPOSE; the INSTANCE keeps the precise
+  // `DeclaredAttributes<A>`.
+  //
+  // Typing the static as `A` (its exact literal type) made a subclass unable
+  // to declare attributes of its own: `class Sub extends Base { static
+  // initAttributes = { extra: 7 } }` is a static-side conflict, TS2417
+  // "Property 'label' is missing in type '{ extra: number }'". That is the
+  // documented migration shape, so the typing forbade the thing the docs
+  // recommend — and the runtime dropped the base's attributes at the same
+  // time (fixed in `_resolveInitAttributes`). Nothing reads the static's
+  // narrow type: the instance shape comes from `DeclaredAttributes<A>`
+  // above, which is what types `this.label`.
+  //
+  // A subclass ADDING attributes still has to say so for `this.extra` to
+  // type — withAttributes cannot reach back into a class it did not create.
+  // The one-liner declares an interface over the subclass's own
+  // initAttributes with ComponentAttrs; Migration.md has the exact form.
+  //
+  // (The form is described rather than shown on purpose — see UPSTREAM.md,
+  // tjs-lang#51. Comment text here can change what the converter emits.)
   return ComponentWithAttributes as unknown as (new <
     T = PartsMap
   >() => Component<T> & DeclaredAttributes<A>) &
     Omit<typeof Component, 'prototype' | 'initAttributes'> & {
-      initAttributes: A
+      initAttributes: Record<string, any>
     }
 }
 
@@ -1317,7 +1353,36 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // pushed people toward the verbose form for a reason that no longer
     // exists — and toward the form with, at last count, far fewer users than
     // the one it was nudging them away from. tosijs#29.
-    return this.initAttributes
+    // SAME INHERITANCE RULE AS THE CONTRACT BRANCH ABOVE. This used to be a
+    // bare `return this.initAttributes` — a STATIC lookup, so a subclass's own
+    // `static initAttributes` shadowed the base's entirely:
+    //
+    //   class Base extends withAttributes({ label: 'base' }) {}
+    //   class Sub extends Base { static initAttributes = { extra: 7 } }
+    //   Sub.observedAttributes  // ['hidden', 'extra'] — `label` GONE
+    //   sub.label               // undefined, and setAttribute never fixes it
+    //
+    // Reflection was severed in both directions with no throw and no warning,
+    // while the contract branch twenty lines up did exactly this merge and its
+    // comment called dropping the base's attributes the defect it is. The two
+    // branches disagreed about the same question, decided only by whether a
+    // contract happened to be present — and the documented migration path
+    // (a `withAttributes` base, subclasses adding attributes) went through the
+    // branch that was wrong.
+    if (ownInit == null) return this.initAttributes
+    const cachedPlain = derivedInitAttributes.get(this)
+    if (cachedPlain != null) return cachedPlain
+    const inheritedPlain = Object.getPrototypeOf(this) as typeof Component
+    const inheritedPlainAttrs =
+      typeof inheritedPlain?._resolveInitAttributes === 'function'
+        ? inheritedPlain._resolveInitAttributes()
+        : undefined
+    if (inheritedPlainAttrs == null || inheritedPlainAttrs === ownInit) {
+      return ownInit
+    }
+    const mergedPlain = { ...inheritedPlainAttrs, ...ownInit }
+    derivedInitAttributes.set(this, mergedPlain)
+    return mergedPlain
   }
 
   /**

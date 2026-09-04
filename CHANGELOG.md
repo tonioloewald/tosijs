@@ -64,6 +64,46 @@ and the agent surface stops guessing what you meant by a path.
   `tosiRefusal: 'revoked'`; `when()` rejects. `disable()` stays idempotent. If
   you hold a surface across a reconfigure, re-read `globalThis.tosiAgent`.
 
+- **Secrets inside shadow roots were not redacted.** Every secret scan used
+  `document.querySelectorAll` / `closest`, which stop at a shadow boundary —
+  while the _write_ path deliberately crosses it. So a password bound inside a
+  styled `Component` (the supported pattern: `shadowStyleSpec`, bound from
+  outside with `bindings.value`) wrote to state normally and reached
+  `read()`, `changes()` and `describe()` **in cleartext**, against a guarantee
+  the docs state unconditionally. Latent since 1.8.0, and untestable by the
+  existing suite: ~15 secret tests, zero `attachShadow`. Three things now
+  cross the boundary — the document sweep descends into open shadow trees, a
+  `[data-tosi-secret]` region marks the paths bound _inside_ it, and a
+  component that renders a secret control marks the path bound on its own
+  **host**, which is where such a binding actually lives. Covered by unit
+  tests and a new Playwright lane (`tests/shadow-secret.pw.ts`), because
+  happy-dom is not a trustworthy witness for boundary behaviour.
+
+- **A `[data-tosi-secret]` region did only half its job**, in light DOM as
+  well. It withheld the marked element's rendered content, but never marked
+  the paths bound to controls _inside_ it, so `read()` of those paths returned
+  cleartext. The attribute is plainly a region marker — `contentWithheld` asks
+  `closest('[data-tosi-secret]')` — so it now covers its subtree's bindings.
+
+- **A subclass adding `initAttributes` silently dropped the base class's.**
+  `_resolveInitAttributes()` ended in a bare `return this.initAttributes` — a
+  _static_ lookup, which a subclass's own static shadows entirely — so
+
+      class Base extends withAttributes({ label: 'base' }) {}
+      class Sub extends Base { static initAttributes = { extra: 7 } }
+
+  lost `label` from the instance **and** from `observedAttributes`, severing
+  reflection in both directions with no error. The contract branch twenty
+  lines above already did this merge, and its comment called the omission the
+  defect it is; the two branches disagreed about the same question, decided
+  only by whether a contract happened to be present. This is the migration
+  shape the docs recommend, so it shipped documented and broken in 1.10.0's
+  first tag. The whole prototype chain now merges, subclass winning per key.
+  Related: `withAttributes` typed its `static initAttributes` as the exact
+  literal type, making that same subclass a TS2417 static-side conflict — the
+  typing forbade what the docs recommended. The static is now typed wide; the
+  instance keeps its precise type.
+
 - **`observe()` no longer INVOKES the action you asked it to watch.** A boxed
   proxy over a function reports `typeof === 'function'`, so
   `agent.observe(app.saveOrder, cb)` classified the action as a filter

@@ -301,7 +301,18 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   attributes to an existing component class. Computed attributes are excluded
   from the declared type by design (the class implements them itself).
   `ComponentAttrs<T>` is the declaration-merging fallback — which the library
-  itself cannot use, because `tjs convert` rejects merging (tjs-lang#49).
+  itself cannot use in `src/`, because `tjs convert` rejects merging
+  (tjs-lang#49); consumers can and should.
+  **Subclassing a `withAttributes` base: declare ONLY the keys you add** —
+  `_resolveInitAttributes()` merges the whole prototype chain (subclass wins
+  per key), so spreading the base's map is redundant and hides the merge.
+  Until 1.10.0 it did NOT merge on the no-contract path (a bare
+  `return this.initAttributes`, which a subclass's own static shadows), so
+  declaring one new attribute silently dropped every inherited one from the
+  instance _and_ from `observedAttributes` — in exactly the shape these docs
+  recommend. A subclass adding attributes still needs the one-line
+  `export interface Sub extends ComponentAttrs<typeof Sub.initAttributes> {}`
+  for `this.newOne` to type; inherited ones are typed already.
 - **`static contract`** (`ComponentMap`) is the component's self-declaration —
   description, attribute constraints, parts, test fixture — feeding the docs,
   the agent surface and `exerciseComponent()`. **`initAttributes` DECLARES,

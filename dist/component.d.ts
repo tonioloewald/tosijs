@@ -110,7 +110,7 @@ export type DeclaredAttributes<A> = {
     [K in keyof A as A[K] extends ComputedAttribute ? never : K]: A[K];
 };
 export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) & Omit<typeof Component, "prototype" | "initAttributes"> & {
-    initAttributes: A;
+    initAttributes: Record<string, any>;
 };
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;

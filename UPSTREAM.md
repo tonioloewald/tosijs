@@ -125,6 +125,30 @@ disabled. Do not trust a plain reload to prove anything. And if a page's
 behaviour contradicts its source, **suspect the transport before the code** —
 check two browsers before spending a session on the library.
 
+### OPEN: tjs-lang#51 — `convert` silently DROPS an exported function based on comment text
+
+**Issue:** https://github.com/tonioloewald/tjs-lang/issues/51
+
+Editing only a `//` comment _inside_ `withAttributes` (`src/component.ts`) made
+`tjs convert` emit `tjs-out/component.js` with **no `withAttributes` export**,
+and the debug/safe bundle build failed to link. Reword the comment and it
+emits. Bisected to one paragraph; would not reduce to a small file, so it needs
+the surrounding generic arrow function and large return type.
+
+**The failure mode is the point.** Silent — no error for the dropped
+declaration; invisible to our 964 unit tests, which exercise `src/`, not the
+converted output; caught only because a bundler happened to import the name. A
+dropped export that nobody imports ships as a hole. Exactly tjs-lang#37's shape
+(the `new`-stripping bug), which the suite also could not see.
+
+**Ask:** even without a root cause, refuse when a top-level `export` in the
+input has no declaration in the output.
+
+**Living with it:** the `withAttributes` comment describes the
+`ComponentAttrs` one-liner in prose instead of showing the declaration. If that
+comment is ever rewritten, re-run `bun tjs convert src/component.ts -o /tmp/x.js`
+and confirm `export function withAttributes` is present.
+
 ### OPEN: tosijs-ui#130 — `buildSite` prebuild does `rm -rf DIST` on every run, including `devServer`
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/130

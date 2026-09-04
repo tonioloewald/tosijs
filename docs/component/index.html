@@ -381,18 +381,35 @@ recommended form for new components.</p>
 compile, which had the side effect of accepting <em>every</em> typo in <em>every</em>
 component anyone wrote (tosijs#36). Removing it is why this exists.</p>
 <ul>
-<li><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
+<li><p><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
 <code>withAttributes()</code> sets it, and it remains the only way to add attributes to
 an <strong>existing</strong> component class — <code>withAttributes</code> always extends
 <code>Component</code>. Build a base with one, extend and add with the other; they
-compose.</li>
-<li><strong>Computed attributes are excluded from the declared type, deliberately.</strong>
+compose at runtime, and the subclass&#39;s own declaration wins per key:</p>
+<pre><code>class Base extends withAttributes({ label: &#39;base&#39; }) { … }
+class Sub extends Base {
+  static initAttributes = { extra: 7 }   // declare ONLY what you add
+}
+export interface Sub extends ComponentAttrs&lt;typeof Sub.initAttributes&gt; {}
+</code></pre>
+<p><strong>Declare only the new keys</strong> — do not spread the base&#39;s map in. tosijs
+merges the whole prototype chain, so spreading is redundant, and it hides
+the case the merge exists for.</p>
+<p><strong>The interface line is required on the subclass</strong>, and it is the one place
+it cannot be avoided: <code>withAttributes</code> types the instance for the class it
+creates, and it cannot reach back into a class it did not create, so
+<code>this.extra</code> has no type without it. <code>this.label</code> is inherited and typed
+already.</p>
+</li>
+<li><p><strong>Computed attributes are excluded from the declared type, deliberately.</strong>
 <code>Component.computed()</code> means your class implements the property itself,
 normally as <code>get</code>/<code>set</code>, so declaring it here as well is what breaks. Its
-setter may call <code>this.queueRender()</code>.</li>
-<li><strong>If you cannot restructure the class</strong>, <code>ComponentAttrs&lt;T&gt;</code> says the same
+setter may call <code>this.queueRender()</code>.</p>
+</li>
+<li><p><strong>If you cannot restructure the class</strong>, <code>ComponentAttrs&lt;T&gt;</code> says the same
 thing in one line:
-<code>export interface Widget extends ComponentAttrs&lt;typeof Widget.initAttributes&gt; {}</code></li>
+<code>export interface Widget extends ComponentAttrs&lt;typeof Widget.initAttributes&gt; {}</code></p>
+</li>
 </ul>
 <h4>static initAttributes: Record&lt;string, any&gt;</h4>
 <p>Declares attributes that should be watched and synced with properties. The keys are

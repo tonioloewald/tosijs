@@ -2428,12 +2428,19 @@ describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
         return `hi ${this.label}`
       }
     }
+    // NO SPREAD. This test used to write
+    //   static initAttributes = { ...(BaseWidget as any).initAttributes, extra: 7 }
+    // which hand-merged the very thing under test and cast away the type
+    // error, so it asserted neither half and passed against a broken
+    // library: `_resolveInitAttributes` returned `this.initAttributes` — a
+    // STATIC lookup that a subclass's own static shadows — so declaring
+    // `extra` DROPPED `label` from the instance and from
+    // `observedAttributes`, silently, in exactly the shape the docs
+    // recommend. Declare only what the subclass adds; the merge is the
+    // library's job.
     class SubWidget extends BaseWidget {
       static preferredTagName = 'wa-derived'
-      static initAttributes = {
-        ...(BaseWidget as any).initAttributes,
-        extra: 7,
-      }
+      static initAttributes = { extra: 7 }
       content = null
     }
     const raf = () => new Promise((r) => requestAnimationFrame(r))
@@ -2443,6 +2450,65 @@ describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
     expect(sub.label).toBe('base') // inherited attribute
     expect(sub.extra).toBe(7) // and the added one
     expect(sub.greet()).toBe('hi base') // inherited behaviour
+
+    // reflection survives in BOTH directions for the inherited attribute —
+    // it was severed both ways, and observedAttributes losing the name is
+    // what made it silent
+    expect(SubWidget.observedAttributes).toContain('label')
+    expect(SubWidget.observedAttributes).toContain('extra')
+    sub.setAttribute('label', 'reflected')
+    await raf()
+    expect(sub.label).toBe('reflected')
     sub.remove()
+  })
+
+  test('three levels deep: every ancestor initAttributes map survives', async () => {
+    class L1 extends withAttributes({ a: 'a' }) {
+      static preferredTagName = 'wa-l1'
+      content = null
+    }
+    class L2 extends L1 {
+      static preferredTagName = 'wa-l2'
+      static initAttributes = { b: 'b' }
+      content = null
+    }
+    class L3 extends L2 {
+      static preferredTagName = 'wa-l3'
+      static initAttributes = { c: 'c' }
+      content = null
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const el = (L3 as any).elementCreator()() as any
+    document.body.append(el)
+    await raf()
+    expect([el.a, el.b, el.c]).toEqual(['a', 'b', 'c'])
+    for (const name of ['a', 'b', 'c']) {
+      expect(L3.observedAttributes).toContain(name)
+    }
+    // and a nearer declaration still wins over a further one
+    expect((L2 as any)._resolveInitAttributes()).toEqual({ a: 'a', b: 'b' })
+    el.remove()
+  })
+
+  test('a subclass may OVERRIDE an inherited default, and does not leak upward', async () => {
+    class Parent extends withAttributes({ label: 'parent', keep: 1 }) {
+      static preferredTagName = 'wa-parent'
+      content = null
+    }
+    class Child extends Parent {
+      static preferredTagName = 'wa-child'
+      static initAttributes = { label: 'child' }
+      content = null
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const child = (Child as any).elementCreator()() as any
+    const parent = (Parent as any).elementCreator()() as any
+    document.body.append(child, parent)
+    await raf()
+    expect(child.label).toBe('child') // nearer declaration wins
+    expect(child.keep).toBe(1) // and the rest is inherited
+    expect(parent.label).toBe('parent') // the base is NOT mutated
+    child.remove()
+    parent.remove()
   })
 })

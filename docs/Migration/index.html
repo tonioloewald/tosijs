@@ -132,16 +132,41 @@ case that now needs a line it did not before is a component that declares
 accessor at runtime, so add <code>declare value: T</code> to match.</p>
 <h2>What does NOT change</h2>
 <ul>
-<li><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
+<li><p><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
 <code>withAttributes()</code> sets it, and it is still the only way to add attributes to
 an <strong>existing</strong> component class. Build a base with <code>withAttributes</code>, extend
-it and add more with <code>static initAttributes</code> — they compose.</li>
-<li><strong>Computed attributes</strong> (<code>Component.computed()</code>) work unchanged. They are
+it and add more with <code>static initAttributes</code> — they compose, with the
+subclass winning per key:</p>
+<pre><code class="language-ts">class Base extends withAttributes({ label: &#39;base&#39; }) {
+  /* … */
+}
+
+class Sub extends Base {
+  static initAttributes = { extra: 7 } // declare ONLY what you add
+}
+export interface Sub extends ComponentAttrs&lt;typeof Sub.initAttributes&gt; {}
+</code></pre>
+<p>Two things that are easy to get wrong, and were wrong here before 1.10.0:</p>
+<ul>
+<li><strong>Declare only the new keys.</strong> Do not spread the base&#39;s map in. tosijs
+merges the whole prototype chain for you, so a spread is redundant — and
+it silently papers over the merge, which is how a version of this shipped
+where declaring <code>extra</code> dropped <code>label</code> from the instance <em>and</em> from
+<code>observedAttributes</code>, with no error.</li>
+<li><strong>The <code>interface</code> line is required on a subclass that adds attributes.</strong>
+<code>withAttributes</code> types the instance of the class it creates; it cannot
+reach back into a class it did not create, so <code>this.extra</code> has no type
+without it. <code>this.label</code>, being inherited, is typed already.</li>
+</ul>
+</li>
+<li><p><strong>Computed attributes</strong> (<code>Component.computed()</code>) work unchanged. They are
 deliberately excluded from the type <code>withAttributes</code> declares, because your
 class implements them itself — usually as <code>get</code>/<code>set</code>. A computed setter may
-call <code>this.queueRender()</code>.</li>
-<li><strong>Runtime behaviour is identical.</strong> Attributes install the same way, coerce
-the same way, and trigger renders the same way, whichever form you use.</li>
+call <code>this.queueRender()</code>.</p>
+</li>
+<li><p><strong>Runtime behaviour is identical.</strong> Attributes install the same way, coerce
+the same way, and trigger renders the same way, whichever form you use.</p>
+</li>
 </ul>
 <h2>Also worth knowing</h2>
 <p><code>TosiComponentSpec.type</code> and <code>TosiPackagedComponent.type</code> are now typed as a

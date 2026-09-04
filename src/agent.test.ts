@@ -2758,3 +2758,129 @@ describe('observe() must never INVOKE what you asked it to watch', () => {
     expect(invocations).toBe(0)
   })
 })
+
+describe('secrets inside SHADOW ROOTS are redacted too', () => {
+  /*
+   * THE HOLE, latent since 1.8.0. Every secret scan used
+   * `document.querySelectorAll` / `closest`, which stop at a shadow
+   * boundary — while the WRITE path deliberately crosses it
+   * (bind.ts's closestAcrossShadow). So typing into a password field inside
+   * a styled Component wrote to state normally and the redaction never saw
+   * the element: read(), changes() and describe() all returned cleartext,
+   * against a guarantee agent.ts states unconditionally.
+   *
+   * It could not have been caught here before: ~15 secret tests, and not one
+   * `attachShadow`. happy-dom does implement shadow roots, so this is a real
+   * witness — but the browser lane is the authority for boundary behaviour.
+   */
+  const shadowPasswordHost = (path: string): HTMLElement => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = host.attachShadow({ mode: 'open' })
+    const pw = elements.input({ type: 'password' })
+    root.append(pw)
+    bind(pw, path, bindings.value)
+    return host
+  }
+
+  test('read() redacts a password bound inside a shadow root', async () => {
+    tosi({ shadowCreds: { password: 'hunter2', user: 'ada' } })
+    await updates()
+    const host = shadowPasswordHost('shadowCreds.password')
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    expect(agent.read('shadowCreds.password')).toBe(SECRET_SENTINEL_TEXT)
+    // an ANCESTOR read must not hand back what a direct read refuses
+    expect(agent.read('shadowCreds')).toEqual({
+      password: SECRET_SENTINEL_TEXT,
+      user: 'ada',
+    })
+    host.remove()
+  })
+
+  test('changes() does not leak the shadow-bound secret in a drain', async () => {
+    const { drainCreds } = tosi({ drainCreds: { password: 'first' } })
+    await updates()
+    const host = shadowPasswordHost('drainCreds.password')
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    const cursor = agent.changes().cursor
+    drainCreds.password = 'second'
+    await updates()
+    const drained = agent.changes(cursor).changes
+    const entry = drained.find((c: any) => c.path === 'drainCreds.password')
+    expect(entry?.value).toBe(SECRET_SENTINEL_TEXT)
+    expect(JSON.stringify(drained)).not.toContain('second')
+    host.remove()
+  })
+
+  test('describe() does not publish it through the HOST element either', async () => {
+    // THE REVIEW'S ACTUAL REPRODUCTION, and the supported pattern: a Component
+    // with shadowStyleSpec, bound from OUTSIDE with bindings.value — exactly
+    // what component.ts advises — whose shadow tree holds the password field.
+    // The HOST carries the binding, so it lands in `wiring`, and the subtree
+    // check that should withhold its content stopped at its own shadow
+    // boundary: describe() published `value: "hunter2 <-> ..."`, the plaintext
+    // itself, inside the output this module's docs say is designed to leave
+    // the machine.
+    //
+    // A first draft of this test used a plain <div> host with the binding on
+    // the shadow input instead. It passed against the BROKEN library — the
+    // div was never wired, so it never entered the map and the assertion had
+    // nothing to examine. An environment-suppressed assertion is a passing
+    // test that proves nothing.
+    const { Component } = await import('./component')
+    class PwField extends (Component as any) {
+      static preferredTagName = 'pw-field'
+      static shadowStyleSpec = { ':host': { display: 'block' } }
+      content = elements.input({ type: 'password', part: 'field' })
+    }
+    tosi({ hostCreds: { password: 'hunter2' } })
+    await updates()
+    const host = PwField.elementCreator()() as any
+    document.body.append(host)
+    bind(host, 'hostCreds.password', bindings.value)
+    Object.defineProperty(host, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+      configurable: true,
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    const described = JSON.stringify(agent.describe())
+    // the host IS on the map — otherwise this test examines nothing
+    expect(described).toContain('pw-field')
+    expect(described).not.toContain('hunter2')
+    host.remove()
+  })
+
+  test('a light-DOM [data-tosi-secret] wrapper still covers shadow content', async () => {
+    tosi({ wrapCreds: { token: 'sekrit' } })
+    await updates()
+    const wrapper = document.createElement('div')
+    wrapper.setAttribute('data-tosi-secret', '')
+    document.body.append(wrapper)
+    const host = document.createElement('div')
+    wrapper.append(host)
+    const root = host.attachShadow({ mode: 'open' })
+    const field = elements.input({ type: 'text' })
+    root.append(field)
+    bind(field, 'wrapCreds.token', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    // `closest` could never see the wrapper from inside the shadow tree
+    expect(agent.read('wrapCreds.token')).toBe(SECRET_SENTINEL_TEXT)
+    wrapper.remove()
+  })
+})

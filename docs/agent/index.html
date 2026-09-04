@@ -125,6 +125,19 @@ off-device one. The guarantee is &quot;tosijs will not volunteer your secrets in
 that channel&quot;, not &quot;your secrets are safe from an attacker with code
 execution&quot;. Scope is the real control — declare a manifest, and keep
 secrets out of the roots you expose.</p>
+<p><strong>Shadow roots are covered (since 1.10.0).</strong> Every secret scan used to be
+light-DOM only — <code>querySelectorAll</code> and <code>closest</code> both stop at a shadow
+boundary — while the <em>write</em> path deliberately crosses it. So a password
+inside a styled <code>Component</code> wrote to state normally and was never redacted:
+<code>read</code>, <code>changes</code> and <code>describe</code> all returned it in cleartext, against the
+guarantee above, for anything using the supported shadow-DOM pattern. Three
+things now cross the boundary: the document sweep descends into open shadow
+trees, a <code>[data-tosi-secret]</code> region marks the paths bound <em>inside</em> it (it
+previously withheld rendered content while leaving <code>read()</code> of the same path
+in cleartext — half of what its name promises), and a component that renders
+a secret control marks the path bound on its own <strong>host</strong>, which is where such
+a binding actually lives. Closed shadow roots stay invisible, correctly:
+nothing outside can bind into one either.</p>
 <blockquote>
 <p><strong>Matching is by spelling (tosijs#32).</strong> A secret learned as
 <code>rows[id=r1].pw</code> is withheld from <code>read(&#39;rows&#39;)</code>, <code>read(&#39;rows[0])</code>, and
