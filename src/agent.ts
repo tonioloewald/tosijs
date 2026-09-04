@@ -808,6 +808,15 @@ const deepQueryAll = (
   selector: string
 ): Element[] => {
   const found: Element[] = Array.from(root.querySelectorAll(selector))
+  // THE ROOT'S OWN SHADOW TREE, not only its descendants'. Omitting this arm
+  // was a real leak: `<my-thing data-tosi-secret>` — the marker ON the host,
+  // which is the most natural place to put it — has a subtree that looks
+  // EMPTY from the light DOM, so nothing inside it was ever marked and
+  // `read()` returned the value in cleartext. The first version of this
+  // function checked only descendants, and the accompanying test put the
+  // marker on a wrapper CONTAINING the host, so it passed.
+  const ownShadow = (root as any).shadowRoot as ShadowRoot | null | undefined
+  if (ownShadow != null) found.push(...deepQueryAll(ownShadow, selector))
   for (const el of Array.from(root.querySelectorAll('*'))) {
     const shadow = (el as any).shadowRoot as ShadowRoot | null | undefined
     if (shadow != null) found.push(...deepQueryAll(shadow, selector))
@@ -815,17 +824,18 @@ const deepQueryAll = (
   return found
 }
 
-/** does this node, or anything in its subtree INCLUDING shadow trees, match? */
-const deepHas = (node: Element, selector: string): boolean => {
-  if (node.querySelector?.(selector) != null) return true
-  const shadow = (node as any).shadowRoot as ShadowRoot | null | undefined
-  if (shadow != null && deepQueryAll(shadow, selector).length > 0) return true
-  for (const el of Array.from(node.querySelectorAll('*'))) {
-    const inner = (el as any).shadowRoot as ShadowRoot | null | undefined
-    if (inner != null && deepQueryAll(inner, selector).length > 0) return true
-  }
-  return false
-}
+/**
+ * Does anything in this node's subtree — INCLUDING shadow trees, including
+ * its own — match?
+ *
+ * ONE walker. This used to hand-code its own traversal, which is how the two
+ * disagreed: it checked the node's own `shadowRoot` and `deepQueryAll` did
+ * not. Two near-duplicate walkers written in the same commit, answering the
+ * same question differently, and the security guarantee rode on the one that
+ * was wrong.
+ */
+const deepHas = (node: Element, selector: string): boolean =>
+  deepQueryAll(node, selector).length > 0
 
 /**
  * `closest`, but stepping out through shadow hosts — the read-side twin of
@@ -1228,30 +1238,48 @@ const refreshSecretPaths = (): void => {
     //
     // For a bare `input[type="password"]` there is no subtree, so this costs
     // nothing and changes nothing.
-    const bound: Element[] = [el, ...deepQueryAll(el, '*')]
-    // AND THE SHADOW HOSTS ABOVE IT. A component that RENDERS a secret
-    // control carries the binding on its host — `bind(pwField, path,
-    // bindings.value)`, the supported pattern — while the control itself sits
-    // in the shadow tree with no binding of its own. Walking down finds the
-    // control and learns nothing; the path lives one step UP, across the
-    // boundary. Without this, `read()` returned the password in cleartext
-    // unless a `describe()` happened to have run first and marked the record.
-    //
-    // Only shadow HOSTS, never light-DOM parents: a host renders the control,
-    // so its value IS the secret, whereas an arbitrary ancestor merely
-    // contains one and marking its paths secret would over-redact the page.
-    let node: Element | null = el
-    while (node != null) {
-      const root = node.getRootNode?.() as ShadowRoot | Document | undefined
-      const host = (root as ShadowRoot | undefined)?.host
-      if (host == null) break
-      bound.push(host)
-      node = host
-    }
+    // BREADTH ONLY WHERE THE AUTHOR ASKED FOR IT. `[data-tosi-secret]` is a
+    // region marker, so everything bound beneath it is the stated intent. A
+    // bare `input[type="password"]` is one control, and has no subtree.
+    const explicitRegion = el.hasAttribute?.('data-tosi-secret') === true
+    const bound: Element[] = explicitRegion
+      ? [el, ...deepQueryAll(el, '*')]
+      : [el]
     for (const boundNode of bound) {
       const { dataBindings } = getElementBindings(boundNode)
       if (dataBindings == null) continue
       for (const b of dataBindings) addSecretPath(b.path)
+    }
+
+    // AND ONE STEP UP, ACROSS THE SHADOW BOUNDARY ONLY. A component that
+    // RENDERS a secret control carries the binding on its host —
+    // `bind(pwField, path, bindings.value)`, the supported pattern — while
+    // the control sits in the shadow tree with no binding of its own.
+    // Walking down finds the control and learns nothing; the path lives one
+    // step up, across the boundary.
+    //
+    // ONE step, and only VALUE-CARRYING bindings. The first version of this
+    // walked every host to the top of the page and harvested every binding on
+    // each — which is precisely the hazard the paragraph above it warned
+    // against, committed three lines later. A bound app shell containing one
+    // password field anywhere below marked its whole root secret, so the
+    // entire surface answered `⟨secret⟩`; `input[type="hidden"]` is in the
+    // selector, so a component with an internal hidden input did it with no
+    // secret involved; and because secret paths are append-only for the
+    // session (deliberately — see the docs), it never came back. Fail-closed,
+    // so never a leak — a silent, permanent availability break of the surface
+    // this release exists to harden.
+    //
+    // `fromDOM != null` is the narrowing: a typed secret can only land in
+    // state through a binding that reads the DOM. A `toDOM`-only text /
+    // enabled / class / list binding on the host cannot be where it goes.
+    const root = el.getRootNode?.() as ShadowRoot | Document | undefined
+    const host = (root as ShadowRoot | undefined)?.host
+    if (host != null) {
+      const { dataBindings } = getElementBindings(host)
+      for (const b of dataBindings ?? []) {
+        if (b.binding?.fromDOM != null) addSecretPath(b.path)
+      }
     }
   }
 }

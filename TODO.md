@@ -228,16 +228,16 @@ constructor without |new|` — at _import_ time for static-field
       does not resolve cross-module imports; `clamp` is in `more-math.ts`) - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
 statements must have at least a catch or finally block.`
 
-              **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
-              and imports; the error is in the harness the runner wraps around the
-              module. I first reported the `component.ts` one on tjs-lang#37 as a
-              possible second emitter bug; it is not, and that correction should go in
-              the new issue.
+                      **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
+                      and imports; the error is in the harness the runner wraps around the
+                      module. I first reported the `component.ts` one on tjs-lang#37 as a
+                      possible second emitter bug; it is not, and that correction should go in
+                      the new issue.
 
-              Net effect: **13 failures printed on every build, permanently ignored** —
-              the ambient-noise condition that hides a real failure when one arrives.
-              It is also why this read as noise during the E1 bump rather than as a
-              known defect.
+                      Net effect: **13 failures printed on every build, permanently ignored** —
+                      the ambient-noise condition that hides a real failure when one arrives.
+                      It is also why this read as noise during the E1 bump rather than as a
+                      known defect.
 
 - [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
       both default to **8799**, so the two browser lanes cannot run at the same

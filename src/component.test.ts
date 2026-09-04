@@ -2490,6 +2490,35 @@ describe('withAttributes — attributes typed from a value (tosijs#36)', () => {
     el.remove()
   })
 
+  test('a subclass that declares NOTHING still inherits the merged map', async () => {
+    // THE CASE THE FIRST FIX MISSED, and the commonest kind of subclass. The
+    // two tests above both declare something at every level, so they never
+    // exercised the fall-through — which read the raw static and stopped at
+    // the nearest ancestor that happened to declare one, losing everything
+    // above it. One level of merging, while the docs promised the chain.
+    class L1 extends withAttributes({ a: 'a' }) {
+      static preferredTagName = 'wa-n1'
+      content = null
+    }
+    class L2 extends L1 {
+      static preferredTagName = 'wa-n2'
+      static initAttributes = { b: 'b' }
+      content = null
+    }
+    class L3 extends L2 {
+      static preferredTagName = 'wa-n3'
+      content = null // declares NOTHING
+    }
+    const raf = () => new Promise((r) => requestAnimationFrame(r))
+    const el = (L3 as any).elementCreator()() as any
+    document.body.append(el)
+    await raf()
+    expect([el.a, el.b]).toEqual(['a', 'b'])
+    expect(L3.observedAttributes).toContain('a')
+    expect(L3.observedAttributes).toContain('b')
+    el.remove()
+  })
+
   test('a subclass may OVERRIDE an inherited default, and does not leak upward', async () => {
     class Parent extends withAttributes({ label: 'parent', keep: 1 }) {
       static preferredTagName = 'wa-parent'

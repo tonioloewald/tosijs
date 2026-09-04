@@ -120,10 +120,13 @@ ships two subpaths that throw `ERR_MODULE_NOT_FOUND`. **The release checklist
 walks straight into it** — step 3 builds, step 4 (`bun run test:browser`) starts
 a dev server via Playwright's `webServer` and deletes them, step 8 publishes.
 **Re-run `bun run build` after the browser lane, before committing.** Three
-guards now exist because no build-order fix on our side can close it: both
-bundles are tracked (so `git status` shows the deletion — untracked, it was
-invisible), `buildLibrary()` fails if any `exports` target is missing, and
-`prepublishOnly` refuses the publish. The last one is the only ordering-proof
+guards exist because no build-order fix on our side can close it: both bundles
+are tracked (so `git status` shows the deletion — untracked, it was
+invisible), and `buildLibrary()` and `prepublishOnly` both fail if any
+`exports` target is missing **or untracked**. That last word is load-bearing:
+the gates originally used `existsSync` and went green over a commit that had
+recorded the deletion, because a later build had left untracked copies on
+disk. **On disk is not in the commit.** The last one is the only ordering-proof
 guard.
 
 **Dev-server watch caveat:** `buildSite()` starts by `rm -rf docs`, which wipes the separately-built `docs/iife.js`. The watch rebuild re-runs `buildSite` + `buildDocsBundle` (but skips the slower `buildLibrary` tests/tjs step); if `iife.js` is missing the page 404s into the SPA fallback and "loads as HTML."

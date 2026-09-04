@@ -19,6 +19,7 @@
  */
 import pkg from '../package.json'
 import { existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 
 const version: string = pkg.version
 const isPrerelease = version.includes('-')
@@ -54,8 +55,29 @@ for (const [subpath, entry] of Object.entries(
   )) {
     if (condition === 'types' || typeof target !== 'string') continue
     if (!target.endsWith('.js')) continue
-    if (!existsSync(target.replace(/^\.\//, ''))) {
-      missing.push(`  ${subpath} (${condition}) -> ${target}`)
+    const file = target.replace(/^\.\//, '')
+    if (!existsSync(file)) {
+      missing.push(`  ${subpath} (${condition}) -> ${target} [not on disk]`)
+      continue
+    }
+    // ON DISK IS NOT IN THE COMMIT.
+    //
+    // This gate checked `existsSync` alone, and the previous review had
+    // already predicted the false pass in as many words: "verify with
+    // `git ls-files`, not `ls`, because a dev run can leave an untracked copy
+    // that makes `npm pack` look correct." It then happened on the very next
+    // commit after the gate was declared: `bun run test:browser` deleted both
+    // tjs bundles, the commit recorded the deletion, a later build left
+    // untracked copies behind, and every existsSync check went green over a
+    // release commit that no longer contained them. A clean clone of the tag
+    // resolves ./debug and ./safe to nothing.
+    const tracked = spawnSync('git', ['ls-files', '--error-unmatch', file], {
+      stdio: 'ignore',
+    })
+    if (tracked.status !== 0) {
+      missing.push(
+        `  ${subpath} (${condition}) -> ${target} [on disk but NOT COMMITTED]`
+      )
     }
   }
 }
@@ -64,9 +86,9 @@ if (missing.length > 0) {
     `\n  REFUSING TO PUBLISH: package.json exports point at files that do ` +
       `not exist.\n\n${missing.join('\n')}\n\n` +
       `  Consumers importing those subpaths would get ERR_MODULE_NOT_FOUND.\n` +
-      `  Run \`bun run build\` (NOT \`bun start\`, which wipes dist/) and ` +
-      `publish from\n  that tree — or remove the export if the artifact is ` +
-      `being retired.\n`
+      `  Run \`bun run build\` (NOT \`bun start\`, and AFTER the browser lane —\n` +
+      `  both wipe dist/), then \`git add\` the result and publish from that\n` +
+      `  COMMIT — or remove the export if the artifact is being retired.\n`
   )
   process.exit(1)
 }

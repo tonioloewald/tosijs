@@ -1369,7 +1369,27 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // contract happened to be present — and the documented migration path
     // (a `withAttributes` base, subclasses adding attributes) went through the
     // branch that was wrong.
-    if (ownInit == null) return this.initAttributes
+    // A CLASS THAT DECLARES NOTHING MUST STILL INHERIT THE RESOLVED MAP.
+    //
+    // This used to `return this.initAttributes` — a static prototype-chain
+    // lookup for the RAW value, which finds the nearest ancestor's OWN static
+    // and stops there. So the merge survived exactly one level:
+    //
+    //   class A extends withAttributes({ a: 'a' }) {}
+    //   class B extends A { static initAttributes = { b: 'b' } }
+    //   class C extends B {}          // declares nothing — the commonest kind
+    //   C.observedAttributes          // ['hidden', 'b'] — 'a' GONE again
+    //
+    // Silently, reflection severed both ways: the very defect this function
+    // was fixed for, one level further down, while the docs had just started
+    // promising "tosijs merges the whole prototype chain for you". Ask the
+    // ancestor for its RESOLVED map instead of reading the raw static.
+    if (ownInit == null) {
+      const parent = Object.getPrototypeOf(this) as typeof Component
+      return typeof parent?._resolveInitAttributes === 'function'
+        ? parent._resolveInitAttributes()
+        : this.initAttributes
+    }
     const cachedPlain = derivedInitAttributes.get(this)
     if (cachedPlain != null) return cachedPlain
     const inheritedPlain = Object.getPrototypeOf(this) as typeof Component

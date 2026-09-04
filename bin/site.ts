@@ -407,8 +407,19 @@ async function buildLibrary(full = true) {
       )) {
         if (condition === 'types' || typeof target !== 'string') continue
         if (!target.endsWith('.js')) continue
-        if (!existsSync(target.replace(/^\.\//, ''))) {
+        const file = target.replace(/^\.\//, '')
+        if (!existsSync(file)) {
           missingTargets.push(`${subpath} (${condition}) -> ${target}`)
+        } else if (
+          (await $`git ls-files --error-unmatch ${file}`.nothrow().quiet())
+            .exitCode !== 0
+        ) {
+          // ON DISK IS NOT IN THE COMMIT — dist/ is committed in this repo,
+          // so an untracked bundle is missing from the release even though
+          // every filesystem check passes. See check-publish-tag.ts.
+          missingTargets.push(
+            `${subpath} (${condition}) -> ${target} [untracked]`
+          )
         }
       }
     }

@@ -2862,6 +2862,31 @@ describe('secrets inside SHADOW ROOTS are redacted too', () => {
     host.remove()
   })
 
+  test('the marker ON a shadow host covers its shadow tree', async () => {
+    // THE CASE THE FIRST FIX MISSED. `deepQueryAll` recursed into
+    // DESCENDANTS' shadow roots but never the root's own, and the test above
+    // puts the marker on a wrapper CONTAINING the host — so it passed while
+    // `<my-thing data-tosi-secret>`, the most natural place to put the
+    // marker, still leaked. Fixing the instance you reproduced is not fixing
+    // the class.
+    tosi({ hostMark: { token: 'sekrit' } })
+    await updates()
+    const host = document.createElement('div')
+    host.setAttribute('data-tosi-secret', '')
+    document.body.append(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    const field = elements.input({ type: 'text' })
+    shadow.append(field)
+    bind(field, 'hostMark.token', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    expect(agent.read('hostMark.token')).toBe(SECRET_SENTINEL_TEXT)
+    host.remove()
+  })
+
   test('a light-DOM [data-tosi-secret] wrapper still covers shadow content', async () => {
     tosi({ wrapCreds: { token: 'sekrit' } })
     await updates()
@@ -2882,5 +2907,68 @@ describe('secrets inside SHADOW ROOTS are redacted too', () => {
     // `closest` could never see the wrapper from inside the shadow tree
     expect(agent.read('wrapCreds.token')).toBe(SECRET_SENTINEL_TEXT)
     wrapper.remove()
+  })
+})
+
+describe('redaction stays NARROW — fail-closed must not mean fail-everything', () => {
+  /*
+   * M1. The shadow-host walk went up EVERY host and took EVERY binding, so a
+   * bound wrapper anywhere above a password field marked its whole root
+   * secret and the surface answered ⟨secret⟩ to everything — permanently,
+   * since secret paths are append-only for the session. Fail-closed, so never
+   * a leak; a silent availability break instead, of the surface this release
+   * exists to harden. The comment directly above that loop warned against
+   * exactly it.
+   */
+  test('the walk stops at ONE shadow host — an outer component keeps its own value', async () => {
+    // M1's actual shape: NESTED shadow hosts. The old walk climbed every host
+    // to the top of the page, so an outer component's own bound value was
+    // marked secret because something far below it, in a different shadow
+    // tree, was a password field. A light-DOM wrapper was never the trigger —
+    // the first draft of this test used one and passed against the bug.
+    tosi({ compose: { password: 'hunter2', user: 'ada' } })
+    await updates()
+    const outerHost = elements.div()
+    document.body.append(outerHost)
+    const outerShadow = outerHost.attachShadow({ mode: 'open' })
+    bind(outerHost, 'compose.user', bindings.value)
+
+    const innerHost = document.createElement('div')
+    outerShadow.append(innerHost)
+    const innerShadow = innerHost.attachShadow({ mode: 'open' })
+    const pw = elements.input({ type: 'password' })
+    innerShadow.append(pw)
+    bind(pw, 'compose.password', bindings.value)
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    expect(agent.read('compose.password')).toBe(SECRET_SENTINEL_TEXT)
+    // the OUTER component's value is not a secret and must still read
+    expect(agent.read('compose.user')).toBe('ada')
+    outerHost.remove()
+  })
+
+  test('a hidden input in a component does not redact the host binding', async () => {
+    // input[type="hidden"] is in SECRET_CONTROL_SELECTOR, so the unbounded
+    // walk let a component with an internal hidden input redact its own
+    // bound value with no secret anywhere in sight
+    tosi({ hiddenish: { label: 'ordinary' } })
+    await updates()
+    const host = elements.div()
+    document.body.append(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    shadow.append(elements.input({ type: 'hidden' }))
+    // a toDOM-only binding cannot be where a typed secret lands
+    bind(host, 'hiddenish.label', bindings.text)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    expect(agent.read('hiddenish.label')).toBe('ordinary')
+    host.remove()
   })
 })

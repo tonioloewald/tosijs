@@ -168,9 +168,12 @@ it: the smoke and size loops iterate only what the current run built.
 
 **Our defence, since no build-order fix on our side can close it:** the two
 bundles are tracked in git (so the deletion shows in `git status` — untracked,
-it was invisible), plus an exports-target existence check in BOTH
-`buildLibrary()` and `prepublishOnly` (`bin/check-publish-tag.ts`). The publish
-hook is the ordering-proof one. Offered the check upstream.
+it was invisible), plus a gate in BOTH `buildLibrary()` and `prepublishOnly`
+(`bin/check-publish-tag.ts`) asserting every `exports` target exists **and is
+tracked**. `existsSync` alone was not enough and failed on the very next
+commit: the browser lane deleted the bundles, the commit recorded the
+deletion, a later build left untracked copies, and every check went green over
+a release commit that lacked them. The publish hook is the ordering-proof one. Offered the check upstream.
 
 **Correction worth keeping:** a pre-release review diagnosed this as the strip
 loop in our own `bin/site.ts` keying off the filtered bundle list. That was real

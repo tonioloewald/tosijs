@@ -64,6 +64,15 @@ and the agent surface stops guessing what you meant by a path.
   `tosiRefusal: 'revoked'`; `when()` rejects. `disable()` stays idempotent. If
   you hold a surface across a reconfigure, re-read `globalThis.tosiAgent`.
 
+- **Redaction stays narrow.** The shadow-host rule above climbs exactly ONE
+  boundary and considers only value-carrying bindings (`fromDOM`). Written
+  unbounded it would walk every host to the top of the page and take every
+  binding on each, so a bound app shell containing one password field anywhere
+  below marked its whole state root secret and the surface answered
+  `⟨secret⟩` to everything — and since secret paths are append-only for the
+  session, permanently. Fail-closed, so never a leak: a silent availability
+  break of the surface this release exists to harden.
+
 - **Secrets inside shadow roots were not redacted.** Every secret scan used
   `document.querySelectorAll` / `closest`, which stop at a shadow boundary —
   while the _write_ path deliberately crosses it. So a password bound inside a
@@ -136,9 +145,10 @@ and the agent surface stops guessing what you meant by a path.
   run rebuilds only five of seven bundles, so the release checklist's own
   order (build, then browser tests, then publish) deleted them between build
   and publish. A publish from that tree threw `ERR_MODULE_NOT_FOUND` on both.
-  Both bundles are now tracked in git, `bun run build` fails if any
-  `package.json` `exports` target is missing, and `prepublishOnly` refuses the
-  publish outright. Root cause filed upstream as tosijs-ui#130.
+  Both bundles are tracked in git, and both `bun run build` and
+  `prepublishOnly` now refuse when any `package.json` `exports` target is
+  missing **or present but untracked** — the first version of those gates used
+  `existsSync`, which passed over a commit that no longer contained them. Root cause filed upstream as tosijs-ui#130.
 
 - **`observe()` accepts patterns again, and refuses them honestly.** It has
   always passed its argument straight to the path-listener, which also takes a
