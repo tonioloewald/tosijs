@@ -6,9 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.11.0] - 2026-09-04
+## [1.10.0] - 2026-09-04
+
+**`Component` no longer disables type checking for every component you write** —
+and the agent surface stops guessing what you meant by a path.
+
+> Version note: 1.10.0 and 1.10.1 were tagged locally during development and
+> never published; those tags are gone. Everything they contained is here.
+> **Tags are cut as part of publishing now, not ahead of it** — a tag that
+> names nothing on npm is not a release, and tagging a fix for an unpublished
+> version just inflates the number.
 
 ### Added
+
 
 - **The agent surface takes proxies, not just path strings.** Every verb
   (`read`, `write`, `observe`, `call`, `when`) and both manifest lists
@@ -28,6 +38,7 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
+
 - **A non-path object is now refused instead of coerced.** Passing something
   that is neither a string nor a proxy reached `String()`, and the results were
   silent and wrong in two different ways. `expose: { roots: [app.cart] }`
@@ -44,14 +55,27 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   `agent.observe(app.cart, cb)` previously threw
   `path.startsWith is not a function`, which is how this was found.
 
-## [1.10.1] - 2026-09-04
+- **`disable()` now revokes the capability, not just the global** — a
+  behaviour change, and the reason to read this entry. It used to tear down
+  everything _around_ a surface (observers, pending `when()`s, the WebMCP
+  registration, `globalThis.tosiAgent`) and leave the verbs working on the
+  handle the caller already held. Since `enableAgentInterface()` auto-disables
+  the previous surface, **tightening a posture at runtime left the old, wider
+  surface fully usable by anyone holding it** — revocation revoked the
+  discovery of the capability, not the capability. Every verb now refuses with
+  `tosiRefusal: 'revoked'`; `when()` rejects. `disable()` stays idempotent. If
+  you hold a surface across a reconfigure, re-read `globalThis.tosiAgent`.
 
-**1.10.0 was tagged but never published.** A pre-release review — which should
-have run before that tag and did not — found two defects in the shipped
-artifacts. Both trace to one unreviewed global find-and-replace in the #36
-work, and both are fixed here. If you have 1.10.0 from git, use this instead.
+- **`observe()` accepts patterns again, and refuses them honestly.** It has
+  always passed its argument straight to the path-listener, which also takes a
+  `RegExp` or a predicate — undocumented, but used by the docs' own "redraw on
+  any change" examples. That was invisible to the type (`path: string`) and to
+  the unit suite, so widening the type for proxies broke every one of them.
+  Now typed (`AgentObserveRef`), allowed under `expose: 'all'`, and refused
+  under a manifest with an explanation — a pattern cannot be checked against a
+  manifest, and it used to fail there with a raw
+  `path.startsWith is not a function`.
 
-### Fixed
 
 - **A live doc example threw.** The `this.X` → `dynamic(this).X` rewrite escaped
   the code and edited the `/*# … */` doc block, putting a module-private helper
@@ -70,6 +94,7 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 
 ### Changed
 
+
 - **`Component` no longer declares `value` — declare it in your component.**
   This was true in 1.10.0 and undocumented, which is what made it a defect.
   `value = 0`, `declare value: T` and `get value()` are all legal, and that is
@@ -78,10 +103,6 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
   runtime already required an own `value` descriptor (or a `contract.value`).
   Now documented in Migration.md with the three forms and the one case that
   needs a new line.
-
-## [1.10.0] - 2026-09-03
-
-**`Component` no longer disables type checking for every component you write.**
 
 ### Breaking (types only — no runtime change)
 

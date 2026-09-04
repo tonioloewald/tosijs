@@ -2611,3 +2611,79 @@ describe('observe() patterns: allowed wide open, refused under a manifest', () =
     off()
   })
 })
+
+describe('disable() revokes the capability, not just the global', () => {
+  /*
+   * THE BUG. disable() tore down everything AROUND the surface — observers,
+   * pending when()s, the WebMCP registration, the global — and left the verbs
+   * working on the handle the caller already held. Because
+   * enableAgentInterface() auto-disables the previous surface, TIGHTENING a
+   * posture at runtime left the old, wider surface fully usable by anyone
+   * holding it. The delegate's own comment already claimed "Disabled means
+   * REFUSED"; only the delegate honoured it.
+   */
+  test('every verb refuses after disable()', async () => {
+    tosi({ revoked: { a: 1, act() {} } })
+    await updates()
+    const agent = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['revoked'], actions: ['revoked.act'], write: true },
+    })
+    // it works while live
+    expect(agent.read('revoked.a')).toBe(1)
+    agent.disable()
+
+    for (const attempt of [
+      () => agent.read('revoked.a'),
+      () => agent.write('revoked.a', 2),
+      () => agent.call('revoked.act'),
+      () => agent.observe('revoked', () => {}),
+      () => agent.describe(),
+      () => agent.changes(),
+      () => agent.log(),
+    ]) {
+      let refusal: any
+      try {
+        attempt()
+      } catch (e) {
+        refusal = e
+      }
+      expect(refusal?.tosiRefusal).toBe('revoked')
+    }
+    // when() rejects rather than throws — it returns a promise
+    let whenRejected = false
+    try {
+      await agent.when('revoked.a', () => true)
+    } catch (e) {
+      whenRejected = true
+    }
+    expect(whenRejected).toBe(true)
+    // and the state was never touched by the refused write
+    expect(xin.revoked.a).toBe(1)
+  })
+
+  test('narrowing a posture revokes the wider surface someone still holds', async () => {
+    tosi({ narrowing: { secretish: 'shh', ok: 1 } })
+    await updates()
+    const wide = enableAgentInterface({ quiet: true, expose: 'all' })
+    expect(wide.read('narrowing.secretish')).toBe('shh')
+
+    // the app tightens up; enableAgentInterface disables `wide` for us
+    const narrow = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['narrowing.ok'] },
+    }))
+    expect(narrow.read('narrowing.ok')).toBe(1)
+
+    // the OLD handle must not still be a skeleton key
+    expect(() => wide.read('narrowing.secretish')).toThrow(/been disabled/)
+  })
+
+  test('disable() is still idempotent', async () => {
+    tosi({ idem: { a: 1 } })
+    await updates()
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    agent.disable()
+    expect(() => agent.disable()).not.toThrow()
+  })
+})

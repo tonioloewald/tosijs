@@ -355,7 +355,7 @@ export interface AgentLogEntry {
  * byte-identical to a genuinely validated run, in a public API consumers run
  * in their own CI.
  */
-export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path';
+export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path' | 'revoked';
 /** an Error carrying why the surface refused; `kind` survives message edits */
 export interface AgentRefusalError extends Error {
     tosiRefusal: AgentRefusalKind;

@@ -504,7 +504,12 @@ export interface AgentLogEntry {
  * byte-identical to a genuinely validated run, in a public API consumers run
  * in their own CI.
  */
-export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path'
+export type AgentRefusalKind =
+  | 'scope'
+  | 'mutability'
+  | 'callable'
+  | 'path'
+  | 'revoked'
 
 /** an Error carrying why the surface refused; `kind` survives message edits */
 export interface AgentRefusalError extends Error {
@@ -1678,6 +1683,34 @@ export function enableAgentInterface(
   }
 
   let disabled = false
+
+  /**
+   * A REVOKED SURFACE REFUSES.
+   *
+   * `disable()` used to tear down everything AROUND the surface — observers,
+   * pending `when()`s, the WebMCP registration, the global — and leave the
+   * verbs working on the handle the caller already had. So revocation revoked
+   * the discovery of the capability, not the capability: anyone holding the
+   * object returned by `enableAgentInterface()` could still read, write and
+   * call, forever, including after a re-enable had narrowed the manifest.
+   * `enableAgentInterface()` auto-disables the previous surface, so tightening
+   * a posture at runtime left the OLD, wider one fully usable.
+   *
+   * The WebMCP delegate already got this right and its comment already said
+   * so out loud — "Disabled means REFUSED, and dead surfaces get to be
+   * garbage" — but only the delegate consulted `active`. This makes the
+   * statement true of the surface itself.
+   */
+  const assertLive = (verb: string): void => {
+    if (!disabled) return
+    throw refuse(
+      'revoked',
+      `agent interface: ${verb}() refused — this surface has been disabled. ` +
+        'Disabling revokes the capability, not just the global: get a fresh ' +
+        'surface from enableAgentInterface() (or globalThis.tosiAgent) ' +
+        'rather than holding one across a reconfigure.'
+    )
+  }
   let myGlobalName: string | undefined
   const surfaceVersion: AgentSurfaceVersion = {
     surface: AGENT_SURFACE_VERSION,
@@ -1812,6 +1845,7 @@ export function enableAgentInterface(
   }
 
   const read = (pathRef: AgentPathRef): any => {
+    assertLive('read')
     const path = toPath(pathRef, 'read')
     refreshSecretPaths()
     return readScanned(path)
@@ -1830,6 +1864,7 @@ export function enableAgentInterface(
         view?: 'page' | 'viewport'
       } = {}
     ): AgentDescription {
+      assertLive('describe')
       // learn the secret-bound paths BEFORE any record harvests a value:
       // within a single walk, an element bound to the same path could be
       // visited before the password field that makes it secret
@@ -2352,6 +2387,7 @@ export function enableAgentInterface(
     read,
 
     write(pathRef: AgentPathRef, value: any): void {
+      assertLive('write')
       const path = toPath(pathRef, 'write')
       assertMutable('write', path)
       assertScope(path)
@@ -2433,6 +2469,7 @@ export function enableAgentInterface(
       // allowed there and refused everywhere else. It already failed under a
       // manifest, with a raw `path.startsWith is not a function`; this says
       // what is wrong instead.
+      assertLive('observe')
       const pattern = pathRef instanceof RegExp || typeof pathRef === 'function'
       if (pattern && scoped) {
         throw refuse(
@@ -2459,6 +2496,7 @@ export function enableAgentInterface(
     },
 
     call(actionRef: AgentPathRef, ...args: any[]): any {
+      assertLive('call')
       const actionPath = toPath(actionRef, 'call')
       assertMutable('call', actionPath)
       if (manifestMode && !(exposedActions ?? []).includes(actionPath)) {
@@ -2490,6 +2528,7 @@ export function enableAgentInterface(
       pathRef: AgentPathRef,
       predicate: (value: any) => boolean
     ): Promise<any> {
+      assertLive('when')
       const path = toPath(pathRef, 'when')
       assertScope(path)
       refreshSecretPaths()
@@ -2553,6 +2592,7 @@ export function enableAgentInterface(
       changes: AgentChange[]
       truncated?: boolean
     } {
+      assertLive('changes')
       // ONE scan for the whole drain: the per-path read used to rescan the
       // DOM for secret-bound controls on every entry, so a 200-path drain
       // did 200 querySelectorAlls to learn the same thing 200 times
@@ -2580,6 +2620,7 @@ export function enableAgentInterface(
     },
 
     log(): AgentLogEntry[] {
+      assertLive('log')
       return ledger.slice()
     },
 

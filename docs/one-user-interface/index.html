@@ -167,22 +167,24 @@ preview.append(
   log
 )
 </code></pre>
-<pre><code class="language-test">import { enableAgentInterface, boxed } from &#39;tosijs&#39;
+<pre><code class="language-test">import { boxed } from &#39;tosijs&#39;
 
 // The page&#39;s own demo is the release&#39;s headline proof, and it was a plain
 // ```js fence — so when the default posture was narrowed, this page kept
 // calling call() on a surface that refuses it and NOTHING went red. This
 // fence is the guard: it runs in Chromium and Firefox on every release.
 //
-// A ```test fence does NOT share scope with the ```js fence above it (it
-// shares the REGISTRY — different things, and assuming otherwise cost a
-// browser-lane run). So reach the same state through `boxed`, which is also
-// how any other module would.
+// It drives THE DEMO&#39;S OWN SURFACE, via the global the demo installed —
+// deliberately, and it took two goes to get here. A ```test fence does not
+// share SCOPE with the ```js fence above it (only the REGISTRY), so `oneUI`
+// had to be reached through `boxed`. And enabling a second surface would
+// disable the demo&#39;s: since 1.10.0 that revokes it, so the buttons you can
+// click would refuse the moment this test ran. Testing the real surface is
+// both safer and a better test.
 test(&#39;the manifesto demo posture can actually do what the demo does&#39;, () =&gt; {
   const oneUI = boxed.oneUI
-  const agent = enableAgentInterface({
-    expose: { roots: [oneUI], actions: [oneUI.addItem] },
-  })
+  const agent = globalThis.tosiAgent
+  expect(agent.describe().exposure).toBe(&#39;manifest&#39;)
   const before = agent.read(oneUI.list).length
   agent.call(oneUI.addItem, &#39;from the test&#39;)
   expect(agent.read(oneUI.list).length).toBe(before + 1)
