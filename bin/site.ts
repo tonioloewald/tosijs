@@ -531,9 +531,36 @@ async function buildLibrary(full = true) {
     `  <!-- sizes:end -->`
   const readmePath = path.resolve(PROJECT_ROOT, 'README.md')
   const readme = await Bun.file(readmePath).text()
-  const replaced = readme.replace(
+  const withBlock = readme.replace(
     /<!-- sizes:start -->[\s\S]*?<!-- sizes:end -->/,
     sizeBlock
+  )
+  // ONE MEASUREMENT, EVERY SITE THAT QUOTES IT.
+  //
+  // The block above was generated while an "Entry points" table eleven lines
+  // higher stayed hand-written, and they disagreed on the same page: the table
+  // said 36/24/16/26 kB against a measured 42/26/16/28, and the page-metadata
+  // string in line 3 (which feeds llms.txt and the site description) said a
+  // third number. Generating one figure and hand-maintaining its neighbours is
+  // how they drift apart while looking maintained.
+  //
+  // `<!--gz:module.js-->…<!--/gz-->` substitutes anywhere in the file, so the
+  // prose stays in the README and only the numbers come from the build.
+  const withTokens = withBlock.replace(
+    /<!--gz:([\w.]+)-->[\s\S]*?<!--\/gz-->/g,
+    (_match, name: string) => `<!--gz:${name}-->${kb(name)}<!--/gz-->`
+  )
+  // the agent surface's own weight, derived rather than remembered: it is
+  // exactly what the full ESM entry carries over `tosijs/core`
+  const agentDelta = (() => {
+    const full = measured.get('module.js')
+    const core = measured.get('core.js')
+    if (full == null || core == null) throw new Error('no agent delta')
+    return `~${((full - core) / 1024).toFixed(1)} kB`
+  })()
+  const replaced = withTokens.replace(
+    /<!--agentgz-->[\s\S]*?<!--\/agentgz-->/g,
+    `<!--agentgz-->${agentDelta}<!--/agentgz-->`
   )
   if (
     replaced !== readme &&

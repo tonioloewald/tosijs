@@ -1,6 +1,6 @@
 # tosijs
 
-<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. ~27kB gzipped from a script tag, ~16kB for the DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
+<!--{ "pin": "top", "order": 1, "description": "tosijs is a path-based state-management library for web apps. Small enough to read in an afternoon, with a DOM-free state layer. Proxy-based observers, no JSX, no virtual DOM, no build magic." }-->
 
 [tosijs.net](https://tosijs.net) | [tosijs-ui](https://ui.tosijs.net) | [github](https://github.com/tonioloewald/tosijs) | [npm](https://www.npmjs.com/package/tosijs) | [cdn](https://www.jsdelivr.com/package/npm/tosijs) | [react-tosijs](https://react.tosijs.net) | [discord](https://discord.gg/ramJ9rgky5)
 
@@ -20,13 +20,13 @@
 
 ## Entry points
 
-| import                  | what you get                                                                                                             | gz    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----- |
-| `tosijs`                | everything, agent surface included — bundlers shake what you don't import                                                | 36 KB |
-| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) — **EXPERIMENTAL**   | —     |
-| `tosijs/core`           | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface                                                     | 24 KB |
-| `tosijs/state`          | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths                                                            | 16 KB |
-| `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | 26 KB |
+| import                  | what you get                                                                                                             | gz                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| `tosijs`                | everything, agent surface included — bundlers shake what you don't import                                                | <!--gz:module.js-->~42 kB<!--/gz--> |
+| `tosijs/agent`          | the agent surface, schematic renderer, audit and contract harnesses (**same file**, narrower types) — **EXPERIMENTAL**   | —                                   |
+| `tosijs/core`           | no blueprint loader, no `share`/`sync`/`hotReload`, no agent surface                                                     | <!--gz:core.js-->~26 kB<!--/gz-->   |
+| `tosijs/state`          | the **DOM-free** state layer: `tosi`, `xin`, `observe`, paths                                                            | <!--gz:state.js-->~16 kB<!--/gz-->  |
+| `<script src=…>` (IIFE) | the library **without** the agent surface — a script tag cannot tree-shake, so it doesn't pay for what it didn't ask for | <!--gz:index.js-->~28 kB<!--/gz-->  |
 
 `tosijs/agent` resolves to the same file as `tosijs` **on purpose**: a
 separately-bundled agent surface would carry its own copy of the state
@@ -82,14 +82,17 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   ~28 kB gzipped from a script tag, ~26 kB for `tosijs/core`, ~16 kB for the
   DOM-free `tosijs/state`; the full ESM entry is ~42 kB.
   <!-- sizes:end -->
-  The agent surface is opt-in and shakes away if you never import it —
-  **measured at 6.7 kB gzipped** in a real app bundle (10.6 kB if you also ship
-  the schematic renderer and the accessibility audit). It does not, however,
-  shake back to 1.7.x: an identical consumer app that never touches the agent
-  surface measured **+2.9 kB gzipped (+13.7%) against 1.7.9**, because the
-  contract seam, the path-segment guard and the binding bookkeeping are on the
-  ordinary path. If that matters more to you than the features, `tosijs/core`
-  is the smaller door.
+  The agent surface is opt-in and shakes away if you never import it: it is
+  <!--agentgz-->~16.8 kB<!--/agentgz--> of the full ESM entry — exactly what
+  `tosijs` carries over `tosijs/core`, measured by the build, including the
+  schematic renderer, the accessibility audit and the contract harnesses.
+  <!-- as-of: 2026-08-08 | the +13.7% consumer-app comparison against 1.7.9, which needs the two-app harness to re-measure -->
+  It does not, however, shake back to 1.7.x: when 1.8.0 shipped, an identical
+  consumer app that never touched the agent surface measured **+2.9 kB gzipped
+  (+13.7%) against 1.7.9**, because the contract seam, the path-segment guard
+  and the binding bookkeeping sit on the ordinary path. That figure is a
+  1.8.0-era measurement and has not been re-taken. If size matters more to you
+  than the features, `tosijs/core` is the smaller door.
 
 On top of that you get the conveniences you'd actually want: most binding code
 eliminated, web-components you can build in pure JS more compactly than JSX, and

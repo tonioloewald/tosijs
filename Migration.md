@@ -104,6 +104,52 @@ case that now needs a line it did not before is a component that declares
 `static contract = { value: … }` and no `value` member: it gets a working
 accessor at runtime, so add `declare value: T` to match.
 
+## You depend on a library that hasn't migrated yet
+
+Removing `Component`'s index signature is a **compile-time** change, and it
+reaches past your own components: a library built against 1.9.x declares its
+attributes as `static initAttributes` only, with no instance property. Under
+1.9.x `el.month` typed as `any` through the index signature. Under 1.10.0 it
+does not exist, so **imperative instance access stops compiling**:
+
+```
+TS2551: Property 'month' does not exist on type 'TosiMonth'.
+```
+
+Three things worth knowing before you treat this as a blocker:
+
+- **Nothing breaks at runtime.** The attribute still installs, reflects and
+  renders. This is a typecheck failure, not a behaviour change.
+- **The idiomatic path is unaffected.** Creating elements through the factory
+  — `tosiMonth({ month, year })` — compiles clean, because props are typed
+  from the creator, not from the instance. Only reaching into a live element
+  afterwards is affected.
+- **Importing the library is safe.** Its own shipped `.d.ts` still compile.
+
+If you hit it, you have three options, cheapest first:
+
+1. **Wait for the library to migrate.** It is one line per component on their
+   side (see above), and nothing about your code is wrong.
+2. **Declare the attributes yourself**, in your own project, without touching
+   theirs:
+
+   ```ts
+   import type { ComponentAttrs } from 'tosijs'
+   import type { TosiMonth } from 'their-library'
+
+   declare module 'their-library' {
+     interface TosiMonth
+       extends ComponentAttrs<{ month: number; year: number }> {}
+   }
+   ```
+
+3. **Cast at the call site** — `(el as any).month` — which is what the index
+   signature was doing for you invisibly, now written where a reader can see
+   it.
+
+Option 2 is the one to prefer: it is checked, it is local to you, and it
+disappears when the library migrates.
+
 ## What does NOT change
 
 - **`static initAttributes` still works and is not deprecated.**

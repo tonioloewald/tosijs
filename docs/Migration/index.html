@@ -130,6 +130,47 @@ instance has its own <code>value</code> descriptor or the contract declares one.
 case that now needs a line it did not before is a component that declares
 <code>static contract = { value: … }</code> and no <code>value</code> member: it gets a working
 accessor at runtime, so add <code>declare value: T</code> to match.</p>
+<h2>You depend on a library that hasn&#39;t migrated yet</h2>
+<p>Removing <code>Component</code>&#39;s index signature is a <strong>compile-time</strong> change, and it
+reaches past your own components: a library built against 1.9.x declares its
+attributes as <code>static initAttributes</code> only, with no instance property. Under
+1.9.x <code>el.month</code> typed as <code>any</code> through the index signature. Under 1.10.0 it
+does not exist, so <strong>imperative instance access stops compiling</strong>:</p>
+<pre><code>TS2551: Property &#39;month&#39; does not exist on type &#39;TosiMonth&#39;.
+</code></pre>
+<p>Three things worth knowing before you treat this as a blocker:</p>
+<ul>
+<li><strong>Nothing breaks at runtime.</strong> The attribute still installs, reflects and
+renders. This is a typecheck failure, not a behaviour change.</li>
+<li><strong>The idiomatic path is unaffected.</strong> Creating elements through the factory
+— <code>tosiMonth({ month, year })</code> — compiles clean, because props are typed
+from the creator, not from the instance. Only reaching into a live element
+afterwards is affected.</li>
+<li><strong>Importing the library is safe.</strong> Its own shipped <code>.d.ts</code> still compile.</li>
+</ul>
+<p>If you hit it, you have three options, cheapest first:</p>
+<ol>
+<li><p><strong>Wait for the library to migrate.</strong> It is one line per component on their
+side (see above), and nothing about your code is wrong.</p>
+</li>
+<li><p><strong>Declare the attributes yourself</strong>, in your own project, without touching
+theirs:</p>
+<pre><code class="language-ts">import type { ComponentAttrs } from &#39;tosijs&#39;
+import type { TosiMonth } from &#39;their-library&#39;
+
+declare module &#39;their-library&#39; {
+  interface TosiMonth
+    extends ComponentAttrs&lt;{ month: number; year: number }&gt; {}
+}
+</code></pre>
+</li>
+<li><p><strong>Cast at the call site</strong> — <code>(el as any).month</code> — which is what the index
+signature was doing for you invisibly, now written where a reader can see
+it.</p>
+</li>
+</ol>
+<p>Option 2 is the one to prefer: it is checked, it is local to you, and it
+disappears when the library migrates.</p>
 <h2>What does NOT change</h2>
 <ul>
 <li><p><strong><code>static initAttributes</code> still works and is not deprecated.</strong>
