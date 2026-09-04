@@ -577,7 +577,9 @@ describe('deprecation advice must be typeable and true (review M2, M3)', () => {
      * real prop equivalents; this one does not.
      */
     tosi({ advice3: { items: ['a'] } })
-    const msgs = await capture(() => elements.div({ bindList: 'advice3.items' }))
+    const msgs = await capture(() =>
+      elements.div({ bindList: 'advice3.items' })
+    )
     expect(msgs).toEqual([])
   })
 

@@ -3,7 +3,7 @@ export { bindings } from './bindings';
 export { css, invertLuminance, initVars, vars, varDefault, StyleSheet, onStylesheetChange, getThemePreferences, onThemePreferencesChange, } from './css';
 export type { ColorScheme, ContrastPreference, ThemePreferences } from './css';
 export type { TosiStyleSheet, TosiStyleMap, TosiStyleRule } from './css-types';
-export type { XinStyleSheet, XinStyleMap, XinStyleRule, } from './css-types';
+export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types';
 export type { ComponentMap, ComponentTestStep } from './agent';
 export { Color } from './color';
 export { Component, withAttributes, tosiSlot, xinSlot } from './component';

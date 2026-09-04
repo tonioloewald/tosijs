@@ -151,10 +151,10 @@ export const auditAccessibility = (
     skipped.push(
       description.exposure === 'closed'
         ? 'everything: the agent surface exposes nothing, so there was no ' +
-          'wiring to audit — enable it with expose: { roots } or ' +
-          "expose: 'all'"
+            'wiring to audit — enable it with expose: { roots } or ' +
+            "expose: 'all'"
         : 'everything: the map contains no wired elements, so nothing was ' +
-          'examined'
+            'examined'
     )
   }
 

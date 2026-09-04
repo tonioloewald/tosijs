@@ -1020,7 +1020,11 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
           return () => unobserve(listener)
         }
       case 'bind':
-        return (element: Element, binding: TosiBinding, options?: TosiObject) => {
+        return (
+          element: Element,
+          binding: TosiBinding,
+          options?: TosiObject
+        ) => {
           getBind()(element, path, binding, options)
         }
       case 'on': {

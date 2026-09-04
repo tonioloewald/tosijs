@@ -74,7 +74,7 @@ class LabeledInput extends Component {
     super.connectedCallback()
     const {input} = this.parts
     input.addEventListener('input', () => {
-      dynamic(this).value = input.value
+      this.value = input.value
     })
   }
 
@@ -82,8 +82,8 @@ class LabeledInput extends Component {
     super.render()
     const {span, input} = this.parts
     span.textContent = this.caption
-    if (input.value !== dynamic(this).value) {
-      input.value = dynamic(this).value
+    if (input.value !== this.value) {
+      input.value = this.value
     }
   }
 }
@@ -266,8 +266,8 @@ which will then penetrate the `shadowDOM`.
       super.render() // see note
       const {span, input} = this.parts
       span.textContent = this.caption
-      if (input.value !== dynamic(this).value) {
-        input.value = dynamic(this).value
+      if (input.value !== this.value) {
+        input.value = this.value
       }
     }
 
@@ -1095,8 +1095,7 @@ function capturePartsFrom(content: unknown): Record<string, Element> {
  * checking for every subclass anyone wrote, forever, to serve four call sites
  * (tosijs#36). The cost now lands where the dynamism actually is.
  */
-const dynamic = (el: unknown): Record<string, any> =>
-  el as Record<string, any>
+const dynamic = (el: unknown): Record<string, any> => el as Record<string, any>
 
 /**
  * The instance properties a component's `static initAttributes` installs.
@@ -1168,14 +1167,13 @@ export const withAttributes = <A extends Record<string, any>>(
     static initAttributes = initAttributes
   }
   return ComponentWithAttributes as unknown as (new <
-    T = PartsMap,
+    T = PartsMap
   >() => Component<T> & DeclaredAttributes<A>) &
     Omit<typeof Component, 'prototype' | 'initAttributes'> & {
       initAttributes: A
     }
 }
 
- 
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
@@ -1406,22 +1404,33 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    *
    * Removing it revealed that the library was leaning on it too. These are
    * real members that were simply never declared — `value` most of all, which
-   * the component reference documents as *the* special property. Declaring
-   * them is the fix; the dynamic accesses that genuinely need it now say so at
-   * the call site instead of the whole class paying for them.
+   * the component reference documents as *the* special property. They are
+   * declared now (in `component-augment.d.ts`, for the reasons noted below),
+   * and the accesses that are genuinely dynamic say so at the call site
+   * instead of the whole class paying for them.
    */
   /*
-   * `declare`, NOT a bare field declaration. Under ES2022 class-fields
-   * semantics a bare `onResize?: () => void` EMITS `dynamic(this).onResize = undefined`
-   * in the constructor — so every component would own these keys, and the
-   * on<Event> collision detector (which walks member names) fired on a
-   * component that declared nothing. A type-only intention with a runtime
-   * effect; caught by the suite, not by tsc.
+   * `value`, `_value`, `defaultValue`, `handleResize`, `onResize` and
+   * `_onResize` are DELIBERATELY NOT DECLARED HERE, and a comment that once
+   * claimed they were declared "by interface merging below" was describing a
+   * merge that does not exist — it was abandoned when `tjs convert` rejected
+   * it (tjs-lang#49) and the comment outlived it. Caught by review, not tsc.
+   *
+   * Declaring them on the class is a trap in three directions:
+   *   - a bare field is EMITTED under ES2022 class-field semantics, installing
+   *     `undefined` own-properties that tripped the on<Event> collision guard;
+   *   - a base PROPERTY makes `get value()` in a subclass TS2611;
+   *   - a base ACCESSOR makes `value = ''` in a subclass TS2610.
+   * The last two are both how real components are written, so any single
+   * declaration here breaks somebody.
+   *
+   * A `declare module` augmentation in a `.d.ts` was tried and rejected by tsc
+   * (TS2428, identical-type-parameters, against a generic class). So: your
+   * component declares its own `value` — which every component that has one
+   * already does, and which the runtime already requires (`initValue()` no-ops
+   * without an own descriptor or a `contract.value`). Documented in
+   * Migration.md under 1.10.0.
    */
-  /** the component's value — a special property, NOT an attribute. Setting it
-   * fires a `change` event and re-renders. Deliberately `any`: a component
-   * narrows it (`value = 0`, `value: Thing[] = []`) in its own declaration. */
-  // (declared by interface merging below — see the note above)
   // For legacy initAttributes method - tracks which attrs this instance watches
   _legacyTrackedAttrs?: Set<string>
   // Tracks attribute values for property accessors
@@ -1759,7 +1768,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
               // reserved for refs that never resolved at all. (tosijs#21: the
               // 1.7.7 eviction turned that lenient case into a throw inside
               // change handlers, killing the handler before it committed
-              // dynamic(this).value.)
+              // `this.value`.)
               if (element == null && cached != null) {
                 return cached
               }
@@ -2694,7 +2703,11 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
 
   render(): void {
     // Sync form value and validate when value actually changed
-    if (this._valueChanged && this.internals && dynamic(this).value !== undefined) {
+    if (
+      this._valueChanged &&
+      this.internals &&
+      dynamic(this).value !== undefined
+    ) {
       this.internals.setFormValue(dynamic(this).value)
       this.validateValue()
     }
@@ -2711,7 +2724,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   validateValue(): void {
     if (!this.internals || dynamic(this).value === undefined) return
     const value =
-      typeof dynamic(this).value === 'string' ? dynamic(this).value : String(dynamic(this).value)
+      typeof dynamic(this).value === 'string'
+        ? dynamic(this).value
+        : String(dynamic(this).value)
     validateAgainstConstraints(this, value)
   }
 }

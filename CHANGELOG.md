@@ -6,6 +6,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.1] - 2026-09-04
+
+**1.10.0 was tagged but never published.** A pre-release review — which should
+have run before that tag and did not — found two defects in the shipped
+artifacts. Both trace to one unreviewed global find-and-replace in the #36
+work, and both are fixed here. If you have 1.10.0 from git, use this instead.
+
+### Fixed
+
+- **A live doc example threw.** The `this.X` → `dynamic(this).X` rewrite escaped
+  the code and edited the `/*# … */` doc block, putting a module-private helper
+  into a published ` ```js ` example — so the component reference threw
+  `ReferenceError: dynamic is not defined` on the doc site and in the epub, and
+  again on every keystroke. The example had declared `value = ''` all along, so
+  the line was correct before it was "fixed". Nothing caught it: the Playwright
+  lane harvests ` ```test ` fences only.
+- **Two comments described a fix that was never written.** They promised these
+  members were "declared by interface merging below"; the merge was abandoned
+  when `tjs convert` rejected it (tjs-lang#49) and the comments outlived it,
+  leaving a `value` JSDoc orphaned above an unrelated private field — so the
+  published types documented a tracking `Set` as the component's value.
+- Prettier formatting on the files the #36 work touched (`bun run build` does
+  not gate on it).
+
+### Changed
+
+- **`Component` no longer declares `value` — declare it in your component.**
+  This was true in 1.10.0 and undocumented, which is what made it a defect.
+  `value = 0`, `declare value: T` and `get value()` are all legal, and that is
+  exactly why the base class cannot pick one: a base property makes
+  `get value()` a TS2611, a base accessor makes `value = ''` a TS2610. The
+  runtime already required an own `value` descriptor (or a `contract.value`).
+  Now documented in Migration.md with the three forms and the one case that
+  needs a new line.
+
 ## [1.10.0] - 2026-09-03
 
 **`Component` no longer disables type checking for every component you write.**
@@ -86,10 +121,16 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   the index signature: `elementCreator()` and the shadow-style resolver both
   cast the class to the *instance* type inside static methods, and the two
   spec interfaces above. Every static access through them was wrong.
-- Members the library used but never declared — `value` (documented as *the*
-  special property), `_value`, `defaultValue`, `handleResize`, `onResize`,
-  `_onResize` — now reached through a named `dynamic()` seam rather than by
-  every subclass paying for an index signature.
+- Members the library used but never declared — `value`, `_value`,
+  `defaultValue`, `handleResize`, `onResize`, `_onResize` — are now reached
+  through a named `dynamic()` seam inside the library rather than by every
+  subclass paying for an index signature.
+
+  **`Component` therefore no longer declares `value`.** Declare it in your own
+  component (`value = 0`, `declare value: T`, or `get value()`) — all three
+  shapes are legal, which is precisely why the base class cannot pick one: a
+  base property makes `get value()` a TS2611 and a base accessor makes
+  `value = ''` a TS2610. The runtime already required this. See Migration.md.
 
 ## [1.9.2] - 2026-09-03
 

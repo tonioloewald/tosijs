@@ -60,8 +60,10 @@ describe('entry points', () => {
   const NODE_FLOOR = 20
   const nodeMajor = Number(
     (
-      Bun.spawnSync(['node', '-v'], { stdout: 'pipe', stderr: 'pipe' })
-        .stdout?.toString?.() ?? ''
+      Bun.spawnSync(['node', '-v'], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      }).stdout?.toString?.() ?? ''
     )
       .trim()
       .replace(/^v/, '')

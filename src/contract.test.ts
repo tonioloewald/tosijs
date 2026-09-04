@@ -1531,7 +1531,10 @@ describe('a surface refusal is INCONCLUSIVE, never a pass', () => {
     await updates()
     const contract = {
       describe: () => ({
-        refApp: { type: 'object', $counterexamples: [{ qty: 999 }, { qty: -1 }] },
+        refApp: {
+          type: 'object',
+          $counterexamples: [{ qty: 999 }, { qty: -1 }],
+        },
       }),
     }
     const agent = enableAgentInterface({

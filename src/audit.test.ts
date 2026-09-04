@@ -228,8 +228,8 @@ describe('an empty map is not a clean bill of health', () => {
 
   test('a non-closed surface with no wiring still says nothing was examined', () => {
     const report = auditAccessibility(map([]))
-    expect(
-      report.skipped.some((s) => s.includes('no wired elements'))
-    ).toBe(true)
+    expect(report.skipped.some((s) => s.includes('no wired elements'))).toBe(
+      true
+    )
   })
 })

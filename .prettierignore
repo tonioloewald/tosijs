@@ -1,5 +1,10 @@
 # protected from prettier
 src/xin-types.ts
+# VENDORED from tosijs-floorplan by vendorSchematic() on every --build, so any
+# reformatting here is overwritten. It was failing `prettier --check` while the
+# build did not gate on it, which is how a real formatting failure in
+# hand-written code went unnoticed (1.10.0 review).
+src/schematic.ts
 
 # artifacts
 dist

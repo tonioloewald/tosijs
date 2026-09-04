@@ -1654,8 +1654,8 @@ export function enableAgentInterface(
         'scope',
         closed
           ? `agent interface: "${path}" is not exposed — this surface ` +
-            "declares no manifest, so nothing is. Pass expose: 'all' while " +
-            'developing, or expose: { roots } to declare what may be read.'
+              "declares no manifest, so nothing is. Pass expose: 'all' while " +
+              'developing, or expose: { roots } to declare what may be read.'
           : `agent interface: "${path}" is not exposed (manifest mode)`
       )
     }
@@ -2024,7 +2024,7 @@ export function enableAgentInterface(
             const cls = (globalThis as any).customElements?.get?.(record.tag)
             const own = ownContract(cls)
             const declared =
-              own !== undefined ? own : (components?.[record.tag] ?? undefined)
+              own !== undefined ? own : components?.[record.tag] ?? undefined
             if (declared != null) {
               record.component = declared
             }

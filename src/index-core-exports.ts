@@ -22,11 +22,7 @@ export type { TosiStyleSheet, TosiStyleMap, TosiStyleRule } from './css-types'
 // is an EXPLICIT export list, not `export *`, so an alias that is not named
 // here does not reach a consumer: renaming the three above without adding
 // these would have silently broken every `import { XinStyleSheet }`.
-export type {
-  XinStyleSheet,
-  XinStyleMap,
-  XinStyleRule,
-} from './css-types'
+export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 // the component-contract SHAPE stays on the main entry: declaring
 // `static contract` is a component-authoring act, and it is type-only
 export type { ComponentMap, ComponentTestStep } from './agent'

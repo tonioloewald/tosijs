@@ -178,7 +178,10 @@ export function tosiUnique<T extends object>(
   return [proxy, remove]
 }
 
-export function xinProxy<T extends object>(obj: T, boxed = false): TosiProxy<T> {
+export function xinProxy<T extends object>(
+  obj: T,
+  boxed = false
+): TosiProxy<T> {
   if (boxed) {
     warnDeprecated(
       'xinProxy-boxed',

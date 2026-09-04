@@ -635,7 +635,11 @@ describe('ARIA is a two-way street', () => {
     // and the harvest reads it back
     // expose: 'all' — this test is about CONTRACT harvesting, not posture;
     // the closed default maps nothing (1.9.0)
-    const agent = enableAgentInterface({ global: false, quiet: true, expose: 'all' })
+    const agent = enableAgentInterface({
+      global: false,
+      quiet: true,
+      expose: 'all',
+    })
     try {
       const record = agent
         .describe()
@@ -1082,7 +1086,10 @@ describe('the posture: safe by default, full access behind one line', () => {
     tosi({ mApp: { cart: 2 }, mPriv: { csrf: 'CSRF-TOKEN-8f31' } })
     await updates()
     const declared = elements.input({ id: 'm-declared' })
-    const link = elements.a({ id: 'm-link', href: '/reset?t=RESET-TOKEN' }, 'go')
+    const link = elements.a(
+      { id: 'm-link', href: '/reset?t=RESET-TOKEN' },
+      'go'
+    )
     const draft = elements.div(
       { id: 'm-draft', contentEditable: 'true' },
       'patient SSN 123-45-6789'
@@ -1833,7 +1840,10 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     bind(viaExact, 'secretDescribe.session.token', bindings.enabled)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' })) // read-only
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    })) // read-only
     const description = agent.describe()
 
     // the whole description, not just the records we happen to look at
@@ -1871,13 +1881,17 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     })
     const container = elements.div(
       ...secretList.rows.tosi.listBinding(
-        ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+        ({ div, input }: any) =>
+          div(input({ type: 'password', bindValue: '^.pw' })),
         { idPath: 'id' }
       )
     )
     document.body.append(container)
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
 
     expect(agent.read('secretList.rows[id=r1].pw')).toBe('⟨secret⟩')
     // the parent read must agree — this is what leaked
@@ -1910,7 +1924,10 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     expect(agent.read('noIdList.rows[0].pw')).toBe('⟨secret⟩')
     const rows = agent.read('noIdList.rows') as any[]
     expect(rows[0].pw).toBe('⟨secret⟩') // B2: leaked before
@@ -1920,7 +1937,12 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
 
   test('SEC-2e: a null row in an id-path list does not take the surface down', async () => {
     const { nullRow } = tosi({
-      nullRow: { rows: [{ id: 'a', pw: 'p1' }, { id: 'b', pw: 'p2' }] },
+      nullRow: {
+        rows: [
+          { id: 'a', pw: 'p1' },
+          { id: 'b', pw: 'p2' },
+        ],
+      },
     })
     document.body.append(
       elements.div(
@@ -1932,7 +1954,10 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     expect(agent.read('nullRow.rows[id=a].pw')).toBe('⟨secret⟩')
 
     xin.nullRow.rows = [{ id: 'a', pw: 'p1' }, null]
@@ -1970,19 +1995,24 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     document.body.append(
       elements.div(
         ...twoIds.rows.tosi.listBinding(
-          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.pw' })),
           { idPath: 'id' }
         )
       ),
       elements.div(
         ...twoIds.rows.tosi.listBinding(
-          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.tok' })),
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.tok' })),
           { idPath: 'uid' }
         )
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     expect(agent.read('twoIds.rows[id=a1].pw')).toBe('⟨secret⟩')
     expect(agent.read('twoIds.rows[uid=u1].tok')).toBe('⟨secret⟩')
     const rows = agent.read('twoIds.rows') as any[]
@@ -2000,17 +2030,23 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
      * constructing nothing — and a manifest does not contain it, because the
      * aliased path is inside the declared root.
      */
-    const { p4 } = tosi({ p4: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] } })
+    const { p4 } = tosi({
+      p4: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] },
+    })
     document.body.append(
       elements.div(
         ...p4.rows.tosi.listBinding(
-          ({ div, input }: any) => div(input({ type: 'password', bindValue: '^.pw' })),
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.pw' })),
           { idPath: 'id' }
         )
       )
     )
     await updates()
-    const agent = (current = enableAgentInterface({ quiet: true, expose: { roots: ['p4'] } }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['p4'] },
+    }))
 
     expect(agent.read('p4.rows[0].pw')).toBe('⟨secret⟩')
     expect(agent.read('p4.rows.0.pw')).toBe('⟨secret⟩')
@@ -2050,7 +2086,10 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     bind(box, 'inherit.creds', { toDOM() {} })
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     expect(agent.read('inherit.creds.pass')).toBe(SECRET_SENTINEL_TEXT)
     // and ARBITRARILY DEEP beneath it, not just one level
     expect(agent.read('inherit.creds.deep.k')).toBe(SECRET_SENTINEL_TEXT)
@@ -2075,7 +2114,9 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
      *     beside it, in the same object, having stamped itself secret:true;
      *   - a contenteditable carrying the author's own `data-tosi-secret`.
      */
-    tosi({ harvest: { token: 'eyJ-SUPER-SECRET', card: '4111 1111 1111 1111' } })
+    tosi({
+      harvest: { token: 'eyJ-SUPER-SECRET', card: '4111 1111 1111 1111' },
+    })
     await updates()
 
     // (a) bound to the secret path via a custom toDOM — no `secret` flag at all
@@ -2099,7 +2140,10 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     bind(sel, 'harvest.card', bindings.value)
 
     // (c) the author's explicit opt-in on a contenteditable
-    const ed = elements.div({ id: 'h-ed', contentEditable: 'true' }, 'sk-live-DEADBEEF')
+    const ed = elements.div(
+      { id: 'h-ed', contentEditable: 'true' },
+      'sk-live-DEADBEEF'
+    )
     ed.setAttribute('data-tosi-secret', '')
     document.body.append(ed)
     await updates()
@@ -2367,7 +2411,10 @@ describe('attributes are described however they were declared (tosijs#29)', () =
     bind(contractEl, 'eqApp.b', bindings.value)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     const wiring = agent.describe().wiring as any[]
     const viaInit = wiring.find((w) => w.tag === 'eq-init')
     const viaContract = wiring.find((w) => w.tag === 'eq-contract')
@@ -2394,7 +2441,10 @@ describe('attributes are described however they were declared (tosijs#29)', () =
     document.body.append(el)
     await updates()
 
-    const agent = (current = enableAgentInterface({ quiet: true, expose: 'all' }))
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
     const tags = (agent.describe().wiring as any[]).map((w) => w.tag)
     // nothing binds it and it declares no contract, so it stays out of the
     // map. Otherwise every custom element on the page would flood it.

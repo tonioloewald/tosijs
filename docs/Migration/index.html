@@ -103,6 +103,29 @@ from 44 errors to 0, and 413 of that project&#39;s 415 errors are this one patte
 <pre><code class="language-typescript">import type { ComponentAttrs } from &#39;tosijs&#39;
 export interface Widget extends ComponentAttrs&lt;typeof Widget.initAttributes&gt; {}
 </code></pre>
+<h2><code>Component</code> no longer declares <code>value</code></h2>
+<p>Along with the index signature went the type for <code>value</code> (and <code>defaultValue</code>).
+If your component has a value, <strong>declare it</strong> — which is almost certainly what
+you already do:</p>
+<pre><code class="language-typescript">class Stepper extends Component {
+  value = 0                    // a field
+}
+class Picker extends Component {
+  declare value: Thing[]       // or just the type
+}
+class Editor extends Component {
+  get value(): string { … }    // or an accessor
+  set value(v: string) { … }
+}
+</code></pre>
+<p>All three shapes are legal, which is exactly why <code>Component</code> cannot declare it
+for you: a base <em>property</em> makes <code>get value()</code> a TS2611, and a base <em>accessor</em>
+makes <code>value = &#39;&#39;</code> a TS2610. Whichever we picked would break the other half.</p>
+<p>The runtime has always required this — <code>initValue()</code> does nothing unless the
+instance has its own <code>value</code> descriptor or the contract declares one. The one
+case that now needs a line it did not before is a component that declares
+<code>static contract = { value: … }</code> and no <code>value</code> member: it gets a working
+accessor at runtime, so add <code>declare value: T</code> to match.</p>
 <h2>What does NOT change</h2>
 <ul>
 <li><strong><code>static initAttributes</code> still works and is not deprecated.</strong>

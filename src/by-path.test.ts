@@ -280,9 +280,9 @@ describe('an own property holding undefined is empty, not a container', () => {
   })
 
   test('and the prototype-segment guard still refuses', () => {
-    expect(() => setByPath({ a: {} } as TosiObject, 'a.__proto__.x', 1)).toThrow(
-      /unsafe path segment/
-    )
+    expect(() =>
+      setByPath({ a: {} } as TosiObject, 'a.__proto__.x', 1)
+    ).toThrow(/unsafe path segment/)
     expect(({} as any).x).toBeUndefined()
   })
 })

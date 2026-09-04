@@ -1,5 +1,10 @@
 import { test, expect, describe } from 'bun:test'
-import { TosiObject, TosiProxyArray, TosiProxyObject, TosiArray } from './xin-types'
+import {
+  TosiObject,
+  TosiProxyArray,
+  TosiProxyObject,
+  TosiArray,
+} from './xin-types'
 import {
   xin,
   boxed,
@@ -1855,7 +1860,11 @@ describe('.value = writes are surgical (and the registration-touch trap)', () =>
   test('a .value write does not wake sibling observers', async () => {
     tosi({ surg2: { a: 0, b: 0, c: 0 } })
     await updates()
-    const hits: Record<string, number> = { 'surg2.a': 0, 'surg2.b': 0, 'surg2.c': 0 }
+    const hits: Record<string, number> = {
+      'surg2.a': 0,
+      'surg2.b': 0,
+      'surg2.c': 0,
+    }
     const ls = Object.keys(hits).map((path) =>
       observe(path, () => {
         hits[path]++
@@ -1871,10 +1880,30 @@ describe('.value = writes are surgical (and the registration-touch trap)', () =>
     tosi({ surg3: { a: 0 } })
     await updates()
     const forms: Array<[string, () => void]> = [
-      ['.value =', () => { boxed.surg3.a.value = 1 }],
-      ['direct assign', () => { boxed.surg3.a = 2 }],
-      ['raw proxy', () => { xin.surg3.a = 3 }],
-      ['path assign', () => { xin['surg3.a'] = 4 }],
+      [
+        '.value =',
+        () => {
+          boxed.surg3.a.value = 1
+        },
+      ],
+      [
+        'direct assign',
+        () => {
+          boxed.surg3.a = 2
+        },
+      ],
+      [
+        'raw proxy',
+        () => {
+          xin.surg3.a = 3
+        },
+      ],
+      [
+        'path assign',
+        () => {
+          xin['surg3.a'] = 4
+        },
+      ],
     ]
     for (const [label, write] of forms) {
       const seen: string[] = []
@@ -2095,14 +2124,24 @@ describe('a boxed proxy is a live view of its PATH, not a snapshot (tosijs#35)',
      * after a mutation. Neither old nor new is "safe"; the new one is at
      * least consistent with what the path says.
      */
-    tosi({ h35d: { rows: [{ id: 'x', n: 1 }, { id: 'y', n: 2 }] } })
+    tosi({
+      h35d: {
+        rows: [
+          { id: 'x', n: 1 },
+          { id: 'y', n: 2 },
+        ],
+      },
+    })
     await updates()
     const bySlot = boxed.h35d.rows[0]
     const byId = boxed['h35d.rows[id=x]']
     expect(bySlot.tosi.path).toBe('h35d.rows[0]')
     expect(byId.tosi.path).toBe('h35d.rows[id=x]')
 
-    xin.h35d.rows = [{ id: 'y', n: 22 }, { id: 'x', n: 11 }]
+    xin.h35d.rows = [
+      { id: 'y', n: 22 },
+      { id: 'x', n: 11 },
+    ]
     await updates()
     expect(bySlot.value.id).toBe('y') // the SLOT — a different item now
     expect(byId.value.id).toBe('x') // the ITEM — followed the reorder

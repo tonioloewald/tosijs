@@ -71,6 +71,35 @@ import type { ComponentAttrs } from 'tosijs'
 export interface Widget extends ComponentAttrs<typeof Widget.initAttributes> {}
 ```
 
+## `Component` no longer declares `value`
+
+Along with the index signature went the type for `value` (and `defaultValue`).
+If your component has a value, **declare it** — which is almost certainly what
+you already do:
+
+```typescript
+class Stepper extends Component {
+  value = 0                    // a field
+}
+class Picker extends Component {
+  declare value: Thing[]       // or just the type
+}
+class Editor extends Component {
+  get value(): string { … }    // or an accessor
+  set value(v: string) { … }
+}
+```
+
+All three shapes are legal, which is exactly why `Component` cannot declare it
+for you: a base *property* makes `get value()` a TS2611, and a base *accessor*
+makes `value = ''` a TS2610. Whichever we picked would break the other half.
+
+The runtime has always required this — `initValue()` does nothing unless the
+instance has its own `value` descriptor or the contract declares one. The one
+case that now needs a line it did not before is a component that declares
+`static contract = { value: … }` and no `value` member: it gets a working
+accessor at runtime, so add `declare value: T` to match.
+
 ## What does NOT change
 
 - **`static initAttributes` still works and is not deprecated.**

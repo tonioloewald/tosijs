@@ -207,9 +207,6 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     isSlotted?: boolean;
     private static _tagName;
     static get tagName(): null | string;
-    /** the component's value — a special property, NOT an attribute. Setting it
-     * fires a `change` event and re-renders. Deliberately `any`: a component
-     * narrows it (`value = 0`, `value: Thing[] = []`) in its own declaration. */
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
     private _valueChanged;
