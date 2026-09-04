@@ -16,7 +16,22 @@ export type TosiProxyTarget = TosiObject | TosiArray
 
 export type TosiValue = TosiObject | TosiArray | TosiScalar | null | undefined
 
-type ProxyObserveFunc = ((path: string) => void)
+// THE DIRECT `.observe` DELEGATES TO THE ACCESSOR, so it must have the
+// accessor's signature: a CALLBACK in, an unsubscribe function out.
+//
+// It was typed `(path: string) => void`, which is exactly inverted. The
+// working call — `proxy.items.observe(cb)`, which the docs show and which
+// returns an unsubscribe — was a type error, while the call the type
+// prescribed THREW at runtime: `expect callback to be a path or function`.
+// So the typing sent a consumer to the one spelling that cannot work.
+//
+// Invisible because no lane typechecks `*.test.ts`: two of our own tests
+// (`list-methods.test.ts`) call it correctly and were reported as errors by
+// a typecheck nobody ran. Same family as tosijs#31 (bindText) and #35
+// (`.value` disagreeing between the direct property and the accessor).
+type ProxyObserveFunc = (
+  callback: ObserverCallbackFunction
+) => VoidFunction
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: TosiBinding<T>, options?: TosiObject) => VoidFunction
 
 /**

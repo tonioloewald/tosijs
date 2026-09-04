@@ -9,7 +9,7 @@ export interface TosiObject {
 }
 export type TosiProxyTarget = TosiObject | TosiArray;
 export type TosiValue = TosiObject | TosiArray | TosiScalar | null | undefined;
-type ProxyObserveFunc = ((path: string) => void);
+type ProxyObserveFunc = (callback: ObserverCallbackFunction) => VoidFunction;
 type ProxyBindFunc<T extends Element = Element> = (element: T, binding: TosiBinding<T>, options?: TosiObject) => VoidFunction;
 /**
  * TakeDescriptor is returned by `.take()` — a reactive binding descriptor

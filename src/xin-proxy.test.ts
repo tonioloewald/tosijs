@@ -1,6 +1,7 @@
-import { test, expect, spyOn } from 'bun:test'
+import { test, expect, spyOn, describe } from 'bun:test'
 import { xin } from './xin'
-import { xinPath, _resetDeprecationWarnings } from './metadata'
+import { updates } from './path-listener'
+import { xinPath, _resetDeprecationWarnings, XIN_OBSERVE } from './metadata'
 import { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'
 
 test('tosi works', () => {
@@ -146,4 +147,47 @@ test('boxedProxy warns and delegates to tosi', () => {
   expect(result.boxedProxyTest.item.valueOf()).toBe('world')
 
   warnSpy.mockRestore()
+})
+
+describe('the direct .observe delegates to the accessor — same signature', () => {
+  /*
+   * Its type said `(path: string) => void`, exactly inverted from the runtime.
+   * The working call was a type error and the type-prescribed call THREW
+   * ("expect callback to be a path or function"), so the typing pointed a
+   * consumer at the one spelling that cannot work. Nothing caught it because
+   * no lane typechecks `*.test.ts` — two of our own tests call it correctly
+   * and were reported as errors by a check nobody ran.
+   *
+   * Pins the SHAPE for all four spellings, since they are one implementation.
+   */
+  test('every direct spelling takes a callback and returns an unsubscribe', async () => {
+    const { obsShape } = tosi({
+      obsShape: { a: { n: 0 }, b: { n: 0 }, c: { n: 0 }, d: { n: 0 } },
+    })
+    await updates()
+    const spellings: Array<[string, string, (o: any, cb: any) => any]> = [
+      ['observe', 'a', (o, cb) => o.observe(cb)],
+      ['tosiObserve', 'b', (o, cb) => o.tosiObserve(cb)],
+      ['xinObserve', 'c', (o, cb) => o.xinObserve(cb)],
+      ['[XIN_OBSERVE]', 'd', (o, cb) => o[XIN_OBSERVE](cb)],
+    ]
+    for (const [name, key, call] of spellings) {
+      let fired = 0
+      const off = call((obsShape as any)[key], () => {
+        fired++
+      })
+      // each spelling gets its OWN subtree: sharing one made every case after
+      // the first write an unchanged value, so nothing touched and three of
+      // four looked broken
+      ;(obsShape as any)[key].n = 99
+      await updates()
+      expect(`${name}:${fired}`).toBe(`${name}:1`)
+      expect(typeof off).toBe('function')
+      off()
+      // and unsubscribing actually stops it
+      ;(obsShape as any)[key].n = 100
+      await updates()
+      expect(`${name}:${fired}`).toBe(`${name}:1`)
+    }
+  })
 })

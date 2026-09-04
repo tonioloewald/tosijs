@@ -230,6 +230,33 @@ async function buildLibrary(full = true) {
   // CJS consumers.)
   // only the bundles this run actually produced — a dev run skips the tjs
   // pair, and smoking a file that was never built fails for the wrong reason
+  // RESTORE WHAT A DEV RUN DOES NOT REBUILD.
+  //
+  // buildSite()'s prebuild does `rm -rf dist` on EVERY run, dev server
+  // included (tosijs-ui#130), and a dev run deliberately skips the slow tjs
+  // pair — so `bun start`, and every Playwright run whose webServer is
+  // `bun start`, leaves dist/module.{debug,safe}.js deleted. `dist/` is
+  // COMMITTED in this repo, so the next `git add -A` records the deletion and
+  // the release ships two exports pointing at nothing.
+  //
+  // That happened three times: as unnoticed collateral in a build-speed
+  // commit, again in the commit that declared it fixed, and again in 1.10.1
+  // after two extra browser-lane runs. Twice it was caught only by a gate, and
+  // the gate fires at build/publish time — after the bad commit exists. A rule
+  // that says "remember to rebuild afterwards" has now failed three times, so
+  // stop relying on remembering: put the committed copies back.
+  if (!full) {
+    for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
+      const file = `dist/${bundle.naming}`
+      const tracked = await $`git ls-files --error-unmatch ${file}`
+        .nothrow()
+        .quiet()
+      if (tracked.exitCode === 0 && !existsSync(file)) {
+        await $`git checkout -- ${file}`.nothrow().quiet()
+      }
+    }
+  }
+
   const BUILT = full ? BUNDLES : BUNDLES.filter((b) => b.stage !== 'tjs')
   // NEVER DELETE A PUBLISHED BUNDLE THIS RUN DID NOT BUILD.
   //

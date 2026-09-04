@@ -46,6 +46,22 @@ Type-only. No runtime change, no bundle change.
   `import("tosijs").WithAttributes<{…}>` with no reference to `dist/`
   internals. `dist/` layout stays private.
 
+- **The direct `.observe` on a boxed proxy was typed backwards.**
+  `ProxyObserveFunc` declared `(path: string) => void`; the runtime takes a
+  **callback** and returns an **unsubscribe function** — the same signature as
+  the `.tosi` accessor it delegates to. So the working call
+  (`proxy.items.observe(cb)`, which the docs show) was a type error, while the
+  call the type prescribed threw `expect callback to be a path or function`.
+  Fixed for all four spellings — `observe`, `tosiObserve`, `xinObserve`,
+  `[XIN_OBSERVE]` — which are one implementation, and pinned by a test that
+  asserts the shape and that unsubscribing works.
+
+  Found by typechecking the test files, which **no lane does**: two of our own
+  tests call it correctly and had been reported as errors by a check nobody
+  ran. Same family as [#31](https://github.com/tonioloewald/tosijs/issues/31)
+  (`bindText`) and [#35](https://github.com/tonioloewald/tosijs/issues/35)
+  (`.value` disagreeing between the direct property and the accessor).
+
 ### Added
 
 - **A gate for the class**, not the instance (`src/type-surface.test.ts`): it
