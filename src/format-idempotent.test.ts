@@ -25,9 +25,6 @@ import { test, expect } from 'bun:test'
  */
 test('every file prettier formats is a fixed point', async () => {
   const prettier = await import('prettier')
-  const ignored = await Bun.file('.prettierignore')
-    .text()
-    .catch(() => '')
 
   const tracked = Bun.spawnSync(['git', 'ls-files'], { stdout: 'pipe' })
     .stdout.toString()
