@@ -15,6 +15,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun test
+      # FORMATTING IS A GATE NOW. `.prettierignore` used to admit the vendored
+      # schematic and 53 files of tjs-out build output, so `--check` could never
+      # be green and nothing gated it — which is how a real formatting failure
+      # in hand-written code went unnoticed, and how TODO.md silently accreted
+      # two extra spaces of list indentation on every `bun run format` until a
+      # continuation block sat 44 columns deep with its content mangled.
+      - run: bun run format:check
 
   # Real-browser regression lane: runs the inline ```test doc fences through a
   # real engine (behaviors happy-dom can't exercise — composed-event

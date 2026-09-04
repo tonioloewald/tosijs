@@ -250,21 +250,20 @@ constructor without |new|` — at _import_ time for static-field
       (`asCompared`) against the 2.0 branch's boxed scalars.
 
 - [x] **FILED as tjs-lang#40 (2026-08-26): the `tjs convert` inline-test-runner
-      failures — both of them.**
-      On every version tried, 0.10.1 through 0.13.6: - `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner
-      does not resolve cross-module imports; `clamp` is in `more-math.ts`) - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
-statements must have at least a catch or finally block.`
-
-                                    **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
-                                    and imports; the error is in the harness the runner wraps around the
-                                    module. I first reported the `component.ts` one on tjs-lang#37 as a
-                                    possible second emitter bug; it is not, and that correction should go in
-                                    the new issue.
-
-                                    Net effect: **13 failures printed on every build, permanently ignored** —
-                                    the ambient-noise condition that hides a real failure when one arrives.
-                                    It is also why this read as noise during the E1 bump rather than as a
-                                    known defect.
+      failures — both of them.** On every version tried, 0.10.1 through 0.13.6:
+      `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner does
+      not resolve cross-module imports; `clamp` lives in `more-math.ts`), and
+      `src/component.ts: 0 passed, 5 failed — Unexpected token ')'`. The emitted
+      modules are fine — `tjs-out/component.js` parses, bundles and imports; the
+      error is in the harness the runner wraps around the module. I first
+      reported the `component.ts` one on tjs-lang#37 as a possible second
+      emitter bug; it is not, and that correction belongs in the new issue.
+      Net effect: **13 failures printed on every build, permanently ignored** —
+      the ambient-noise condition that hides a real failure when one arrives,
+      and why this read as noise during the E1 bump rather than as a known
+      defect. **Largely fixed in 0.13.11** (verified 2026-09-04, not yet
+      pinned): `color.ts` is clean and `component.ts` reports 2 _inconclusive_
+      rather than 5 failures. See `UPSTREAM.md`.
 
 - [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
       both default to **8799**, so the two browser lanes cannot run at the same

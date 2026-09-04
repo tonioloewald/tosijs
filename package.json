@@ -59,7 +59,8 @@
     "tunnel": "tosijs-tunnel",
     "deploy": "tosijs-deploy",
     "stamps": "bun bin/stamps.ts",
-    "prepublishOnly": "bun bin/check-publish-tag.ts"
+    "prepublishOnly": "bun bin/check-publish-tag.ts",
+    "format:check": "bun prettier --check ."
   },
   "author": "Tonio Loewald",
   "license": "Apache-2.0",

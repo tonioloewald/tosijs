@@ -148,6 +148,7 @@ preview.append(
 const log = pre({
   style: { height: &#39;100%&#39;, minHeight: &#39;5em&#39;, overflow: &#39;auto&#39;, margin: 0 },
 })
+deliberatelyUndefinedForGateTest()
 agent.observe(oneUI, (path) =&gt; log.append(`observed: ${path}\n`))
 preview.append(
   div(
