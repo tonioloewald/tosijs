@@ -235,7 +235,7 @@ channel.)
 
 > **`expose` scopes the MAP as well as the state** (changed in 1.9.0 — it used
 > to scope state only, and this callout used to say so). An element earns a
-> place in `describe().wiring` by being *declared*: bound to an in-scope path,
+> place in `describe().wiring` by being _declared_: bound to an in-scope path,
 > or carrying an in-scope handler. Merely existing in the DOM is not enough, so
 > an undeclared link's `href`, an undeclared region's contenteditable text, a
 > private component's contract, and any label or heading rendering a value
@@ -257,14 +257,14 @@ channel.)
 
 1. **Off** — never call `enableAgentInterface()`. Zero cost, zero surface.
 1. **Closed** (the default) — a bare `enableAgentInterface()` installs the
-   surface and exposes *nothing through it*: `describe()` reports an empty
+   surface and exposes _nothing through it_: `describe()` reports an empty
    app, no roots, no wiring, and every verb refuses. Until 1.9.0 this tier
    was "read-only introspection" — everything readable and observable, with
    only `write()` and `call()` refusing — which read as the safest posture
    while being the **widest read posture available**. Four secret leaks were
    found beneath that description, every one reachable only from it; the
    default is now empty. See [Trust & Transports](/trust-and-transports/).
-2. **Introspection mode** (`expose: 'all'`) — everything tosijs knows,
+1. **Introspection mode** (`expose: 'all'`) — everything tosijs knows,
    read/write/call, **dev-only and explicitly unstable**. (The name is the
    code's: `describe().exposure` reports `'all'` for this tier, `'manifest'`
    for a declared one, and `'closed'` for the empty default.) For exploration, debugging, agent-assisted development, and
@@ -272,7 +272,7 @@ channel.)
    substrate than selector-scraping — but nothing durable (tests, agent
    workflows) should script against it, because its shape is whatever the
    app's internals happen to be today.
-3. **Manifest mode** (production floor) — only declared roots/actions are
+1. **Manifest mode** (production floor) — only declared roots/actions are
    visible:
    ```
    enableAgentInterface({
@@ -290,7 +290,7 @@ channel.)
    safest-sounding option was the one that granted the most, and "scoped
    reads, no writes" — the posture a production surface most often wants —
    could not be expressed at all. `describe().writable` reports which you have.
-4. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
+1. **Contracted mode** (the product) — manifest + **tosijs-schema** per root:
    shapes, constraints, computed predicates. Now `write()` validates against
    the contract, `describe()` tells the agent _what's legal_ rather than what
    exists — and since tosijs-schema already embeds serialized predicates,

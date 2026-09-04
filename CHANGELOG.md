@@ -6,6 +6,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.11.0] - 2026-09-04
+
+### Added
+
+- **The agent surface takes proxies, not just path strings.** Every verb
+  (`read`, `write`, `observe`, `call`, `when`) and both manifest lists
+  (`expose.roots`, `expose.actions`) now accept a tosijs proxy _or_ a string:
+
+  ```js
+  const { app } = tosi({ app: { cart: [], checkout() {} } })
+  enableAgentInterface({
+    expose: { roots: [app.cart], actions: [app.checkout] },
+  })
+  agent.read(app.cart) // same as agent.read('app.cart')
+  ```
+
+  The proxy already knows where it lives, so nothing has to spell it twice, and
+  the manifest survives a rename. Strings are unchanged and remain right when
+  the path comes from outside the program — a tool call, config, or the wire.
+
+### Fixed
+
+- **A non-path object is now refused instead of coerced.** Passing something
+  that is neither a string nor a proxy reached `String()`, and the results were
+  silent and wrong in two different ways. `expose: { roots: [app.cart] }`
+  declared a root literally named `"[object Object]"`, which matched no path —
+  so the _manifest_ was broken while every subsequent `read()` refused with an
+  out-of-scope error naming the reader. And for a boxed scalar `String()`
+  yields the **value**, so `agent.read(app.filter)` read the path spelled by
+  whatever text the filter contained: data-dependent, and indistinguishable
+  from a scope bug. Both now throw at the point of the mistake — at
+  `enableAgentInterface()` for a manifest entry — carrying
+  `tosiRefusal: 'path'` (a new `AgentRefusalKind` member; widen any exhaustive
+  switch over it).
+
+  `agent.observe(app.cart, cb)` previously threw
+  `path.startsWith is not a function`, which is how this was found.
+
 ## [1.10.1] - 2026-09-04
 
 **1.10.0 was tagged but never published.** A pre-release review — which should
@@ -49,13 +87,13 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 
 - **`Component`'s `[key: string]: any` index signature is gone**
   ([#36](https://github.com/tonioloewald/tosijs/issues/36)). An index signature
-  on a class propagates to every subclass, so this compiled cleanly in *any*
+  on a class propagates to every subclass, so this compiled cleanly in _any_
   component:
 
   ```ts
   class Thing extends Component {
     greet() {
-      this.definitelyNotAMethod()          // no error
+      this.definitelyNotAMethod() // no error
       const n: number = this.alsoNotAThing // no error, and it typed as number
     }
   }
@@ -70,7 +108,7 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
   truth about your own components.
 
 - **Migration: move `static initAttributes` into the class header.** Attributes
-  are now typed from the *value*, so there is no second declaration to keep in
+  are now typed from the _value_, so there is no second declaration to keep in
   step — and this is a **move**, not an addition:
 
   ```ts
@@ -81,7 +119,9 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 
   // after — `this.month` is a number
   export class TosiMonth extends withAttributes({
-    month: NaN, year: NaN, selectable: false,
+    month: NaN,
+    year: NaN,
+    selectable: false,
   })<MonthParts> {}
   ```
 
@@ -91,7 +131,7 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
   hiding (`this.elements` — a static reached through an instance).
 
 - **`static initAttributes` is NOT deprecated and is not going away.**
-  `withAttributes()` *sets* it, and it remains the only way to add attributes
+  `withAttributes()` _sets_ it, and it remains the only way to add attributes
   to an **existing** component class (`withAttributes` always extends
   `Component`). The two compose: build a base with `withAttributes`, extend it
   and add more with `static initAttributes`.
@@ -99,7 +139,7 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 - **`TosiComponentSpec.type` / `TosiPackagedComponent.type` are now typed as a
   CLASS** (`ComponentClass<T>`), not as `Component<T>`. They always held a
   constructor; the instance-type declaration was wrong, and invisible because
-  the index signature made *any* object structurally assignable to `Component`
+  the index signature made _any_ object structurally assignable to `Component`
   — so those public fields accepted anything at all.
 
 ### Added
@@ -119,7 +159,7 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 
 - Three separate class/instance confusions inside the library, all masked by
   the index signature: `elementCreator()` and the shadow-style resolver both
-  cast the class to the *instance* type inside static methods, and the two
+  cast the class to the _instance_ type inside static methods, and the two
   spec interfaces above. Every static access through them was wrong.
 - Members the library used but never declared — `value`, `_value`,
   `defaultValue`, `handleResize`, `onResize`, `_onResize` — are now reached
@@ -141,15 +181,15 @@ work, and both are fixed here. If you have 1.10.0 from git, use this instead.
 
   ```js
   const store = tosi({ doc: { name: 'empty' } })
-  const held = store.doc                    // captured once, e.g. in a field
-  held.tosi.value = { name: 'loaded' }      // the write ALWAYS worked
-  held.tosi.value.name                      // was 'empty' forever — now 'loaded'
+  const held = store.doc // captured once, e.g. in a field
+  held.tosi.value = { name: 'loaded' } // the write ALWAYS worked
+  held.tosi.value.name // was 'empty' forever — now 'loaded'
   ```
 
   `.value` resolved the path for **scalar** proxies and returned the captured
   target for **object** proxies, so the two halves of one API disagreed. That
   asymmetry is what made it cost an afternoon downstream: it presents as a
-  failed *write*, so every hypothesis goes to the writer. `valueOf()`,
+  failed _write_, so every hypothesis goes to the writer. `valueOf()`,
   `toJSON()` and therefore `JSON.stringify()` were stale too — the worse half,
   because serialization is implicit and a stale object travels into a fetch
   body with nothing at the call site to suggest it.
@@ -163,7 +203,7 @@ buried. Four observable changes, each pinned by a test that fails on 1.9.1:
 - **A held proxy to a deleted key now reads `undefined`** instead of the value
   it was created over. `held.value.x` throws where it used to work.
 - **An INDEX path names a slot, not an item.** A held `rows[0]` is a live view
-  of *index 0*, so after a splice or reorder it reports a **different item**,
+  of _index 0_, so after a splice or reorder it reports a **different item**,
   silently. Use the id-path form (`rows[id=x]`) when you mean the item — that
   is what id-paths are for, and it follows the item across a reorder.
 - **`valueOf()` / `toJSON()` / `JSON.stringify()` follow the registry**, so
@@ -183,7 +223,7 @@ explicitly: `structuredClone(proxy.value)` at capture time.
   `bindEnabled` and `bindDisabled` no longer warn in any form (`bindValue` and
   `bindList` never did).
 
-  1.9.0 narrowed the deprecation to the *proxy* form, on the rule "deprecated
+  1.9.0 narrowed the deprecation to the _proxy_ form, on the rule "deprecated
   iff a plain prop expresses it exactly". The rule is sound and the narrowing
   was right, but it left deprecation-ness depending on the **value** — which
   TypeScript cannot express. So the typings carried no `@deprecated` while the
@@ -207,13 +247,13 @@ warning its own users about API they never wrote.
 
 > **A breaking change in a MINOR, deliberately.** Semver says this wants 2.0,
 > and it is not waiting: the agent surface is marked EXPERIMENTAL, shipped in
-> 1.8.0 five weeks ago, and the break makes it *less* permissive — code that
+> 1.8.0 five weeks ago, and the break makes it _less_ permissive — code that
 > keeps working keeps working, and code that stops was reading state it never
 > declared. Deferring to 2.0 would mean knowingly leaving a default that leaked
 > secrets in four distinct ways. **Restoring the old behaviour is one word**
 > (`expose: 'all'`), and the surface says so at runtime.
 >
-> One break is *compile-time*: `describe().exposure`'s union changed, so
+> One break is _compile-time_: `describe().exposure`'s union changed, so
 > `'read-only'` / `'introspection'` no longer typecheck. Nothing else in
 > tosijs — `Component`, `bind`, `tosi`, the element factories — changes.
 
@@ -232,7 +272,7 @@ warning its own users about API they never wrote.
 
   Undeclared state is now **absent, not redacted**: it never enters the map,
   the elements bound to it never appear in `wiring`, and reads refuse the path.
-  Redaction returns to its honest role — defence in depth for what you *did*
+  Redaction returns to its honest role — defence in depth for what you _did_
   declare, and the only guard under `expose: 'all'`.
 
   **To restore the old behaviour, say so**: `expose: 'all'` while developing
@@ -240,7 +280,7 @@ warning its own users about API they never wrote.
   else changes; the manifest path already did all of this.
 
 - **The closed posture maps nothing — including the DOM.** The first cut of
-  this change gated only *state*, and `describe()` still returned wiring
+  this change gated only _state_, and `describe()` still returned wiring
   records for a bare `<a href>` (tokens in query strings), a contenteditable
   (a user's live draft), a self-declaring custom element (its private action
   namespace and attribute defaults) and the entire structural tier — including
@@ -249,19 +289,19 @@ warning its own users about API they never wrote.
   become `wired`, only two consulted posture. There is now one gate on the
   walk rather than five conditions to keep in step.
 - **A MANIFEST closes the DOM walk too.** The first attempt at the above put
-  one gate on the walk keyed to the *closed* posture — which closed the closed
+  one gate on the walk keyed to the _closed_ posture — which closed the closed
   posture and left the **manifest** posture, the one this page calls the
   production floor, publishing exactly what `read()` refuses: a token in an
   `<a href>`, a user's live contenteditable text, a private component's
   description and action namespace, and the rendered text of a binding to an
   undeclared path. Under any allowlist an element now earns its place on the
-  map by being *declared* — an in-scope binding or an in-scope handler — never
+  map by being _declared_ — an in-scope binding or an in-scope handler — never
   by merely existing in the DOM.
 - **The harvest guards can see out-of-scope bindings.** `boundPaths` was built
   after the publishing loop's in-scope filter, so an element bound only to
   undeclared paths reached the secrecy guard with an empty list and its text
-  was published. Scope-filtering what is *published* is right; scope-filtering
-  what the guards can *see* is what let it out.
+  was published. Scope-filtering what is _published_ is right; scope-filtering
+  what the guards can _see_ is what let it out.
 - **`aria-labelledby` / `aria-describedby` cannot launder a secret.** Those
   resolve an id to any node in the document, while every other guard is a
   subtree query — so a heading labelled from a `data-tosi-secret` span
@@ -271,14 +311,14 @@ warning its own users about API they never wrote.
   "the surface refused before any contract ran" by substring-matching the
   refusal's prose, which coupled a security gate to its own wording. 1.9.0
   rewrote every message: all three substrings became unreachable and the
-  refusal that *does* fire ("is callable, not writable") matched none, so a
+  refusal that _does_ fire ("is callable, not writable") matched none, so a
   contract of nothing but `$counterexamples` returned `{ passed: 2, failed: 0 }`
   — identical to a validated run, in an API consumers run in their own CI.
   Refusals now carry `err.tosiRefusal`; `isAgentRefusal()` is exported.
 - **The structural tier obeys scope, secrecy and `aria-hidden`.** It re-visits
   elements the main walk deliberately rejected — and read their `textContent`
-  with none of the main walk's guards, defeating all three independently *in
-  every posture, including a correctly-narrowed manifest*. A heading bound to
+  with none of the main walk's guards, defeating all three independently _in
+  every posture, including a correctly-narrowed manifest_. A heading bound to
   an undeclared path published what a manifest refused; a heading containing a
   `data-tosi-secret` descendant laundered the author's own opt-in.
 - **`describe().exposure` values renamed**: `'read-only'` → `'closed'`,
@@ -296,7 +336,7 @@ warning its own users about API they never wrote.
   redacted on a DOM record's own flag and never consulted the PATH, violating
   the invariant the module states out loud. Two shapes leaked, both in the
   **read-only default posture** and both through `tosi_describe` — the one
-  WebMCP tool published in *every* posture, while `tosi_read` sits behind a
+  WebMCP tool published in _every_ posture, while `tosi_read` sits behind a
   gate precisely because reads are considered too much to publish unasked:
   an element bound to an **ancestor** of a secret serialised the whole subtree,
   and an element bound to the **exact** secret path with a non-value binding
@@ -324,7 +364,7 @@ warning its own users about API they never wrote.
   an agent constructing an odd query: tosijs's own id-path synthesis records
   both spellings on an ordinary write, so `changes()` handed them over side by
   side with the agent constructing nothing — and a manifest did not contain it,
-  because the aliased path is *inside* the declared root and declaring the
+  because the aliased path is _inside_ the declared root and declaring the
   manifest is what turns reads on. Now fails closed: an index-spelled path into
   an array that has a registered idPath and a secret beneath it is treated as
   secret, comparing the part after the index so ordinary fields still describe.
@@ -338,7 +378,7 @@ warning its own users about API they never wrote.
 
 - **`read()` over a secret-bearing collection is no longer quadratic.** Every
   node of a read tested secrecy by linearly scanning every known secret path,
-  so a page whose *secret count* grows with its row count read quadratically:
+  so a page whose _secret count_ grows with its row count read quadratically:
   800 password-bound rows took **686ms**, growing 4.1× per doubling. Now
   **5.0ms** and linear. `extendsPath` is a segment-boundary prefix test, which
   makes the two predicates exact restatements — an ancestor walk for "is this
@@ -352,7 +392,7 @@ warning its own users about API they never wrote.
 ### Changed
 
 - **The `bind*` deprecation rule now applies uniformly, and depends on the
-  VALUE.** A shortcut is deprecated iff a plain prop expresses it *exactly*:
+  VALUE.** A shortcut is deprecated iff a plain prop expresses it _exactly_:
   true for a **proxy** (`{ textContent: proxy }`, `{ disabled: proxy }`), false
   for a **path string**, where `textContent: 'path'` sets literal text and
   `disabled: 'path'` assigns an always-truthy string that permanently disables
@@ -367,7 +407,7 @@ warning its own users about API they never wrote.
 
 - **The exposure ladder is documented consistently.** `agent-surface.md` still
   taught "read-only introspection — what a bare `enableAgentInterface()` gives
-  you" *directly beneath* "Off (default) — nothing", and that contradiction
+  you" _directly beneath_ "Off (default) — nothing", and that contradiction
   shipped in the served site. `src/webmcp.ts`'s doc block still described the
   no-options default as read-only over the whole registry while its own code
   comment twenty lines below said the opposite, and its worked example used a
@@ -379,7 +419,7 @@ warning its own users about API they never wrote.
   announcing breaks.
 - **The agent docs now document secrets at all.** The page never mentioned
   redaction, so neither the guarantee nor its limit was discoverable. Adds a
-  *Secrets* section: secrecy is a property of the path (it follows the path to
+  _Secrets_ section: secrecy is a property of the path (it follows the path to
   every element bound to it and to every field beneath it), it is one-way for
   the session, and — stated plainly — it is **not** a defence against script
   running in your own page, which can read the state directly. It exists
@@ -389,7 +429,7 @@ warning its own users about API they never wrote.
 ### Fixed
 
 - **`bind` composes instead of clobbering.** A container can be list-bound
-  *and* carry its own binding. Previously one order silently dropped the
+  _and_ carry its own binding. Previously one order silently dropped the
   caller's binding and the other **destroyed the entire list**, with no error.
   Fixed at both addresses that fold element props — `create()` and
   `Component.hydrate()` — via one shared helper.
@@ -408,10 +448,10 @@ warning its own users about API they never wrote.
 ### Changed
 
 - **`bindList` is no longer deprecated, and `.tosi.listBinding()` returns the
-  same shape it always did.** `.tosi.listBinding()` is *sugar over* `bindList`,
+  same shape it always did.** `.tosi.listBinding()` is _sugar over_ `bindList`,
   so deprecating the primitive made the recommended API warn its own callers
   from inside itself — and the warning could not even be phrased as a props key
-  (*"Use `{ .tosi.listBinding(): ... }`"*), because the suggested replacement is
+  (_"Use `{ .tosi.listBinding(): ... }`"_), because the suggested replacement is
   a spread, not a prop. That was a category error, and routing around it rather
   than questioning it produced a silent list-destroying `bind` collision and a
   breaking change to a documented public return shape. Both are now moot.
@@ -438,7 +478,7 @@ warning its own users about API they never wrote.
   xinjs-era. The blueprint five were renamed in 1.7.6 — the other **22**
   (`XinStyleRule`, `XinStyleSheet`, `XinStyleMap`, `XinObject`, `XinBinding`,
   `XinProxy`, `XinProps`, `XinEventHandler`, …) were simply missed, and
-  untracked, for four releases. They were in the *documented* API: the
+  untracked, for four releases. They were in the _documented_ API: the
   component reference told you to type a stylesheet as `XinStyleSheet`.
 
   **Nothing breaks.** The aliases are type-only — no runtime cost, no bundle
@@ -453,7 +493,7 @@ warning its own users about API they never wrote.
 ### Fixed
 
 - **The DOM-free gate no longer misdiagnoses an old `node` as a broken bundle.**
-  Both copies spawned whatever `node` was on PATH and blamed the *artifact* for
+  Both copies spawned whatever `node` was on PATH and blamed the _artifact_ for
   any non-zero exit, so on a machine whose default node predates modern ESM it
   reported `dist/state.js requires a DOM` — confident, specific and wrong,
   sending you to debug a shipped bundle instead of your toolchain. They now
@@ -476,7 +516,7 @@ under-described was the majority one.
 > `expose.contract` will change shape **without a deprecation cycle** while the
 > layering questions settle (tosijs#29, #30) — how `contract.attributes` and
 > `initAttributes` divide the work, and whether an integrator's overlay may
-> *embellish* a component's own declaration rather than replace it wholesale.
+> _embellish_ a component's own declaration rather than replace it wholesale.
 > Changes will land in patch and minor releases and will be called out here.
 >
 > **Nothing else in `Component` is in flux.** `initAttributes`, `content`,
@@ -492,7 +532,7 @@ under-described was the majority one.
   marker, whose `shape` is the type example. A `contract.attributes` entry
   still wins per key, being the richer statement.
 
-  Deliberately gated on an element already being *wired*, and it never makes
+  Deliberately gated on an element already being _wired_, and it never makes
   one wired: declaration remains the announce signal. Every component has
   attributes, so letting them announce would flood the map with every custom
   element on the page.
@@ -504,8 +544,8 @@ under-described was the majority one.
   `contract.attributes` **enriches** (`enum`, `const`, and whatever a
   registered schema engine adds). Declaring both is the intended shape.
 
-  The old rule was wrong twice over: the same two declarations *split across a
-  prototype chain* already merged cleanly — identical intent, opposite
+  The old rule was wrong twice over: the same two declarations _split across a
+  prototype chain_ already merged cleanly — identical intent, opposite
   outcomes, decided only by where you wrote them — and "one source of truth" is
   a property of an attribute **name**, not of a class, so two disjoint
   declarations threw despite creating no ambiguity.
@@ -515,7 +555,7 @@ under-described was the majority one.
   With no default anywhere it still throws, naming the attribute.
 
 - **The "ideally attributes live in the contract" nudge is gone.** Its only
-  real force was *"so one declaration feeds … the agents"* — true only because
+  real force was _"so one declaration feeds … the agents"_ — true only because
   `initAttributes` never reached `describe()`. It does now.
 
 ### Documentation
@@ -536,7 +576,7 @@ under-described was the majority one.
   (tosijs-ui#49 is fixed: `resolveWatchPaths()` folds `docPaths` in).
 - `tjs-lang` 0.10.1 → **0.13.6**. 0.13.0–0.13.5 were unusable — `convert`
   stripped `new` from every class declared in the module being converted, so
-  the output threw at *import* time on a static field initialiser (tjs-lang#37,
+  the output threw at _import_ time on a static field initialiser (tjs-lang#37,
   fixed upstream the day it was filed). Caught by the published-bundle smoke
   gate and by nothing else: all unit tests passed under the broken toolchain,
   because they exercise `src/` and the bug was in the emitter.
@@ -547,7 +587,7 @@ under-described was the majority one.
 
 **One source of truth for state, UI, and AI.** An app's affordances — what
 exists, what it's bound to, what it does — have always been recorded by tosijs
-in order to *run* the app. 1.8.0 lets you ask for them.
+in order to _run_ the app. 1.8.0 lets you ask for them.
 
 The three release candidates below carry the detail; this is what changed since
 **1.7.9**, and what to know before upgrading.
@@ -565,7 +605,7 @@ The three release candidates below carry the detail; this is what changed since
 > behaviours — `on<Event>` member precedence, and what a type-contradicting
 > attribute write does — neither of which carried a prior deprecation warning.
 > A consumer on `^1.7.9` receives all of it on a routine update. The deprecated
-> *exports* survive as working aliases naming 2.0, so nothing breaks at import;
+> _exports_ survive as working aliases naming 2.0, so nothing breaks at import;
 > the markup path and the two flips are the real exposure.
 
 > **Size, measured rather than claimed.** The agent surface is opt-in and shakes
@@ -581,11 +621,11 @@ The three release candidates below carry the detail; this is what changed since
 - **The agent surface** — `enableAgentInterface()` gives
   `describe`/`read`/`write`/`observe`/`call`/`changes`/`when`/`log` over the
   wiring tosijs already records. **Read-only by default**; a manifest scopes
-  what may be *seen*, and `write: true` is a separate grant.
+  what may be _seen_, and `write: true` is a separate grant.
   `agent.version` reports shape and capabilities so consumers can ask instead
   of duck-typing.
 - **WebMCP auto-registration** where the browser provides a host, with the tool
-  set *generated* from the map rather than hand-written.
+  set _generated_ from the map rather than hand-written.
 - **Contracts at three granularities** — app (`expose.contract`), component
   (`static contract`), and inline (`contract` on an element) — executable as
   tests via `exerciseContract()` / `exerciseComponent()`.
@@ -605,10 +645,10 @@ tosijs **#18** (DOM-free entry), **#22** (`on<Event>` shadowing component
 methods), **#23** (agent version/capability marker), **#24** (wrong-typed
 attribute writes silently discarded), **#27** (computed/derived attributes).
 
-**Known, still open:** **#26** — an unknown *key* passed to `elementCreator` is
+**Known, still open:** **#26** — an unknown _key_ passed to `elementCreator` is
 still absorbed by `ElementProps`' index signature and silently dropped. Note the
-boundary, since 1.8.0 fixed its sibling: a wrong-*type* write to a *declared*
-prop is applied and reported (#24); an unknown *key* is still dropped (#26).
+boundary, since 1.8.0 fixed its sibling: a wrong-_type_ write to a _declared_
+prop is applied and reported (#24); an unknown _key_ is still dropped (#26).
 Also open: **#17** (proxy-identity seam — `src/xin.ts` is unchanged in 1.8.0, so
 fresh-proxy-per-access still holds), **#16** (semantic-parent accessor),
 **#9** (virtual-list resize).
@@ -634,7 +674,7 @@ regression in the agent surface; if you installed it, upgrade.
   a cache to the secret-path scan, keyed on a binding-generation counter. The
   counter was bumped from three call sites, two of them inside a
   `dataBindings == null` guard — so only an element's **first** binding bumped
-  it, and a control that *became* secret afterwards was never re-learned. Five
+  it, and a control that _became_ secret afterwards was never re-learned. Five
   reachable paths returned cleartext where rc.1 returned `⟨secret⟩`:
 
   1. `type` flipped to `password` after a read (a show/hide toggle)
@@ -647,7 +687,7 @@ regression in the agent surface; if you installed it, upgrade.
   Reachable under every posture, since `read`/`changes`/`when` share the path,
   and `tosi_read` publishes it to a WebMCP host.
 
-  **The cache is reverted, not repaired.** Three of the five are *attribute*
+  **The cache is reverted, not repaired.** Three of the five are _attribute_
   changes on an element that never re-binds, so no binding-shaped signal can
   observe them; correctness would need a MutationObserver on
   `type`/`autocomplete`/`data-tosi-secret` plus a bump at every binding
@@ -661,7 +701,7 @@ regression in the agent surface; if you installed it, upgrade.
 ### Fixed
 
 - **The `contractviolation` latch was one-way.** Bad value → event; valid value
-  → nothing; the *same* bad value again → silence, on both the event and the
+  → nothing; the _same_ bad value again → silence, on both the event and the
   console. An app showing a validation banner could never re-show it after the
   user corrected and re-broke the field. The latch now clears on recovery.
 - **`detail.repeated` is removed.** rc.2's notes advertised it as the way to
@@ -680,7 +720,7 @@ regression in the agent surface; if you installed it, upgrade.
   `initAttributes` declares an attribute the class implements itself with an
   ordinary `get`/`set`. tosijs wraps the setter so a change always re-renders —
   you never call `queueRender()` — and the name joins `observedAttributes`, so
-  markup changes re-render too. The argument is a *shape*, not a default:
+  markup changes re-render too. The argument is a _shape_, not a default:
   markup delivers strings and presence, so those are the two. A getter with no
   setter is a read-only derived attribute.
 
@@ -707,7 +747,7 @@ documented claim that turned out to be false.
   `console.error` beside it is warn-once; the event was not. For an object- or
   array-valued contract the upstream identity guard never matches — the proxy
   returns a fresh object per access — so a persistently violating contract
-  dispatched a bubbling event on *every* pass for the life of the page.
+  dispatched a bubbling event on _every_ pass for the life of the page.
   Measured with the fix bypassed: 6 events over 6 passes, still climbing.
   **Now once per element per distinct reason.** That changes what a listener
   counts — distinct violations rather than binding-dispatch frequency — which
@@ -718,7 +758,7 @@ documented claim that turned out to be false.
 - **A type-contradicting attribute write now reads back as written**
   (completes tosijs#24). rc.1 applied and reported the write instead of
   silently discarding it, but the setter reflects to the attribute as a
-  *string* and the getter prefers the attribute — so `el.mode = false` on a
+  _string_ and the getter prefers the attribute — so `el.mode = false` on a
   string-declared attribute read back the truthy string `"false"`, which is
   precisely the bug the error message says it does not have. An external
   `setAttribute` still wins, and a correctly-typed write clears the override.
@@ -728,7 +768,7 @@ documented claim that turned out to be false.
 - **`settings.quiet` means something.** It promised to silence "advisory
   warnings and friends" while being honoured at 2 of ~20 sites. Deprecations
   and the `on<Event>` collision advice now honour it; everything that reports
-  something *wrong* deliberately does not, and the docs now enumerate both
+  something _wrong_ deliberately does not, and the docs now enumerate both
   lists.
 - Three internal links that 404 on the deployed site (case-sensitive host,
   case-insensitive filesystem — they looked fine locally). One was from the
@@ -757,7 +797,7 @@ documented claim that turned out to be false.
 Three gates were reporting green without checking anything: a bundle test that
 skipped via a silent `return` (during `bun run build`, always), a gzip-budget
 "test" that was three string assertions against the build script's source, and
-a browser-tier gate asserting only that *something* ran. All three now fail
+a browser-tier gate asserting only that _something_ ran. All three now fail
 when they should — each verified by making it fail.
 
 The published-artifact list existed five times and had drifted (`main.js` was
@@ -787,14 +827,13 @@ before release. It was a security regression: see the 1.8.0-rc.3 entry.
 > deprecation warning, and the Apache-2.0 relicense.
 
 > **This release deviates from semver, and it should say so.** A minor version
-> is supposed to be additive, and most of 1.8.0 is. But it also **removes**
-> `data-ref` (the only removal that was pre-announced with a version),
+> is supposed to be additive, and most of 1.8.0 is. But it also **removes** > `data-ref` (the only removal that was pre-announced with a version),
 > **removes** `<xin-slot>` markup handling, reduces `<xin-blueprint>` and
 > `<xin-loader>` to inert warning tombstones, and **flips two behaviours** —
 > `on<Event>` member precedence, and what happens on a type-contradicting
 > attribute write — neither of which carried a prior deprecation warning. A
 > consumer on `^1.7.9` receives all of it on a routine update. The deprecated
-> *exports* (`xinSlot`, `blueprint`, `blueprintLoader`) were restored as
+> _exports_ (`xinSlot`, `blueprint`, `blueprintLoader`) were restored as
 > working aliases naming 2.0, so nothing breaks at import; the markup path and
 > the two behaviour flips are the real exposure. We judged one honest note
 > better than a 2.0 nobody is ready for — but you are entitled to know which
@@ -807,11 +846,10 @@ tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
 ### Added — the agent surface
 
 > **EXPERIMENTAL.** The agent surface, schematic renderer, audit and
-> contract harnesses are new public API. What 1.x promises: the *record
-> shape* is a versioned contract (`agent.version.surface` plus an
+> contract harnesses are new public API. What 1.x promises: the _record
+> shape_ is a versioned contract (`agent.version.surface` plus an
 > enumerable capability list), and we bump it rather than change the shape
 > silently. Names and options may still move in a minor.
-
 
 - **`enableAgentInterface()`** — one call exposes `describe` / `read` /
   `write` / `observe` / `call` / `changes(cursor)` / `when(path, predicate)`
@@ -863,8 +901,8 @@ Three modes, and the safest is the one you get for free:
 | call                                                             | what it grants                                                                                                                                             |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enableAgentInterface()`                                         | **read-only introspection** — `describe`/`read`/`observe`/`changes`/`when`/`log` over everything; `write()` and `call()` refuse and say how to enable them |
-| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist — scoped **reads** and declared calls, nothing outside it visible                                                    |
-| `enableAgentInterface({ expose: { roots, write: true } })`       | the same allowlist, plus permission to **change** what it scopes                                                                                            |
+| `enableAgentInterface({ expose: { roots, actions, contract } })` | the **production shape**: an allowlist — scoped **reads** and declared calls, nothing outside it visible                                                   |
+| `enableAgentInterface({ expose: { roots, write: true } })`       | the same allowlist, plus permission to **change** what it scopes                                                                                           |
 | `enableAgentInterface({ expose: 'all' })`                        | everything read/write/call, deliberately, with a warning on every transition into it                                                                       |
 
 **A manifest scopes sight, not reach.** `roots` says what may be seen;

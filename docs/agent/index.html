@@ -53,25 +53,39 @@ automation. Nothing is recorded that tosijs doesn&#39;t already know; <code>desc
 assembles the picture on demand.</p>
 <p><strong>Nothing is exposed until you say so.</strong> Say what an agent may see, and that
 is exactly what it sees:</p>
-<pre><code>import { enableAgentInterface } from &#39;tosijs&#39;
+<pre><code>import { tosi, enableAgentInterface } from &#39;tosijs&#39;
+
+const { app } = tosi({ app: { cart: [], filter: &#39;&#39;, addItem() {} } })
 
 const agent = enableAgentInterface({
   expose: {
-    roots: [&#39;app.cart&#39;, &#39;app.filter&#39;],
-    actions: [&#39;app.addItem&#39;, &#39;app.checkout&#39;],
+    roots: [app.cart, app.filter],
+    actions: [app.addItem, app.checkout],
     write: true, // omit for scoped reads with no writes
   },
 })
 
 agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
-agent.read(&#39;app.filter&#39;)  // serializable value
-agent.observe(&#39;app.cart&#39;, (path) =&gt; { ... }) // push; returns un-observe
+agent.read(app.filter)    // serializable value
+agent.observe(app.cart, (path) =&gt; { ... }) // push; returns un-observe
 agent.changes(cursor)     // turn-based drain: final value per changed path
-await agent.when(&#39;app.order.status&#39;, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
-agent.write(&#39;app.filter&#39;, &#39;milk&#39;) // through the same observers as any write
-agent.call(&#39;app.addItem&#39;, &#39;buy milk&#39;)         // invoke an action by path
+await agent.when(app.order.status, (s) =&gt; s === &#39;confirmed&#39;) // await a condition
+agent.write(app.filter, &#39;milk&#39;) // through the same observers as any write
+agent.call(app.addItem, &#39;buy milk&#39;)           // invoke an action by path
 agent.log()               // the audit trail
 </code></pre>
+<p><strong>Paths or proxies, everywhere.</strong> Every verb and every manifest entry takes
+either — <code>agent.read(app.filter)</code> and <code>agent.read(&#39;app.filter&#39;)</code> are the same
+call, because the proxy already carries its path. Prefer the proxy: it survives
+a rename and it cannot be misspelled. Strings remain fully supported, and are
+what you want when the path arrives from outside the program (a tool call, a
+config file, a wire message).</p>
+<p>Anything that is <em>neither</em> — a plain object, a raw value read out of the tree —
+is <strong>refused</strong>, with <code>kind: &#39;path&#39;</code>. It used to be coerced with <code>String()</code>, so
+<code>roots: [app.cart]</code> declared a root named <code>&quot;[object Object]&quot;</code> and every read
+then failed as out-of-scope: a broken manifest whose error blamed the reader.
+Worse for a scalar, where <code>String()</code> yields the <em>value</em>, so <code>read(app.filter)</code>
+quietly read whatever path the filter text happened to spell.</p>
 <p>Undeclared state is not redacted, it is <strong>absent</strong>: it never enters the map,
 the elements bound to it never appear in <code>wiring</code>, and every verb refuses the
 path. A manifest scopes <strong>sight</strong>, not reach — <code>roots</code> says what may be seen,

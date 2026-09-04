@@ -11,24 +11,40 @@ assembles the picture on demand.
 **Nothing is exposed until you say so.** Say what an agent may see, and that
 is exactly what it sees:
 
-    import { enableAgentInterface } from 'tosijs'
+    import { tosi, enableAgentInterface } from 'tosijs'
+
+    const { app } = tosi({ app: { cart: [], filter: '', addItem() {} } })
 
     const agent = enableAgentInterface({
       expose: {
-        roots: ['app.cart', 'app.filter'],
-        actions: ['app.addItem', 'app.checkout'],
+        roots: [app.cart, app.filter],
+        actions: [app.addItem, app.checkout],
         write: true, // omit for scoped reads with no writes
       },
     })
 
     agent.describe()          // roots, wiring (elements ↔ paths ↔ handlers), actions
-    agent.read('app.filter')  // serializable value
-    agent.observe('app.cart', (path) => { ... }) // push; returns un-observe
+    agent.read(app.filter)    // serializable value
+    agent.observe(app.cart, (path) => { ... }) // push; returns un-observe
     agent.changes(cursor)     // turn-based drain: final value per changed path
-    await agent.when('app.order.status', (s) => s === 'confirmed') // await a condition
-    agent.write('app.filter', 'milk') // through the same observers as any write
-    agent.call('app.addItem', 'buy milk')         // invoke an action by path
+    await agent.when(app.order.status, (s) => s === 'confirmed') // await a condition
+    agent.write(app.filter, 'milk') // through the same observers as any write
+    agent.call(app.addItem, 'buy milk')           // invoke an action by path
     agent.log()               // the audit trail
+
+**Paths or proxies, everywhere.** Every verb and every manifest entry takes
+either — `agent.read(app.filter)` and `agent.read('app.filter')` are the same
+call, because the proxy already carries its path. Prefer the proxy: it survives
+a rename and it cannot be misspelled. Strings remain fully supported, and are
+what you want when the path arrives from outside the program (a tool call, a
+config file, a wire message).
+
+Anything that is *neither* — a plain object, a raw value read out of the tree —
+is **refused**, with `kind: 'path'`. It used to be coerced with `String()`, so
+`roots: [app.cart]` declared a root named `"[object Object]"` and every read
+then failed as out-of-scope: a broken manifest whose error blamed the reader.
+Worse for a scalar, where `String()` yields the *value*, so `read(app.filter)`
+quietly read whatever path the filter text happened to spell.
 
 Undeclared state is not redacted, it is **absent**: it never enters the map,
 the elements bound to it never appear in `wiring`, and every verb refuses the
@@ -122,6 +138,7 @@ import { contractViolation, ownContract } from './contract-check'
 import { bindings } from './bindings'
 import { propBindingKey } from './elements'
 import { webmcpAdapter, WebMCPAdapterOptions } from './webmcp'
+import type { BoxedProxy, BoxedScalar } from './xin-types'
 
 /**
  * The contract seam — tosijs stays zero-dependency, so the core doesn't know
@@ -230,8 +247,11 @@ export interface ComponentMap {
 }
 
 export interface AgentExpose {
-  roots?: string[]
-  actions?: string[]
+  /** state roots this surface may see — paths, or the proxies themselves:
+   * `roots: [app.cart]` and `roots: ['app.cart']` are the same manifest */
+  roots?: AgentPathRef[]
+  /** actions this surface may `call()` — paths or proxies, as with `roots` */
+  actions?: AgentPathRef[]
   contract?: AgentContract
   /**
    * Allow `write()` into the declared roots. **Defaults to false** — a
@@ -484,7 +504,7 @@ export interface AgentLogEntry {
  * byte-identical to a genuinely validated run, in a public API consumers run
  * in their own CI.
  */
-export type AgentRefusalKind = 'scope' | 'mutability' | 'callable'
+export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path'
 
 /** an Error carrying why the surface refused; `kind` survives message edits */
 export interface AgentRefusalError extends Error {
@@ -498,6 +518,62 @@ const refuse = (kind: AgentRefusalKind, message: string): AgentRefusalError => {
   const error = new Error(message) as AgentRefusalError
   error.tosiRefusal = kind
   return error
+}
+
+/**
+ * A path, or the thing that lives at it.
+ *
+ * Every verb and every manifest entry takes either — `agent.read('app.cart')`
+ * and `agent.read(app.cart)` mean the same thing, because a tosijs proxy
+ * already carries its own path and nobody should have to spell it twice.
+ *
+ * Hand-written paths are a transcription problem: they duplicate a fact the
+ * proxy knows, they don't move when you rename a root, and nothing checks
+ * them. This is the fix — but note what it does NOT fix, because a real
+ * session confused the two. A **wrong string** is still just a wrong string;
+ * only the proxy form is checked, and only because it isn't a string at all.
+ */
+export type AgentPathRef = string | BoxedProxy<any> | BoxedScalar<any>
+
+/**
+ * What `observe()` accepts: a path or proxy, or — under `expose: 'all'` only
+ * — a pattern matching many paths, which the underlying observer has always
+ * supported and which the map's own "redraw on any change" examples use.
+ */
+export type AgentObserveRef =
+  | AgentPathRef
+  | RegExp
+  | ((path: string) => boolean)
+
+/**
+ * Resolve a path-or-proxy to a path, and REFUSE anything else.
+ *
+ * The refusal is the point. Passing a non-proxy object used to reach
+ * `String(value)` — so `expose: { roots: [{}] }` declared a root literally
+ * named `"[object Object]"`, matched nothing, and every subsequent read was
+ * refused for being out of scope. The manifest was the broken thing and the
+ * error pointed at the reader: exactly the failure mode where you debug the
+ * wrong end for an hour. Fail where the mistake is.
+ */
+const toPath = (ref: AgentPathRef, where: string): string => {
+  if (typeof ref === 'string') return ref
+  const path = tosiPath(ref)
+  if (typeof path === 'string' && path !== '') return path
+  const got =
+    ref === null
+      ? 'null'
+      : Array.isArray(ref)
+      ? 'a raw array'
+      : typeof ref === 'object'
+      ? 'a plain object'
+      : typeof ref
+  throw refuse(
+    'path',
+    `agent interface: ${where} takes a path string ("app.cart") or a tosijs ` +
+      `proxy that knows its own path (what tosi() handed you) — got ${got}, ` +
+      `which carries none. A raw value read OUT of the state tree is not a ` +
+      `proxy: pass \`app.cart\`, not \`app.cart.value\` or a spread copy.`
+  )
 }
 
 export interface AgentInterface {
@@ -519,10 +595,13 @@ export interface AgentInterface {
      * to be legible in that frame, and so is its map. */
     view?: 'page' | 'viewport'
   }) => AgentDescription
-  read: (path: string) => any
-  write: (path: string, value: any) => void
-  observe: (path: string, callback: (path: string) => void) => () => void
-  call: (actionPath: string, ...args: any[]) => any
+  read: (path: AgentPathRef) => any
+  write: (path: AgentPathRef, value: any) => void
+  observe: (
+    path: AgentObserveRef,
+    callback: (path: string) => void
+  ) => () => void
+  call: (actionPath: AgentPathRef, ...args: any[]) => any
   changes: (since?: number) => {
     cursor: number
     changes: AgentChange[]
@@ -537,7 +616,7 @@ export interface AgentInterface {
    * you're waiting for and spend no inference until it arrives. The wait is
    * audit-logged. No built-in timeout — Promise.race one in if you need it.
    */
-  when: (path: string, predicate: (value: any) => boolean) => Promise<any>
+  when: (path: AgentPathRef, predicate: (value: any) => boolean) => Promise<any>
   log: () => AgentLogEntry[]
   disable: () => void
   /**
@@ -1512,8 +1591,12 @@ export function enableAgentInterface(
   const exposeAll = expose === 'all'
   const manifest =
     typeof expose === 'object' && expose !== null ? expose : undefined
-  const roots = manifest?.roots
-  const exposedActions = manifest?.actions
+  // resolved ONCE, at enable time, so a bad entry fails while you are still
+  // looking at the manifest — not later, from a read that names the wrong file
+  const roots = manifest?.roots?.map((ref) => toPath(ref, 'expose.roots'))
+  const exposedActions = manifest?.actions?.map((ref) =>
+    toPath(ref, 'expose.actions')
+  )
   const contract = manifest?.contract
   // contracted roots (the describe() keys) are read ONCE at enable time so
   // sub-path writes can be routed to a whole-root proposal
@@ -1728,7 +1811,8 @@ export function enableAgentInterface(
     return containsSecret(path) ? redactWithin([path], value) : value
   }
 
-  const read = (path: string): any => {
+  const read = (pathRef: AgentPathRef): any => {
+    const path = toPath(pathRef, 'read')
     refreshSecretPaths()
     return readScanned(path)
   }
@@ -2267,7 +2351,8 @@ export function enableAgentInterface(
 
     read,
 
-    write(path: string, value: any): void {
+    write(pathRef: AgentPathRef, value: any): void {
+      const path = toPath(pathRef, 'write')
       assertMutable('write', path)
       assertScope(path)
       if (!writable(path)) {
@@ -2336,8 +2421,32 @@ export function enableAgentInterface(
       xin[path] = value
     },
 
-    observe(path: string, callback: (path: string) => void): () => void {
-      assertScope(path)
+    observe(
+      pathRef: AgentObserveRef,
+      callback: (path: string) => void
+    ): () => void {
+      // A PATTERN IS NOT A PATH, and cannot be proven in scope. The
+      // underlying observer accepts a RegExp or a predicate and the map's own
+      // "redraw on anything" examples use `/./` — but a pattern says which
+      // paths it wants only by running, so under a manifest there is nothing
+      // to check it against. `expose: 'all'` has nothing to protect, so it is
+      // allowed there and refused everywhere else. It already failed under a
+      // manifest, with a raw `path.startsWith is not a function`; this says
+      // what is wrong instead.
+      const pattern = pathRef instanceof RegExp || typeof pathRef === 'function'
+      if (pattern && scoped) {
+        throw refuse(
+          'scope',
+          'agent interface: observe() takes a pattern (RegExp or predicate) ' +
+            "only under expose: 'all' — a pattern cannot be checked against " +
+            'a manifest, so it would observe outside the declared roots. ' +
+            'Name the paths you want, or observe a declared root directly.'
+        )
+      }
+      const path = pattern
+        ? (pathRef as unknown as string)
+        : toPath(pathRef as AgentPathRef, 'observe')
+      if (!pattern) assertScope(path)
       const listener = observe(path, callback)
       subscriptions.add(listener)
       let off = false
@@ -2349,7 +2458,8 @@ export function enableAgentInterface(
       }
     },
 
-    call(actionPath: string, ...args: any[]): any {
+    call(actionRef: AgentPathRef, ...args: any[]): any {
+      const actionPath = toPath(actionRef, 'call')
       assertMutable('call', actionPath)
       if (manifestMode && !(exposedActions ?? []).includes(actionPath)) {
         throw new Error(
@@ -2376,7 +2486,11 @@ export function enableAgentInterface(
 
     // await a state condition: the value now if it already satisfies,
     // otherwise the first settling round where it does
-    when(path: string, predicate: (value: any) => boolean): Promise<any> {
+    when(
+      pathRef: AgentPathRef,
+      predicate: (value: any) => boolean
+    ): Promise<any> {
+      const path = toPath(pathRef, 'when')
       assertScope(path)
       refreshSecretPaths()
       const current = serialize(xin[path])

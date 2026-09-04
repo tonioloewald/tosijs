@@ -83,10 +83,10 @@ README + a test that reads it.
       is unconfigured and name `expose`.
 - [ ] **~25 live doc examples were mechanically rewritten and nothing executes
       them** (`list-binding.ts`, `xin.ts`, `elements.ts`, `xin-proxy.ts`, as
-      ```` ```js ```` fences). This release's own advice warns that
+      ` ```js ` fences). This release's own advice warns that
       `textContent` with a path STRING sets literal text instead of binding —
       exactly the mistake that shipped once already and was caught only by the
-      browser lane. Promote a sample to ```` ```test ````.
+      browser lane. Promote a sample to ` ```test `.
 - [ ] **Re-measure the agent-surface size claims.** README and CLAUDE.md still
       carry "6.7 kB gz" and "+2.9 kB gz (+13.7%) vs 1.7.9" verbatim while
       `agent.ts` grew substantially; only the generated `<!-- sizes -->` block
@@ -99,7 +99,7 @@ README + a test that reads it.
 - [ ] **~260 gz bytes of dev-only deprecation prose ship in every bundle**,
       including `tosijs/core` and DOM-free `tosijs/state`, which will never
       print a `bindText` warning (`elements.ts`; `grep 'permanently DISABLING'
-      dist/*.js` hits all four). Keep the actionable half, move the explanation
+  dist/*.js` hits all four). Keep the actionable half, move the explanation
       behind a docs anchor.
 - [x] ~~**Decide the `bind*` string-form question.**~~ **DONE (1.9.0)** — the
       rule now applies uniformly and turns on the VALUE: deprecated iff a
@@ -130,11 +130,10 @@ README + a test that reads it.
       phrased as advice; (e) `releasing.md` already required a `Migration.md`
       entry and it was missed — make it a mechanical check.
 
-
 ## Benchmark numbers we publish, and the harness we do not have (round-4 M9)
 
 - [ ] **We publish µs figures with no benchmark harness behind them.** `find src
-      bin tests -iname '*bench*'` is empty; so is a grep for `performance.now`
+  bin tests -iname '*bench*'` is empty; so is a grep for `performance.now`
       or `Bun.nanoseconds` outside one-off probes. Every number quoted in the
       CHANGELOG and in this file came from an ad-hoc script under **happy-dom,
       in a shared test process** — which the shared practice on microbenchmark
@@ -197,30 +196,27 @@ package's own repository (it went stale once across the rename already).
 - [x] **E1 — DONE 2026-08-26, but it split in two.** The "one move" was
       tosijs-ui + tjs-lang + delete-the-`watchPaths`-duplication. Two of the
       three landed; the language bump did not, and the reason is a real bug
-      rather than the false peer-range story this entry used to carry.
-      - ✅ **tosijs-ui 1.9.4 → 1.12.0** (not 1.10.0 — three minors shipped
-        while 1.8.0 was in flight) and the 10-entry `watchPaths` array is
-        **deleted**. tosijs-ui#49 is genuinely fixed: `resolveWatchPaths()`
-        folds `docPaths` in and dedupes by resolved path. Build + 898 unit
-        tests + Playwright lane green, and **`dist/` is byte-identical to
-        committed 1.8.0**, so the new build host changes nothing shipped.
-      - ✅ **tjs-lang 0.10.1 → 0.13.6** (after a one-day detour at 0.12.0).
-        0.13.0–0.13.5's `convert` stripped `new` from every class declared in
-        the module it was converting, so the output threw `Cannot call a class
-        constructor without |new|` — at *import* time for static-field
-        initialisers. 15 sites across 4 of our modules, including
-        `UnsafePathError`, the prototype-pollution guard. Bisected to 0.13.0,
-        filed as **tjs-lang#37**, fixed upstream in **0.13.6** the same day.
-        Caught by the published-bundle smoke gate and by nothing else — all
-        898 unit tests passed under the broken toolchain, because they test
-        `src/` and the bug is in the emitter. Re-verified on 0.13.6 by repro,
-        green build, unit suite, Playwright 4/4, and by exercising the broken
-        paths in the built artifact. Cost ~340 gz bytes per tjs bundle, which
-        left 7 bytes of budget headroom — budgets raised 56k → 58k in the same
-        commit.
-      - The peer story is finally closed: since tosijs-ui 1.11.0, `tjs-lang` is
-        an **optional** peer, so 0.12.0 against `^0.13.1` is a warning and
-        nothing more. The peer range was never the blocker in either direction.
+      rather than the false peer-range story this entry used to carry. - ✅ **tosijs-ui 1.9.4 → 1.12.0** (not 1.10.0 — three minors shipped
+      while 1.8.0 was in flight) and the 10-entry `watchPaths` array is
+      **deleted**. tosijs-ui#49 is genuinely fixed: `resolveWatchPaths()`
+      folds `docPaths` in and dedupes by resolved path. Build + 898 unit
+      tests + Playwright lane green, and **`dist/` is byte-identical to
+      committed 1.8.0**, so the new build host changes nothing shipped. - ✅ **tjs-lang 0.10.1 → 0.13.6** (after a one-day detour at 0.12.0).
+      0.13.0–0.13.5's `convert` stripped `new` from every class declared in
+      the module it was converting, so the output threw `Cannot call a class
+    constructor without |new|` — at _import_ time for static-field
+      initialisers. 15 sites across 4 of our modules, including
+      `UnsafePathError`, the prototype-pollution guard. Bisected to 0.13.0,
+      filed as **tjs-lang#37**, fixed upstream in **0.13.6** the same day.
+      Caught by the published-bundle smoke gate and by nothing else — all
+      898 unit tests passed under the broken toolchain, because they test
+      `src/` and the bug is in the emitter. Re-verified on 0.13.6 by repro,
+      green build, unit suite, Playwright 4/4, and by exercising the broken
+      paths in the built artifact. Cost ~340 gz bytes per tjs bundle, which
+      left 7 bytes of budget headroom — budgets raised 56k → 58k in the same
+      commit. - The peer story is finally closed: since tosijs-ui 1.11.0, `tjs-lang` is
+      an **optional** peer, so 0.12.0 against `^0.13.1` is a warning and
+      nothing more. The peer range was never the blocker in either direction.
 
 - [x] **E1a — DONE 2026-08-26.** tjs-lang#37 was fixed in 0.13.6 and adopted
       the same day; see E1 above. Still worth doing separately: re-read #33/#35
@@ -228,11 +224,9 @@ package's own repository (it went stale once across the rename already).
 
 - [x] **FILED as tjs-lang#40 (2026-08-26): the `tjs convert` inline-test-runner
       failures — both of them.**
-      On every version tried, 0.10.1 through 0.13.6:
-      - `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner
-        does not resolve cross-module imports; `clamp` is in `more-math.ts`)
-      - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
-        statements must have at least a catch or finally block.`
+      On every version tried, 0.10.1 through 0.13.6: - `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner
+      does not resolve cross-module imports; `clamp` is in `more-math.ts`) - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
+    statements must have at least a catch or finally block.`
 
       **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
       and imports; the error is in the harness the runner wraps around the
@@ -267,24 +261,20 @@ package's own repository (it went stale once across the rename already).
       release, all still open), and record a STILL-OPEN disposition for #26,
       #17, #16, #9. Deliberately NOT done yet: closing them announces a
       release that has not been published. Do it as part of the publish
-      ceremony. When closing #22, state the fix's *condition* — sugar is
+      ceremony. When closing #22, state the fix's _condition_ — sugar is
       suppressed only when the member already HOLDS a function.
 - [ ] **E4 — comment on haltija#16 and tosijs-ui#59.** Both are gated on
       "tosijs ships the agent surface" / "tosijs 1.8.0 beta-rc"; the condition
       is met. Same reasoning as E3 — post when the rc actually publishes.
 - [x] **E8 — DONE for the two consumers present locally (2026-08-21).** Packed
       the rc tarball and ran each against it, restoring `node_modules`
-      afterwards:
-      - **tosijs-ui** (pins tosijs `1.7.8` exactly): `bun test` →
-        **1003 pass / 0 fail**, 60 files.
-      - **tosijs-3d** (`^1.7.8`): `bun run build` → exit 0, 117 static pages.
-      - **react-tosijs**: *not checked out locally, so untested.* The residual
-        risk is low for a specific reason rather than by hope: it ships state
-        hooks with no DOM surface, and every removal in 1.8.0 is DOM-side
-        (`data-ref`, `<xin-slot>`, the blueprint tags) or component-side (the
-        `on<Event>` precedence flip). Verify before it adopts 1.8.0 anyway.
-      - Still open: bump react-tosijs / ngx-tosijs off `^1.0.6` in their next
-        releases — a range that wide is exposure to changes nobody reviewed.
+      afterwards: - **tosijs-ui** (pins tosijs `1.7.8` exactly): `bun test` →
+      **1003 pass / 0 fail**, 60 files. - **tosijs-3d** (`^1.7.8`): `bun run build` → exit 0, 117 static pages. - **react-tosijs**: _not checked out locally, so untested._ The residual
+      risk is low for a specific reason rather than by hope: it ships state
+      hooks with no DOM surface, and every removal in 1.8.0 is DOM-side
+      (`data-ref`, `<xin-slot>`, the blueprint tags) or component-side (the
+      `on<Event>` precedence flip). Verify before it adopts 1.8.0 anyway. - Still open: bump react-tosijs / ngx-tosijs off `^1.0.6` in their next
+      releases — a range that wide is exposure to changes nobody reviewed.
 
 - [ ] **THE CONSUMER LIST IS NOT DERIVABLE FROM npm, and I asserted otherwise.**
       Asked whether tosijs has consumers outside this ecosystem, I ran
@@ -368,6 +358,7 @@ package's own repository (it went stale once across the rename already).
       into the proxy — at which point "what does the validator see" is a
       first-class design question rather than a side effect. The spine-clone
       implementation is in the history if wanted.
+
 - [x] **DONE (1.8.x, post-rc.1) — and the win is smaller than the finding
       implied, recorded honestly.** Cached against a `bindingGeneration()`
       counter bumped on binding registration and on observed insertion.
@@ -377,7 +368,7 @@ package's own repository (it went stale once across the rename already).
       browser's document query over a large tree is likely worse than
       happy-dom's. **It is an optimisation inside a SECURITY path**, so the
       bump signal is deliberately generous (removals never bump — the secret
-      set only grows) and two tests pin what matters: a secret bound *after* an
+      set only grows) and two tests pin what matters: a secret bound _after_ an
       earlier read, and one bound while DETACHED then inserted — the case a
       naive dirty flag misses, since bind-time scanning cannot see an
       off-document element.
@@ -563,7 +554,7 @@ package's own repository (it went stale once across the rename already).
       filing it here is the deferral the KB explicitly warns against. Five
       edits, each attributed `— seen in: tosijs 1.8.0`: (a) `00-stack.md:122`
       and `review.md:9-26` omit tosijs from the has-CI list (`.github/workflows/
-      ci.yml` since e12d641); (b) `web-components.md:90,95,96,130` and
+  ci.yml` since e12d641); (b) `web-components.md:90,95,96,130` and
       `model-priors.md:66` still teach `xinSlot()`/`<xin-slot>`; (c)
       `web-components.md:169-182` teaches the unconditional `on<Capital>` rule
       this release inverted — rewrite WITH the determinism caveat; (d)
@@ -579,7 +570,7 @@ package's own repository (it went stale once across the rename already).
       issue-closure step anywhere in the ceremony** — that is the structural
       cause of E3, not the four issues.
 - [ ] **P5** — CLAUDE.md's Component Conventions never mentions `static
-      contract`, while `contract.attributes` + `initAttributes` on one class is
+  contract`, while `contract.attributes` + `initAttributes` on one class is
       a hard throw. Second consecutive release in which it drifted behind a
       component-API change; consider haltija's `docs-coverage.test.ts`
       CONCEPTS-table mechanism so drift is a failing test.
@@ -635,9 +626,10 @@ work" scoped honestly.
 ### 🔴 ESCALATED on review — three fixed, one de-escalated after discussion
 
 - [x] ~~**`share`/`sync`/`hot-reload` bypass contract enforcement.**~~
-  **DE-ESCALATED after review (2026-08-17) — not a major, and arguably not a
-  defect.** I escalated this as a security hole; it is a *trust boundary*,
-  and the boundary is drawn correctly:
+      **DE-ESCALATED after review (2026-08-17) — not a major, and arguably not a
+      defect.** I escalated this as a security hole; it is a _trust boundary_,
+      and the boundary is drawn correctly:
+
   - `share()` peers are **same-origin by construction** (BroadcastChannel).
     Injecting a message requires code execution on the origin — and anything
     with that can call `xin[path] = …` directly, so a contract check adds
@@ -655,109 +647,110 @@ work" scoped honestly.
   The one real residual is **version skew** (a v2 tab or a server ahead of
   the client pushing a shape the receiver doesn't expect) — a data-migration
   problem, not a security one, and one where refusing the write leaves the
-  receiver *stuck* rather than merely inconsistent. Scheduled as an opt-in,
+  receiver _stuck_ rather than merely inconsistent. Scheduled as an opt-in,
   not a default:
+
 - [ ] Optional `validate: true` on `share()`/`sync()` for the version-skew
-  case, routing inbound deltas through the same contract check as
-  `agent.write()` — with a documented failure mode (the delta is dropped and
-  reported, not applied).
+      case, routing inbound deltas through the same contract check as
+      `agent.write()` — with a documented failure mode (the delta is dropped and
+      reported, not applied).
 - [x] ~~`describe().contract` advertises constraints `write()` will not
-  enforce.~~ **FIXED** — superseded inline schemas are dropped from the
-  emitted contract, so the map never states a rule the surface won't apply.
+      enforce.~~ **FIXED** — superseded inline schemas are dropped from the
+      emitted contract, so the map never states a rule the surface won't apply.
 - [x] ~~Contract validation fails open, silently.~~ **FIXED** — the
-  built-in checker now warns once per keyword set when a schema declares
-  constraints it cannot enforce, naming `setContractValidator`. Still
-  paired with the upstream tosijs-schema vendorable-core ask, which would
-  remove the divergence entirely.
+      built-in checker now warns once per keyword set when a schema declares
+      constraints it cannot enforce, naming `setContractValidator`. Still
+      paired with the upstream tosijs-schema vendorable-core ask, which would
+      remove the divergence entirely.
 - [x] ~~`exerciseContract` counts a surface REFUSAL as a passing
-  counterexample.~~ **FIXED** — a read-only surface is refused up front with
-  an actionable message; scope refusals and unreadable roots are recorded as
-  *inconclusive* failures. A harness that validated nothing can no longer
-  report green.
+      counterexample.~~ **FIXED** — a read-only surface is refused up front with
+      an actionable message; scope refusals and unreadable roots are recorded as
+      _inconclusive_ failures. A harness that validated nothing can no longer
+      report green.
 
 ### 🟠 Scheduled — correctness & packaging
 
 - [ ] `globalThis.tosiAgent` has no collision detection — and two copies on
-  a page is a scenario the scaffolder actively creates.
+      a page is a scenario the scaffolder actively creates.
 - [ ] WebMCP `provideContext` unregister BLANKS the page's entire tool set,
-  including tools tosijs never registered.
+      including tools tosijs never registered.
 - [ ] `on<Event>` member-vs-sugar depends on custom-element UPGRADE TIMING,
-  which is exactly the blueprint case. Decide from `customElements.get(tag)`.
+      which is exactly the blueprint case. Decide from `customElements.get(tag)`.
 - [ ] The tosijs#24 mismatch route stringifies across the connect boundary
-  (`false` before append, `"false"` after) while its error says nothing is
-  coerced.
+      (`false` before append, `"false"` after) while its error says nothing is
+      coerced.
 - [ ] `contract` became a reserved creator prop with no collision warning.
 - [ ] `tosijs/state` emits `MODULE_TYPELESS_PACKAGE_JSON` under node and has
-  no `require` condition — for exactly the CJS-likeliest audience. Emit
-  `.mjs` (the build already does this for the CLI) or declare ESM-only.
+      no `require` condition — for exactly the CJS-likeliest audience. Emit
+      `.mjs` (the build already does this for the CLI) or declare ESM-only.
 - [ ] CJS `dist/main.js` grew ~49% carrying the agent surface, with no slim
-  door (`./core` and `./state` declare only `import`).
+      door (`./core` and `./state` declare only `import`).
 - [ ] `index-browser.ts` copy-pastes index.ts's non-core exports; nothing
-  forces a new full-entry export into the CDN artifact.
+      forces a new full-entry export into the CDN artifact.
 - [ ] `bun start` rewrites the tracked `src/schematic.ts` from a floating
-  `^0.3.0` devDep. Pin exactly; run `vendorSchematic()` only under `--build`
-  (verify-and-fail otherwise).
+      `^0.3.0` devDep. Pin exactly; run `vendorSchematic()` only under `--build`
+      (verify-and-fail otherwise).
 
 ### 🟡 Scheduled — efficiency (confirmed by code shape; none is a ship-stopper)
 
 - [ ] Ledger trim is an O(maxLog) splice per touch once saturated (~8%);
-  amortize, and make `maxLog: 0` mean *don't record*.
+      amortize, and make `maxLog: 0` mean _don't record_.
 - [ ] `changes()` is quadratic via `unshift` — push, then one reverse.
 - [ ] `inlineSchemaFor()` walks every bound element on every `agent.write()`.
 - [ ] `webmcpTools()` forces a full `describe()` (layout flush) at boot just
-  to read `actions`.
+      to read `actions`.
 - [ ] `bindingName`/`propBindingKey` do linear identity scans per record.
 - [ ] `describe()` has no benchmark or budget, on the path a WebMCP host may
-  call every turn.
+      call every turn.
 
 ### 🟡 Scheduled — audit / renderer consistency
 
 - [ ] The audit re-implements the renderer's interactivity and target-size
-  rules and has drifted; make the audit the single implementation once
-  [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4)
-  lands. **Disclosed** in the audit doc block and the CHANGELOG meanwhile
-  (which verdict to trust, and why).
+      rules and has drifted; make the audit the single implementation once
+      [tosijs-floorplan#4](https://github.com/tonioloewald/tosijs-floorplan/issues/4)
+      lands. **Disclosed** in the audit doc block and the CHANGELOG meanwhile
+      (which verdict to trust, and why).
 - [ ] `boundsOf()` (window scroll only) and `measureBounds()` (accumulates
-  ancestor scroll) define "page coordinates" differently, so the documented
-  `within: boundsOf(el)` idiom mis-selects in inner-scroll apps.
+      ancestor scroll) define "page coordinates" differently, so the documented
+      `within: boundsOf(el)` idiom mis-selects in inner-scroll apps.
 - [ ] No conformance test that the vendored renderer and the producer agree
-  on the record shape and provenance tokens.
+      on the record shape and provenance tokens.
 
 ### 🟡 Scheduled — coverage (every red or inert test stays scheduled)
 
 - [ ] **Eight red `tjs convert` signature tests on every build**
-  (`src/color.ts`, "clamp is not defined"); `tjs convert` exits 0, so the
-  build reports success. Pre-existing and NOT dismissed: a new failure is
-  indistinguishable from it.
+      (`src/color.ts`, "clamp is not defined"); `tjs convert` exits 0, so the
+      build reports success. Pre-existing and NOT dismissed: a new failure is
+      indistinguishable from it.
 - [x] ~~The `expose: 'all'` consent-warning assertion can never fail;
-  `readOnlyNoticeGiven` has no test.~~ **FIXED** — `_resetPostureNotices()`
-  (the test-only-reset pattern the deprecation registry already uses) makes
-  both assertable; the consent warning is now asserted unconditionally, and
-  the read-only notice has a test including that `settings.quiet` silences
-  it.
+      `readOnlyNoticeGiven` has no test.~~ **FIXED** — `_resetPostureNotices()`
+      (the test-only-reset pattern the deprecation registry already uses) makes
+      both assertable; the consent warning is now asserted unconditionally, and
+      the read-only notice has a test including that `settings.quiet` silences
+      it.
 - [ ] No compile-time verification of `PartsOf<T>` / `Component<typeof
-  contract>` — the release's headline TYPE feature lives in files tsc never
-  sees. Add an *included* `.types.ts` with positive and `@ts-expect-error`
-  cases.
+contract>` — the release's headline TYPE feature lives in files tsc never
+      sees. Add an _included_ `.types.ts` with positive and `@ts-expect-error`
+      cases.
 - [ ] `measureBounds()`'s scroll accumulation and fixed/sticky detection are
-  untested in both tiers (happy-dom reports zeros).
-- [ ] CLI error branches untested; the scaffolded *app* is never executed.
+      untested in both tiers (happy-dom reports zeros).
+- [ ] CLI error branches untested; the scaffolded _app_ is never executed.
 - [ ] `src/cli.test.ts` leaves temp directories behind.
 
 ### 🟡 Scheduled — docs
 
 - [ ] `static contract` / `ComponentMap` is absent from the canonical
-  component reference page, though `contract.attributes` supersedes
-  `initAttributes` and declaring both throws.
+      component reference page, though `contract.attributes` supersedes
+      `initAttributes` and declaring both throws.
 - [x] ~~CLAUDE.md's "Core modules" map omits all six new modules and the
-  five entry modules.~~ **FIXED** — both groups documented, with the
-  vendoring hazard and the same-file reason for `tosijs/agent`.
+      five entry modules.~~ **FIXED** — both groups documented, with the
+      vendoring hazard and the same-file reason for `tosijs/agent`.
 - [ ] The headline feature sits under "Utilities" in the nav and is
-  unreachable from the README.
+      unreachable from the README.
 - [ ] `headless-embodiment.md`'s front matter advertises `elementsSSR` as a
-  tosijs API; it does not exist, and the string ships in `llms.txt`.
+      tosijs API; it does not exist, and the string ships in `llms.txt`.
 - [ ] The review reports sit at the repo root asserting resolved claims as
-  current — date-stamp and move to `reviews/`.
+      current — date-stamp and move to `reviews/`.
 
 ### 📤 Filed upstream (mirrored in UPSTREAM.md)
 
@@ -775,41 +768,40 @@ work" scoped honestly.
 ### 📣 At publish
 
 - [ ] Close #18, #22, #23, #24 naming v1.8.0, **with two honest caveats**:
-  #22's member-wins applies only to custom elements when both sides are
-  functions; #24's fix is declaration-based and covers tosijs Components
-  only, not third-party custom elements.
+      #22's member-wins applies only to custom elements when both sides are
+      functions; #24's fix is declaration-based and covers tosijs Components
+      only, not third-party custom elements.
 - [ ] Comment on haltija#16 (the hold is lifted) and tosijs-ui#59 (the gate
-  is met); add an "Unblocks" section to the CHANGELOG naming both.
+      is met); add an "Unblocks" section to the CHANGELOG naming both.
 - [ ] Give #9, #16, #17, #26 a recorded disposition — fix, re-scope, or
-  close as stale.
+      close as stale.
 - [ ] Deprecate `create-xinjs-blueprint` on npm with a pointer.
 
 ### 🔧 Process — route to `tosijs-coding-practices`
 
 - [ ] **The nine-lens review has no security lens.** The one release whose
-  headline feature is a remotely-drivable control surface shipped round 1
-  with `security: NEVER RAN`, and round 2's B2/B3/B5 are the second
-  demonstration. Add a conditional tenth lens, and make the report contract
-  carry a mandatory `security: RAN (…) | NOT APPLICABLE because …` line.
+      headline feature is a remotely-drivable control surface shipped round 1
+      with `security: NEVER RAN`, and round 2's B2/B3/B5 are the second
+      demonstration. Add a conditional tenth lens, and make the report contract
+      carry a mandatory `security: RAN (…) | NOT APPLICABLE because …` line.
 - [ ] Five KB sites teach the pre-1.8.0 `on<Event>` rule; two teach the
-  removed `xinSlot`/`<xin-slot>`.
+      removed `xinSlot`/`<xin-slot>`.
 - [ ] `00-stack.md` says tosijs has no CI (it has had since 2026-07-20 — but
-  `main`-only, so it never ran against this branch). Add the rule: *a gate
-  scoped to `main` is not a gate for work that never touches `main`;
-  enumerate which lanes actually executed against the release commit.*
+      `main`-only, so it never ran against this branch). Add the rule: _a gate
+      scoped to `main` is not a gate for work that never touches `main`;
+      enumerate which lanes actually executed against the release commit._
 - [ ] `review.md` tells reviewers to file reports into the directory the
-  build `rm -rf`s.
+      build `rm -rf`s.
 - [ ] CLAUDE.md mandates `git push` as the definition of done — on a branch
-  the user forbids pushing. Put the carve-out where the rule is read.
+      the user forbids pushing. Put the carve-out where the rule is read.
 - [ ] CLAUDE.md's Releasing section is a diverged copy of
-  `practices/releasing.md`, and the omitted steps are exactly the ones this
-  release missed (the review itself, publish confirmation, issue closure).
+      `practices/releasing.md`, and the omitted steps are exactly the ones this
+      release missed (the review itself, publish confirmation, issue closure).
 - [ ] `performance.md`'s "smaller doors" needs the singleton caveat: an
-  entry point that re-bundles module-scope state creates a SECOND instance,
-  so a subpath that must share state has to resolve to the SAME FILE. Prove
-  it by importing two entries in one process. (tosijs 1.8.0 shipped exactly
-  this bug for an hour.)
-
+      entry point that re-bundles module-scope state creates a SECOND instance,
+      so a subpath that must share state has to resolve to the SAME FILE. Prove
+      it by importing two entries in one process. (tosijs 1.8.0 shipped exactly
+      this bug for an hour.)
 
 ## ✅ Bundle diet — shipped in 1.8.0 (2026-08-12)
 
@@ -1365,15 +1357,15 @@ lands it on the release line.
 - [ ] **The dot-index assumption has a third copy** at `src/agent.ts` in the
       actions walk (`${path}.${key}`). A shared path-canonicalisation helper
       would close both this and the query side at once, rather than leaving a
-      third address to drift. *(unverified — line confirmed, behaviour not
-      exercised.)*
+      third address to drift. _(unverified — line confirmed, behaviour not
+      exercised.)_
 
 ## 2.0 — THE PURGE INVENTORY (every deprecation, in one place)
 
 **Why this list exists.** 1.7.6 renamed five blueprint types to `Tosi*` with
 `@deprecated` aliases and nobody wrote down what else needed the same
 treatment — so **22 more `Xin*` type names sat unconverted and untracked for
-four releases**, including ones in the *documented* API. That miss happened
+four releases**, including ones in the _documented_ API. That miss happened
 because there was no inventory. A 2.0 purge without one reproduces it at
 larger scale, across markup, runtime functions and types at once.
 
@@ -1385,28 +1377,28 @@ compatibility is preserving a design error (as the `initAttributes` /
 
 ### Runtime deprecations — each warns once, keyed in `deprecationWarnings`
 
-| key | site | replacement |
-| --- | --- | --- |
-| `tag` | `blueprint-loader.ts:441` | `<xin-blueprint>` / `<xin-loader>` markup → `<tosi-*>` |
-| `blueprint` | `blueprint-loader.ts:467` | `tosiBlueprint()` |
-| `blueprintLoader` | `blueprint-loader.ts:480` | `tosiLoader()` |
-| `elementCreator-tag` | `component.ts:1293` | `static preferredTagName` |
-| `elementCreator-styleSpec` | `component.ts:1299` | `static lightStyleSpec` |
-| `elementCreator-extends` | `component.ts:1305` | `static extends` |
-| `initAttributes` | `component.ts:1393` | `static initAttributes = {}` (the method form goes) |
-| `static-styleSpec` | `component.ts:2434` | `static shadowStyleSpec` |
-| `xin-slot` | `component.ts:2584` | `<tosi-slot>` markup |
-| `xinSlot` | `component.ts:2602` | `tosiSlot()` |
-| `initVars` | `css.ts:645` | `_` / `__` prefixes |
-| `bind<Type>` | `elements.ts` | `bindText`→`textContent`, `bindEnabled`/`bindDisabled`→`disabled`. **`bindValue` and `bindList` are NOT deprecated** — no plain prop expresses either |
-| `boxedProxy` | `xin-proxy.ts:125` | `tosi()` |
-| `xinProxy-boxed` | `xin-proxy.ts:183` | `tosi()` |
+| key                        | site                      | replacement                                                                                                                                           |
+| -------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tag`                      | `blueprint-loader.ts:441` | `<xin-blueprint>` / `<xin-loader>` markup → `<tosi-*>`                                                                                                |
+| `blueprint`                | `blueprint-loader.ts:467` | `tosiBlueprint()`                                                                                                                                     |
+| `blueprintLoader`          | `blueprint-loader.ts:480` | `tosiLoader()`                                                                                                                                        |
+| `elementCreator-tag`       | `component.ts:1293`       | `static preferredTagName`                                                                                                                             |
+| `elementCreator-styleSpec` | `component.ts:1299`       | `static lightStyleSpec`                                                                                                                               |
+| `elementCreator-extends`   | `component.ts:1305`       | `static extends`                                                                                                                                      |
+| `initAttributes`           | `component.ts:1393`       | `static initAttributes = {}` (the method form goes)                                                                                                   |
+| `static-styleSpec`         | `component.ts:2434`       | `static shadowStyleSpec`                                                                                                                              |
+| `xin-slot`                 | `component.ts:2584`       | `<tosi-slot>` markup                                                                                                                                  |
+| `xinSlot`                  | `component.ts:2602`       | `tosiSlot()`                                                                                                                                          |
+| `initVars`                 | `css.ts:645`              | `_` / `__` prefixes                                                                                                                                   |
+| `bind<Type>`               | `elements.ts`             | `bindText`→`textContent`, `bindEnabled`/`bindDisabled`→`disabled`. **`bindValue` and `bindList` are NOT deprecated** — no plain prop expresses either |
+| `boxedProxy`               | `xin-proxy.ts:125`        | `tosi()`                                                                                                                                              |
+| `xinProxy-boxed`           | `xin-proxy.ts:183`        | `tosi()`                                                                                                                                              |
 
 Not in that registry but deprecated and warned separately:
 
 - **`onResize`** (`component.ts:1722`) → `handleResize`.
 - **`xinValue` / `xinPath`** (`metadata.ts:242`) → `.tosi.value` / `.tosi.path`.
-  Note `tosiValue` / `tosiPath` are *also* soft-deprecated in favour of the
+  Note `tosiValue` / `tosiPath` are _also_ soft-deprecated in favour of the
   accessor; decide in 2.0 whether they go too or become canonical.
 
 ### Type-only deprecations — zero runtime cost, so cheapest to keep longest
@@ -1415,7 +1407,7 @@ Not in that registry but deprecated and warned separately:
   (`make-component.ts:93-100`), the other 22 in **1.8.2**
   (`xin-types.ts`, `css-types.ts`, `metadata.ts`).
 - ⚠️ **`index-core-exports.ts` and `index-state.ts` use EXPLICIT export lists,
-  not `export *`.** Deleting an alias means deleting it in *two* places, and
+  not `export *`.** Deleting an alias means deleting it in _two_ places, and
   the reverse bit us in 1.8.2: renaming the css types in that list silently
   removed the old spellings from the public surface, invisible to our own
   typecheck because our own code had already moved. **Any purge step needs a
@@ -1429,7 +1421,7 @@ Not in that registry but deprecated and warned separately:
   bisect can land on the category that broke someone.
 - The three categories have different blast radii: **types** break a build
   (loud, instant, trivially fixed); **runtime functions** break at call time;
-  **markup tombstones** break *silently* — that is the entire reason
+  **markup tombstones** break _silently_ — that is the entire reason
   `<xin-slot>` is a warning subclass rather than a plain removal, and the
   category to migrate first and remove last.
 - Re-derive this table before starting; it is a snapshot of 1.8.2, and the
@@ -1441,7 +1433,7 @@ Not in that registry but deprecated and warned separately:
 changed at once, and together they change what the port IS.
 
 **1. The port is the test of tjs's new direction.** 0.13.0 reorients the
-language to *TypeScript plus obvious improvements* — seamless migration from
+language to _TypeScript plus obvious improvements_ — seamless migration from
 TS, up to and including reverting to TS. A claim like that is only worth
 anything if something real migrates, and tosijs is the honest test: ~50
 modules, a proxy-heavy core, a published API with consumers, and a branch
@@ -1462,16 +1454,16 @@ precisely:
 
 That locates where typing actually pays, and it is not where the instinct says.
 The fear about types in a 3D/compute codebase is runtime cost in hot loops; the
-real win is structural correctness in data that is *expensive to debug and
-cheap to check*. tjs's safety boundaries (`safety inputs` at the edges,
+real win is structural correctness in data that is _expensive to debug and
+cheap to check_. tjs's safety boundaries (`safety inputs` at the edges,
 `safety none` for hot internals) are shaped for exactly that split — check
 where data enters, spend nothing in the loop.
 
 **3. WASM integration is the maximum-payoff item.** Both 3D and recon are
 compute-bound in ways tosijs is not, so a path from typed source to WASM is
 worth more to them than to us. Sequencing follows from that: tosijs proves the
-*migration* story (does a real TS codebase move without pain, and can it move
-back?), and 3D/recon prove the *payoff* story.
+_migration_ story (does a real TS codebase move without pain, and can it move
+back?), and 3D/recon prove the _payoff_ story.
 
 **What this does NOT change:** the hold. Nothing starts until 0.13.0 is stable
 — see `UPSTREAM.md` § tjs-lang. And the revert-to-TS escape hatch is what makes
@@ -1480,21 +1472,21 @@ bounded.
 
 ## 2.0 / tjs — schema islands enforced from inside the proxy
 
-**The idea (Tonio, 2026-08-17):** applying a schema to *part* of state —
+**The idea (Tonio, 2026-08-17):** applying a schema to _part_ of state —
 islands, not the whole registry — is the same shape as 1.8.0's contracts,
 and **tjs is ideally placed to enforce it from inside the tosi proxy**.
 
 1.8.0 built contracts at three granularities (app `expose.contract`,
 component `static contract`, inline element `contract`) and every awkward
-edge came from enforcement living *outside* the thing being written:
+edge came from enforcement living _outside_ the thing being written:
 
-| 1.8.0 pain | why it exists | what proxy-level enforcement does |
-| --- | --- | --- |
-| checks run only at `agent.write()` and the component `value` setter | enforcement is bolted to two call sites | every write is checked, whatever the caller — `share()`, `sync()`, `hotReload()`, plain assignment |
-| sub-path writes must be routed to a synthesized whole-root **proposal** (clone + hypothetical apply) | the schema is root-shaped but the write is leaf-shaped | the path *carries* its own type; a leaf write is checked as a leaf |
-| validation **fails open** unless a host registers an engine (`type`/`enum`/`const` only) | tosijs is zero-dependency, so the checker is a plug | types are the language's job — no plug, no divergence between hosts |
-| two plug-in seams for one concern (`AgentContract.check`, `setContractValidator`) | two boundaries grew their own | one definition, attached to the path |
-| **B1**: a violation thrown from the value setter landed inside the global binding-dispatch loop and stranded every element bound after it | refusal is an exception, in a hot loop | **monadic errors** — a refused write is a *value*, not a control-flow event. This is the strongest argument of the five. |
+| 1.8.0 pain                                                                                                                                | why it exists                                          | what proxy-level enforcement does                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| checks run only at `agent.write()` and the component `value` setter                                                                       | enforcement is bolted to two call sites                | every write is checked, whatever the caller — `share()`, `sync()`, `hotReload()`, plain assignment                       |
+| sub-path writes must be routed to a synthesized whole-root **proposal** (clone + hypothetical apply)                                      | the schema is root-shaped but the write is leaf-shaped | the path _carries_ its own type; a leaf write is checked as a leaf                                                       |
+| validation **fails open** unless a host registers an engine (`type`/`enum`/`const` only)                                                  | tosijs is zero-dependency, so the checker is a plug    | types are the language's job — no plug, no divergence between hosts                                                      |
+| two plug-in seams for one concern (`AgentContract.check`, `setContractValidator`)                                                         | two boundaries grew their own                          | one definition, attached to the path                                                                                     |
+| **B1**: a violation thrown from the value setter landed inside the global binding-dispatch loop and stranded every element bound after it | refusal is an exception, in a hot loop                 | **monadic errors** — a refused write is a _value_, not a control-flow event. This is the strongest argument of the five. |
 
 **Islands, explicitly.** A schema must be attachable to a subtree without
 claiming the rest: `app.cart` typed, `app.scratch` free. That is exactly
@@ -1518,7 +1510,7 @@ side has the use case with receipts.
 tosijs-ui's schema-powered form editor) is the adoption half of the islands
 idea above. Contracts today are **declared**, which is the right end state
 but also a cliff: nothing happens until someone writes a schema. Inference
-makes the same machinery *derived-by-default, curated-when-it-matters* —
+makes the same machinery _derived-by-default, curated-when-it-matters_ —
 the shape the agent surface already uses (`describe()` derives; `contract`
 curates).
 
@@ -1526,7 +1518,7 @@ Three uses here, in rough order of value:
 
 1. **Type-drift warnings from the proxy with zero declaration.** The 2.0
    branch's `settings.strictness` compares an assignment against the
-   *previous value*; against an inferred schema of the island it could catch
+   _previous value_; against an inferred schema of the island it could catch
    a `qty` that becomes a string, or an object that loses a required key, on
    the write that does it. Pairs directly with [tjs-lang#27]
    (https://github.com/tonioloewald/tjs-lang/issues/27) — infer to get the
@@ -1534,7 +1526,7 @@ Three uses here, in rough order of value:
    declaration when you want a guarantee rather than an observation.
 2. **`describe().contract` for apps that declared nothing** — the map
    answers "what's legal here", not only "what exists".
-3. **Better wiring diagrams** — field *types* let tosijs-floorplan render a
+3. **Better wiring diagrams** — field _types_ let tosijs-floorplan render a
    control the way its data behaves (enum → segmented, integer+range →
    slider) instead of inferring from the DOM.
 
@@ -1548,7 +1540,7 @@ green.
 
 **Not wired into tosijs yet, deliberately.** tosijs is zero-runtime-
 dependency, so it cannot call `inferSchema` itself, and the review already
-flagged *two* plug seams for one concern — adding a third mid-release would
+flagged _two_ plug seams for one concern — adding a third mid-release would
 be going the wrong way. The integration is post-1.8.0, and the shape to
 consider then:
 
@@ -1582,7 +1574,7 @@ changes.
   beats deploying somewhere unexpected), but it is the thing to remember on a
   new machine.
 - [ ] Deploy as a non-root user — `root@` is the part of SEC-16 that config
-  changes can't fix.
+      changes can't fix.
 
 ## 2.0 breaking change: blueprint `src` should default to same-origin
 

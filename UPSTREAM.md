@@ -86,20 +86,50 @@ not. A devtools session with "Disable cache" never sees it.
 
 **Why we care:** the workflow here is deliberately explicit reload, not hot
 reload — automatic refreshes fire mid-thought and cost you context. Explicit is
-right *provided a reload is authoritative*. When it silently isn't, the loop
+right _provided a reload is authoritative_. When it silently isn't, the loop
 produces confident wrong answers: while chasing the broken `/one-user-interface/`
 demo, two correct hypotheses were "falsified" because every edit→rebuild→reload
 cycle re-tested stale code.
 
-**Until it lands:** iterate in a NEW TAB per change, or with devtools cache
-disabled. Do not trust a plain reload to prove anything.
+**CONFIRMED 2026-09-04, with a two-browser control** — and it is worse than the
+above. The `/one-user-interface/` demo appeared to be a _library security
+failure_: the agent surface refused every verb, and `describe().exposure`
+reported `closed` even though the demo declares
+`expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] }`. It was stale cache,
+for a whole working session, across many explicit reloads.
 
+What made it deceptive is that the cache serves stale **code**, not stale prose.
+Chrome was running a pre-`e6f8eae` revision of the live-example fence — one with
+a bare `enableAgentInterface()` — against the _current_ library. So the refusal
+was correct, precisely worded, and pointed at the wrong file: the message
+("this surface declares no manifest") described the cached fence, while the
+fence on disk and in the served `docs.json` had a manifest. Every reading of the
+source contradicted the running page.
+
+Reproduce it:
+
+```bash
+curl -skI https://localhost:8018/docs.json
+# HTTP/1.1 200 OK
+# content-length: 423821
+#   ← no Cache-Control, no ETag, no Last-Modified
+```
+
+With no validator, Chrome takes heuristic freshness and does not revalidate on
+reload. Safari, with no cache entry, fetched current content and the same demo
+worked — the tie-breaker. `ETag` + `Cache-Control: no-cache` (revalidate, don't
+re-download) fixes it without giving up caching.
+
+**Until it lands:** iterate in a NEW TAB per change, or with devtools cache
+disabled. Do not trust a plain reload to prove anything. And if a page's
+behaviour contradicts its source, **suspect the transport before the code** —
+check two browsers before spending a session on the library.
 
 ### RESOLVED (by us, upstream-of-them): tosijs-ui#127 — deprecated binding shortcuts
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/127
 
-Reversed direction: tosijs-ui reported that *our* deprecation was unfixable at
+Reversed direction: tosijs-ui reported that _our_ deprecation was unfixable at
 their call sites, and they were right. No `bind*` shortcut is deprecated as of
 **tosijs 1.9.1** — all eight of their sites go quiet on upgrade with no edits.
 Also closed on our side: tosijs#31 and tosijs#33.
@@ -109,7 +139,6 @@ built bundles**, not the source. Our own release checks had passed. That is the
 "execute/inspect the artifact, not the repo" rule arriving from a consumer
 instead of from us — the second time this quarter (the first was the tjs-lang
 0.13.x `new`-stripping bug, caught only by the published-bundle smoke gate).
-
 
 ### 🚧 FILED — `/__docstore/source` is CSRF-able: local code execution
 
@@ -216,6 +245,7 @@ precedent), suite synced.
 ## tosijs-schema
 
 ### ✅ SHIPPED (tosijs-schema 1.6.0) — `inferSchema(sample)`: derived schemas
+
 **Issue:** https://github.com/tonioloewald/tosijs-schema/issues/6
 **Our contributed requirement was adopted:** inferred schemas carry
 `$inferred: true`, so an observation cannot be mistaken for a promise once
@@ -230,7 +260,7 @@ makes the same machinery derived-by-default, curated-when-it-matters. Uses
 here: type-drift warnings from the proxy with no declaration,
 `describe().contract` for apps that declared nothing, and field types for
 better wiring diagrams. **Our added requirement:** an inferred schema must be
-distinguishable from an authored one *in the artifact* (`$inferred` /
+distinguishable from an authored one _in the artifact_ (`$inferred` /
 `$source`), and the marker must survive serialization — a consumer needs to
 know whether it is reading a rule or a sample.
 
@@ -251,7 +281,7 @@ which would otherwise have ridden into `describe().contract`.
 **Do not file this.** It was the last `(to file)` entry here, and the
 2026-08-21 re-survey killed it: WebMCP's unregistration path is
 `registerTool(tool, { signal })` + `controller.abort()`, and since **Chrome
-153** it withdraws a tool *without* cancelling in-flight executions. Our
+153** it withdraws a tool _without_ cancelling in-flight executions. Our
 adapter probed for a returned handle and for `unregisterTool`, found neither,
 and concluded the capability was missing — then shipped register-once
 semantics plus revoke-by-refusing-stub to compensate for a gap that did not
@@ -283,8 +313,8 @@ tested. `tjs → js` was tested. But `tjs → js` was only ever tested against T
 would author went straight through untested.
 
 ⚠️ **tjs-lang#37 — the `new`-stripping regression we hit and filed — is an
-instance of exactly this.** Dropping `new` is *correct* for hand-written `.tjs`
-(the emitter Proxy-wraps the class, making it callable) and *wrong* for `fromTS`
+instance of exactly this.** Dropping `new` is _correct_ for hand-written `.tjs`
+(the emitter Proxy-wraps the class, making it callable) and _wrong_ for `fromTS`
 output (annotated `/* tjs <- … */`, plain JS semantics, no wrap — so the `new`
 was load-bearing). The transform was right for the authored population and
 wrong for the generated one. It reached us because we are a consumer of the
@@ -297,7 +327,7 @@ second stage are by construction the ones somebody thought of. See
 `../tosijs-coding-practices/practices/testing.md`.
 
 **What we can offer when the rework lands:** the 2.0 branch already ran the
-tosijs suite against the *converted* output (`tjs-out/`) rather than `src/` —
+tosijs suite against the _converted_ output (`tjs-out/`) rather than `src/` —
 **872 of 898 passed, and all 26 failures were staging artifacts**, not
 behavioural differences (tests that hardcode `import.meta.dir` or a `.ts`
 extension). That is precisely the shape of gate that catches this bug class: it
@@ -305,8 +335,8 @@ exercises generated intermediates against a real suite. It is ~26
 location-independence fixes away from being a standing lane. Recorded on the
 branch in `TJS-PORT-DX.md`.
 
-
 ### 📋 FILED — schema islands enforced from inside the proxy (the 2.0 dissolve)
+
 **Issue:** https://github.com/tonioloewald/tjs-lang/issues/27
 The use case behind tosijs 1.8.0's contracts, recorded with its scars: a
 schema attachable to PART of the state tree (islands — `app.cart` typed,
@@ -375,7 +405,7 @@ The one move above turned out to be two, because the halves disagree:
   **The bug (tjs-lang#37, CLOSED — fixed in 0.13.6).** `tjs convert` on
   0.13.0–0.13.5 stripped `new` from every class declared in the module being
   converted, so the output threw `Cannot call a class constructor without
-  |new|` — at *import* time where the call is a static field initialiser. 15
+|new|` — at _import_ time where the call is a static field initialiser. 15
   call sites across 4 of our modules, `UnsafePathError` (the
   prototype-pollution guard) among them, which would have degraded a security
   refusal into a `TypeError`. Bisected to **0.13.0** against a ten-line repro;
@@ -385,7 +415,7 @@ The one move above turned out to be two, because the halves disagree:
   deliberate: dropping `new` **is** correct where a class is callable, and in
   native `.tjs` it is, because the emitter Proxy-wraps it. The scope was wrong
   — `fromTS` output is plain JS with no Proxy wrap, so there the `new` is
-  load-bearing. The transform moved to the *graduation* step. Six regression
+  load-bearing. The transform moved to the _graduation_ step. Six regression
   tests, one of which actually **imports** the converted module (the failure
   was at module evaluation, so a test that only transpiled would have missed
   it).
@@ -417,10 +447,11 @@ The one move above turned out to be two, because the halves disagree:
 - 🔭 **STILL OPEN, and NOT caused by any of this: `tjs convert`'s inline
   signature-test runner fails on two of our files, on every version tried
   (0.10.1 through 0.13.6).**
+
   - `src/color.ts: 0 passed, 8 failed — clamp is not defined` — the runner does
     not resolve cross-module imports (`clamp` lives in `more-math.ts`).
   - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try statements
-    must have at least a catch or finally block.`
+must have at least a catch or finally block.`
 
   **The emitted modules are fine.** `tjs-out/component.js` parses, bundles
   (`bun build`, 27 modules, exit 0) and imports; the syntax error is inside the
@@ -469,6 +500,7 @@ So, deliberately, for 1.8.0:
   So the bump is unblocked and always was. It is deferred now for one honest
   reason only — it is a build-host change and 1.8.0 is mid-release — and it is
   reopened as work rather than closed as a decision (`TODO.md` E1).
+
 - **The `tosijs-2.0` port branch stays on hold** (it already was). When it
   resumes, the 0.13.0 ergonomics ARE the experiment: re-walk `by-path.tjs`
   against the branch's `TJS-PORT-DX.md` friction log as the BEFORE.

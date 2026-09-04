@@ -1,4 +1,5 @@
 import { WebMCPAdapterOptions } from './webmcp';
+import type { BoxedProxy, BoxedScalar } from './xin-types';
 /**
  * The contract seam — tosijs stays zero-dependency, so the core doesn't know
  * any schema language; it knows a CHECK. The blessed adapter is a few lines
@@ -110,8 +111,11 @@ export interface ComponentMap {
     }>;
 }
 export interface AgentExpose {
-    roots?: string[];
-    actions?: string[];
+    /** state roots this surface may see — paths, or the proxies themselves:
+     * `roots: [app.cart]` and `roots: ['app.cart']` are the same manifest */
+    roots?: AgentPathRef[];
+    /** actions this surface may `call()` — paths or proxies, as with `roots` */
+    actions?: AgentPathRef[];
     contract?: AgentContract;
     /**
      * Allow `write()` into the declared roots. **Defaults to false** — a
@@ -351,12 +355,32 @@ export interface AgentLogEntry {
  * byte-identical to a genuinely validated run, in a public API consumers run
  * in their own CI.
  */
-export type AgentRefusalKind = 'scope' | 'mutability' | 'callable';
+export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path';
 /** an Error carrying why the surface refused; `kind` survives message edits */
 export interface AgentRefusalError extends Error {
     tosiRefusal: AgentRefusalKind;
 }
 export declare const isAgentRefusal: (e: unknown) => e is AgentRefusalError;
+/**
+ * A path, or the thing that lives at it.
+ *
+ * Every verb and every manifest entry takes either — `agent.read('app.cart')`
+ * and `agent.read(app.cart)` mean the same thing, because a tosijs proxy
+ * already carries its own path and nobody should have to spell it twice.
+ *
+ * Hand-written paths are a transcription problem: they duplicate a fact the
+ * proxy knows, they don't move when you rename a root, and nothing checks
+ * them. This is the fix — but note what it does NOT fix, because a real
+ * session confused the two. A **wrong string** is still just a wrong string;
+ * only the proxy form is checked, and only because it isn't a string at all.
+ */
+export type AgentPathRef = string | BoxedProxy<any> | BoxedScalar<any>;
+/**
+ * What `observe()` accepts: a path or proxy, or — under `expose: 'all'` only
+ * — a pattern matching many paths, which the underlying observer has always
+ * supported and which the map's own "redraw on any change" examples use.
+ */
+export type AgentObserveRef = AgentPathRef | RegExp | ((path: string) => boolean);
 export interface AgentInterface {
     /**
      * `scope` limits the wiring walk to one element's SUBTREE — hierarchy
@@ -376,10 +400,10 @@ export interface AgentInterface {
          * to be legible in that frame, and so is its map. */
         view?: 'page' | 'viewport';
     }) => AgentDescription;
-    read: (path: string) => any;
-    write: (path: string, value: any) => void;
-    observe: (path: string, callback: (path: string) => void) => () => void;
-    call: (actionPath: string, ...args: any[]) => any;
+    read: (path: AgentPathRef) => any;
+    write: (path: AgentPathRef, value: any) => void;
+    observe: (path: AgentObserveRef, callback: (path: string) => void) => () => void;
+    call: (actionPath: AgentPathRef, ...args: any[]) => any;
     changes: (since?: number) => {
         cursor: number;
         changes: AgentChange[];
@@ -394,7 +418,7 @@ export interface AgentInterface {
      * you're waiting for and spend no inference until it arrives. The wait is
      * audit-logged. No built-in timeout — Promise.race one in if you need it.
      */
-    when: (path: string, predicate: (value: any) => boolean) => Promise<any>;
+    when: (path: AgentPathRef, predicate: (value: any) => boolean) => Promise<any>;
     log: () => AgentLogEntry[];
     disable: () => void;
     /**

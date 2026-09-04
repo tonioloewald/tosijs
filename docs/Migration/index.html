@@ -67,7 +67,7 @@ propagates to every subclass, so TypeScript accepted <strong>any property or met
 name at all</strong> on every component anyone has ever written:</p>
 <pre><code class="language-typescript">class Thing extends Component {
   greet() {
-    this.definitelyNotAMethod()          // compiled clean
+    this.definitelyNotAMethod() // compiled clean
     const n: number = this.alsoNotAThing // compiled clean, typed as number
   }
 }
@@ -82,7 +82,9 @@ the work:</p>
 <pre><code class="language-typescript">// before — `this.month` was `any`
 export class TosiMonth extends Component&lt;MonthParts&gt; {
   static initAttributes = { month: NaN, year: NaN, selectable: false }
-  render() { this.month + 1 }
+  render() {
+    this.month + 1
+  }
 }
 
 // after — `this.month` is a number
@@ -93,7 +95,9 @@ export class TosiMonth extends withAttributes({
   year: NaN,
   selectable: false,
 })&lt;MonthParts&gt; {
-  render() { this.month + 1 }
+  render() {
+    this.month + 1
+  }
 }
 </code></pre>
 <p>It is a <strong>move</strong>, not an addition — the attribute map is the same object, just

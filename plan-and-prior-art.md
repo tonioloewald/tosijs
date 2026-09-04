@@ -215,7 +215,7 @@ the eval lane should treat as a variable, not a constant.
   dashboard toggle, no redeploy. Read the mechanism before reading the threat:
   Cloudflare ships **two pre-defined tool packs** (Content Credentials, and a
   proxy to an existing server-side MCP server), Shopify ships **commerce
-  primitives it already knows**. Neither derives anything from *your* app.
+  primitives it already knows**. Neither derives anything from _your_ app.
 - **A declarative HTML API synthesizes tools from `<form>`s** — annotate with
   `toolname` / `tooldescription` / `toolparamdescription` and the browser
   builds the tool. Forms only, and annotation is still declaration, but it is
@@ -236,7 +236,7 @@ the eval lane should treat as a variable, not a constant.
   art, and still scoped to forms.
 - **Playwright MCP / Operator / Computer Use / Mariner:** a11y-tree + vision +
   synthesized input, impersonating the human user. **Scope honesty:** their
-  value is working on *arbitrary* sites. This plan doesn't do that for free; it
+  value is working on _arbitrary_ sites. This plan doesn't do that for free; it
   makes it unnecessary for apps you control. One external datum argues our
   side: accessibility surveys in 2026 report the structure agents depend on
   getting worse for the first time in six years — a11y-tree scraping is
@@ -258,7 +258,7 @@ the eval lane should treat as a variable, not a constant.
 2. **Derived from records you already hold — not declared, annotated, packed or
    crawled.** The blunt version of this claim ("everyone hand-registers") died
    between the two surveys, and the replacement is sharper. The question is
-   *where the knowledge comes from*:
+   _where the knowledge comes from_:
    - platform packs (Shopify, Cloudflare) know **their** domain, not your app;
    - the declarative API and Angular's Signal Forms derive from **a declaration
      written for that purpose** — an attribute, an opt-in flag — and only for
@@ -272,8 +272,8 @@ the eval lane should treat as a variable, not a constant.
 3. **One-truth propagation.** An agent write updates the human's UI because
    both observe the same registry. Every integration surveyed routes through a
    tool `execute()` and relies on the author to remember to sync.
-4. **Push observation.** The only event in the API is `toolchange` — the *tool
-   list* changed, not the *state*. `observe(path)` remains a channel nobody
+4. **Push observation.** The only event in the API is `toolchange` — the _tool
+   list_ changed, not the _state_. `observe(path)` remains a channel nobody
    offers.
 5. **Embodiment independence.** Headless app + vended UI has no equivalent in
    the agent-web space.
@@ -290,22 +290,22 @@ an intrinsic surface prosecutes them.
 **The axis that actually separates these approaches: is the agent surface a
 SECOND ARTIFACT, or a facet of the one you already maintain?**
 
-Ordering the field by *where the knowledge comes from* is useful but incomplete
+Ordering the field by _where the knowledge comes from_ is useful but incomplete
 — it invites an argument about whose intent counts. The sharper question is
 what the surface **costs to keep true**, and it sorts everything cleanly:
 
-| | where knowledge comes from | what it costs to keep true |
-| --- | --- | --- |
-| a11y-tree agents, crawlers (`webmcp-core`) | reconstructed from rendered output | nothing to maintain, because it is a **guess** — and it decays as the markup does |
-| platform packs (Cloudflare) | a pre-built library, bolted on at the edge | maintained by the platform, knows nothing about your app |
-| platform-as-API-consumer (Shopify) | the platform's **own** domain model — real knowledge, well used | a **separate thing**, built and maintained beside the app |
-| declarative form API, Angular Signal Forms | a declaration you wrote **for that purpose** | a second declaration per form, kept in step by hand |
-| tosijs | records the framework already holds, because it created the bindings | **nothing** — it is a projection of the one truth |
+|                                            | where knowledge comes from                                           | what it costs to keep true                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| a11y-tree agents, crawlers (`webmcp-core`) | reconstructed from rendered output                                   | nothing to maintain, because it is a **guess** — and it decays as the markup does |
+| platform packs (Cloudflare)                | a pre-built library, bolted on at the edge                           | maintained by the platform, knows nothing about your app                          |
+| platform-as-API-consumer (Shopify)         | the platform's **own** domain model — real knowledge, well used      | a **separate thing**, built and maintained beside the app                         |
+| declarative form API, Angular Signal Forms | a declaration you wrote **for that purpose**                         | a second declaration per form, kept in step by hand                               |
+| tosijs                                     | records the framework already holds, because it created the bindings | **nothing** — it is a projection of the one truth                                 |
 
 Shopify is the instructive case, and the one that would be easy to
 mis-characterise. It is not post-hoc scraping: they are a **leaf-node API
 consumer** exposing their own commerce surface, and they have the information
-to do that part *well* — better names, better descriptions, more stable across
+to do that part _well_ — better names, better descriptions, more stable across
 a merchant's refactors than anything derived could be. **For a fixed, known
 domain, a curated pack beats a derived surface**, and it is worth conceding
 that plainly.
@@ -316,7 +316,7 @@ a single source of truth**: it is a second artifact, so it can drift from the
 app it describes, and it covers exactly what somebody decided to cover. A
 customised storefront whose checkout no longer behaves like the pack says still
 publishes the pack. Better than post-hoc, and a long way from a surface that
-cannot lie about the wiring because it *is* the wiring.
+cannot lie about the wiring because it _is_ the wiring.
 
 **This is the documentation problem wearing different clothes.** The house rule
 for docs is: don't promise to keep a second copy in step — delete it and
@@ -331,7 +331,7 @@ Two consequences follow structurally, not from being ahead:
 
 - **Consumption-level decays; intention-level cannot.** Anything downstream of
   rendered output rests on an artifact that is, by the 2026 accessibility
-  surveys, getting *worse* for the first time in six years. Records read from
+  surveys, getting _worse_ for the first time in six years. Records read from
   bindings cannot drift from the app, because the app stops working if they do.
 - **Only intention-level can PROSECUTE defects.** A scraper inherits whatever
   a11y sins the DOM contains; it has nothing to compare them against. Holding
@@ -340,15 +340,15 @@ Two consequences follow structurally, not from being ahead:
   structurally unavailable to anything reading only the output. This is the
   whole content of "an integration absorbs discrepancies, an intrinsic surface
   prosecutes them", and it is the curb-cut claim in its strongest form: not
-  "we thought of accessibility too", but *the mechanism that serves agents is
-  the mechanism that finds the a11y bugs.*
+  "we thought of accessibility too", but _the mechanism that serves agents is
+  the mechanism that finds the a11y bugs._
 
 **Strategic consequence.** Targeting WebMCP first was right and is now clearly
 right — a real origin trial with default-on deployments, not a proposal. But
 the window narrowed: "derived agent surface" is being approached from the
 platform layer, the markup layer and the crawler layer at once. None of them
 reach the app's own records, and that is the defensible ground — so the framing
-to ship is *derived from what the framework already knows*, contrasted
+to ship is _derived from what the framework already knows_, contrasted
 explicitly against packs, annotations and crawls. The parts nobody is near —
 **state, propagation, observation, embodiment** — are the durable delta, and
 they are where the next phase should spend.

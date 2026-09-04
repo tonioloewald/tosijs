@@ -72,8 +72,11 @@ const { oneUI } = tosi({
 // the agent side below touches. A bare enableAgentInterface() exposes NOTHING
 // (1.9.0) — describe() would report an empty app and every verb would refuse,
 // so the demo would not be a demo at all. (Also installs globalThis.tosiAgent.)
+//
+// Note what is NOT here: quoted paths. The proxies know where they live, so
+// the manifest names the things themselves and survives a rename.
 const agent = enableAgentInterface({
-  expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] },
+  expose: { roots: [oneUI], actions: [oneUI.addItem] },
 })
 const { div, h4, ul, input, button, pre } = elements
 
@@ -104,19 +107,19 @@ preview.append(
 const log = pre({
   style: { height: '100%', minHeight: '5em', overflow: 'auto', margin: 0 },
 })
-agent.observe('oneUI', (path) => log.append(`observed: ${path}\n`))
+agent.observe(oneUI, (path) => log.append(`observed: ${path}\n`))
 preview.append(
   div(
     h4('Agent (paths only)'),
-    button('call("oneUI.addItem", …)', {
+    button('call(oneUI.addItem, …)', {
       onClick() {
-        agent.call('oneUI.addItem', 'added by the agent')
+        agent.call(oneUI.addItem, 'added by the agent')
       },
     }),
     ' ',
-    button('read("oneUI.list")', {
+    button('read(oneUI.list)', {
       onClick() {
-        log.append(JSON.stringify(agent.read('oneUI.list')) + '\n')
+        log.append(JSON.stringify(agent.read(oneUI.list)) + '\n')
       },
     })
   ),
@@ -124,19 +127,28 @@ preview.append(
 )
 ```
 
-```test
-import { enableAgentInterface } from 'tosijs'
+````test
+import { enableAgentInterface, boxed } from 'tosijs'
 
 // The page's own demo is the release's headline proof, and it was a plain
 // ```js fence — so when the default posture was narrowed, this page kept
 // calling call() on a surface that refuses it and NOTHING went red. This
 // fence is the guard: it runs in Chromium and Firefox on every release.
+//
+// A ```test fence does NOT share scope with the ```js fence above it (it
+// shares the REGISTRY — different things, and assuming otherwise cost a
+// browser-lane run). So reach the same state through `boxed`, which is also
+// how any other module would.
 test('the manifesto demo posture can actually do what the demo does', () => {
+  const oneUI = boxed.oneUI
   const agent = enableAgentInterface({
-    expose: { roots: ['oneUI'], actions: ['oneUI.addItem'] },
+    expose: { roots: [oneUI], actions: [oneUI.addItem] },
   })
-  const before = agent.read('oneUI.list').length
-  agent.call('oneUI.addItem', 'from the test')
+  const before = agent.read(oneUI.list).length
+  agent.call(oneUI.addItem, 'from the test')
+  expect(agent.read(oneUI.list).length).toBe(before + 1)
+  // proxy and string name the same path — the demo above uses proxies, and
+  // every published example that still quotes a path keeps working
   expect(agent.read('oneUI.list').length).toBe(before + 1)
   // …and the manifest is still a manifest: nothing outside it is reachable
   // (the doc-fence expect() is a small shim — no toThrow, so catch by hand)
@@ -148,7 +160,7 @@ test('the manifesto demo posture can actually do what the demo does', () => {
   }
   expect(refused).toBe(true)
 })
-```
+````
 
 **Open the console — you are the second user**: `tosiAgent.describe()`,
 `tosiAgent.call('oneUI.addItem', 'from the console')`, `tosiAgent.changes()`.

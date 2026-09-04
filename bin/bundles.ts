@@ -81,7 +81,12 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.js',
     format: 'esm',
     entry: './src/index.ts',
-    budget: 43_000,
+    // 43_000 -> 43_500 in 1.11.0, deliberately. The agent surface's
+    // path-or-proxy resolution and its refusal text cost ~100 bytes gzipped
+    // over the old ceiling; almost all of it is the error strings, which is
+    // the growth we want (the defect being fixed was a SILENT coercion). The
+    // headroom matches main.js so the two budgets stop drifting apart.
+    budget: 43_500,
     probe: 'import',
     stage: 'main',
   },

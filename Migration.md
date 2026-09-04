@@ -25,7 +25,7 @@ name at all** on every component anyone has ever written:
 ```typescript
 class Thing extends Component {
   greet() {
-    this.definitelyNotAMethod()          // compiled clean
+    this.definitelyNotAMethod() // compiled clean
     const n: number = this.alsoNotAThing // compiled clean, typed as number
   }
 }
@@ -36,7 +36,7 @@ them; they were always there.
 
 ## The migration: move `initAttributes` into the class header
 
-Attribute keys become *instance* properties at hydration, and TypeScript cannot
+Attribute keys become _instance_ properties at hydration, and TypeScript cannot
 derive an instance type from a static declared in the same class — which is why
 the index signature existed. Passing the map as a **value** lets inference do
 the work:
@@ -45,7 +45,9 @@ the work:
 // before — `this.month` was `any`
 export class TosiMonth extends Component<MonthParts> {
   static initAttributes = { month: NaN, year: NaN, selectable: false }
-  render() { this.month + 1 }
+  render() {
+    this.month + 1
+  }
 }
 
 // after — `this.month` is a number
@@ -56,7 +58,9 @@ export class TosiMonth extends withAttributes({
   year: NaN,
   selectable: false,
 })<MonthParts> {
-  render() { this.month + 1 }
+  render() {
+    this.month + 1
+  }
 }
 ```
 
@@ -91,7 +95,7 @@ class Editor extends Component {
 ```
 
 All three shapes are legal, which is exactly why `Component` cannot declare it
-for you: a base *property* makes `get value()` a TS2611, and a base *accessor*
+for you: a base _property_ makes `get value()` a TS2611, and a base _accessor_
 makes `value = ''` a TS2610. Whichever we picked would break the other half.
 
 The runtime has always required this — `initValue()` does nothing unless the
@@ -134,19 +138,19 @@ published to any WebMCP host, from one unargumented call. `describe()` now
 reports an empty app (`roots: {}`, `wiring: []`, `actions: []`) and
 `read`/`write`/`call`/`observe`/`when` refuse every path.
 
-| if you had                  | you now want                                                     |
-| --------------------------- | ---------------------------------------------------------------- |
-| `enableAgentInterface()`    | `enableAgentInterface({ expose: { roots: [...], actions: [...] } })` — name what an agent may see |
-| …and you're just exploring  | `enableAgentInterface({ expose: 'all' })` — everything, deliberately, with a warning |
+| if you had                 | you now want                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `enableAgentInterface()`   | `enableAgentInterface({ expose: { roots: [...], actions: [...] } })` — name what an agent may see |
+| …and you're just exploring | `enableAgentInterface({ expose: 'all' })` — everything, deliberately, with a warning              |
 
-The surface tells you which it is: a bare call logs *"nothing is exposed"* and
+The surface tells you which it is: a bare call logs _"nothing is exposed"_ and
 names both escape hatches, and `describe().exposure` reports `'closed'`.
 
 **Why:** four separate secret leaks were found in 1.8.x, and every one of them
 was reachable **only** in that default posture — a heading printing a password,
 a token in a link, a half-typed draft. Each was patched where it was found,
 which was four symptoms of one permissive default. Undeclared state is now
-*absent* rather than redacted: it never enters the map, and the elements bound
+_absent_ rather than redacted: it never enters the map, and the elements bound
 to it never appear in `wiring`.
 
 **Also renamed:** `describe().exposure` values — `'read-only'` → `'closed'`,
@@ -205,7 +209,7 @@ ship a build containing tosijs to anyone else, include the contents of our
 `NOTICE` file (it also credits the vendored schematic renderer) in your
 attribution notices — a THIRD-PARTY-NOTICES file, an about screen, or
 alongside your own licence text. BSD-3-Clause imposed no equivalent duty, so
-this is genuinely new for existing users, and it applies to *redistribution*
+this is genuinely new for existing users, and it applies to _redistribution_
 — using tosijs to build something you host yourself is unaffected.
 
 # Upgrading to 1.7.0

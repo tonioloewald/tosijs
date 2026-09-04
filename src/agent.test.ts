@@ -2451,3 +2451,163 @@ describe('attributes are described however they were declared (tosijs#29)', () =
     expect(tags).not.toContain('quiet-thing')
   })
 })
+
+describe('paths may be proxies — the proxy already knows its own path', () => {
+  /*
+   * WHY THIS EXISTS. Every verb took a hand-written string, which duplicates
+   * a fact the proxy holds, does not survive a rename, and is checked by
+   * nothing. Worse, the OBJECT form silently half-worked: `roots: [app]`
+   * reached String(), declared a root literally named "[object Object]",
+   * matched no path, and every read then refused as out-of-scope — so the
+   * manifest was broken and the error blamed the reader.
+   *
+   * These tests FAIL on the pre-1.11 code: the proxy forms threw
+   * `path.startsWith is not a function`, and the plain-object form passed
+   * while producing a surface that refused everything.
+   */
+  test('a manifest can be written with proxies instead of strings', async () => {
+    const { proxied } = tosi({
+      proxied: {
+        count: 1,
+        bump(this: any) {
+          xin.proxied.count += 1
+        },
+      },
+    })
+    await updates()
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: [proxied], actions: [proxied.bump] },
+    }))
+
+    // resolved to real paths, not "[object Object]"
+    expect(agent.describe().exposure).toBe('manifest')
+    expect(agent.read(proxied.count)).toBe(1)
+    agent.call(proxied.bump)
+    await updates()
+    expect(agent.read('proxied.count')).toBe(2)
+  })
+
+  test('proxy and string forms are interchangeable in every verb', async () => {
+    const { mixed } = tosi({ mixed: { a: 'x', list: [{ id: 1, t: 'one' }] } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['mixed'], write: true },
+    }))
+
+    expect(agent.read(mixed.a)).toBe(agent.read('mixed.a'))
+    expect(agent.read(mixed.list)).toEqual(agent.read('mixed.list'))
+
+    const seen: string[] = []
+    const off = agent.observe(mixed, (path) => seen.push(path))
+    agent.write(mixed.a, 'y')
+    await updates()
+    off()
+    expect(agent.read('mixed.a')).toBe('y')
+    expect(seen.length).toBeGreaterThan(0)
+
+    const settled = agent.when(mixed.a, (v) => v === 'z')
+    agent.write('mixed.a', 'z')
+    await updates()
+    expect(await settled).toBe('z')
+  })
+
+  test('a non-proxy object is REFUSED, not stringified', async () => {
+    tosi({ strict: { a: 1 } })
+    await updates()
+
+    // the manifest fails where the mistake is — at enable time
+    expect(() =>
+      enableAgentInterface({ quiet: true, expose: { roots: [{} as any] } })
+    ).toThrow(/takes a path string .* or a tosijs proxy/)
+
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['strict'] },
+    }))
+    expect(() => agent.read({} as any)).toThrow(/carries none/)
+    // a value read OUT of the tree is not a proxy — the classic near-miss
+    expect(() => agent.read(1 as any)).toThrow(/got number/)
+  })
+
+  test('the refusal is tagged, so callers need not match its wording', async () => {
+    const { tagged } = tosi({ tagged: { a: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: [tagged] },
+    }))
+    const { isAgentRefusal } = await import('./agent')
+    try {
+      agent.read({} as any)
+      throw new Error('should have refused')
+    } catch (e) {
+      expect(isAgentRefusal(e)).toBe(true)
+      expect((e as any).tosiRefusal).toBe('path')
+    }
+  })
+})
+
+describe('observe() patterns: allowed wide open, refused under a manifest', () => {
+  /*
+   * REGRESSION GUARD. `observe()` was typed `(path: string, …)` but passed
+   * its argument straight to the path-listener, which also accepts a RegExp
+   * or a predicate — and the doc site's own "redraw on any change" examples
+   * use `/./`. Nothing in the unit suite covered it, so widening the type to
+   * accept proxies silently broke every one of them; only the Playwright doc
+   * lane caught it. An undocumented capability is still a capability.
+   */
+  test('a RegExp observer works under expose: all', async () => {
+    tosi({ pat: { a: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    const seen: string[] = []
+    const off = agent.observe(/pat/, (path) => seen.push(path))
+    xin.pat.a = 2
+    await updates()
+    off()
+    expect(seen.length).toBeGreaterThan(0)
+  })
+
+  test('a predicate observer works under expose: all', async () => {
+    tosi({ pred: { a: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    const seen: string[] = []
+    const off = agent.observe(
+      (path: string) => path.startsWith('pred'),
+      (path) => seen.push(path)
+    )
+    xin.pred.a = 2
+    await updates()
+    off()
+    expect(seen.length).toBeGreaterThan(0)
+  })
+
+  test('a pattern is REFUSED under a manifest — it cannot be scope-checked', async () => {
+    const { scopedPat } = tosi({ scopedPat: { a: 1 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: [scopedPat] },
+    }))
+    // it used to throw a raw `path.startsWith is not a function` here
+    expect(() => agent.observe(/./, () => {})).toThrow(/cannot be checked/)
+    try {
+      agent.observe(/./, () => {})
+    } catch (e) {
+      expect((e as any).tosiRefusal).toBe('scope')
+    }
+    // the path form is unaffected
+    const off = agent.observe(scopedPat, () => {})
+    off()
+  })
+})
