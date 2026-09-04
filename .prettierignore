@@ -24,7 +24,25 @@ playwright-report
 demo/docs.json
 .browser-tests.json
 
-# FILED REVIEW REPORTS ARE VERBATIM ARTIFACTS. They are the record of what a
-# review found; reformatting them edits the evidence. Same reasoning as
-# src/schematic.ts above: prettier must not own a file it did not author.
-reviews
+# ─────────────────────────────────────────────────────────────────────────────
+# PRETTIER DOES NOT FORMAT MARKDOWN HERE.
+#
+# Not a preference — its markdown printer is NOT IDEMPOTENT, and a formatter
+# that is not idempotent is broken by definition: `format(format(x))` must
+# equal `format(x)`.
+#
+# Measured on this repo (2026-09-06): a list item followed by a blank line and
+# an indented paragraph gains FOUR MORE SPACES of indentation on every
+# `--write`, without converging. TODO.md had reached column 44 and its content
+# was already mangled — a nested list flattened into prose, a sentence dedented
+# mid-way — because `bun run format` had been quietly deepening it for months.
+#
+# Not configurable away: proseWrap preserve / never / always all oscillate.
+# Not fixed upstream: prettier 3.9.6 does it too, and faster than 2.8.8.
+# Minimal repro is four lines (see UPSTREAM.md).
+#
+# And nothing is lost. Every one of the 110 non-markdown files in the repo is
+# idempotent, so the gate keeps its value where the value is; markdown here is
+# hand-written prose that a doc site renders, with no consistency problem for a
+# formatter to solve. Do not re-enable this without checking idempotency first.
+*.md

@@ -368,6 +368,13 @@ Deprecated APIs emit a single `console.warn` per feature (tracked in a `Set` in 
 - Uppercase wrapper types (`String`, `Number`, `Boolean`, `Function`) are explicitly allowed via `ban-types` — do not convert these to lowercase equivalents
 - Unused function arguments must be prefixed with `_` (via `argsIgnorePattern`)
 - Prettier: single quotes, no semicolons, 2-space indent, trailing commas (ES5)
+- **Prettier does NOT touch markdown** (`*.md` is in `.prettierignore`). Its
+  markdown printer is not idempotent — a list continuation gains four spaces of
+  indentation per `--write` and never converges, which silently mangled
+  `TODO.md` over months. True in 2.8.8 and 3.9.6, and no `proseWrap` setting
+  avoids it; all 110 non-markdown files are idempotent. Repro in `UPSTREAM.md`.
+  `bun run format:check` gates formatting in CI — verify idempotency before
+  adding any file type back.
 - `src/xin-types.ts` is excluded from Prettier (via `.prettierignore`) to preserve its manually curated layout — do not reformat this file
 
 ## Shared practices

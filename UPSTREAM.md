@@ -73,6 +73,47 @@ same-named interface: it emits nothing either way.
 component collapse to the one-liner, and the docs stop having to say "do as we
 say, not as we do".
 
+## prettier
+
+### NOT FILED (third-party, outside this ecosystem): the markdown printer is not idempotent
+
+**Affects:** prettier **2.8.8** (our pin) and **3.9.6** (current) — both.
+I have not searched prettier's issue tracker, so this may be known.
+
+A formatter that is not idempotent is broken by definition: `format(format(x))`
+must equal `format(x)`. Ours was not, on markdown, and it had been quietly
+damaging `TODO.md` for months — a list continuation gaining indentation on
+every `bun run format` until it sat at column 44, with the surrounding content
+mangled (a nested list flattened into prose, a sentence dedented mid-way).
+
+**Minimal repro** — four lines, reduced by delta-debugging from the real file.
+Indentation grows by four on every `--write`, without converging:
+
+```markdown
+- [x] **an unclosed bold list item
+
+                                                A deeply indented paragraph
+                                                that follows a blank line.
+```
+
+```
+pass 1: indent=52   pass 2: indent=56   pass 3: indent=60
+```
+
+**Not configurable away.** `proseWrap: preserve | never | always` all
+oscillate. **Not fixed upstream:** 3.9.6 does it too, and faster than 2.8.8.
+
+**Scope, measured:** every one of the **110 non-markdown files** in this repo
+(`.ts`, `.js`, `.json`, `.css`, `.html`, `.yml`) is idempotent. It is a
+markdown-printer problem only.
+
+**What we did:** `*.md` is in `.prettierignore`. Markdown here is hand-written
+prose rendered by a doc site — there is no consistency problem for a formatter
+to solve, so formatting it was pure risk. The `prettier --check` CI gate keeps
+its value on the 110 files where the value is, and can no longer be held
+permanently red by a printer bug. Re-check idempotency before ever
+re-enabling it.
+
 ## tosijs-ui
 
 ### OPEN: tosijs-ui#129 — devServer sends no cache headers; explicit reload can be stale
