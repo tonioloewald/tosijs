@@ -88,6 +88,15 @@ Try statements must have at least a catch or finally block`. **The emitted
 > error is in the runner's harness. Reported as 13 build-log failures every
 > build, which is noise that would mask a real one. `TODO.md`.
 >
+> **Largely FIXED upstream in 0.13.11** (verified 2026-09-04, not yet pinned):
+> `color.ts` converts clean, and `component.ts` reports `0 passed, 2
+inconclusive (not run — the harness could not execute them)` instead of 5
+> failures. Thirteen spurious failures become zero failures and two honest
+> abstentions. **tjs-lang#51 — `convert` silently DROPPING an exported function
+> based on comment text — is NOT fixed in 0.13.11.** See `UPSTREAM.md`; the pin
+> bump is worth doing for the noise reduction alone, but must be validated by
+> executing all seven bundles, not by running the suite.
+>
 > ⚠️ **The peer range was never the blocker, in either direction.** This note
 > used to say 1.10.0 was unadoptable because it peers `tjs-lang ^0.12.0` —
 > false; every published 1.9.x declares the same peer, including the 1.9.4 we

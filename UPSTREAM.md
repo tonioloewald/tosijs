@@ -149,6 +149,28 @@ input has no declaration in the output.
 comment is ever rewritten, re-run `bun tjs convert src/component.ts -o /tmp/x.js`
 and confirm `export function withAttributes` is present.
 
+**Retested on 0.13.11 (2026-09-04): STILL BROKEN.** Same repro, clean install,
+still exits 0 with no diagnostic. Checked because five versions shipped
+(0.13.7–0.13.11) — the issue tracker said nothing either way, and the rule here
+is to execute the artifact, not read the changelog.
+
+**But the signature-test runner improved in that range, and it is worth a pin
+bump on its own merits:**
+
+| file           | 0.13.6 (pinned)      | 0.13.11                                                                   |
+| -------------- | -------------------- | ------------------------------------------------------------------------- |
+| `color.ts`     | `0 passed, 8 failed` | clean — the `clamp is not defined` cross-module bug is gone               |
+| `component.ts` | `0 passed, 5 failed` | `0 passed, 2 inconclusive (not run — the harness could not execute them)` |
+
+That is 13 spurious build-log failures per build reduced to zero failures and
+two honest abstentions. The relabelling matters more than the count:
+"inconclusive (not run)" distinguishes _the code is wrong_ from _I could not
+check_, which is the property that stops a harness limitation from masking a
+real defect — the same distinction `TODO.md` complains this noise was
+destroying. **Not bumped yet** — a toolchain bump must be validated by
+executing the artifact (all seven bundles), which is its own change, not a
+tail-end edit to a release.
+
 ### OPEN: tosijs-ui#130 — `buildSite` prebuild does `rm -rf DIST` on every run, including `devServer`
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/130
