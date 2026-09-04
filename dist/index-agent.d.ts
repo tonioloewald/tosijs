@@ -1,5 +1,5 @@
 export { enableAgentInterface, isAgentRefusal, BOUND_TO_DOM, BOUND_TWO_WAY, AGENT_SURFACE_VERSION, AGENT_CAPABILITIES, } from './agent';
-export type { AgentInterface, AgentInterfaceOptions, AgentContract, AgentDescription, AgentWiringRecord, AgentLogEntry, AgentSurfaceVersion, AgentExpose, AgentRefusalKind, AgentRefusalError, ComponentMap, ComponentTestStep, } from './agent';
+export type { AgentInterface, AgentInterfaceOptions, AgentContract, AgentDescription, AgentWiringRecord, AgentLogEntry, AgentSurfaceVersion, AgentExpose, AgentRefusalKind, AgentRefusalError, AgentPathRef, AgentObserveRef, ComponentMap, ComponentTestStep, } from './agent';
 export { webmcpTools, webmcpAdapter } from './webmcp';
 export type { WebMCPTool, WebMCPAdapterOptions } from './webmcp';
 export { schematicSVG, rasterizeSVG, boundsOf } from './schematic';

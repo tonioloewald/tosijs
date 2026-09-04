@@ -109,9 +109,27 @@ export type ComponentAttrs<T> = {
 export type DeclaredAttributes<A> = {
     [K in keyof A as A[K] extends ComputedAttribute ? never : K]: A[K];
 };
-export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) & Omit<typeof Component, "prototype" | "initAttributes"> & {
+/**
+ * What `withAttributes()` returns — NAMED, because an anonymous intersection
+ * cannot be written into a downstream declaration file.
+ *
+ * tosijs-ui hit this adopting 1.10.0 (tosijs#38): `tsc --noEmit` was clean and
+ * `tsc --declaration` failed with **TS2742** on all 34 migrated files —
+ * "the inferred type of 'TosiMonth' cannot be named without a reference to
+ * '../node_modules/tosijs/dist/component.js'". The pieces were all nameable;
+ * the intersection was not, and `dist/component.d.ts` is not reachable through
+ * `package.json` `exports`. So the package would have shipped JS with no types
+ * for every component built this way — and it is not fixable downstream: a
+ * named base const moves the error verbatim, and a `paths` mapping emits an
+ * import their own consumers cannot resolve.
+ *
+ * Naming it here is the whole fix: `dist/` layout stays private, and a
+ * downstream author who needs an explicit annotation has something to write.
+ */
+export type WithAttributes<A extends Record<string, any>> = (new <T = PartsMap>() => Component<T> & DeclaredAttributes<A>) & Omit<typeof Component, 'prototype' | 'initAttributes'> & {
     initAttributes: Record<string, any>;
 };
+export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => WithAttributes<A>;
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;
     private static _elementCreator?;

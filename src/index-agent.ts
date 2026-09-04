@@ -49,6 +49,10 @@ export type {
   AgentExpose,
   AgentRefusalKind,
   AgentRefusalError,
+  // the declared parameter type of every verb, and of expose.roots /
+  // expose.actions — a consumer wrapping the surface has to be able to name it
+  AgentPathRef,
+  AgentObserveRef,
   ComponentMap,
   ComponentTestStep,
 } from './agent'

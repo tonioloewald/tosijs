@@ -1,5 +1,32 @@
 # todo
 
+## FLAKE: value-commit.pw.ts loses a click to the doc-runner's "Running" badge
+
+Seen once in 1.10.1's release run on **Firefox**, then 6/6 on two consecutive
+re-runs — so it is intermittent, not a regression (the change that run was
+type-only and cannot affect click interception).
+
+```
+Error: page.click: Test timeout of 30000ms exceeded.
+  - <span part="label">Running</span> from <tosi-doc-system …> subtree
+    intercepts pointer events
+```
+
+**Cause:** `playwright.config.ts` runs 4 workers against ONE dev server, so
+`doc-tests.pw.ts` and `value-commit.pw.ts` share a page origin. While the doc
+lane runs, the doc system paints a "Running" badge that can sit over the
+element `value-commit` is clicking.
+
+- [ ] Fix properly — the value-commit fixture should not depend on a clean
+      viewport. Options, cheapest first: mount its fixture in an isolated route
+      rather than `/`; or `force: true` on the click (hides the class of bug it
+      exists to catch, so second choice); or serialise the two lanes.
+
+**Do not "fix" it by re-running until green.** It is a shared-state defect in
+our own harness and it will bite again on someone else's release, where it will
+read as a real failure and cost an investigation — which is exactly what
+happened here.
+
 ## Empty proxy targets — the 2.0-shaped follow-on to tosijs#35
 
 1.9.2 made `.value`/`valueOf`/`toJSON` resolve the path instead of returning
@@ -228,16 +255,16 @@ constructor without |new|` — at _import_ time for static-field
       does not resolve cross-module imports; `clamp` is in `more-math.ts`) - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
 statements must have at least a catch or finally block.`
 
-                            **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
-                            and imports; the error is in the harness the runner wraps around the
-                            module. I first reported the `component.ts` one on tjs-lang#37 as a
-                            possible second emitter bug; it is not, and that correction should go in
-                            the new issue.
+                                    **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
+                                    and imports; the error is in the harness the runner wraps around the
+                                    module. I first reported the `component.ts` one on tjs-lang#37 as a
+                                    possible second emitter bug; it is not, and that correction should go in
+                                    the new issue.
 
-                            Net effect: **13 failures printed on every build, permanently ignored** —
-                            the ambient-noise condition that hides a real failure when one arrives.
-                            It is also why this read as noise during the E1 bump rather than as a
-                            known defect.
+                                    Net effect: **13 failures printed on every build, permanently ignored** —
+                                    the ambient-noise condition that hides a real failure when one arrives.
+                                    It is also why this read as noise during the E1 bump rather than as a
+                                    known defect.
 
 - [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
       both default to **8799**, so the two browser lanes cannot run at the same

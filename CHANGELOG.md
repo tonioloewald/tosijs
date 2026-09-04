@@ -6,6 +6,60 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.1] - 2026-09-04
+
+Type-only. No runtime change, no bundle change.
+
+### Fixed
+
+- **Four public types were unreachable from any entry.** `AgentPathRef` and
+  `AgentObserveRef` are the declared parameter type of _every_ agent verb and
+  of `expose.roots` / `expose.actions`; `ComponentClass` is the declared type
+  of `TosiComponentSpec.type` and `TosiPackagedComponent.type`, which 1.10.0's
+  own notes point blueprint authors at; `DeclaredAttributes` is named by
+  `withAttributes`'s return type. None of them were exported, so a consumer
+  could read a type in a signature and be unable to write it — the situation
+  [#36](https://github.com/tonioloewald/tosijs/issues/36) set out to end,
+  reproduced one layer up. `ComponentAttrs` was already exported and is
+  unaffected; the documented `withAttributes` + subclass pattern compiled fine.
+
+  The entry modules use **explicit** export lists rather than `export *`, so a
+  type not named there reaches nobody — and the library's own code never
+  notices, because it imports from the modules directly. That is the same trap
+  that left 22 `Xin*` aliases unreachable for four releases.
+
+- **`withAttributes()` made downstream `.d.ts` emit impossible**
+  ([#38](https://github.com/tonioloewald/tosijs/issues/38), reported by
+  tosijs-ui adopting 1.10.0). `tsc --noEmit` was clean; `tsc --declaration`
+  failed with **TS2742/TS2883** on _every_ migrated class — 34 files in
+  tosijs-ui — so the package would have shipped JS with no types for any
+  component built this way. The mixin returned an anonymous intersection
+  declared in `dist/component.d.ts`, which `exports` does not reach, so
+  TypeScript could not write a portable reference. Not fixable downstream: a
+  named base const moves the error verbatim, and a `paths` mapping emits an
+  import _their_ consumers cannot resolve.
+
+  Fixed by naming the return type — **`WithAttributes<A>`**, exported from
+  `tosijs` — and by exporting `DeclaredAttributes`, which the control run
+  showed was the piece actually being named in the error. Verified by emitting
+  declarations for tosijs-ui's own component shape: it now writes
+  `import("tosijs").WithAttributes<{…}>` with no reference to `dist/`
+  internals. `dist/` layout stays private.
+
+### Added
+
+- **A gate for the class**, not the instance (`src/type-surface.test.ts`): it
+  compiles a probe against the **built** `.d.ts` with `tsc` and fails, naming
+  the type, if any of the public surface cannot be imported. Verified by
+  deliberately un-exporting `AgentPathRef` and watching it go red.
+
+  Two earlier versions of this gate were vacuous and are worth recording: the
+  first regex-scanned `dist/index.d.ts`, which is a 24-line re-export stub, so
+  it compared two nearly-empty sets and passed — including after the type was
+  deliberately deleted. The second tried to _use_ each type rather than merely
+  import it, which is an arity error on the generic ones. A gate that cannot
+  fail is worse than no gate, because it reports safety.
+
 ## [1.10.0] - 2026-09-04
 
 **`Component` no longer disables type checking for every component you write** —

@@ -25,10 +25,30 @@ export type { TosiStyleSheet, TosiStyleMap, TosiStyleRule } from './css-types'
 export type { XinStyleSheet, XinStyleMap, XinStyleRule } from './css-types'
 // the component-contract SHAPE stays on the main entry: declaring
 // `static contract` is a component-authoring act, and it is type-only
-export type { ComponentMap, ComponentTestStep } from './agent'
+export type {
+  ComponentMap,
+  ComponentTestStep,
+  // the declared parameter type of EVERY agent verb and of expose.roots /
+  // expose.actions — without these a consumer cannot type a wrapper around
+  // the surface they are being told to call with proxies
+  AgentPathRef,
+  AgentObserveRef,
+} from './agent'
 export { Color } from './color'
 export { Component, withAttributes, tosiSlot, xinSlot } from './component'
-export type { PartsOf, ComponentAttrs } from './component'
+export type {
+  PartsOf,
+  ComponentAttrs,
+  // `withAttributes`'s return type names DeclaredAttributes, and
+  // TosiComponentSpec.type / TosiPackagedComponent.type are declared as
+  // ComponentClass — so both are part of the public surface whether or not
+  // they are exported. Unexported, a consumer could not name the type their
+  // own field or wrapper has to satisfy, which is the situation tosijs#36
+  // set out to end. These entry files use EXPLICIT export lists, not
+  // `export *`, so a type not named here does not reach anyone.
+  DeclaredAttributes,
+  WithAttributes,
+} from './component'
 // exported from their own module (component.ts re-exports the setter for
 // historical reasons) — the plug is a security boundary, and a getter that
 // lives anywhere but beside the setter is a getter nobody finds
@@ -66,6 +86,7 @@ export {
   scrollListItemIntoView,
 } from './list-binding'
 export type {
+  ComponentClass,
   TosiBlueprint,
   TosiFactory,
   TosiPackagedComponent,
