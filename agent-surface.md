@@ -397,7 +397,14 @@ binding metadata, never on the DOM):
 import { elements, tosi, enableAgentInterface, exerciseContract } from 'tosijs'
 
 const { inlineDemo } = tosi({ inlineDemo: { qty: 5 } })
-const agent = globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
+// READ THE SURFACE INSIDE THE HANDLER, NOT AT LOAD. Every live example on
+// this page shares one realm, and the reconfiguring demo below calls
+// enableAgentInterface(), which auto-disables the previous surface — and
+// since 1.10.0 that REVOKES it. A handle captured here went stale the moment
+// someone clicked that button, and every click after threw `revoked`.
+const surface = () =>
+  globalThis.tosiAgent ?? enableAgentInterface({ expose: 'all' })
+surface() // install one now so the page has a dev surface from the start
 const { div, label, input, button, pre } = elements
 
 const out = pre({ style: { height: '100%', overflow: 'auto', margin: 0 } })
@@ -420,6 +427,7 @@ preview.append(
     ' ',
     button('agent tries qty = "lots"', {
       onClick() {
+        const agent = surface()
         try {
           agent.write('inlineDemo.qty', 'lots')
         } catch (e) {
@@ -431,7 +439,7 @@ preview.append(
     ' ',
     button('exercise it', {
       onClick() {
-        const trials = exerciseContract(agent).trials.filter(
+        const trials = exerciseContract(surface()).trials.filter(
           (t) => t.root === 'inlineDemo.qty'
         )
         out.textContent = JSON.stringify(trials, null, 2)

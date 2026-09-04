@@ -99,7 +99,7 @@ README + a test that reads it.
 - [ ] **~260 gz bytes of dev-only deprecation prose ship in every bundle**,
       including `tosijs/core` and DOM-free `tosijs/state`, which will never
       print a `bindText` warning (`elements.ts`; `grep 'permanently DISABLING'
-  dist/*.js` hits all four). Keep the actionable half, move the explanation
+dist/*.js` hits all four). Keep the actionable half, move the explanation
       behind a docs anchor.
 - [x] ~~**Decide the `bind*` string-form question.**~~ **DONE (1.9.0)** — the
       rule now applies uniformly and turns on the VALUE: deprecated iff a
@@ -133,7 +133,7 @@ README + a test that reads it.
 ## Benchmark numbers we publish, and the harness we do not have (round-4 M9)
 
 - [ ] **We publish µs figures with no benchmark harness behind them.** `find src
-  bin tests -iname '*bench*'` is empty; so is a grep for `performance.now`
+bin tests -iname '*bench*'` is empty; so is a grep for `performance.now`
       or `Bun.nanoseconds` outside one-off probes. Every number quoted in the
       CHANGELOG and in this file came from an ad-hoc script under **happy-dom,
       in a shared test process** — which the shared practice on microbenchmark
@@ -204,7 +204,7 @@ package's own repository (it went stale once across the rename already).
       committed 1.8.0**, so the new build host changes nothing shipped. - ✅ **tjs-lang 0.10.1 → 0.13.6** (after a one-day detour at 0.12.0).
       0.13.0–0.13.5's `convert` stripped `new` from every class declared in
       the module it was converting, so the output threw `Cannot call a class
-    constructor without |new|` — at _import_ time for static-field
+constructor without |new|` — at _import_ time for static-field
       initialisers. 15 sites across 4 of our modules, including
       `UnsafePathError`, the prototype-pollution guard. Bisected to 0.13.0,
       filed as **tjs-lang#37**, fixed upstream in **0.13.6** the same day.
@@ -226,18 +226,18 @@ package's own repository (it went stale once across the rename already).
       failures — both of them.**
       On every version tried, 0.10.1 through 0.13.6: - `src/color.ts: 0 passed, 8 failed — clamp is not defined` (the runner
       does not resolve cross-module imports; `clamp` is in `more-math.ts`) - `src/component.ts: 0 passed, 5 failed — Unexpected token ')'. Try
-    statements must have at least a catch or finally block.`
+statements must have at least a catch or finally block.`
 
-      **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
-      and imports; the error is in the harness the runner wraps around the
-      module. I first reported the `component.ts` one on tjs-lang#37 as a
-      possible second emitter bug; it is not, and that correction should go in
-      the new issue.
+          **The emitted modules are fine** — `tjs-out/component.js` parses, bundles
+          and imports; the error is in the harness the runner wraps around the
+          module. I first reported the `component.ts` one on tjs-lang#37 as a
+          possible second emitter bug; it is not, and that correction should go in
+          the new issue.
 
-      Net effect: **13 failures printed on every build, permanently ignored** —
-      the ambient-noise condition that hides a real failure when one arrives.
-      It is also why this read as noise during the E1 bump rather than as a
-      known defect.
+          Net effect: **13 failures printed on every build, permanently ignored** —
+          the ambient-noise condition that hides a real failure when one arrives.
+          It is also why this read as noise during the E1 bump rather than as a
+          known defect.
 
 - [ ] **Two repos, one e2e port.** `playwright.config.ts` here and tosijs-ui's
       both default to **8799**, so the two browser lanes cannot run at the same
@@ -554,7 +554,7 @@ package's own repository (it went stale once across the rename already).
       filing it here is the deferral the KB explicitly warns against. Five
       edits, each attributed `— seen in: tosijs 1.8.0`: (a) `00-stack.md:122`
       and `review.md:9-26` omit tosijs from the has-CI list (`.github/workflows/
-  ci.yml` since e12d641); (b) `web-components.md:90,95,96,130` and
+ci.yml` since e12d641); (b) `web-components.md:90,95,96,130` and
       `model-priors.md:66` still teach `xinSlot()`/`<xin-slot>`; (c)
       `web-components.md:169-182` teaches the unconditional `on<Capital>` rule
       this release inverted — rewrite WITH the determinism caveat; (d)
@@ -570,7 +570,7 @@ package's own repository (it went stale once across the rename already).
       issue-closure step anywhere in the ceremony** — that is the structural
       cause of E3, not the four issues.
 - [ ] **P5** — CLAUDE.md's Component Conventions never mentions `static
-  contract`, while `contract.attributes` + `initAttributes` on one class is
+contract`, while `contract.attributes` + `initAttributes` on one class is
       a hard throw. Second consecutive release in which it drifted behind a
       component-API change; consider haltija's `docs-coverage.test.ts`
       CONCEPTS-table mechanism so drift is a failing test.

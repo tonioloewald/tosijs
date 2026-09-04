@@ -125,6 +125,36 @@ disabled. Do not trust a plain reload to prove anything. And if a page's
 behaviour contradicts its source, **suspect the transport before the code** —
 check two browsers before spending a session on the library.
 
+### OPEN: tosijs-ui#130 — `buildSite` prebuild does `rm -rf DIST` on every run, including `devServer`
+
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/130
+
+`orchestrator.js:418` wipes the **library** output dir in the prebuild, on a
+dev-server start as well as a build. Where one entry builds both the doc site
+and the npm package — the arrangement `buildSite` + `libraryBuild` exists for —
+`dist/` is an input to `npm publish`, not a site artifact.
+
+**What it cost us:** `dist/module.debug.js` and `dist/module.safe.js` are built
+only under `--build` (the tjs transpile is slow), so every `bun start` — and
+every Playwright run, whose `webServer` is `bun start` — left them deleted while
+`package.json` still exported `./debug` and `./safe`. The release checklist
+walks into it: build (step 3), browser tests (step 4), publish (step 8). It
+reached a commit once already as unnoticed collateral. No local gate could see
+it: the smoke and size loops iterate only what the current run built.
+
+**Our defence, since no build-order fix on our side can close it:** the two
+bundles are tracked in git (so the deletion shows in `git status` — untracked,
+it was invisible), plus an exports-target existence check in BOTH
+`buildLibrary()` and `prepublishOnly` (`bin/check-publish-tag.ts`). The publish
+hook is the ordering-proof one. Offered the check upstream.
+
+**Correction worth keeping:** a pre-release review diagnosed this as the strip
+loop in our own `bin/site.ts` keying off the filtered bundle list. That was real
+and is fixed — but it was not the dominant cause, and fixing it alone did not
+stop the deletion. The empirical check (run the lane, look for the files) is
+what found the `rm -rf`. **A plausible mechanism that explains the symptom is
+not the same as the mechanism.**
+
 ### RESOLVED (by us, upstream-of-them): tosijs-ui#127 — deprecated binding shortcuts
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/127

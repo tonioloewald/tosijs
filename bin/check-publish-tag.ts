@@ -18,10 +18,61 @@
  * the mistake.
  */
 import pkg from '../package.json'
+import { existsSync } from 'node:fs'
 
 const version: string = pkg.version
 const isPrerelease = version.includes('-')
 const tag = process.env.npm_config_tag
+
+/**
+ * REFUSE TO PUBLISH A TARBALL WITH MISSING EXPORTS TARGETS.
+ *
+ * This is the ordering-proof backstop for a defect that no source-order fix
+ * inside `bin/site.ts` can close. `buildSite()`'s prebuild runs
+ * `rm -rf dist` (tosijs-ui `orchestrator.js`), so EVERY `bun start` wipes the
+ * library output and a dev run rebuilds only the non-tjs bundles — leaving
+ * `dist/module.debug.js` and `dist/module.safe.js` gone while package.json
+ * still exports `./debug` and `./safe`.
+ *
+ * The release checklist walks straight into it: step 3 `bun run build`
+ * creates them, step 4 `bun run test:browser` launches a dev server that
+ * deletes them, step 8 publishes. It shipped once already, as collateral in
+ * a build-speed commit, and no gate could see it — the smoke loop and the
+ * budget loop iterate only what the current run built, and the entries suite
+ * skips a file that is absent.
+ *
+ * `prepublishOnly` is the one hook that runs after all of that and before
+ * the tarball leaves. Deliberately NOT `npm pack`: packing a partial tree
+ * while iterating is legitimate.
+ */
+const missing: string[] = []
+for (const [subpath, entry] of Object.entries(
+  (pkg as any).exports as Record<string, any>
+)) {
+  for (const [condition, target] of Object.entries(
+    entry as Record<string, string>
+  )) {
+    if (condition === 'types' || typeof target !== 'string') continue
+    if (!target.endsWith('.js')) continue
+    if (!existsSync(target.replace(/^\.\//, ''))) {
+      missing.push(`  ${subpath} (${condition}) -> ${target}`)
+    }
+  }
+}
+if (missing.length > 0) {
+  console.error(
+    `\n  REFUSING TO PUBLISH: package.json exports point at files that do ` +
+      `not exist.\n\n${missing.join('\n')}\n\n` +
+      `  Consumers importing those subpaths would get ERR_MODULE_NOT_FOUND.\n` +
+      `  Run \`bun run build\` (NOT \`bun start\`, which wipes dist/) and ` +
+      `publish from\n  that tree — or remove the export if the artifact is ` +
+      `being retired.\n`
+  )
+  process.exit(1)
+}
+console.log(
+  `exports gate: ${Object.keys((pkg as any).exports).length} subpaths resolve`
+)
 
 if (!isPrerelease) {
   // a stable release going to `latest` is the ordinary case

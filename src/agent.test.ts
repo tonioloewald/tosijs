@@ -2640,7 +2640,6 @@ describe('disable() revokes the capability, not just the global', () => {
       () => agent.observe('revoked', () => {}),
       () => agent.describe(),
       () => agent.changes(),
-      () => agent.log(),
     ]) {
       let refusal: any
       try {
@@ -2650,14 +2649,24 @@ describe('disable() revokes the capability, not just the global', () => {
       }
       expect(refusal?.tosiRefusal).toBe('revoked')
     }
-    // when() rejects rather than throws — it returns a promise
-    let whenRejected = false
-    try {
-      await agent.when('revoked.a', () => true)
-    } catch (e) {
-      whenRejected = true
-    }
-    expect(whenRejected).toBe(true)
+    // when() REJECTS — it does not throw synchronously. Asserted WITHOUT
+    // await, because `try { await … } catch` catches both and so proves
+    // nothing: the previous version of this test passed against a guard that
+    // threw synchronously, while its own comment and the CHANGELOG both
+    // promised a rejection. `.catch()` on a sync throw never runs.
+    const pending = agent.when('revoked.a', () => true)
+    expect(typeof (pending as any)?.then).toBe('function')
+    let whenRejection: any
+    await pending.catch((e) => {
+      whenRejection = e
+    })
+    expect(whenRejection?.tosiRefusal).toBe('revoked')
+
+    // log() is DELIBERATELY still readable: revoke, then audit what happened.
+    // The ledger is closed over, so refusing here would leave no door at all,
+    // and a historical record grants no capability.
+    expect(Array.isArray(agent.log())).toBe(true)
+
     // and the state was never touched by the refused write
     expect(xin.revoked.a).toBe(1)
   })
@@ -2685,5 +2694,67 @@ describe('disable() revokes the capability, not just the global', () => {
     const agent = enableAgentInterface({ quiet: true, expose: 'all' })
     agent.disable()
     expect(() => agent.disable()).not.toThrow()
+  })
+})
+
+describe('observe() must never INVOKE what you asked it to watch', () => {
+  /*
+   * THE BUG the proxy widening introduced. A boxed proxy over a function
+   * reports `typeof === 'function'` (xin returns a Proxy over
+   * `value.bind(target)`, and a Proxy preserves its target's typeof), so
+   * `observe(app.action, cb)` classified the ACTION as a filter predicate and
+   * the path-listener CALLED it on every settled touch — no assertScope, no
+   * assertMutable('call'), and no `call:` entry in the ledger, so the
+   * invocations were invisible to audit. Typechecked clean: AgentObserveRef
+   * admits it as the predicate arm.
+   */
+  test('observing an action proxy watches its path and does not call it', async () => {
+    let invocations = 0
+    const { watched } = tosi({
+      watched: {
+        n: 0,
+        act() {
+          invocations += 1
+        },
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: 'all',
+    }))
+    const seen: string[] = []
+    const off = agent.observe(watched.act, (path) => seen.push(path))
+    for (let i = 1; i <= 5; i++) {
+      xin.watched.n = i
+      await updates()
+    }
+    off()
+    // the action was never run...
+    expect(invocations).toBe(0)
+    // ...and nothing on an unrelated path masqueraded as its notification
+    expect(seen.every((p) => p.startsWith('watched.act'))).toBe(true)
+  })
+
+  test('under a manifest, an action proxy is a PATH — not a rejected pattern', async () => {
+    let invocations = 0
+    const { scopedAct } = tosi({
+      scopedAct: {
+        go() {
+          invocations += 1
+        },
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['scopedAct'], actions: ['scopedAct.go'] },
+    }))
+    // it used to be refused here with a message about patterns, told to a
+    // caller who had passed an ordinary path ref — the two postures
+    // disagreed about what observe(proxy) even meant
+    const off = agent.observe(scopedAct.go, () => {})
+    off()
+    expect(invocations).toBe(0)
   })
 })

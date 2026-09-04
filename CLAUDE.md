@@ -111,6 +111,21 @@ ran the same URL correctly. **When a page's behaviour contradicts its source,
 check a second browser before you debug the library** — that is a ten-second
 test that ends the whole class.
 
+**⚠️ `bun start` WIPES `dist/` — so it must never be the last thing before a
+publish (tosijs-ui#130).** `buildSite()`'s prebuild runs `rm -rf dist` on every
+run, dev server included, and a dev run rebuilds only five of the seven
+bundles: `dist/module.debug.js` and `dist/module.safe.js` are `--build`-only.
+`package.json` still exports `./debug` and `./safe`, so a publish from that tree
+ships two subpaths that throw `ERR_MODULE_NOT_FOUND`. **The release checklist
+walks straight into it** — step 3 builds, step 4 (`bun run test:browser`) starts
+a dev server via Playwright's `webServer` and deletes them, step 8 publishes.
+**Re-run `bun run build` after the browser lane, before committing.** Three
+guards now exist because no build-order fix on our side can close it: both
+bundles are tracked (so `git status` shows the deletion — untracked, it was
+invisible), `buildLibrary()` fails if any `exports` target is missing, and
+`prepublishOnly` refuses the publish. The last one is the only ordering-proof
+guard.
+
 **Dev-server watch caveat:** `buildSite()` starts by `rm -rf docs`, which wipes the separately-built `docs/iife.js`. The watch rebuild re-runs `buildSite` + `buildDocsBundle` (but skips the slower `buildLibrary` tests/tjs step); if `iife.js` is missing the page 404s into the SPA fallback and "loads as HTML."
 
 **Documentation generation:** handled inside `buildSite` from the `docPaths` in `tosijs-site.config.ts` (currently `src`, `README.md`, `Building-Apps.md`, `Migration.md`, `React.md`). Two sources:

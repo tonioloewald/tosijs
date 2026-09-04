@@ -19,7 +19,6 @@ and the agent surface stops guessing what you meant by a path.
 
 ### Added
 
-
 - **The agent surface takes proxies, not just path strings.** Every verb
   (`read`, `write`, `observe`, `call`, `when`) and both manifest lists
   (`expose.roots`, `expose.actions`) now accept a tosijs proxy _or_ a string:
@@ -37,7 +36,6 @@ and the agent surface stops guessing what you meant by a path.
   the path comes from outside the program — a tool call, config, or the wire.
 
 ### Fixed
-
 
 - **A non-path object is now refused instead of coerced.** Passing something
   that is neither a string nor a proxy reached `String()`, and the results were
@@ -66,6 +64,42 @@ and the agent surface stops guessing what you meant by a path.
   `tosiRefusal: 'revoked'`; `when()` rejects. `disable()` stays idempotent. If
   you hold a surface across a reconfigure, re-read `globalThis.tosiAgent`.
 
+- **`observe()` no longer INVOKES the action you asked it to watch.** A boxed
+  proxy over a function reports `typeof === 'function'`, so
+  `agent.observe(app.saveOrder, cb)` classified the action as a filter
+  predicate and the path-listener **called it on every settled touch** — no
+  scope check, no `call` permission check, and no `call:` entry in the audit
+  ledger, so the invocations were invisible. Your callback never fired unless
+  the action happened to return truthy. The path is now resolved before the
+  argument is classified: a path ref resolves, a genuine pattern does not.
+
+- **`when()` rejects instead of throwing synchronously.** Its guards threw out
+  of a promise-returning method, so `agent.when(p, f).catch(handle)` — no
+  `await` — got an uncaught exception. The CHANGELOG, the commit message and
+  the test all said "rejects"; the test could not tell, because
+  `try { await … } catch` catches both.
+
+- **`log()` stays readable after `disable()`**, deliberately, like `version`.
+  The natural incident flow is revoke-then-audit, and the ledger is closed
+  over, so refusing there left no door at all. A historical record grants no
+  capability.
+
+- **The un-observe function returned by `observe()` no longer throws after
+  `disable()`.** It still held its listener after `disable()` had unobserved
+  and cleared the set, so an app following the documented reconfigure flow
+  ("enable auto-disables the previous surface, then the app runs its own
+  cleanup") threw on the first `off()` and skipped every teardown line after
+  it.
+
+- **`tosijs/debug` and `tosijs/safe` could publish as broken subpaths.**
+  `buildSite()` wipes `dist/` on every run — dev server included — and a dev
+  run rebuilds only five of seven bundles, so the release checklist's own
+  order (build, then browser tests, then publish) deleted them between build
+  and publish. A publish from that tree threw `ERR_MODULE_NOT_FOUND` on both.
+  Both bundles are now tracked in git, `bun run build` fails if any
+  `package.json` `exports` target is missing, and `prepublishOnly` refuses the
+  publish outright. Root cause filed upstream as tosijs-ui#130.
+
 - **`observe()` accepts patterns again, and refuses them honestly.** It has
   always passed its argument straight to the path-listener, which also takes a
   `RegExp` or a predicate — undocumented, but used by the docs' own "redraw on
@@ -75,7 +109,6 @@ and the agent surface stops guessing what you meant by a path.
   under a manifest with an explanation — a pattern cannot be checked against a
   manifest, and it used to fail there with a raw
   `path.startsWith is not a function`.
-
 
 - **A live doc example threw.** The `this.X` → `dynamic(this).X` rewrite escaped
   the code and edited the `/*# … */` doc block, putting a module-private helper
@@ -93,7 +126,6 @@ and the agent surface stops guessing what you meant by a path.
   not gate on it).
 
 ### Changed
-
 
 - **`Component` no longer declares `value` — declare it in your component.**
   This was true in 1.10.0 and undocumented, which is what made it a defect.

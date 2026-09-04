@@ -301,6 +301,12 @@ describe('entry points', () => {
     }
   })
 
+  // NB: the exports-target EXISTENCE gate lives in buildLibrary()
+  // (bin/site.ts), for the same reason the size gate does and stated one
+  // comment above: this suite runs BEFORE the bundles are rebuilt, so a copy
+  // here fires against the previous run's dist and fails a correct build.
+  // Verified the hard way — placing it here broke `bun run build`.
+
   // measured against the SAME declaration the build gates on, so a budget
   // that has quietly become meaningless (raised past reality, or attached to
   // an artifact nobody builds) fails here too

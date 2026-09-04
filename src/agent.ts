@@ -2470,7 +2470,23 @@ export function enableAgentInterface(
       // manifest, with a raw `path.startsWith is not a function`; this says
       // what is wrong instead.
       assertLive('observe')
-      const pattern = pathRef instanceof RegExp || typeof pathRef === 'function'
+      // RESOLVE THE PATH BEFORE CLASSIFYING. A boxed proxy over a FUNCTION
+      // reports `typeof === 'function'` (xin.ts returns a Proxy over
+      // `value.bind(target)`, and a Proxy preserves its target's typeof), so
+      // asking `typeof pathRef === 'function'` first classified an ACTION
+      // PROXY as a filter predicate — and the path-listener then CALLED it on
+      // every settled touch. `agent.observe(app.saveOrder, cb)` ran
+      // saveOrder('app.n') on every keystroke, forever: no assertScope, no
+      // assertMutable('call'), and no `call:` entry in the ledger, so the
+      // invocations were invisible to audit. The caller's own callback never
+      // fired unless the action happened to return truthy.
+      //
+      // A path ref resolves; a genuine pattern does not. Ask that instead.
+      const resolved =
+        typeof pathRef === 'string' ? pathRef : tosiPath(pathRef as any)
+      const pattern =
+        resolved == null &&
+        (pathRef instanceof RegExp || typeof pathRef === 'function')
       if (pattern && scoped) {
         throw refuse(
           'scope',
@@ -2482,7 +2498,7 @@ export function enableAgentInterface(
       }
       const path = pattern
         ? (pathRef as unknown as string)
-        : toPath(pathRef as AgentPathRef, 'observe')
+        : resolved ?? toPath(pathRef as AgentPathRef, 'observe')
       if (!pattern) assertScope(path)
       const listener = observe(path, callback)
       subscriptions.add(listener)
@@ -2490,8 +2506,15 @@ export function enableAgentInterface(
       return () => {
         if (off) return // idempotent: unobserve throws on a stranger
         off = true
-        subscriptions.delete(listener)
-        unobserve(listener)
+        // ONLY UNOBSERVE WHAT IS STILL OURS. disable() unobserves every
+        // subscription and clears the set, but this closure still holds the
+        // listener — so an app following the documented reconfigure flow
+        // ("enableAgentInterface auto-disables the previous surface, then the
+        // app calls its own cleanup") threw 'unobserve failed, listener not
+        // found' on the first off() and skipped every teardown line after it.
+        // Same defect class disable()'s own comment says was fixed for
+        // double-disable.
+        if (subscriptions.delete(listener)) unobserve(listener)
       }
     },
 
@@ -2528,9 +2551,22 @@ export function enableAgentInterface(
       pathRef: AgentPathRef,
       predicate: (value: any) => boolean
     ): Promise<any> {
-      assertLive('when')
-      const path = toPath(pathRef, 'when')
-      assertScope(path)
+      // ONE CHANNEL FOR EVERY FAILURE, and that channel is the promise.
+      // These guards used to throw SYNCHRONOUSLY out of a promise-returning
+      // method, so `agent.when(p, f).catch(handle)` — no await, no try — got
+      // an uncaught exception instead of a rejection. The predicate-error
+      // path below already got this right and said so; the guards did not,
+      // and the CHANGELOG, the commit message and the test all claimed
+      // otherwise. The test could not tell: `try { await … } catch` catches
+      // both.
+      let path: string
+      try {
+        assertLive('when')
+        path = toPath(pathRef, 'when')
+        assertScope(path)
+      } catch (e) {
+        return Promise.reject(e)
+      }
       refreshSecretPaths()
       const current = serialize(xin[path])
       let alreadySatisfied: boolean
@@ -2620,7 +2656,11 @@ export function enableAgentInterface(
     },
 
     log(): AgentLogEntry[] {
-      assertLive('log')
+      // DELIBERATELY NOT GUARDED, like `version`. The natural incident flow
+      // is "an agent did something alarming -> revoke -> read the ledger",
+      // and `ledger` is closed over, so refusing here left no door at all.
+      // A historical record grants no capability; withholding it only makes
+      // a revoked surface unauditable at the moment you most want the audit.
       return ledger.slice()
     },
 

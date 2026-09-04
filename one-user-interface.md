@@ -197,6 +197,7 @@ the UI. A human is an observer with eyes. An agent is an observer with a model.
 Neither needs a special interface, because there is only one._
 
 <!-- toc -->
+
 - [The Derived Surface](/derived-surface/)
 - [The Agent Surface](/agent-surface/)
 - [Trust & Transports](/trust-and-transports/)

@@ -8,6 +8,7 @@ Project config lives in tosijs-site.config.ts; the library bundling (esm/cjs/iif
 */
 
 import * as path from 'path'
+import { existsSync } from 'node:fs'
 import { $ } from 'bun'
 import { BUNDLES, BundleSpec } from './bundles'
 import siteConfig from '../tosijs-site.config'
@@ -230,7 +231,22 @@ async function buildLibrary(full = true) {
   // only the bundles this run actually produced — a dev run skips the tjs
   // pair, and smoking a file that was never built fails for the wrong reason
   const BUILT = full ? BUNDLES : BUNDLES.filter((b) => b.stage !== 'tjs')
-  const keepJs = new Set(BUILT.map((b) => b.naming))
+  // NEVER DELETE A PUBLISHED BUNDLE THIS RUN DID NOT BUILD.
+  //
+  // The strip loop exists to remove tsc's per-file emissions, and it keyed
+  // off BUILT — which is the *filtered* list. So every `bun start` unlinked
+  // dist/module.debug.js and dist/module.safe.js, the two bundles a dev run
+  // deliberately skips, while package.json still exported ./debug and
+  // ./safe. It had already fired: 5229813 committed their deletion as
+  // collateral. And the release checklist guarantees the bad state — step 3
+  // `bun run build` creates them, step 4 `bun run test:browser` launches a
+  // dev server that deletes them, step 8 publishes. No gate could see it:
+  // the smoke and budget loops both iterate BUILT too.
+  //
+  // BUILT is right for smoking and for budgets. It is wrong for deletion:
+  // what may be REMOVED is "not a published bundle at all", which is the
+  // full set.
+  const keepJs = new Set(BUNDLES.map((b) => b.naming))
   const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {
     if (name.endsWith('.js') && !keepJs.has(name)) {
@@ -367,6 +383,47 @@ async function buildLibrary(full = true) {
     }
   }
   console.log('gzip budgets:', sizes.join(', '))
+
+  // EVERY EXPORTS TARGET MUST EXIST. Keyed off package.json's `exports`, not
+  // off BUNDLES, because `exports` is the promise made to consumers — and it
+  // is the promise that was broken: ./debug and ./safe pointed at bundles a
+  // build-speed change had deleted from git and every `bun start` re-deleted,
+  // so a publish shipped two subpaths that throw ERR_MODULE_NOT_FOUND. It was
+  // invisible to every gate: the smoke loop and budget loop iterate only what
+  // THIS run built, and `entries.test.ts` skips a file that is absent.
+  //
+  // It lives here, not in the suite, for the same reason the size gate does:
+  // `bun test src/` runs BEFORE the bundles are rebuilt, so a copy there
+  // fires against the previous run's dist and fails a correct build. (Tried
+  // it. It did.)
+  if (full) {
+    const pkgJson = JSON.parse(await Bun.file('package.json').text())
+    const missingTargets: string[] = []
+    for (const [subpath, entry] of Object.entries(
+      pkgJson.exports as Record<string, any>
+    )) {
+      for (const [condition, target] of Object.entries(
+        entry as Record<string, string>
+      )) {
+        if (condition === 'types' || typeof target !== 'string') continue
+        if (!target.endsWith('.js')) continue
+        if (!existsSync(target.replace(/^\.\//, ''))) {
+          missingTargets.push(`${subpath} (${condition}) -> ${target}`)
+        }
+      }
+    }
+    if (missingTargets.length > 0) {
+      throw new Error(
+        'package.json exports point at files that do not exist, so a publish ' +
+          'would ship subpaths that throw ERR_MODULE_NOT_FOUND:\n  ' +
+          missingTargets.join('\n  ') +
+          '\nEither build them or remove the export.'
+      )
+    }
+    console.log(
+      `exports gate: ${Object.keys(pkgJson.exports).length} subpaths resolve`
+    )
+  }
 
   // PACKAGE PAYLOAD BUDGET. The gzip budgets above police what a consumer
   // EXECUTES; nothing policed what they DOWNLOAD. The tarball had reached

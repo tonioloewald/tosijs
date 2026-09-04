@@ -94,7 +94,16 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'main.js',
     format: 'cjs',
     entry: './src/index.ts',
-    budget: 43_500,
+    // 43_500 -> 44_500. THE TWO CEILINGS ARE DELIBERATELY NOT EQUAL: the CJS
+    // artifact runs ~290 gz bytes over the ESM one (271 B at v1.9.2, 287 B
+    // now), so copying module.js's number here — which is what the previous
+    // comment reasoned itself into — cannot give equal headroom, and left
+    // main.js with SEVENTEEN bytes. That is the hair-trigger this file
+    // forbids twice: the next ~20 bytes anywhere in the library would have
+    // broken `bun start` for every developer (the budget loop is not gated
+    // on `full`), and the fix a stranger reaches for is raising the number
+    // without reading it. Budget per bundle from its own measurement.
+    budget: 44_500,
     probe: 'require',
     stage: 'main',
   },
