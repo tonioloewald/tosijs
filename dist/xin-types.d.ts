@@ -250,7 +250,7 @@ export interface PartsMap {
     [key: string]: Element;
 }
 export type ValueElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-export type ElementPart<T = Element> = Element | DocumentFragment | ElementProps<T> | string | number;
+export type ElementPart<T = Element> = Element | DocumentFragment | ElementProps<T> | string | number | BoxedScalar<any> | BoxedProxy<any>;
 export type HTMLElementCreator<T = HTMLElement> = (...contents: ElementPart<T>[]) => T;
 export type FragmentCreator = (...contents: ElementPart<Element>[]) => DocumentFragment;
 export type ElementCreator<T = Element> = (...contents: ElementPart<T>[]) => T;

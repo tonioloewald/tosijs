@@ -27,6 +27,73 @@ import { existsSync } from 'node:fs'
  *    `AgentPathRef` was deliberately deleted from the export lists. A gate
  *    that cannot fail is worse than no gate, because it reports safety.
  */
+/*
+ * AND THE TYPES MUST ADMIT THE IDIOMATIC SPELLING.
+ *
+ * Importability is not enough: a type can be reachable and still be narrower
+ * than the runtime it describes, which is worse than missing because it sends
+ * a consumer away from working code. Two shipped that way and were found only
+ * by typechecking the test files, which no lane does:
+ *
+ *   - the direct `.observe` was typed `(path: string) => void` when it takes a
+ *     CALLBACK and returns an unsubscribe — the working call was an error and
+ *     the type-prescribed call threw;
+ *   - `ElementPart` excluded boxed proxies, so `div(app.name)` — a LIVE bound
+ *     text child, and what elements.test.ts calls "the most-used site" — did
+ *     not typecheck.
+ *
+ * So compile the spellings the docs actually show, against the BUILT `.d.ts`.
+ */
+test.skipIf(!existsSync('dist/index.d.ts'))(
+  'the documented spellings compile against the built package',
+  async () => {
+    const probe = `
+import { tosi, elements, bindings } from '${process.cwd()}/dist/index'
+
+const { app } = tosi({ app: { name: 'Ada', count: 0, items: [{ id: 1 }] } })
+
+// a bare proxy child is a live text node
+const a = elements.div(app.name)
+// mixed with ordinary parts
+const b = elements.span('hello ', app.name, 1)
+// the direct observer API: a callback in, an unsubscribe out
+const off: () => void = app.name.observe((path: string) => void path)
+const off2: () => void = app.items.observe(() => {})
+// the accessor spelling must agree with the direct one
+const off3: () => void = app.name.tosi.observe(() => {})
+export { a, b, off, off2, off3, bindings }
+`
+    const probePath = `${process.cwd()}/dist/.type-usage-probe.ts`
+    await Bun.write(probePath, probe)
+    const result = Bun.spawnSync(
+      [
+        'npx',
+        'tsc',
+        '--noEmit',
+        '--strict',
+        '--target',
+        'es2022',
+        '--module',
+        'esnext',
+        '--moduleResolution',
+        'bundler',
+        '--skipLibCheck',
+        probePath,
+      ],
+      { stdout: 'pipe', stderr: 'pipe' }
+    )
+    const output = result.stdout.toString() + result.stderr.toString()
+    await Bun.file(probePath)
+      .unlink?.()
+      .catch(() => {})
+    expect({ errors: output.trim(), exitCode: result.exitCode }).toEqual({
+      errors: '',
+      exitCode: 0,
+    })
+  },
+  60_000
+)
+
 test.skipIf(!existsSync('dist/index.d.ts'))(
   'every type the public API names can be imported from the built package',
   async () => {

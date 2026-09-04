@@ -367,6 +367,15 @@ export type ElementPart<T = Element> =
   | ElementProps<T>
   | string
   | number
+  // A BARE PROXY IS A LIVE TEXT CHILD — `div(app.name)` renders the value and
+  // keeps rendering it as the value changes. The runtime has always supported
+  // it, and elements.test.ts calls it "the most-used site", but the type did
+  // not admit it, so the idiomatic spelling was a type error for every
+  // consumer. Same family as the direct `.observe` being typed backwards:
+  // a type narrower than the runtime it describes, invisible because no lane
+  // typechecks `*.test.ts`.
+  | BoxedScalar<any>
+  | BoxedProxy<any>
 export type HTMLElementCreator<T = HTMLElement> = (
   ...contents: ElementPart<T>[]
 ) => T

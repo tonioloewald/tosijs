@@ -116,7 +116,7 @@ re-enabling it.
 
 ## tosijs-ui
 
-### OPEN: tosijs-ui#129 — devServer sends no cache headers; explicit reload can be stale
+### ✅ RESOLVED (closed upstream 2026-09-04): tosijs-ui#129 — devServer sends no cache headers
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/129
 
@@ -212,7 +212,7 @@ destroying. **Not bumped yet** — a toolchain bump must be validated by
 executing the artifact (all seven bundles), which is its own change, not a
 tail-end edit to a release.
 
-### OPEN: tosijs-ui#130 — `buildSite` prebuild does `rm -rf DIST` on every run, including `devServer`
+### ✅ RESOLVED (closed upstream 2026-09-04): tosijs-ui#130 — `buildSite` prebuild did `rm -rf DIST` on every run
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/130
 
@@ -228,6 +228,15 @@ every Playwright run, whose `webServer` is `bun start` — left them deleted whi
 walks into it: build (step 3), browser tests (step 4), publish (step 8). It
 reached a commit once already as unnoticed collateral. No local gate could see
 it: the smoke and size loops iterate only what the current run built.
+
+**Fixed upstream, adopting our first option and our framing verbatim** —
+*"the doc-output `rm -rf <outputDir>` is fine and expected … `DIST` is
+different: it is an input to `npm publish`"* became the stated rule, **clean
+only what you wholly generate**: `emitLibrary`/`libraryTsconfig` (tsc emits the
+complete set) still cleans; `libraryBuild` (a consumer function that may emit a
+subset — our case) does not. **Adopt on the next tosijs-ui bump**, after which
+our local restore below is belt-and-braces rather than load-bearing. Keep it:
+it costs one `git checkout` on a dev run and this defect recurred three times.
 
 **Our defence, since no build-order fix on our side can close it:** the two
 bundles are tracked in git (so the deletion shows in `git status` — untracked,
