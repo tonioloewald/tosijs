@@ -75,6 +75,26 @@ say, not as we do".
 
 ## tosijs-ui
 
+### OPEN: tosijs-ui#129 — devServer sends no cache headers; explicit reload can be stale
+
+**Issue:** https://github.com/tonioloewald/tosijs-ui/issues/129
+
+No `Cache-Control`, no `ETag`, no `Last-Modified` on anything the dev server
+serves, so the browser caches heuristically and a reload is not guaranteed to
+fetch current content. A new tab picks changes up; reloading the open tab may
+not. A devtools session with "Disable cache" never sees it.
+
+**Why we care:** the workflow here is deliberately explicit reload, not hot
+reload — automatic refreshes fire mid-thought and cost you context. Explicit is
+right *provided a reload is authoritative*. When it silently isn't, the loop
+produces confident wrong answers: while chasing the broken `/one-user-interface/`
+demo, two correct hypotheses were "falsified" because every edit→rebuild→reload
+cycle re-tested stale code.
+
+**Until it lands:** iterate in a NEW TAB per change, or with devtools cache
+disabled. Do not trust a plain reload to prove anything.
+
+
 ### RESOLVED (by us, upstream-of-them): tosijs-ui#127 — deprecated binding shortcuts
 
 **Issue:** https://github.com/tonioloewald/tosijs-ui/issues/127

@@ -144,10 +144,24 @@ async function buildCli() {
   chmodSync(cliPath, 0o755)
 }
 
-async function buildLibrary() {
+/**
+ * `full` = the PUBLISHING gates. Dev serving does not need them.
+ *
+ * `bun start` ran all of this before it would serve a page: the whole unit
+ * suite, a 53-file `tjs convert`, two extra bundle builds and their smoke
+ * imports — 24,575 lines and ~1 MB of output, of which the actual test result
+ * was ONE line at 23,941. The watch rebuild already skipped it "for speed"
+ * (see the note above `checkInternalLinks`); the same reasoning simply was
+ * never applied to the first run.
+ *
+ * The debug/safe bundles are the tjs half, and they are EXPERIMENTAL and
+ * currently inert — the dev server never serves them, and `tjs convert` emits
+ * 527 unknown-type warnings producing them.
+ */
+async function buildLibrary(full = true) {
   console.time('library')
 
-  await $`bun test src/`
+  if (full) await $`bun test src/`
 
   await buildCli()
 
@@ -194,15 +208,17 @@ async function buildLibrary() {
     await buildBundle(bundle)
   }
 
-  const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
-  await $`rm -rf ${TJS_OUT}`
-  await $`mkdir -p ${TJS_OUT}`
-  await $`bun tjs convert src/ -o ${TJS_OUT}/`
-  await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
-  await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
+  if (full) {
+    const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
+    await $`rm -rf ${TJS_OUT}`
+    await $`mkdir -p ${TJS_OUT}`
+    await $`bun tjs convert src/ -o ${TJS_OUT}/`
+    await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
+    await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
 
-  for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
-    await buildBundle(bundle)
+    for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
+      await buildBundle(bundle)
+    }
   }
 
   // Strip the per-file tsc-emitted .js (kept only so generate-css could
@@ -211,7 +227,10 @@ async function buildLibrary() {
   // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs it as
   // ESM without a package-level "type": "module", which would break main.js's
   // CJS consumers.)
-  const keepJs = new Set(BUNDLES.map((b) => b.naming))
+  // only the bundles this run actually produced — a dev run skips the tjs
+  // pair, and smoking a file that was never built fails for the wrong reason
+  const BUILT = full ? BUNDLES : BUNDLES.filter((b) => b.stage !== 'tjs')
+  const keepJs = new Set(BUILT.map((b) => b.naming))
   const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {
     if (name.endsWith('.js') && !keepJs.has(name)) {
@@ -238,7 +257,7 @@ async function buildLibrary() {
        for (const [name, value] of Object.entries(m)) {
          if (value === undefined) throw new Error(name + ' is undefined')
        }`
-  for (const { naming, probe } of BUNDLES) {
+  for (const { naming, probe } of BUILT) {
     const body =
       probe === 'load'
         ? `await import('${DIST}/${naming}')`
@@ -260,7 +279,7 @@ async function buildLibrary() {
     }
   }
   console.log(
-    `smoke: ${BUNDLES.map((b) => `${b.naming} (${b.probe})`).join(', ')}`
+    `smoke: ${BUILT.map((b) => `${b.naming} (${b.probe})`).join(', ')}`
   )
 
   // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom
@@ -331,7 +350,7 @@ async function buildLibrary() {
   const { gzipSync } = await import('node:zlib')
   const sizes: string[] = []
   const measured = new Map<string, number>()
-  for (const { naming: file, budget } of BUNDLES) {
+  for (const { naming: file, budget } of BUILT) {
     const bytes = gzipSync(await Bun.file(`${DIST}/${file}`).bytes()).length
     measured.set(file, bytes)
     sizes.push(
@@ -603,7 +622,12 @@ if (!ok) process.exit(1)
 
 await checkInternalLinks()
 
-await buildLibrary()
+// DEV SERVES FAST. The publishing gates — the unit suite and the tjs
+// debug/safe pair — run for --build and --test only. The watch rebuild has
+// always skipped them "for speed"; the first run simply never did.
+await buildLibrary(
+  process.argv.includes('--build') || process.argv.includes('--test')
+)
 await buildDocsBundle()
 
 if (buildOnly) process.exit(0)
