@@ -46,6 +46,13 @@ Type-only. No runtime change, no bundle change.
   `import("tosijs").WithAttributes<{…}>` with no reference to `dist/`
   internals. `dist/` layout stays private.
 
+- **A bare proxy is a live element child, and `ElementPart` said otherwise.**
+  `div(app.name)` renders the value and keeps rendering it as state changes —
+  `elements.test.ts` calls it "the most-used site" — but the type admitted only
+  `Element | DocumentFragment | ElementProps | string | number`, so the
+  idiomatic spelling was a type error for every consumer. Widened to include
+  boxed proxies. Runtime unchanged; verified before the type was touched.
+
 - **The direct `.observe` on a boxed proxy was typed backwards.**
   `ProxyObserveFunc` declared `(path: string) => void`; the runtime takes a
   **callback** and returns an **unsubscribe function** — the same signature as
