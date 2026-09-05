@@ -1,31 +1,23 @@
 # todo
 
-## FLAKE: value-commit.pw.ts loses a click to the doc-runner's "Running" badge
+## ~~FLAKE: value-commit.pw.ts loses a click to the doc-runner's "Running" badge~~ — FIXED
 
-Seen once in 1.10.1's release run on **Firefox**, then 6/6 on two consecutive
-re-runs — so it is intermittent, not a regression (the change that run was
-type-only and cannot affect click interception).
+The test did `page.goto('/')`, loading the entire doc system merely to have
+somewhere to import the module from. The lane runs 4 workers against ONE dev
+server, so the doc-test runner's "Running" badge could sit over the element
+this test clicks — intermittent on Firefox, and it reads as a real failure of
+the behaviour under test rather than as contention.
 
-```
-Error: page.click: Test timeout of 30000ms exceeded.
-  - <span part="label">Running</span> from <tosi-doc-system …> subtree
-    intercepts pointer events
-```
+Fixed by giving it a routed blank page instead. The fixture needs a document
+and nothing else, so it now shares no state with the doc lane and does not
+depend on what else is on screen. Verified: three consecutive lane runs green,
+and — because isolating a test is a good way to make it vacuous — the
+assertion was mutated and confirmed to still fail. Also 2x faster
+(chromium 387ms vs ~700ms).
 
-**Cause:** `playwright.config.ts` runs 4 workers against ONE dev server, so
-`doc-tests.pw.ts` and `value-commit.pw.ts` share a page origin. While the doc
-lane runs, the doc system paints a "Running" badge that can sit over the
-element `value-commit` is clicking.
-
-- [ ] Fix properly — the value-commit fixture should not depend on a clean
-      viewport. Options, cheapest first: mount its fixture in an isolated route
-      rather than `/`; or `force: true` on the click (hides the class of bug it
-      exists to catch, so second choice); or serialise the two lanes.
-
-**Do not "fix" it by re-running until green.** It is a shared-state defect in
-our own harness and it will bite again on someone else's release, where it will
-read as a real failure and cost an investigation — which is exactly what
-happened here.
+**The general shape, worth keeping:** a browser test that only needs *a
+document* should not navigate to the application. Sharing the app's page with
+other lanes buys nothing and imports every source of interference it has.
 
 ## Empty proxy targets — the 2.0-shaped follow-on to tosijs#35
 

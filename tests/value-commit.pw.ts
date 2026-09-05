@@ -25,7 +25,28 @@ test('change handler committing input:checked into this.value sticks (tosijs#21)
   await page.route('**/__tosi-test/module.js', (route) =>
     route.fulfill({ contentType: 'text/javascript', body: moduleSource })
   )
-  await page.goto('/')
+  // A BLANK PAGE, NOT THE DOC SITE.
+  //
+  // This used to `goto('/')`, which loads the whole doc system just to get
+  // somewhere to import the module — and the lane runs 4 workers against ONE
+  // dev server, so the doc-test runner's "Running" badge could sit over the
+  // element this test clicks:
+  //
+  //   page.click: Test timeout of 30000ms exceeded
+  //     <span part="label">Running</span> from <tosi-doc-system …> subtree
+  //     intercepts pointer events
+  //
+  // Intermittent on Firefox, and it reads as a real failure of the behaviour
+  // under test. The fixture needs a document and nothing else, so give it
+  // one: no shared state with the doc lane, and no dependence on what else is
+  // on screen. Faster too — no doc bundle, no docs.json.
+  await page.route('**/__tosi-test/blank.html', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><title>value-commit</title>',
+    })
+  )
+  await page.goto('/__tosi-test/blank.html')
 
   await page.evaluate(async () => {
     const { Component, updates } = (await import(
