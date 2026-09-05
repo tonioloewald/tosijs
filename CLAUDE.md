@@ -400,6 +400,35 @@ is wrong. Do not assume it is the code.** Four times in one week the answer was
   opposite behaviour, decided by module load order. `ElementProps`' index
   signature is the honest type for that. (tosijs#26 has the demonstration.)
 
+**The worked example: `elementSet` vs `ElementProps`.** `src/elements.ts`
+decides what a prop *means* by asking questions at the moment of the call —
+the key's shape (`^on[A-Z]`, `^bind[A-Z]`, `apply`, `contract`, `bind`), the
+**value's** type (`tosiPath(value)`, a `TAKE_DESCRIPTOR`, `typeof value ===
+'function'`), the **element's** identity (`tagName.includes('-')`), its
+**current state** (`(elt)[key] !== undefined`, `typeof existing === 'function'`),
+its **runtime class** (`instanceof SVGElement`/`MathMLElement`), and the
+**component's declared default** (`typeof value !== typeof declaredDefault`).
+Six kinds of runtime fact, in one dispatcher.
+
+The event rule is one regex, so it works for any event name:
+
+```js
+elements.div({ onFrobnicate: (e) => … })   // attaches a 'frobnicate' listener
+```
+
+`ElementProps` answers the same question with **19 hand-written `onXxx?`
+declarations**. It is therefore *too narrow* — custom event names are an open
+set, so `onFrobnicate` needs `as any` even though it is correct — and *too
+loose*, because the index signature absorbing the overflow also swallows typos
+(tosijs#26). The runtime needs one line because it can ask; the type needs an
+enumeration it can never finish, because it must answer in advance.
+
+`elementSet`'s own comment records the consequence: *"an identical call site
+can mean two different things depending on timing"* — a `<tosi-blueprint>`
+component created before `customElements.define` takes the event-sugar branch;
+after it, the assignment branch. No type describes that, and none should
+pretend to.
+
 **Never rewrite working code to satisfy the checker.** If a lane ever
 typechecks `*.test.ts`, ~15 sites use direct assignment and are *correct*; a
 ratchet chasing zero must exclude that class deliberately, not silently.
