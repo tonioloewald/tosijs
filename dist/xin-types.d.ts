@@ -76,6 +76,13 @@ export interface TosiProps<T = any> {
             binding: TosiBinding;
         };
     };
+    tosiBinding: (binding: TosiBinding) => {
+        bind: {
+            value: string;
+            binding: TosiBinding;
+        };
+    };
+    take: (...args: [...sources: any[], transform: (...values: any[]) => any]) => TakeDescriptor;
     valueOf: () => T;
     toJSON: () => T;
     [XIN_PATH]: string;
@@ -120,6 +127,7 @@ interface BoxedScalarAPI<T> {
             binding: TosiBinding;
         };
     };
+    take: (...args: [...sources: any[], transform: (...values: any[]) => any]) => TakeDescriptor;
     listBinding: (templateBuilder: ListTemplateBuilder<T>, options?: ListBindingOptions) => ListBinding;
     valueOf: () => T;
     toString: () => string;

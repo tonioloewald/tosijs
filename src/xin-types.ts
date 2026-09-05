@@ -94,6 +94,18 @@ export interface TosiProps<T = any> {
   bind: ProxyBindFunc
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
   binding: (binding: TosiBinding) => { bind: { value: string; binding: TosiBinding } }
+  // present at runtime on object AND scalar proxies. This was "fixed" once
+  // already and landed in TosiAccessor instead — the same `binding:` line
+  // exists in both interfaces and a first-match replace hit the wrong one,
+  // while a runtime test (never broken) and a probe against TosiAccessor
+  // (accidentally correct) both went green. The defect is HERE.
+  tosiBinding: (binding: TosiBinding) => { bind: { value: string; binding: TosiBinding } }
+  // `.take()` works directly on object and scalar proxies alike — it returns a
+  // TakeDescriptor and is the plain-prop binding form the component docs
+  // recommend. It was declared on TosiAccessor and on NEITHER direct-property
+  // surface, so `proxy.take(...)` did not typecheck. Found by the guard in
+  // type-surface.test.ts the moment it was widened past TosiAccessor.
+  take: (...args: [...sources: any[], transform: (...values: any[]) => any]) => TakeDescriptor
   valueOf: () => T
   toJSON: () => T
 
@@ -152,6 +164,10 @@ interface BoxedScalarAPI<T> {
   bind: <E extends Element = Element>(element: E, binding: TosiBinding<E>, options?: TosiObject) => void
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
   binding: (binding: TosiBinding) => { bind: { value: string; binding: TosiBinding } }
+  // served on scalars too (`app.count.take(v => v > 3)`), and was declared on
+  // TosiAccessor only — so the direct spelling did not typecheck on either
+  // proxy kind. Third surface of the same drift; the guard now covers all three.
+  take: (...args: [...sources: any[], transform: (...values: any[]) => any]) => TakeDescriptor
   listBinding: (templateBuilder: ListTemplateBuilder<T>, options?: ListBindingOptions) => ListBinding
 
   // Type coercion methods

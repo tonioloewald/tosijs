@@ -28,6 +28,83 @@ import { existsSync } from 'node:fs'
  *    that cannot fail is worse than no gate, because it reports safety.
  */
 /*
+ * THE DECLARED ACCESSOR SURFACE MUST MATCH THE IMPLEMENTATION'S OWN LIST.
+ *
+ * `ACCESSOR_PROP_NAMES` in `xin.ts` is what the `get` trap actually serves —
+ * the implementation's own answer to "what is the accessor API", and so the
+ * only authoritative one. Six declaration surfaces restate it by hand, nothing
+ * kept them in sync, and they drifted: `tosiBinding` sat on two of them and
+ * was missing from a third.
+ *
+ * This is the cheap half of the fix — it makes MEMBERSHIP derived rather than
+ * remembered. It does NOT make any signature true: a name being present says
+ * nothing about whether its declared type describes what the function does.
+ */
+test('the declared accessor type covers every name the proxy serves', async () => {
+  const probe = `
+import type {
+  TosiAccessor,
+  TosiProps,
+  BoxedArrayProps,
+  BoxedScalar,
+} from '${process.cwd()}/src/xin-types'
+import { ACCESSOR_PROP_NAMES } from '${process.cwd()}/src/xin'
+type Served = (typeof ACCESSOR_PROP_NAMES)[number]
+
+// TosiAccessor is THE accessor — it must name everything the trap serves.
+type MissingFromAccessor = Exclude<Served, keyof TosiAccessor<any>>
+const _a: [MissingFromAccessor] extends [never] ? true : MissingFromAccessor = true
+
+// The direct-property surfaces SPLIT the same set on purpose, and that split
+// is the types doing real work: the runtime serves all twelve on any proxy
+// (an object proxy will hand you a listBinding), while TosiProps carries the
+// universal ones and BoxedArrayProps the list ones -- so calling listBinding
+// on a non-array is caught at compile time even though the trap would serve
+// it. The invariant is therefore about the UNION, not about either half.
+type MissingFromDirect = Exclude<
+  Served,
+  keyof TosiProps<any> | keyof BoxedArrayProps<any>
+>
+const _d: [MissingFromDirect] extends [never] ? true : MissingFromDirect = true
+
+// SCALARS ARE A THIRD SURFACE, and were the one this guard still missed:
+// after TosiProps was fixed, take(...) still did not typecheck on a boxed
+// scalar. Anything not list-shaped must be reachable there too.
+type ScalarServed = Exclude<
+  Served,
+  'listBinding' | 'listFind' | 'listUpdate' | 'listRemove'
+>
+type MissingFromScalar = Exclude<ScalarServed, keyof BoxedScalar<number>>
+const _s: [MissingFromScalar] extends [never] ? true : MissingFromScalar = true
+export { _a, _d, _s }
+`
+  const probePath = `${process.cwd()}/src/.accessor-surface-probe.ts`
+  await Bun.write(probePath, probe)
+  const result = Bun.spawnSync(
+    [
+      'npx',
+      'tsc',
+      '--noEmit',
+      '--strict',
+      '--target',
+      'es2022',
+      '--module',
+      'esnext',
+      '--moduleResolution',
+      'bundler',
+      '--skipLibCheck',
+      probePath,
+    ],
+    { stdout: 'pipe', stderr: 'pipe' }
+  )
+  const output = result.stdout.toString() + result.stderr.toString()
+  await Bun.file(probePath)
+    .unlink?.()
+    .catch(() => {})
+  expect(output.trim()).toBe('')
+}, 60_000)
+
+/*
  * AND THE TYPES MUST ADMIT THE IDIOMATIC SPELLING.
  *
  * Importability is not enough: a type can be reachable and still be narrower

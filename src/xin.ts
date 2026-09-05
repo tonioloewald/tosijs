@@ -1110,7 +1110,20 @@ const makeTosiAccessor = (path: string, target: any) =>
   new Proxy(target, accessorHandler(path, target))
 
 // Accessor API property names — looked up on every get, so use a Set
-const ACCESSOR_PROPS = new Set([
+/**
+ * THE ACCESSOR SURFACE, AS DATA. This list is what the `get` trap actually
+ * serves — it is the implementation's own answer to "what is the accessor
+ * API", and therefore the only authoritative one.
+ *
+ * It is `as const` so the TYPES can be checked against it rather than
+ * hand-restating it. Six declaration surfaces describe this one proxy
+ * (`TosiAccessor`, `TosiProps`, `BoxedScalarAPI`, `BoxedArrayProps`,
+ * `BoxedScalar`, `BoxedProxy`), nothing kept them in sync, and they drifted:
+ * `tosiBinding` was present on two and missing from a third for an unknown
+ * number of releases. `src/type-surface.test.ts` now fails if a name here is
+ * absent from the declared accessor type.
+ */
+export const ACCESSOR_PROP_NAMES = [
   'path',
   'value',
   'touch',
@@ -1123,7 +1136,9 @@ const ACCESSOR_PROPS = new Set([
   'listUpdate',
   'listRemove',
   'take',
-])
+] as const
+
+const ACCESSOR_PROPS = new Set<string>(ACCESSOR_PROP_NAMES)
 
 /*
  * SYMBOLS ARE NOT DEPRECATED — they are the unshadowable escape hatch, and the

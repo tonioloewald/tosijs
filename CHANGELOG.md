@@ -46,13 +46,22 @@ Type-only. No runtime change, no bundle change.
   `import("tosijs").WithAttributes<{…}>` with no reference to `dist/`
   internals. `dist/` layout stays private.
 
-- **`tosiBinding` was missing from object proxies' type.** It exists at runtime
-  on object *and* scalar proxies and `BoxedScalarAPI` declared it, but
-  `TosiProps` did not — so the identical call typechecked on a scalar and was
-  an error on an object. Two hand-maintained type surfaces over one
-  implementation, drifting. The whole spelling set is now pinned by a test, on
-  both proxy kinds, including the three that are deliberately *not* spellings
-  (`xinBinding`, `tosiTouch`, `xinTouch`).
+- **The declared accessor surfaces had drifted from the one the proxy serves.**
+  `tosiBinding` and `take` are served at runtime on object *and* scalar
+  proxies, and were declared on `TosiAccessor` only — so `proxy.take(…)` and
+  `proxy.tosiBinding(…)` did not typecheck on either kind, despite `.take()`
+  being the plain-prop binding form the component docs recommend. Fixed on
+  `TosiProps` and `BoxedScalarAPI`.
+
+  The cause is structural: **six hand-written surfaces describe one 197-line
+  proxy, and nothing kept them in sync.** So the list the `get` trap actually
+  consults is now exported as data (`ACCESSOR_PROP_NAMES`, `as const`) and a
+  compile-time guard asserts every declared surface covers it —
+  `TosiAccessor` in full, and `TosiProps`/`BoxedArrayProps`/`BoxedScalar`
+  between them, minus the list methods that are array-only by design. The
+  guard found `take` immediately, and the runtime spelling set is separately
+  pinned by a test on both proxy kinds, including the three that are
+  deliberately *not* spellings (`xinBinding`, `tosiTouch`, `xinTouch`).
 
 - **A bare proxy is a live element child, and `ElementPart` said otherwise.**
   `div(app.name)` renders the value and keeps rendering it as state changes —
