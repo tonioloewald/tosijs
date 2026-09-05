@@ -1,5 +1,44 @@
 # todo
 
+## `get` and `has` disagree: the proxy denies the API it serves
+
+`app.observe(cb)` is a working function. `'observe' in app` is **false**.
+The `get` trap serves `ACCESSOR_PROPS`; the `has` trap does not report them.
+
+```
+Object.keys(app)     -> ["name","count","list"]   // data: live and exactly right
+'name' in app        -> true
+'observe' in app     -> FALSE                     // but app.observe(cb) works
+JSON.stringify(app)  -> {"name":"Ada",…}          // correct
+```
+
+**Why it matters beyond tidiness.** Anything that derives affordances by
+*asking the live object* — console autocomplete, a REPL, a debugger, an
+introspecting agent — sees the data half perfectly and is told the API half
+does not exist. That is the DevTools-console model of autocomplete, which needs
+no declarations and cannot go stale, failing on the half we hand-describe in
+six type surfaces instead.
+
+The principled shape is how ordinary objects already behave: `'toString' in obj`
+is true while `Object.keys(obj)` omits it. `has` reports what EXISTS; `ownKeys`
+reports what ENUMERATES. Ours currently disagree about the same object.
+
+- [ ] Make `has` report `ACCESSOR_PROPS` (and leave `ownKeys` alone, so
+      `Object.keys`, spread and `JSON.stringify` are unchanged).
+
+**Blast radius is real, so this needs deliberate review, not a quick fix.**
+`'x' in obj` is a duck-typing idiom: any consumer branching on
+`'observe' in something` would change meaning. Check tosijs-ui and the agent
+surface's own guards before touching it.
+
+**Connection worth keeping:** this is the same idea as the agent surface, one
+layer down. `describe()` is autocomplete-for-agents derived from the
+framework's own live records rather than from declarations — which is why the
+manifesto can say the description is *under oath*. The console case is that
+principle applied to a human at a prompt, and it is the thing tjs is aiming at:
+autocomplete as a **lemma of captured metadata**, not as a parallel artifact
+maintained by hand.
+
 ## Raw assignment through a boxed proxy: the RUNTIME is right, the type cannot describe it
 
 `app.name = 'Ada'` **works, and always was intended to** — the proxy is a port
