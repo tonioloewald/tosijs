@@ -1,36 +1,37 @@
 # todo
 
-## Raw assignment through a boxed proxy: three answers, pick one
+## Raw assignment through a boxed proxy: the RUNTIME is right, the type cannot describe it
 
-`app.name = 'Ada'` **works at runtime** — the write lands in the registry and
-observers fire, identically to the documented `app.name.value = 'Ada'`. It is
-not an accident: `boxed` and `xin` share one `set` trap, which does not care
-which proxy you arrived through.
+`app.name = 'Ada'` **works, and always was intended to** — the proxy is a port
+of bindinator's, designed for JavaScript. The write lands in the registry and
+observers fire, identically to `app.name.value = 'Ada'`. Not an accident:
+`boxed` and `xin` share one `set` trap.
 
-But the three sources disagree:
+TypeScript reports it as an error, and **cannot be made not to**. Measured
+(TS 5.9.3):
 
-| | says |
+| | |
 | --- | --- |
-| runtime | supported — indistinguishable from `.value =` |
-| **types** | **error** — `Type 'string' is not assignable to type 'BoxedScalar<string>'` |
-| docs | never shown; `Building-Apps.md` and the `xin.ts` doc blocks use `.value =` throughout |
+| asymmetric `get`/`set` on an **interface** | works — assignment takes the raw value, reads give the boxed type |
+| the same from a **mapped type** | **not expressible** — mapped types have no get/set modifier, and `BoxedProxy<T>` is `{ [K in keyof T]: BoxedProxy<T[K]> }` over arbitrary `T` |
+| widening to `BoxedProxy<T[K]> \| T[K]` | assignment becomes legal and **every read is poisoned** — `app.name.value` stops compiling |
 
-Roughly 15 sites in our own test suite use the raw form, which is how this
-surfaced (they are only visible because nothing typechecks `*.test.ts`).
+So there is no formulation that keeps reads precise and admits the intended
+write. This is not a defect to fix; it is TypeScript failing to describe a
+JavaScript design.
 
-**Not resolved unilaterally — it is an API-surface decision with 2.0
-implications**, since `CLAUDE.md`'s 2.0 plan lists "assignment works —
-`proxy.name = 'Bob'` instead of `proxy.name.value`" as a goal. Three options:
+- [ ] **Document it** where a TS consumer meets it — `.value =` is the
+      TS-expressible form, direct assignment is the intended JS one, and both
+      do exactly the same thing. Right now they get `TS2322` with no
+      explanation and will assume their code is wrong.
+- [ ] Revisit under **tjs** (2.0). This is a concrete instance of the case tjs
+      exists to answer, and worth carrying into the port notes as one:
+      correct code, flagged.
 
-- [ ] **Bless it**: widen the setter type and document it. Aligns 1.x with the
-      2.0 direction, and makes ~15 of our own tests legal. TS can express
-      different get/set types on an accessor, but expressing it through
-      `BoxedProxy`'s mapped type is the actual work.
-- [ ] **Keep it an error and fix the tests** to use `.value =`. Cheapest, and
-      keeps one documented way to write state.
-- [ ] Leave all three disagreeing. Current state; not recommended — a form
-      that works, is used internally, and is a type error is exactly the
-      incoherence that costs someone an afternoon.
+**Consequence for the tests-typecheck lane** (below): ~15 sites in our own
+suite use direct assignment and are *correct*. A lane that chases zero errors
+there would be rewriting good code to satisfy a checker that is wrong about it.
+Any ratchet needs this class excluded deliberately, not silently.
 
 ## ~~FLAKE: value-commit.pw.ts loses a click to the doc-runner's "Running" badge~~ — FIXED
 

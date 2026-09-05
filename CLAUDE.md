@@ -224,6 +224,28 @@ The library exposes two proxies over the same `registry` object:
 - **`xin`** — returns raw values for scalars. `xin.foo.bar` returns the string/number directly.
 - **`boxed`** — returns `BoxedScalar` proxies for everything, including primitives. `boxed.foo.bar` has `.value`, `.path`, `.observe()`, etc.
 
+**Writing state: both forms are correct and do the same thing.**
+
+```js
+app.name = 'Ada'          // intended, works, inherited from bindinator's proxy
+app.name.value = 'Ada'    // identical: same write, same observers
+```
+
+**TypeScript rejects the first with `TS2322: Type 'string' is not assignable to
+type 'BoxedScalar<string>'`, and cannot be made to accept it.** Measured on TS
+5.9.3: asymmetric `get`/`set` works on a hand-written *interface*, but
+`BoxedProxy<T>` is a mapped type (`{ [K in keyof T]: BoxedProxy<T[K]> }`) over
+arbitrary `T`, and mapped types have no get/set modifier; widening the property
+to `BoxedProxy<T[K]> | T[K]` admits the write and poisons every read
+(`app.name.value` stops compiling). So there is no formulation that keeps both.
+
+This is TypeScript failing to describe a JavaScript design, not a defect —
+**do not "fix" code that uses direct assignment.** In `.ts`, prefer
+`.value =` because it is the form the checker can express; in `.js` and in doc
+examples, direct assignment is the intended spelling. ~15 sites in the test
+suite use it and are correct; `TODO.md` has the detail, including why a
+tests-typecheck ratchet must exclude this class deliberately.
+
 Both are created in `xin.ts` via `regHandler(path, boxScalars)`. The `boxScalars` flag controls whether primitives are wrapped. `tosi()` / `xinProxy()` in `xin-proxy.ts` are sugar for assigning to `xin` and returning from `boxed`.
 
 ### Accessor API (`.tosi` / `TOSI_ACCESSOR`)
