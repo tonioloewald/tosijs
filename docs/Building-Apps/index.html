@@ -89,10 +89,20 @@ To change state, just change it:</p>
 </code></pre>
 <p>The proxy sees the mutation and notifies anyone who cares.</p>
 <blockquote>
-<p><strong>TypeScript note:</strong> <code>app.user.name</code> is a <code>BoxedScalar&lt;string&gt;</code>, not a
-raw string. Use <code>.value</code> to read or write the underlying primitive.
-At runtime, direct assignment works too, but TypeScript&#39;s type system
-can&#39;t express asymmetric get/set on mapped types.</p>
+<p><strong>TypeScript note.</strong> <code>app.user.name</code> is a <code>BoxedScalar&lt;string&gt;</code>, not a raw
+string, so use <code>.value</code> to read or write the underlying primitive.</p>
+<p><strong>Both spellings are correct and do exactly the same thing</strong> — same write,
+same observers:</p>
+<pre><code>app.user.name = &#39;Bob&#39;          // the intended JS spelling
+app.user.name.value = &#39;Bob&#39;    // identical, and what TypeScript accepts
+</code></pre>
+<p>TypeScript rejects the first with <code>TS2322</code> and <strong>cannot be made to accept
+it</strong>: asymmetric <code>get</code>/<code>set</code> works on a hand-written interface, but
+<code>BoxedProxy&lt;T&gt;</code> is a mapped type over arbitrary <code>T</code> and mapped types have no
+such modifier — while widening the property to a union would make every read
+ambiguous, so <code>.value</code> would stop compiling. Your code is not wrong; the type
+is a lossy projection of a proxy designed for JavaScript. In <code>.ts</code>, write
+<code>.value =</code> because it is the form the checker can express.</p>
 </blockquote>
 <p>This also means <code>===</code> doesn&#39;t work on proxied scalars — JavaScript
 doesn&#39;t allow objects to be strictly equal to primitives:</p>

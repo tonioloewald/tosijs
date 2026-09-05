@@ -51,10 +51,22 @@ To change state, just change it:
 
 The proxy sees the mutation and notifies anyone who cares.
 
-> **TypeScript note:** `app.user.name` is a `BoxedScalar<string>`, not a
-> raw string. Use `.value` to read or write the underlying primitive.
-> At runtime, direct assignment works too, but TypeScript's type system
-> can't express asymmetric get/set on mapped types.
+> **TypeScript note.** `app.user.name` is a `BoxedScalar<string>`, not a raw
+> string, so use `.value` to read or write the underlying primitive.
+>
+> **Both spellings are correct and do exactly the same thing** — same write,
+> same observers:
+>
+>     app.user.name = 'Bob'          // the intended JS spelling
+>     app.user.name.value = 'Bob'    // identical, and what TypeScript accepts
+>
+> TypeScript rejects the first with `TS2322` and **cannot be made to accept
+> it**: asymmetric `get`/`set` works on a hand-written interface, but
+> `BoxedProxy<T>` is a mapped type over arbitrary `T` and mapped types have no
+> such modifier — while widening the property to a union would make every read
+> ambiguous, so `.value` would stop compiling. Your code is not wrong; the type
+> is a lossy projection of a proxy designed for JavaScript. In `.ts`, write
+> `.value =` because it is the form the checker can express.
 
 This also means `===` doesn't work on proxied scalars — JavaScript
 doesn't allow objects to be strictly equal to primitives:

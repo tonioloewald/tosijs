@@ -368,6 +368,57 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
 - In light DOM, `<slot>` elements are automatically converted to `<tosi-slot>` for composition.
 - **`elementCreator()`** takes no arguments — all configuration is via static properties. Passing `{ tag, styleSpec }` options still works but emits deprecation warnings.
 
+## TypeScript is autocomplete, not a source of truth
+
+**This is a deliberate position, not an accident or a backlog item.** tosijs is
+a JavaScript library — the proxy descends from bindinator's and was designed for
+JS — and it decides things at runtime by asking live objects. The `.d.ts` are a
+*projection* of that design: useful for discoverability and editor autocomplete,
+and **not an authority on whether code is correct.**
+
+**The operational rule: when `tsc` and the runtime disagree, find out which one
+is wrong. Do not assume it is the code.** Four times in one week the answer was
+"the type":
+
+| | the type said | the runtime does |
+| --- | --- | --- |
+| `ProxyObserveFunc` | `(path: string) => void` | takes a **callback**, returns an unsubscribe — exactly inverted, and every call site was checked against it |
+| `ElementPart` | no proxies | `div(app.name)` is a **live** bound text child, "the most-used site" |
+| `TosiProps` | no `tosiBinding` | present on object *and* scalar proxies |
+| four public types | unexported | named in public signatures consumers must satisfy |
+
+**And it flags correct code it cannot represent.** These are not defects:
+
+- `app.name = 'Ada'` — intended since bindinator, identical to `.value =`.
+  `TS2322`, and unfixable: asymmetric `get`/`set` works on a hand-written
+  interface but mapped types have no such modifier, and widening to
+  `BoxedProxy<T[K]> | T[K]` poisons every read. See *Dual Proxy System*.
+- Undeclared props on `elements.*` creators. `elementCreator` dispatches on
+  `(elt as any)[key] !== undefined` — **it asks the element** — plus its runtime
+  class and the *type of the value passed*. The same line writes an attribute
+  before `customElements.define` and a property after: identical source,
+  opposite behaviour, decided by module load order. `ElementProps`' index
+  signature is the honest type for that. (tosijs#26 has the demonstration.)
+
+**Never rewrite working code to satisfy the checker.** If a lane ever
+typechecks `*.test.ts`, ~15 sites use direct assignment and are *correct*; a
+ratchet chasing zero must exclude that class deliberately, not silently.
+
+**What static checking IS good for here, and it is not nothing:** questions of
+*shape at the seams*, which no execution reveals. `tsc --declaration` from a
+scratch consumer caught tosijs#38 — `withAttributes` making downstream `.d.ts`
+emit impossible, 34 files in tosijs-ui that would have shipped without types.
+Nothing runs at that moment; only a compiler sees it. Use static analysis for
+export surfaces and declaration emit; use execution for behaviour.
+
+**Why this matters beyond style:** a wrong declaration is invisible to *both*
+lanes. The suite exercises the runtime, `tsc` exercises the declaration, and
+nothing compares them — which is how `ProxyObserveFunc` stayed backwards. The
+gates in `src/type-surface.test.ts` exist for exactly that gap: they compile the
+**documented spellings** against the **built** `.d.ts`, so the type is checked
+against the API rather than against itself. This is also the case tjs is meant
+to answer (2.0): executable signatures close the gap by construction.
+
 ## Key Design Patterns
 
 See `Building-Apps.md` for the comprehensive developer guide. Critical patterns to understand:
