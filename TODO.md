@@ -1,5 +1,37 @@
 # todo
 
+## Raw assignment through a boxed proxy: three answers, pick one
+
+`app.name = 'Ada'` **works at runtime** — the write lands in the registry and
+observers fire, identically to the documented `app.name.value = 'Ada'`. It is
+not an accident: `boxed` and `xin` share one `set` trap, which does not care
+which proxy you arrived through.
+
+But the three sources disagree:
+
+| | says |
+| --- | --- |
+| runtime | supported — indistinguishable from `.value =` |
+| **types** | **error** — `Type 'string' is not assignable to type 'BoxedScalar<string>'` |
+| docs | never shown; `Building-Apps.md` and the `xin.ts` doc blocks use `.value =` throughout |
+
+Roughly 15 sites in our own test suite use the raw form, which is how this
+surfaced (they are only visible because nothing typechecks `*.test.ts`).
+
+**Not resolved unilaterally — it is an API-surface decision with 2.0
+implications**, since `CLAUDE.md`'s 2.0 plan lists "assignment works —
+`proxy.name = 'Bob'` instead of `proxy.name.value`" as a goal. Three options:
+
+- [ ] **Bless it**: widen the setter type and document it. Aligns 1.x with the
+      2.0 direction, and makes ~15 of our own tests legal. TS can express
+      different get/set types on an accessor, but expressing it through
+      `BoxedProxy`'s mapped type is the actual work.
+- [ ] **Keep it an error and fix the tests** to use `.value =`. Cheapest, and
+      keeps one documented way to write state.
+- [ ] Leave all three disagreeing. Current state; not recommended — a form
+      that works, is used internally, and is a type error is exactly the
+      incoherence that costs someone an afternoon.
+
 ## ~~FLAKE: value-commit.pw.ts loses a click to the doc-runner's "Running" badge~~ — FIXED
 
 The test did `page.goto('/')`, loading the entire doc system merely to have

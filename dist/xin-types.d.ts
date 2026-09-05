@@ -39,6 +39,12 @@ export interface TosiAccessor<T = any> {
             binding: TosiBinding;
         };
     };
+    tosiBinding: (binding: TosiBinding) => {
+        bind: {
+            value: string;
+            binding: TosiBinding;
+        };
+    };
     listBinding: (templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => ListBinding;
     listFind: {
         (selector: (item: any) => any, value: any): BoxedProxy | undefined;

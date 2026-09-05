@@ -58,6 +58,12 @@ export interface TosiAccessor<T = any> {
   bind: <E extends Element = Element>(element: E, binding: TosiBinding<E>, options?: TosiObject) => void
   on: (element: HTMLElement, eventType: keyof HTMLElementEventMap) => VoidFunction
   binding: (binding: TosiBinding) => { bind: { value: string; binding: TosiBinding } }
+  // the `tosi`-prefixed alias exists at runtime on object AND scalar proxies,
+  // and BoxedScalarAPI declares it — TosiProps did not, so the same call was
+  // typed on a scalar and an error on an object. (`xinBinding` is NOT the
+  // matching legacy pair: it is undefined on scalars and resolves to a phantom
+  // nested proxy on objects, so it is deliberately absent here.)
+  tosiBinding: (binding: TosiBinding) => { bind: { value: string; binding: TosiBinding } }
   listBinding: (templateBuilder: ListTemplateBuilder, options?: ListBindingOptions) => ListBinding
   listFind: {
     (selector: (item: any) => any, value: any): BoxedProxy | undefined

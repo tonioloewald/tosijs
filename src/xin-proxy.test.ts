@@ -191,3 +191,50 @@ describe('the direct .observe delegates to the accessor — same signature', () 
     }
   })
 })
+
+describe('the accessor spellings a proxy actually carries', () => {
+  /*
+   * Found by typechecking the tests: `tosiBinding` worked on both proxy kinds
+   * and `BoxedScalarAPI` declared it, but `TosiProps` did not — so the same
+   * call was typed on a scalar and a type error on an object.
+   *
+   * Pinning the WHOLE set rather than that one name, because the defect is
+   * drift between two hand-maintained type surfaces over one implementation.
+   * The absent ones are asserted too: `xinBinding` is undefined on a scalar
+   * and a PHANTOM NESTED PROXY on an object (an unknown key yields a proxy
+   * for that path, which is why it reads as an object rather than undefined),
+   * and `tosiTouch`/`xinTouch` were never spellings at all.
+   */
+  const SUPPORTED = [
+    'binding',
+    'tosiBinding',
+    'bind',
+    'tosiBind',
+    'xinBind',
+    'observe',
+    'tosiObserve',
+    'xinObserve',
+    'touch',
+  ]
+  const NOT_SPELLINGS = ['tosiTouch', 'xinTouch']
+
+  test('object and scalar proxies carry the same accessor spellings', async () => {
+    const { spell } = tosi({ spell: { obj: { x: 1 }, s: 'str' } })
+    await updates()
+    for (const [kind, target] of [
+      ['object', (spell as any).obj],
+      ['scalar', (spell as any).s],
+    ] as Array<[string, any]>) {
+      for (const name of SUPPORTED) {
+        expect(`${kind}.${name}:${typeof target[name]}`).toBe(
+          `${kind}.${name}:function`
+        )
+      }
+      for (const name of NOT_SPELLINGS) {
+        expect(`${kind}.${name}:${typeof target[name]}`).not.toBe(
+          `${kind}.${name}:function`
+        )
+      }
+    }
+  })
+})

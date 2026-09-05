@@ -46,6 +46,14 @@ Type-only. No runtime change, no bundle change.
   `import("tosijs").WithAttributes<{…}>` with no reference to `dist/`
   internals. `dist/` layout stays private.
 
+- **`tosiBinding` was missing from object proxies' type.** It exists at runtime
+  on object *and* scalar proxies and `BoxedScalarAPI` declared it, but
+  `TosiProps` did not — so the identical call typechecked on a scalar and was
+  an error on an object. Two hand-maintained type surfaces over one
+  implementation, drifting. The whole spelling set is now pinned by a test, on
+  both proxy kinds, including the three that are deliberately *not* spellings
+  (`xinBinding`, `tosiTouch`, `xinTouch`).
+
 - **A bare proxy is a live element child, and `ElementPart` said otherwise.**
   `div(app.name)` renders the value and keeps rendering it as state changes —
   `elements.test.ts` calls it "the most-used site" — but the type admitted only
