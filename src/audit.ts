@@ -228,27 +228,22 @@ export const auditAccessibility = (
       )
     }
 
-    // The rule itself lives in ./schematic — including the toggle exemption
-    // and WCAG 2.5.8's inline exception, which is geometric (text, and a box
-    // WIDER than tall) rather than "has a name": an aria-label never sized a
-    // box, and a square box was not sized by its text.
+    // The whole rule lives in ./schematic — the toggle exemption, WCAG
+    // 2.5.8's inline exception (geometric: text, and a box WIDER than tall,
+    // because an aria-label never sized a box), and zero-size.
     //
-    // The one condition kept HERE is zero-size. A 0×0 record is a hidden or
-    // unlaid-out element, not a target too small to hit, and the renderer has
-    // no reason to care (it draws nothing either way).
+    // NOTHING IS ADJUSTED HERE. tosijs-floorplan 0.5.0 folded in every
+    // carve-out this module used to apply: zero-size is never undersized (#9),
+    // producer flags no longer supersede by default (#8), and a list-bound
+    // element carrying its own evidence is an affordance (#7). `auditView` —
+    // three carve-outs and thirty lines of justification — is deleted.
     //
-    // THIS IS A WORKAROUND WITH AN OWNER, not a settled division of labour:
-    // targetSizeFinding() itself returns "0×0 — below 24×24" for such a
-    // record, and it is now documented as the general exported rule — so the
-    // next caller writes this guard again, which is the drift floorplan#4
-    // closed, one level up. tosijs-floorplan#9 asks for it to move in.
-    // No local guard any more. tosijs-floorplan 0.5.0 folds every adjustment
-    // this module used to make into the shared rule itself: zero-size is never
-    // undersized (#9), producer flags no longer supersede by default (#8), and
-    // a list-bound element carrying its own evidence is an affordance (#7).
-    // `auditView` — three carve-outs and thirty lines of justification — is
-    // deleted, and the suite passes unchanged, which is the only evidence that
-    // the retirement is real.
+    // The retirement was verified by EXECUTION, not by reading upstream's
+    // changelog: the deleted composition and this call agree on all 116_640
+    // records of an exhaustive attribute matrix, and two of three sensitivity
+    // mutations to that probe produced thousands of divergences (the third —
+    // removing the old local 0×0 guard — produced none, which is precisely the
+    // proof that #9 moved in and the guard was already dead code).
     const tooSmall = targetSizeFinding(w, targetSize)
     if (tooSmall != null) {
       add(

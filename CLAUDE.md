@@ -330,6 +330,32 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   Generally: **an environment-suppressed assertion is a passing test that
   proves nothing** — if a guard depends on geometry, layout or timing, make the
   environment supply it rather than trusting a green tick.
+- **`bindText` sets `textContent`, which DESTROYS appended children.** A
+  fixture like `div({ bindText: x }, input({ type: 'hidden' }))` contains
+  nothing by the time anything inspects it, so a containment test written this
+  way passes while exercising an empty element. This has now produced a false
+  "no leak" reading twice, in two different sessions. Bind a *child* span, or
+  use a binding that does not own `textContent`.
+
+### Two rules about redaction, both paid for in 1.11.0
+
+- **Never decide an element's fate by reading a record you just redacted — ask
+  the element.** Suppressing `record.href` for secret links made the only
+  `wired = true` test for bare anchors (`record.href != null`) go false, so the
+  link was dropped from `describe()` *entirely* instead of appearing redacted.
+  Withholding a fact silently became withholding the element's existence, and
+  `auditAccessibility()` went quiet on exactly the regions authors mark most
+  carefully. Suppression is not absence, and a redacted record is not a source
+  of truth about the DOM.
+- **A flag meaning "we withheld something" must not be set by a condition that
+  withholds nothing.** `record.secret` was set on mere subtree *containment* —
+  which is the right reason to stop a free-text harvest, and the wrong reason to
+  claim redaction. It was harmless while the flag was inert, and became a defect
+  the moment floorplan 0.5.0 made it a redaction order: one bare
+  `<input type="hidden" name="csrf">` blanked the caption of every wired
+  ancestor, and records shipped `secret: true` beside the text they claimed was
+  withheld. **When a flag changes from metadata to an instruction, re-audit
+  every condition that sets it** — nothing in the suite fails at that moment.
 
 ## Component Conventions
 

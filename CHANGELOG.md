@@ -6,7 +6,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.11.0] - 2026-09-07
+## [1.11.0] - 2026-09-13
+
+### Fixed — redaction is not deletion, and `secret` is not proximity
+
+Two defects the tenth pre-release review found, both created by *this
+release's own* secrecy work and both invisible to a green suite.
+
+- **A secret link vanished from the map instead of appearing redacted.**
+  Withholding `href` inside a `data-tosi-secret` region was correct — but the
+  only route by which a bare `<a>` became *wired* asked the **published
+  record** (`record.href != null`), not the element. So suppressing the field
+  made the link unwired, and it was dropped from `describe()` entirely: an
+  agent could not see that a navigation affordance existed at all, and
+  `auditAccessibility()` went silent on exactly the login/reset regions
+  authors mark most carefully. `expose: 'all'` only; under a manifest bare
+  links were never mapped. Now the question goes to the DOM, and a redacted
+  link additionally carries `interactive: true` — the producer's own affordance
+  assertion — so the audit still reports `anonymous-affordance` and
+  `target-size` on it **without** the destination being published.
+
+  The general rule, which is the part worth keeping: **never decide an
+  element's fate by reading a record you just redacted.** Suppression is not
+  absence.
+
+- **`secret: true` was set on mere CONTAINMENT.** Until floorplan 0.5.0 that
+  flag was inert metadata; 0.5.0 — new in this release — makes it a *redaction
+  order*, so the renderer draws `<tag> [withheld]` and legends
+  `redacted: true`. One bare `<input type="hidden" name="csrf">`, the commonest
+  shape on the web, therefore blanked the caption of every wired ancestor, and
+  produced records carrying `secret: true` beside the very text they claimed
+  was withheld — which floorplan's own contract forbids. The two meanings are
+  now separate: containment still stops the free-text harvest (it must), but
+  only record-level secrecy — a secret control, a marked region, or a binding
+  to a secret path — sets the flag. Pinned by an invariant test over every
+  record; a bare provenance arrow (`⟷ app.path`) is explicitly *not* content.
+
+### Added
+
+- **`SECURITY.md`**, and it ships in the tarball. This release publishes a
+  repro-grade inventory of known-uncovered leak shapes and tells users to
+  rotate tokens, and until now the only route for reporting a new one was the
+  public issue tracker. Six consecutive reviews asked.
 
 **One implementation of "can I act here" and "is this big enough."**
 `auditAccessibility()` and the vendored floorplan renderer drew their verdicts
@@ -50,8 +91,9 @@ Looser (now clean, previously flagged):
   now be a non-empty string.
 
 `0×0` records stay exempt. A hidden or unlaid-out element is not a target too
-small to hit, and the shared rule (correctly, for a renderer) has no opinion
-about that — so `audit.ts` keeps that one condition itself, and says so.
+small to hit. This was briefly a condition `audit.ts` applied itself; as of the
+floorplan 0.5.0 adoption below it lives in the shared rule, and this module
+applies nothing of its own.
 
 **The five changes are pinned by tests written to fail against the 1.10.1
 predicate, and watched doing so** — the existing audit suite went 11/11 green
@@ -250,19 +292,31 @@ this table. Three consecutive reviews found hand-transcribed byte figures
 drifted here and in `bin/bundles.ts`, one of them a correction that drifted in
 turn, so the numbers now come from the thing that measures them):
 
-| bundle | v1.10.1 | 1.11.0 | Δ |
+| bundle | v1.10.1 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` (IIFE) | 29_265 | 29_266 | **+1** |
-| `core.js` | 26_666 | 26_666 | **+0** |
-| `state.js` | 16_747 | 16_747 | **+0** |
-| `module.js` | 43_928 | 44_568 | **+640** |
-| `main.js` | 44_201 | 44_839 | **+638** |
-| `module.debug.js` | 59_515 | 60_965 | **+1450** |
-| `module.safe.js` | 59_375 | 60_823 | **+1448** |
+| `index.js` | 29_265 | 29_328 | **+63** |
+| `module.js` | 43_928 | 44_770 | **+842** |
+| `main.js` | 44_201 | 45_045 | **+844** |
+| `core.js` | 26_666 | 26_730 | **+64** |
+| `state.js` | 16_747 | 16_810 | **+63** |
+| `module.debug.js` | 59_515 | 61_286 | **+1771** |
+| `module.safe.js` | 59_375 | 61_142 | **+1767** |
 
-The three bundles that do not carry the agent surface are unchanged, so a
-consumer who never imports it pays nothing for this release. The 61_500 →
-62_500 raise on the tjs pair is right-sized by that +957, not generous.
+**A consumer who never imports the agent surface pays ~63 gzipped bytes** for
+this release — not zero. That is the rewritten deprecation message in
+`src/xin.ts`, which is on the ordinary path: the old one steered callers *off*
+`tosiValue()`/`tosiPath()`, the canonical functions, so it was actively
+misleading and the bytes buy a correct instruction. The tjs pair's 61_500 →
+62_500 raise is right-sized by their +1_711.
+
+> **Four consecutive reviews caught this table stale, this one included.** The
+> build emits it (`bun run build` prints "paste into the CHANGELOG") and a human
+> pastes — and across the last five builds nobody re-pasted, so the table
+> claimed `+0` for three bundles that had grown and the sentence under it
+> promised a consumer they paid nothing. *Emitted by the build is not written by
+> the build.* The durable fix is a gate that compares this table to a live
+> measurement, or an emitter that writes the file; both are in `TODO.md`. Until
+> one lands, treat any hand-pasted figure here as unverified.
 
 ### Fixed — where a lint and a drawing legitimately differ
 
@@ -289,11 +343,12 @@ better home for them is tosijs-floorplan.
   [floorplan#12](https://github.com/tonioloewald/tosijs-floorplan/issues/12) —
   a flag with no `kind` used to throw out of `auditAccessibility()`.
 
-Both are a single `auditView()` that **composes** the shared predicate over an
-adjusted record — it re-implements nothing, so there is still exactly one
-definition of what evidence *is*, and `audit.ts` contains none of it. If
-upstream takes #7 and #8 these become no-ops rather than a second opinion. The
-`record` on every finding is the original, unadjusted one.
+Both were fixed by a single `auditView()` that **composed** the shared predicate
+over an adjusted record, re-implementing nothing. **Upstream then took #7 and
+#8**, so — as that paragraph anticipated — the adjustments became no-ops and
+`auditView` was deleted before this release shipped. See *the audit/renderer
+split has no carve-out left*, below; nothing named `auditView` exists in 1.11.0.
+The `record` on every finding is, as before, the original one.
 
 **These two were regressions this release introduced**, which is why the
 verdict list above is five and not seven: "a list container is ground" was

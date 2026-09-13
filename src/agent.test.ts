@@ -6,6 +6,7 @@ import { updates } from './path-listener'
 import { elements } from './elements'
 import { bind, on } from './bind'
 import { bindings } from './bindings'
+import { auditAccessibility } from './audit'
 
 // the sentinel is internal; the test asserts on its literal text on purpose
 // — if that string ever changes, a consumer's redaction check changes too
@@ -3274,6 +3275,149 @@ describe('describe(): secrecy covers the ATTRIBUTE harvest, not just text', () =
     const pw = w.find((r) => r.type === 'password')
     expect(pw?.label).toBe('Password')
     expect(pw?.secret).toBe(true)
+    agent.disable()
+  })
+
+  /*
+   * REDACTION IS NOT DELETION (round 10, B-1).
+   *
+   * The attribute-harvest fix above stops publishing `href` inside a secret
+   * region. But the only route by which a BARE link becomes wired read the
+   * PUBLISHED record — `record.href != null && record.tag === 'a'` — so
+   * suppressing the field made `wired` false and the element was dropped from
+   * the map altogether. Withholding a fact became withholding the element.
+   *
+   * Every pre-existing secret-anchor fixture in this file gives its anchor a
+   * `bindText`, which wires it by another route, and runs under a manifest,
+   * where bare links were never mapped at all. So the whole suite was blind to
+   * this by construction. These two run `expose: 'all'` on a BARE anchor.
+   */
+  test('a bare secret link is REDACTED, not deleted from the map', async () => {
+    document.body.innerHTML = ''
+    const { blk } = tosi({ blk: { n: 1 } })
+    await updates()
+
+    const region = elements.div({ 'data-tosi-secret': '' })
+    const link = elements.a({ href: '/reset?token=TOKEN-B1' })
+    region.append(link)
+    document.body.append(region)
+    rect(link)
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const described = agent.describe()
+    const json = JSON.stringify(described)
+
+    // the destination is still withheld — this is the B1 guarantee
+    expect(json).not.toContain('TOKEN-B1')
+    // ...and the AFFORDANCE still exists, flagged as redacted
+    const anchor = (described.wiring as any[]).find((r) => r.tag === 'a')
+    expect(anchor).toBeDefined()
+    expect(anchor?.href).toBeUndefined()
+    expect(anchor?.secret).toBe(true)
+    expect(blk.n.value).toBe(1)
+    agent.disable()
+  })
+
+  /*
+   * `secret: true` IS A REDACTION ORDER, NOT A PROXIMITY WARNING (round 10,
+   * M-1).
+   *
+   * Until floorplan 0.5.0 the flag was inert metadata. 0.5.0 — shipped in this
+   * release — makes the renderer draw `<tag> [withheld]` and legend
+   * `redacted: true` for any truthy `secret`. So a flag set on mere CONTAINMENT
+   * blanked the caption of every wired ancestor of one `<input type="hidden">`
+   * — the commonest shape on the web — and, worse, produced records carrying
+   * `secret: true` beside the very text they claimed was withheld.
+   *
+   * floorplan's own contract says `redacted` must never co-occur with the facts
+   * it claims were withheld. This asserts that from the producer side.
+   */
+  test('secret never co-occurs with the content it claims to withhold', async () => {
+    document.body.innerHTML = ''
+    // DISTINCT paths: binding the panel to the password's path would make it
+    // genuinely secret-by-path, which is correct behaviour and not what this
+    // test is about.
+    const { inv } = tosi({ inv: { title: 'Dashboard', pw: 'hunter2' } })
+    await updates()
+
+    /*
+     * NB `bindText` on the panel would set `textContent` and DESTROY the
+     * hidden input before describe() ever ran, so the fixture would contain
+     * nothing and the test would pass for the wrong reason. (It did, on first
+     * writing — the same trap this repo has hit before.) The binding goes on a
+     * CHILD; the panel is wired by its handler.
+     */
+    const panel = elements.div(
+      { onClick: () => {}, 'aria-label': 'Sign in panel' },
+      elements.span({ bindText: inv.title }),
+      elements.input({ type: 'hidden', name: 'csrf' })
+    )
+    // ...and a genuinely secret control beside it
+    const pw = elements.input({ type: 'password', bindValue: inv.pw })
+    document.body.append(panel, pw)
+    ;[panel, pw].forEach(rect)
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const w = agent.describe().wiring as any[]
+
+    // the panel is NOT redacted — nothing of its own was withheld
+    const panelRec = w.find((r) => r.label === 'Sign in panel')
+    expect(panelRec).toBeDefined()
+    expect(panelRec?.secret).toBeUndefined()
+
+    /*
+     * The invariant, over every record: a redaction order and the redacted
+     * content must never ship together.
+     *
+     * A bare PROVENANCE ARROW is not content — `value: '⟷ inv.pw'` says "this
+     * is two-way bound to inv.pw", which is the map doing its job, and
+     * `read('inv.pw')` still refuses. The leak shape is a LITERAL prefix
+     * before the arrow (`'hunter2 ⟷ inv.pw'`), or a literal with no arrow at
+     * all.
+     */
+    const CONTENT = ['text', 'value', 'placeholder', 'href', 'image']
+    const provenanceOnly = new RegExp(`^(${BOUND_TWO_WAY}|${BOUND_TO_DOM})\\s`)
+    for (const r of w) {
+      if (r.secret !== true) continue
+      for (const field of CONTENT) {
+        const v = r[field]
+        if (v === undefined) continue
+        expect(`${r.tag}.${field}=${v}`).toBe(
+          provenanceOnly.test(String(v))
+            ? `${r.tag}.${field}=${v}` // pure provenance, no literal disclosed
+            : `${r.tag}.${field}=<withheld>`
+        )
+      }
+    }
+    agent.disable()
+  })
+
+  test('auditAccessibility still reports on a nameless secret link', async () => {
+    document.body.innerHTML = ''
+    tosi({ blk2: { n: 1 } })
+    await updates()
+
+    const region = elements.div({ 'data-tosi-secret': '' })
+    const link = elements.a({ href: '/reset?token=TOKEN-B1b' })
+    region.append(link)
+    document.body.append(region)
+    // 16×16: nameless AND below the WCAG 2.5.8 floor, so both rules should fire
+    Object.defineProperty(link, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 16, height: 16 }),
+      configurable: true,
+    })
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const report = auditAccessibility(agent.describe({ styles: true }))
+    const rules = report.findings.map((f) => f.rule)
+    // the a11y instrument must not go quiet on the regions authors mark most
+    // carefully — a login/reset flow is where defects hurt most
+    expect(rules).toContain('anonymous-affordance')
+    expect(rules).toContain('target-size')
+    expect(JSON.stringify(report)).not.toContain('TOKEN-B1b')
     agent.disable()
   })
 })

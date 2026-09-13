@@ -479,12 +479,23 @@ async function buildLibrary(full = true) {
   // were a fifth copy of the artifact list until the round-3 DRY pass.
   const { gzipSync } = await import('node:zlib')
   const sizes: string[] = []
+  const budgetLedger: string[] = []
   const measured = new Map<string, number>()
   for (const { naming: file, budget } of BUILT) {
     const bytes = gzipSync(await Bun.file(`${DIST}/${file}`).bytes()).length
     measured.set(file, bytes)
     sizes.push(
       `${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`
+    )
+    // EXACT BYTES AND SPARE, not just the rounded ratio. The delta table below
+    // emits what CHANGED; what kept drifting in `bin/bundles.ts`'s comments is
+    // the ABSOLUTE size and the headroom — five figures wrong across three
+    // releases, twice in a correction that was itself fixing a drift. Those
+    // comments now point at this line instead of restating it.
+    budgetLedger.push(
+      `| \`${file}\` | ${bytes.toLocaleString('en-US').replace(/,/g, '_')} | ` +
+        `${budget.toLocaleString('en-US').replace(/,/g, '_')} | ` +
+        `${(budget - bytes).toLocaleString('en-US').replace(/,/g, '_')} |`
     )
     if (bytes > budget) {
       throw new Error(
@@ -495,6 +506,15 @@ async function buildLibrary(full = true) {
     }
   }
   console.log('gzip budgets:', sizes.join(', '))
+  console.log(
+    [
+      'budget ledger — the figures bin/bundles.ts used to restate:',
+      '',
+      '| bundle | gz | budget | spare |',
+      '| --- | --- | --- | --- |',
+      ...budgetLedger,
+    ].join('\n')
+  )
 
   // EMIT THE DELTA, DO NOT RETYPE IT. Three consecutive pre-release reviews
   // found hand-transcribed byte figures drifted in CHANGELOG.md and
@@ -728,9 +748,50 @@ async function buildLibrary(full = true) {
     if (full == null || core == null) throw new Error('no agent delta')
     return `~${((full - core) / 1024).toFixed(1)} kB`
   })()
-  const replaced = withTokens.replace(
-    /<!--agentgz-->[\s\S]*?<!--\/agentgz-->/g,
-    `<!--agentgz-->${agentDelta}<!--/agentgz-->`
+  /*
+   * THE MODULE−CORE DELTA IS NOT THE AGENT SURFACE'S COST.
+   *
+   * `core.js` also drops blueprints, share/sync and hotReload, so that delta
+   * charges their bytes to the agent surface — it overstated by ~2.4 kB, and
+   * README's sentence opened by calling it "the agent surface". Meanwhile three
+   * doc blocks said ~11 kB, a figure measured in 2026-08 and never re-taken.
+   * One generated number that answers the wrong question, three hand-typed ones
+   * that answer the right question wrongly.
+   *
+   * The honest measurement is MARGINAL: the same ESM bundle built from
+   * `index.ts` and from `index-browser.ts`, which is this library minus the
+   * agent surface BY CONSTRUCTION. Both numbers are now emitted, because they
+   * are different facts and the page states both.
+   */
+  const agentMarginal = await (async () => {
+    const opts = {
+      target: 'browser' as const,
+      sourcemap: 'none' as const,
+      minify: MINIFY,
+      format: 'esm' as const,
+    }
+    const sizeOf = async (entry: string): Promise<number> => {
+      const built = await Bun.build({ ...opts, entrypoints: [entry] })
+      if (!built.success) throw new Error(`marginal build failed: ${entry}`)
+      const { gzipSync } = await import('node:zlib')
+      return gzipSync(new Uint8Array(await built.outputs[0].arrayBuffer()))
+        .length
+    }
+    const withAgent = await sizeOf('./src/index.ts')
+    const withoutAgent = await sizeOf('./src/index-browser.ts')
+    return `~${((withAgent - withoutAgent) / 1024).toFixed(1)} kB`
+  })()
+  const replaced = withTokens
+    .replace(
+      /<!--agentgz-->[\s\S]*?<!--\/agentgz-->/g,
+      `<!--agentgz-->${agentDelta}<!--/agentgz-->`
+    )
+    .replace(
+      /<!--agentmarginal-->[\s\S]*?<!--\/agentmarginal-->/g,
+      `<!--agentmarginal-->${agentMarginal}<!--/agentmarginal-->`
+    )
+  console.log(
+    `agent surface: ${agentMarginal} marginal, ${agentDelta} as module−core`
   )
   if (
     replaced !== readme &&

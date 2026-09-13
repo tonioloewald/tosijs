@@ -319,7 +319,7 @@ describe('shared interactivity/target-size rule (floorplan#4)', () => {
     test('a bare list container is still ground — and that is NOT new', () => {
       // An invariant, not a verdict change: 1.10.1 also called this
       // non-interactive (no handlers, no href, no arrow anywhere). Kept as a
-      // guard that the auditView adjustment below did not resurrect plain
+      // guard that the list-evidence rule below does not resurrect plain
       // containers.
       expect(
         rules({ tag: 'ul', list: { path: 'app.rows' }, bounds: at(20, 20) })
@@ -350,9 +350,11 @@ describe('shared interactivity/target-size rule (floorplan#4)', () => {
     ).toContain('target-size')
   })
 
-  test('ZERO-SIZE stays exempt — this module keeps that rule itself', () => {
-    // a 0x0 element is hidden, not a small target. targetSizeFinding has no
-    // opinion (a renderer draws nothing either way), so the guard lives here.
+  test('ZERO-SIZE stays exempt — the SHARED rule owns that', () => {
+    // a 0x0 element is hidden, not a small target. This module briefly kept
+    // the guard itself; floorplan 0.5.0 (#9) moved it into targetSizeFinding,
+    // and the local copy is deleted. The assertion is unchanged across that
+    // move, which is what makes the retirement checkable rather than nominal.
     expect(
       rules({
         tag: 'button',
@@ -367,13 +369,17 @@ describe('shared interactivity/target-size rule (floorplan#4)', () => {
 /*
  * THE AUDIT'S OWN VIEW OF A RECORD (tosijs-floorplan#7 / #8).
  *
- * Two of the shared rules answer a RENDERER's question, and a lint needs the
- * other answer. `auditView()` composes the shared predicate over an adjusted
- * record — it re-implements nothing — so there is still one definition of what
- * evidence IS. These pin both, and both were found by the 1.11.0 pre-release
- * review as regressions introduced by the adoption itself.
+ * Two of the shared rules briefly answered a RENDERER's question where a lint
+ * needs the other answer. Both were found by the 1.11.0 pre-release review as
+ * regressions introduced by adopting floorplan 0.4.0, mitigated locally by an
+ * `auditView()` composition, and then FIXED UPSTREAM in 0.5.0 — so the
+ * composition is deleted and these assertions now pin the shared rule directly.
+ *
+ * They are kept exactly as written. A test that survives the deletion of the
+ * thing it was written against is the evidence that the behaviour, not the
+ * workaround, was what mattered.
  */
-describe('auditView — where a lint and a drawing differ', () => {
+describe('lint-vs-drawing: the shared rule gives the audit its answer', () => {
   const at = (w: number, h: number) => ({ x: 0, y: 0, width: w, height: h })
   const rules = (rec: any): string[] =>
     auditAccessibility(map([rec]))
@@ -413,7 +419,8 @@ describe('auditView — where a lint and a drawing differ', () => {
     })
 
     test('a forged arrow does NOT resurrect a container', () => {
-      // the control: auditView must not undo the identity-field narrowing.
+      // the control: the list-evidence rule must not undo the identity-field
+      // narrowing.
       expect(
         rules({
           tag: 'div',

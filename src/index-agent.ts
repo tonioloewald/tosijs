@@ -20,20 +20,37 @@ Everything that describes an app to a *non-human* user, behind one door:
 | `auditAccessibility`, `auditFlags`, `contrastRatio` | findings over the map |
 | `exerciseContract`, `exerciseComponent` | contracts as tests |
 
-> ⚠️ **These are the RENDERER's answers, and `auditAccessibility()` deliberately
-> differs from them in three places** — it ignores producer `flags`, exempts
-> `0×0`, and treats a list-bound element carrying direct evidence as a control
-> (tosijs-floorplan #7/#8/#9). So the exported rules do **not** reproduce the
-> audit's verdict on those shapes; the adjustment (`auditView`) is private
-> because it is a workaround, not API. Use `auditAccessibility()` if you want
-> the audit's answer, and these if you want the drawing's.
+> **These ARE the audit's rules.** Since tosijs-floorplan 0.5.0 there is no
+> divergence and no private adjustment: the three carve-outs `audit.ts` used to
+> apply (ignore producer `flags`, exempt `0×0`, treat a list-bound element
+> carrying direct evidence as a control — tosijs-floorplan #7/#8/#9) are folded
+> into the shared rule, and `auditAccessibility()` calls these exports raw.
+>
+> The one knob is `targetSizeFinding`'s `honorProducerFlags`, which defaults to
+> **`false`** — the lint's answer, where a producer-supplied `target`-ish flag
+> does *not* stand the geometry check down. `schematic()` opts in
+> (`honorProducerFlags: true`) so a drawing never double-marks a finding it has
+> already painted. **So the default is the AUDIT's verdict**, and the renderer
+> is the one that adjusts.
+>
+> *(Earlier releases said the opposite here, and said it while pointing at a
+> private `auditView` that no longer exists. If you are working from a cached
+> copy of this page: the exports and the audit agree.)*
 
-**Why a subpath and not the main entry.** This is ~11 kB gzipped, and an app
-that never describes itself should not carry it. Bundler users would shake
-it out — but the IIFE (CDN, `<script>`, our own doc pages) cannot, and that
-is the most-loaded artifact we publish. Keeping it here means the cost falls
-only on consumers who opt in, and the default bundle stays roughly where
-1.7.x left it.
+**Why a subpath and not the main entry.** The agent surface costs **~15.3 kB
+gzipped** — measured marginally: the same ESM bundle built from `index.ts`
+(44.7 kB) and from `index-browser.ts`, which is this library minus the agent
+surface (29.0 kB). An app that never describes itself should not carry it.
+Bundler users would shake it out — but the IIFE (CDN, `<script>`, our own doc
+pages) cannot, and that is the most-loaded artifact we publish. Keeping it here
+means the cost falls only on consumers who opt in, and the default bundle stays
+roughly where 1.7.x left it.
+
+> Note the README's generated `agent surface` figure is the `module.js` −
+> `core.js` delta (~17.6 kB), which is a different question: `core` also drops
+> blueprints, share/sync and hotReload, so that number charges their bytes to
+> the agent surface too. **~15.3 kB is the marginal cost of this import**;
+> ~17.6 kB is the gap between two published entry points.
 
 `ComponentMap` (the `static contract` shape) is exported from **both**
 `tosijs` and here: declaring a contract is a component-authoring act that

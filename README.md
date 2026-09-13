@@ -82,10 +82,13 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   ~29 kB gzipped from a script tag, ~26 kB for `tosijs/core`, ~16 kB for the
   DOM-free `tosijs/state`; the full ESM entry is ~44 kB.
   <!-- sizes:end -->
-  The agent surface is opt-in and shakes away if you never import it: it is
-  <!--agentgz-->~17.6 kB<!--/agentgz--> of the full ESM entry — exactly what
-  `tosijs` carries over `tosijs/core`, measured by the build, including the
-  schematic renderer, the accessibility audit and the contract harnesses.
+  The agent surface is opt-in and shakes away if you never import it. It costs
+  <!--agentmarginal-->~15.3 kB<!--/agentmarginal--> — the marginal measurement,
+  the same ESM bundle built with and without it — including the schematic
+  renderer, the accessibility audit and the contract harnesses. (The gap
+  between `tosijs` and `tosijs/core` is a larger
+  <!--agentgz-->~17.6 kB<!--/agentgz-->, because `core` also drops blueprints,
+  share/sync and hotReload.) Both figures are measured by the build.
   <!-- as-of: 2026-08-08 | the +13.7% consumer-app comparison against 1.7.9, which needs the two-app harness to re-measure -->
   It does not, however, shake back to 1.7.x: when 1.8.0 shipped, an identical
   consumer app that never touched the agent surface measured **+2.9 kB gzipped

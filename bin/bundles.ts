@@ -110,17 +110,19 @@ export const BUNDLES: BundleSpec[] = [
     // unrelated commit. Restored to the ~1.6 kB slack every other bundle
     // carries rather than shaved to the measurement.
     //
-    // ⚠️ RELEASE-FINAL FIGURES, not the raising commit's: module.js ships at
-    // 44_377 (1_623 B spare) and main.js at 44_642 (1_358 B). This header
-    // said 44_246 / 44_516 — true when written, 126 B stale by the time later
-    // commits landed. That is the SAME drift the pre-release review caught in
-    // main.js's header one round earlier, reintroduced by hand in the fix for
-    // it. TODO.md carries the ask to assert `-> N` against `budget` in the
-    // build so this class stops being a human-review dependency.
+    // ⚠️ NO ABSOLUTE FIGURES IN THIS FILE. Five hand-transcribed sizes here
+    // were wrong across three consecutive releases — twice in a correction
+    // that was itself fixing a drift, and once claiming a measurement no
+    // artifact in the repo reproduced. A number a human retypes is a number
+    // that drifts, however good the thing that computed it.
     //
-    // That it lands on the same number as main.js is a coincidence, not a
-    // copy: main.js ships at 44_642 and keeps 1_358 B under its existing
-    // ceiling, so it needed no change at all. See the warning below.
+    // `bun run build` prints a "budget ledger" table: bundle, gz, budget,
+    // spare. Read that for what anything currently ships at. THIS file records
+    // only DECISIONS — which way a budget moved, and why — because those do
+    // not go stale.
+    //
+    // That this lands on the same number as main.js is a coincidence, not a
+    // copy: main.js needed no change at that round. See the warning below.
     budget: 46_000,
     probe: 'import',
     stage: 'main',
@@ -133,9 +135,8 @@ export const BUNDLES: BundleSpec[] = [
     // and this header was not updated with it, so for a whole release it read
     // `-> 44_500` above a `budget: 46_000` — 1.5 kB wrong, in the file whose
     // whole thesis is "a budget is a DECISION, read the comment before you
-    // raise it." A pre-release review caught it. 1.11.0 did NOT move this
-    // number: main.js ships at 44_642 and keeps 1_358 B under the existing
-    // ceiling. THE TWO CEILINGS ARE DELIBERATELY NOT EQUAL: the CJS
+    // raise it." A pre-release review caught it.
+    // THE TWO CEILINGS ARE DELIBERATELY NOT EQUAL: the CJS
     // artifact runs ~290 gz bytes over the ESM one (271 B at v1.9.2, 287 B
     // now), so copying module.js's number here — which is what the previous
     // comment reasoned itself into — cannot give equal headroom, and left
@@ -145,14 +146,14 @@ export const BUNDLES: BundleSpec[] = [
     // on `full`), and the fix a stranger reaches for is raising the number
     // without reading it. Budget per bundle from its own measurement.
     // 46_000 -> 47_000 in 1.11.0, deliberately and in the commit that caused
-    // the growth. Adopting tosijs-floorplan 0.5.0 costs +131 gz here and
-    // +125 on module.js — index.js, core.js and state.js are +0, since none
-    // carries the agent surface. That is NET of deleting `auditView`, the
-    // three-carve-out workaround 0.5.0 retires: the upstream fixes cost more
-    // than the local workaround saved, which is the right trade because the
-    // workaround was a second opinion about what evidence means.
-    // The headroom gate caught this at 989 B, under the 1 kB this file
-    // specifies. Restored to ~2 kB from main.js's own measurement (45_011).
+    // the growth. Adopting tosijs-floorplan 0.5.0 costs a few hundred gz bytes
+    // here, NET of deleting `auditView` — the upstream fixes cost more than the
+    // local workaround saved, which is the right trade because the workaround
+    // was a second opinion about what evidence means. The headroom gate caught
+    // the result under the 1 kB this file specifies, so the ceiling moved
+    // rather than the bundle shipping on a hair trigger.
+    //
+    // Sizes deliberately not quoted — `bun run build`'s budget ledger has them.
     budget: 47_000,
     probe: 'require',
     stage: 'main',
@@ -214,8 +215,8 @@ export const BUNDLES: BundleSpec[] = [
   // file specifies, which the headroom gate caught. Restored to the ~2 kB
   // slack that is right for a gate policing TOOLCHAIN regressions on two
   // EXPERIMENTAL, inert bundles. The shipped bundles absorbed the same growth
-  // inside their existing ceilings (module.js 44_377, 1_623 B spare;
-  // main.js 44_642, 1_358 B) and were NOT raised.
+  // inside their existing ceilings at that round and were NOT raised. (Sizes
+  // deliberately not quoted here — see the budget ledger note on module.js.)
   //
   // RAISED 59_500 -> 61_500 in 1.10.1, deliberately and in that commit. The
   // element-creator dispatch adds ~730 gz to each of these (they are whole-

@@ -98,6 +98,7 @@
     "/src",
     "!/src/**/*.test.ts",
     "!/src/**/.*",
+    "/SECURITY.md",
     "/LICENSE",
     "/NOTICE",
     "/README.md",
@@ -124,5 +125,9 @@
   },
   "bin": {
     "tosijs": "dist/cli.mjs"
+  },
+  "bugs": {
+    "url": "https://github.com/tonioloewald/tosijs/issues",
+    "email": "tloewald@gmail.com"
   }
 }

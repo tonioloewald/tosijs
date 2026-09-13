@@ -1,5 +1,63 @@
 # todo
 
+## Deferred from the 1.11.0 round-10 pre-tag review (BLOCK → cleared)
+
+Report: `reviews/1.11.0-preminor-round10.md`. All four blockers and both
+majors were fixed before the tag; these are the remainder.
+
+- [ ] **The documented `#41` mitigation is wrong for the first shape it
+      lists.** `src/agent.ts` says "marking the control itself, or its
+      immediate wrapper, works in all of these" directly beneath a bullet list
+      whose first entry is the case where marking the control leaks. Measured:
+      `<form bind><div><my-secret data-tosi-secret></div></form>` → `read()`
+      returns the value, not `⟨secret⟩`. What actually works: mark the element
+      that **carries the binding**, or any ancestor of it. Rewrite to that
+      rule; keep the bullet list as the honest disclosure.
+- [ ] **Under a manifest, the structural tier publishes heading text and
+      `aria-label` from anywhere on the page.** `contentWithheld()`'s scope arm
+      iterates `subtreeBindingPaths(node)`, so for an *unbound* element the
+      loop body never runs and it returns "publish". An unbound
+      `h2('Reset token: sk-live-123')` is published while `read()` on the same
+      path correctly refuses. Pre-existing since 1.9.0. **Decide and write it
+      down** — failing closed would withhold all unbound structural text under
+      the production posture — then fix the CHANGELOG's flat claim that "the
+      structural tier obeys scope, secrecy and `aria-hidden`" either way.
+      (`reviews/1.9.0-preminor-round2.md` filed the identical mechanism and it
+      was never carried forward. This is the second drop.)
+- [ ] **`deepHas` runs a full subtree enumeration per described element with
+      no early exit**, and every wiring record now pays it since
+      `suppressHarvest` was hoisted. `deepQueryAll` unconditionally runs both
+      `querySelectorAll(selector)` and `querySelectorAll('*')` and materialises
+      both, the `'*'` pass existing only to find shadow hosts. Behaviour-
+      identical fix: `if (node.querySelector?.(selector) != null) return true`
+      before any `'*'` walk.
+- [ ] **`NOTICE`'s artifact enumeration is wrong in both directions** — it
+      attributes vendored floorplan code to `dist/index.js`, which carries
+      none, and omits `src/schematic.ts`, which this release started shipping.
+      Replace the filename list with a property-based statement.
+- [ ] **The new source-map gate spawns `npm` unguarded** (`src/entries.test.ts`)
+      eight tests below the same file's own loud-skip guard for its `node`
+      spawn. `Bun.spawnSync` throws rather than returning non-zero, so a
+      bun-only contributor gets an ENOENT inside a test about source maps.
+      Factor the loud-skip probe into one helper both spawns use.
+- [ ] **`"source": "src/index.ts"` resolves for the first time now that `/src`
+      ships.** Narrow exposure (the `exports` map wins nearly everywhere), but a
+      monorepo with explicit `resolve.mainFields` will start compiling tosijs
+      `.ts` out of `node_modules`. Confirm nothing reads `pkg.source` and drop
+      the field.
+- [ ] **The build's gz-delta table prints two rows short on dev builds,
+      unmarked**, and silently `continue`s when `git show <tag>:dist/<name>`
+      fails, dropping a newly-added bundle. Print only when `full`, or label it
+      partial; emit a `| new |` row instead of skipping.
+- [ ] **`schematic()` — a new public export — ships with zero executed
+      assertions**; `src/type-surface.test.ts` only *compiles* it.
+- [ ] **Finish the figure-generation job.** `bun run build` now emits a budget
+      ledger (bundle/gz/budget/spare) and both agent-surface figures, and
+      `bin/bundles.ts` no longer restates absolutes — but three doc blocks
+      still carry a hand-typed `~15.3 kB` that nothing checks. Either extend the
+      token substitution to source doc blocks, or gate them against the
+      measurement.
+
 ## Deferred from the 1.11.0 DX-tier review (BLOCK → cleared)
 
 Report: `reviews/1.11.0-dx.md`. First run of the `dx`/`docs`/`coverage`/

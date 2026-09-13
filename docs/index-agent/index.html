@@ -90,20 +90,36 @@ agent.describe()                       // the affordance map
 </tr>
 </tbody></table>
 <blockquote>
-<p>⚠️ <strong>These are the RENDERER&#39;s answers, and <code>auditAccessibility()</code> deliberately
-differs from them in three places</strong> — it ignores producer <code>flags</code>, exempts
-<code>0×0</code>, and treats a list-bound element carrying direct evidence as a control
-(tosijs-floorplan #7/#8/#9). So the exported rules do <strong>not</strong> reproduce the
-audit&#39;s verdict on those shapes; the adjustment (<code>auditView</code>) is private
-because it is a workaround, not API. Use <code>auditAccessibility()</code> if you want
-the audit&#39;s answer, and these if you want the drawing&#39;s.</p>
+<p><strong>These ARE the audit&#39;s rules.</strong> Since tosijs-floorplan 0.5.0 there is no
+divergence and no private adjustment: the three carve-outs <code>audit.ts</code> used to
+apply (ignore producer <code>flags</code>, exempt <code>0×0</code>, treat a list-bound element
+carrying direct evidence as a control — tosijs-floorplan #7/#8/#9) are folded
+into the shared rule, and <code>auditAccessibility()</code> calls these exports raw.</p>
+<p>The one knob is <code>targetSizeFinding</code>&#39;s <code>honorProducerFlags</code>, which defaults to
+<strong><code>false</code></strong> — the lint&#39;s answer, where a producer-supplied <code>target</code>-ish flag
+does <em>not</em> stand the geometry check down. <code>schematic()</code> opts in
+(<code>honorProducerFlags: true</code>) so a drawing never double-marks a finding it has
+already painted. <strong>So the default is the AUDIT&#39;s verdict</strong>, and the renderer
+is the one that adjusts.</p>
+<p><em>(Earlier releases said the opposite here, and said it while pointing at a
+private <code>auditView</code> that no longer exists. If you are working from a cached
+copy of this page: the exports and the audit agree.)</em></p>
 </blockquote>
-<p><strong>Why a subpath and not the main entry.</strong> This is ~11 kB gzipped, and an app
-that never describes itself should not carry it. Bundler users would shake
-it out — but the IIFE (CDN, <code>&lt;script&gt;</code>, our own doc pages) cannot, and that
-is the most-loaded artifact we publish. Keeping it here means the cost falls
-only on consumers who opt in, and the default bundle stays roughly where
-1.7.x left it.</p>
+<p><strong>Why a subpath and not the main entry.</strong> The agent surface costs <strong>~15.3 kB
+gzipped</strong> — measured marginally: the same ESM bundle built from <code>index.ts</code>
+(44.7 kB) and from <code>index-browser.ts</code>, which is this library minus the agent
+surface (29.0 kB). An app that never describes itself should not carry it.
+Bundler users would shake it out — but the IIFE (CDN, <code>&lt;script&gt;</code>, our own doc
+pages) cannot, and that is the most-loaded artifact we publish. Keeping it here
+means the cost falls only on consumers who opt in, and the default bundle stays
+roughly where 1.7.x left it.</p>
+<blockquote>
+<p>Note the README&#39;s generated <code>agent surface</code> figure is the <code>module.js</code> −
+<code>core.js</code> delta (<del>17.6 kB), which is a different question: <code>core</code> also drops
+blueprints, share/sync and hotReload, so that number charges their bytes to
+the agent surface too. **</del>15.3 kB is the marginal cost of this import**;
+~17.6 kB is the gap between two published entry points.</p>
+</blockquote>
 <p><code>ComponentMap</code> (the <code>static contract</code> shape) is exported from <strong>both</strong>
 <code>tosijs</code> and here: declaring a contract is a component-authoring act that
 must not require importing the agent surface. It is type-only, so it costs

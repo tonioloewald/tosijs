@@ -135,7 +135,7 @@ describe('entry points', () => {
     ]) {
       expect(typeof (core as any)[name]).not.toBe('undefined')
     }
-    // the agent surface lives behind tosijs/agent (its ~11 KB must not ride
+    // the agent surface lives behind tosijs/agent (its ~15.3 kB must not ride
     // on consumers who never describe their app — and the IIFE can't shake)
     for (const name of [
       'enableAgentInterface',

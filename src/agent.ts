@@ -1663,8 +1663,14 @@ const suppressHarvest = (
   record: AgentWiringRecord,
   boundPaths: string[]
 ): boolean => {
-  if (!harvestWouldLeak(el, record, boundPaths)) return false
-  record.secret = true
+  const block = harvestWouldLeak(el, record, boundPaths)
+  if (block == null) return false
+  // ONLY genuine record-level secrecy sets the flag. Containment suppresses
+  // the harvest without claiming anything was withheld from THIS record —
+  // see HarvestBlock. Flagging containment made one bare CSRF input redact
+  // every wired ancestor's caption in the drawing, and produced records
+  // carrying `secret: true` beside the very text they claimed was withheld.
+  if (block === 'own') record.secret = true
   /*
    * LIVE STATE GOES WITH THE HARVEST, and it is stripped HERE rather than
    * gated at the site that wrote it — the ninth per-site restatement is what
@@ -1705,14 +1711,37 @@ const subtreeBindingPaths = (el: Element): string[] => {
   return paths
 }
 
+/*
+ * WHY the harvest must be suppressed — not merely whether.
+ *
+ * These are two different facts wearing one name, and they only became
+ * distinguishable when floorplan 0.5.0 made `secret` load-bearing: before this
+ * release the flag was inert metadata, and now it is a REDACTION ORDER (the
+ * renderer draws `<tag> [withheld]` and legends `redacted: true`).
+ *
+ *   'own'      — this record's own facts are secret: a secret control, a
+ *                `data-tosi-secret` region, or a binding to a secret path.
+ *                The record IS redacted, and `secret: true` says so truthfully.
+ *   'contains' — this element merely CONTAINS a secret control somewhere below
+ *                (a password field, or the commonest shape on the web: one
+ *                bare `<input type="hidden" name="csrf">`). Harvesting this
+ *                element's free text would sweep the child's value up into the
+ *                parent, so the harvest must stop — but NOTHING about this
+ *                record was withheld, and flagging it `secret` blanks the
+ *                caption of every wired ancestor in the drawing.
+ *
+ * Returns null when the harvest is safe.
+ */
+type HarvestBlock = 'own' | 'contains' | null
+
 const harvestWouldLeak = (
   el: Element,
   record: AgentWiringRecord,
   boundPaths: string[]
-): boolean => {
-  if (record.secret === true) return true
+): HarvestBlock => {
+  if (record.secret === true) return 'own'
   for (const path of boundPaths) {
-    if (isSecretPath(path) || containsSecret(path)) return true
+    if (isSecretPath(path) || containsSecret(path)) return 'own'
   }
   try {
     // ONE query. A second `querySelector('[data-tosi-secret]')` used to
@@ -1720,11 +1749,11 @@ const harvestWouldLeak = (
     // of SECRET_CONTROL_SELECTOR, so reaching it means it already didn't
     // match. Deleted — zero behaviour change, one less subtree scan per
     // described element.
-    if (deepHas(el, SECRET_CONTROL_SELECTOR)) return true
+    if (deepHas(el, SECRET_CONTROL_SELECTOR)) return 'contains'
   } catch {
-    return true // cannot tell === must not publish
+    return 'own' // cannot tell === must not publish, and say so
   }
-  return false
+  return null
 }
 
 /**
@@ -1830,6 +1859,21 @@ const describeElement = (
   // where the destination is the secret (a reset/magic-link token)
   const href = el.getAttribute?.('href')
   if (href && !secretHere) record.href = href
+  /*
+   * A REDACTED LINK IS STILL A LINK.
+   *
+   * `isInteractive` derives "can I act here" from `record.href`, so a secret
+   * link that keeps its place in the map (see the wiring site below) is still
+   * invisible to `auditAccessibility` — it reports neither
+   * `anonymous-affordance` nor `target-size` on it, going quiet on exactly the
+   * login/reset regions authors mark most carefully.
+   *
+   * `interactive` is the producer's own affordance assertion — the channel
+   * floorplan documents for "I know this acts, you cannot introspect why" —
+   * so it carries the fact WITHOUT carrying the destination. The audit sees an
+   * affordance; the token stays withheld.
+   */
+  if (href && secretHere) record.interactive = true
   // contenteditable IS an input field — an affordance in itself, whatever
   // custom bindings ride it (and they usually do)
   const editableAttr = el.getAttribute?.('contenteditable')
@@ -2573,7 +2617,29 @@ export function enableAgentInterface(
            * place on the map by being DECLARED — via an in-scope binding or an
            * in-scope handler — never merely by existing in the DOM.
            */
-          if (!scoped && record.href != null && record.tag === 'a') {
+          /*
+           * ASK THE ELEMENT, NOT THE RECORD YOU JUST REDACTED.
+           *
+           * This read `record.href != null`, and the secrecy fix above stops
+           * setting `record.href` inside a `data-tosi-secret` region — so a
+           * bare secret link stopped being `wired`, the record was discarded
+           * at `seen.delete(el)` below, and the link vanished from the map
+           * ENTIRELY instead of appearing redacted. Withholding a fact turned
+           * into withholding the element's existence: an agent could not see
+           * that a navigation affordance was there at all, `auditAccessibility`
+           * went silent on exactly the regions authors mark most carefully
+           * (login/reset flows), and floorplan 0.5.0's `[withheld]` rendering
+           * became unreachable for this shape because no record was produced.
+           *
+           * The element still has the attribute; only the PUBLISHED record
+           * omits it. Deciding an element's fate from a redacted record reads
+           * suppression as absence, so the question goes to the DOM.
+           */
+          if (
+            !scoped &&
+            record.tag === 'a' &&
+            el.getAttribute('href') != null
+          ) {
             wired = true
           }
           // contenteditable: live text is its value; the region is an

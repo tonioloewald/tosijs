@@ -401,13 +401,14 @@ copies. Seven audit verdicts moved; see the 1.11.0 CHANGELOG.
 (the vendor is DO-NOT-EDIT), and two of them exist because the renderer and
 the audit are asking different questions of one rule.
 
-⚠️ **#7 and #8 are MITIGATED LOCALLY in 1.11.0** — `auditView()` in
-`src/audit.ts` hands the shared predicate an adjusted record rather than
-keeping a copy of the rule, so the audit gets the lint's answer while the one
-definition of *evidence* stays upstream. The issues stay open because upstream
-is the better home; when they land, the local adjustment becomes a no-op and
-goes. #12 falls out of #8's fix (we never pass `flags` down) and is likewise
-still worth fixing upstream for other callers.
+✅ **#7, #8 and #12 are FIXED UPSTREAM in floorplan 0.5.0, and 1.11.0 ships
+that.** They were briefly mitigated here by an `auditView()` composition that
+handed the shared predicate an adjusted record (never a copy of the rule). 0.5.0
+folded all three adjustments into the rule itself, so **`auditView` is deleted**
+and `src/audit.ts` applies nothing of its own — verified by executing the
+deleted composition against the shipped rule over an exhaustive 116_640-record
+matrix with zero divergences, not by reading the upstream changelog. See the
+0.5.0 section above.
 
 1. **[#7](https://github.com/tonioloewald/tosijs-floorplan/issues/7) — `isGround` treats list-ness as decisive.** A list-bound element that IS
    the control — `select({ bindList: …, bindValue: … })`, which tosijs 1.10.1
