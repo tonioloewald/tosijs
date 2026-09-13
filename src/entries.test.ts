@@ -624,3 +624,33 @@ test.skipIf(!existsSync('docs/docs.json'))(
     expect(orphans).toEqual([])
   }
 )
+
+test('no dependency is pinned to a local path', async () => {
+  /*
+   * A `file:` or `link:` dependency resolves on this machine and NOWHERE ELSE.
+   * Publishing one ships a package that cannot install.
+   *
+   * It happened here: tosijs-floorplan 0.5.0 was committed upstream but not
+   * published, so the migration was done against a local checkout and the pin
+   * read `file:/Users/…`. `prepublishOnly` does not catch this — its exports
+   * gate checks that files exist and are tracked, which they are.
+   *
+   * Fails until the pin is a real version. That is the point: the failure IS
+   * the reminder, and it cannot be forgotten the way a TODO can.
+   */
+  const { readFileSync } = await import('node:fs')
+  const pkg = JSON.parse(readFileSync(`${process.cwd()}/package.json`, 'utf8'))
+  const local: string[] = []
+  for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+    for (const [name, spec] of Object.entries(pkg[field] ?? {})) {
+      // `tosijs: "file:."` is the DELIBERATE self-reference the doc system
+      // needs so a live example's `import … from 'tosijs'` resolves to this
+      // package. Anything else pointing outside the repo is the defect.
+      if (name === pkg.name && spec === 'file:.') continue
+      if (typeof spec === 'string' && /^(file:|link:|\.\.?\/)/.test(spec)) {
+        local.push(`${field}.${name} = ${spec}`)
+      }
+    }
+  }
+  expect(local).toEqual([])
+})

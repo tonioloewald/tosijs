@@ -81,7 +81,7 @@
     "prettier": "^2.8.8",
     "tjs-lang": "0.13.6",
     "tosijs": "file:.",
-    "tosijs-floorplan": "file:/Users/tonioloewald/tosijs-floorplan",
+    "tosijs-floorplan": "0.5.0",
     "tosijs-schema": "^1.6.0",
     "tosijs-ui": "1.12.0",
     "typescript": "^5.9.3",
