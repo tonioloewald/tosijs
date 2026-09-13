@@ -332,6 +332,23 @@ issues (repo redirects post-rename), mirrored here. Adopting a new
 version = bump the devDep, `bun update`, rebuild, sync any output-truth
 tests deliberately.
 
+### ✅ RESOLVED — tosijs-floorplan 0.5.0 (2026-09-12), adopted in tosijs 1.11.0
+### All nine adoption-feedback issues (#7–#15), in one batch
+
+Filed while adopting 0.4.0; all landed in 0.5.0. **#7** list-ness no longer
+decisive; **#8** producer flags ignored by default (`honorProducerFlags` opt-in)
+and `TARGET_FLAG_KINDS` replaces the substring match that let `target-ok` stand
+the audit down; **#9** zero-size never undersized; **#10** blind-map note
+respects capability evidence; **#11** the forged-arrow residual documented as an
+open-key-set limit; **#12** malformed `flags` no longer throw anywhere;
+**#13** the predicates reproduce an audit's verdicts, retiring `auditView`;
+**#14** verdict changes are now a first-class CHANGELOG section by convention;
+**#15** `secret` records scrubbed fail-closed, with a `redacted` legend fact.
+
+Consequence here: `auditView` **deleted**, the local `0×0` guard **deleted**,
+and `audit.ts` now holds no definition of evidence and no adjustment to one.
+Verified by deletion — the audit suite passes unchanged.
+
 ### ✅ RESOLVED (NARROWED) — tosijs-floorplan 0.4.0, adopted in tosijs 1.11.0 (2026-09-06)
 ### Provenance-arrow parsing is forgeable from data (tosijs 1.8.0 SEC-8)
 

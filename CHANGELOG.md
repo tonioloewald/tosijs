@@ -301,6 +301,36 @@ never an improvement, and against 1.10.1 it is not even a change — 1.10.1 also
 called a bare container non-interactive, so the only records list-ness ever
 decided were the ones carrying real evidence.
 
+### Changed — the audit/renderer split has no carve-out left
+
+`src/schematic.ts` is re-vendored from **tosijs-floorplan 0.5.0**, which lands
+all nine issues this release's adoption of 0.4.0 filed (#7–#15) and, in its own
+words, retires tosijs's private `auditView` workaround.
+
+Three adjustments used to live in `audit.ts` — strip producer `flags` (a lint
+never drew them), exempt `0×0` (hidden is not small), and treat a list-bound
+element carrying its own evidence as a control. **All three are now in the
+shared rule**, so `auditView` is deleted. `audit.ts` no longer contains a
+definition of what evidence *is*, an adjustment to one, or a comment
+justifying either. The audit suite passes unchanged across the deletion, which
+is the only thing that makes the retirement real rather than nominal.
+
+Also arriving from upstream, and relevant to this release's other half:
+**`secret` records are scrubbed by the renderer, fail-closed** (floorplan#15) —
+a secret record's label, text, value, placeholder, `href` and image never reach
+the drawing or the legend *even if a producer bug leaves them in the record*,
+and any truthy `secret` scrubs. It draws `<tag> [withheld]` and the legend says
+`redacted: true`, because "no destination" and "destination withheld" are
+different facts. Defence in depth for exactly the class this release spent
+seven rounds on.
+
+Costs +131 gz on `main.js` and +125 on `module.js`, net of the deletion;
+`index.js`, `core.js` and `state.js` are **+0**, since none carries the agent
+surface. `main.js`'s budget moves 46_000 → 47_000 with the measurement.
+
+**The five verdict changes documented above are unaffected** — each was
+re-verified against 0.5.0 by execution, along with the four upstream fixes.
+
 ### Changed — schematic rendering
 
 `src/schematic.ts` is re-vendored from tosijs-floorplan 0.4.0. `href` now draws

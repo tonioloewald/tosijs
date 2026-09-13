@@ -26,7 +26,7 @@ linking it back to `description.wiring[i]` — the image as index).
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 
-// VENDORED from tosijs-floorplan@0.4.0 — the upstream package
+// VENDORED from tosijs-floorplan@0.5.0 — the upstream package
 // is the source of truth. DO NOT EDIT below this line: edit
 // tosijs-floorplan and rebuild (this section regenerates at build time).
 // tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
@@ -112,6 +112,13 @@ export interface SchematicRecord {
   /** the producer's assertion that text goes in here — the DOM-side
    * counterpart of contentEditable/two-way bindings (issue #3) */
   editable?: boolean
+  /** the producer WITHHELD facts about this element (tosijs 1.11.0's
+   * secret regions: a magic-link token lives in the href, so neither
+   * label nor href is published). Drawn with a `[withheld]` caption when
+   * nothing else names it, and the legend says redacted — "this link has
+   * no destination" and "its destination was withheld" are different
+   * facts (issue #15) */
+  secret?: boolean
   [boundProp: string]: unknown
 }
 
@@ -208,6 +215,9 @@ export interface SchematicLegendEntry {
   /** interactive element below the target-size floor, e.g.
    * "18×13 — below 24×24 (WCAG 2.5.8)" */
   undersized?: string
+  /** the producer withheld facts about this record (`secret: true`) —
+   * a missing href here means "withheld", not "no destination" */
+  redacted?: boolean
 }
 
 export interface SchematicResult {
@@ -279,6 +289,24 @@ const hasActEvidence = (w: SchematicRecord): boolean =>
 const hasEditEvidence = (w: SchematicRecord): boolean =>
   w.editable === true || w.contentEditable === true || hasTwoWayBinding(w)
 
+// can this producer SEE wiring at all? Any handler, any assertion, any
+// provenance arrow — including a display-only ⟵ — proves it can (#10: a
+// read-only dashboard from a binding framework is not a blind map, it's a
+// sighted map of a page with nothing actionable on it)
+const hasCapabilityEvidence = (w: SchematicRecord): boolean =>
+  w.on != null ||
+  w.interactive === true ||
+  w.editable === true ||
+  // arrows count only in bindable fields — an arrow in a never-bindable
+  // identity/name field is page content (possibly forged), and must not
+  // fabricate capability any more than it fabricates a binding
+  Object.entries(w).some(
+    ([key, v]) =>
+      !NEVER_BOUND.has(key) &&
+      typeof v === 'string' &&
+      (v.includes(BOUND_TWO_WAY) || v.includes(BOUND_TO_DOM))
+  )
+
 /**
  * An element's page-coordinate bounds (the same space describe() records) —
  * the natural `within` argument for a region-scoped schematic.
@@ -294,9 +322,14 @@ export const boundsOf = (element: Element): SchematicBounds => {
 }
 
 // structure behind affordances — a LIST CONTAINER is ground too: it's
-// wired (the collection binds here), but its items are the affordances
+// wired (the collection binds here), but its items are the affordances.
+// EVIDENCE BEATS CONTAINER ROLE (#7): an element that is both container
+// and control (a list-bound <select> carrying its own two-way value, a
+// list div with handlers) is an affordance wearing a list, not ground —
+// classifying it structural silenced error-severity audit findings.
 const isGround = (w: SchematicRecord): boolean =>
-  w.structural === true || (w.list != null && w.on == null)
+  w.structural === true ||
+  (w.list != null && !hasActEvidence(w) && !hasEditEvidence(w))
 
 /**
  * "Can I act here?" — the single implementation of the interactivity
@@ -331,27 +364,52 @@ export const TARGET_SIZE_DEFAULT = 24
  * finding via `flags`; that is the INTENDED path for DOM producers, and
  * the built-in never double-marks over it.
  */
+/** flag kinds that claim to BE a target-size finding, and therefore
+ * supersede the built-in audit when the renderer honours producer flags.
+ * An explicit set, not a substring match: `includes('target')` let
+ * 'target-ok' — or any kind merely mentioning the word — silently stand
+ * the audit down (#8). Covers both producers' kinds in the wild
+ * (haltija: 'target', 'smallTarget'; tosijs auditFlags: 'target-size'). */
+export const TARGET_FLAG_KINDS: ReadonlySet<string> = new Set([
+  'target',
+  'target-size',
+  'targetsize',
+  'target_size',
+  'smalltarget',
+])
+
 export const targetSizeFinding = (
   w: SchematicRecord,
-  targetSize = TARGET_SIZE_DEFAULT
+  targetSize = TARGET_SIZE_DEFAULT,
+  { honorProducerFlags = false } = {}
 ): string | null => {
   if (targetSize <= 0 || w.bounds == null || !isInteractive(w)) return null
+  const { width, height } = w.bounds
+  // hidden is not small (#9): a 0×0 (or unlaid-out) element is not a
+  // target too small to hit — the guard lives here so callers passing raw
+  // wiring don't each grow their own copy
+  if (width <= 0 || height <= 0) return null
   if (w.type === 'checkbox' || w.type === 'radio') return null
   if (
     w.tag === 'a' &&
     typeof w.text === 'string' &&
     w.text !== '' &&
-    w.bounds.width > w.bounds.height
+    width > height
   ) {
     return null
   }
+  // supersession is a DRAWING concern — no double bars for one finding —
+  // so it is opt-in (#8): schematic() passes true; an audit consuming this
+  // rule wants the geometry verdict regardless of what the producer drew
   if (
+    honorProducerFlags &&
     Array.isArray(w.flags) &&
-    w.flags.some((f) => f.kind.toLowerCase().includes('target'))
+    w.flags.some(
+      (f) => typeof f?.kind === 'string' && TARGET_FLAG_KINDS.has(f.kind.toLowerCase())
+    )
   ) {
     return null
   }
-  const { width, height } = w.bounds
   return width < targetSize || height < targetSize
     ? `${width}×${height} — below ${targetSize}×${targetSize} (WCAG 2.5.8)`
     : null
@@ -508,15 +566,21 @@ export const schematic = (
   // result says so instead of letting silence claim the first.
   // evidence is judged over the WHOLE wiring, not the drawn subset: a
   // `within` crop of a map whose evidence lies outside the region is not a
-  // blind map, it's a blind REGION of a sighted one (review follow-up)
+  // blind map, it's a blind REGION of a sighted one (review follow-up).
+  // And CAPABILITY evidence counts (#10): a producer that emits handlers
+  // or provenance arrows anywhere demonstrably can see wiring — absence of
+  // affordance is then a fact about the page, not the producer's eyes.
   const blind =
-    boxes.some((w) => !isGround(w)) && !description.wiring.some(isInteractive)
+    boxes.some((w) => !isGround(w)) &&
+    !description.wiring.some(isInteractive) &&
+    !description.wiring.some(hasCapabilityEvidence)
   const note = blind
     ? 'no record carries affordance evidence (on, href, contentEditable, ' +
-      'a two-way binding, or an interactive/editable assertion) — ' +
-      '"nothing here is actionable" is NOT established; a producer that ' +
-      'cannot introspect handlers should assert `interactive`/`editable` ' +
-      'per record (see README)'
+      'a two-way binding, or an interactive/editable assertion), and none ' +
+      'shows the producer can see wiring at all (no handler, assertion, ' +
+      'or provenance arrow anywhere) — "nothing here is actionable" is ' +
+      'NOT established; a producer that cannot introspect handlers ' +
+      'should assert `interactive`/`editable` per record (see README)'
     : undefined
   for (const w of drawOrder) {
     const index = description.wiring.indexOf(w)
@@ -545,9 +609,24 @@ export const schematic = (
     //   back to its placeholder in italics (a hint must not read as content)
     // - everything else: label, then text, then value
     const toggle = w.type === 'checkbox' || w.type === 'radio'
+    // fail-closed means malformed errs toward WITHHOLDING (review F1): a
+    // truthy non-boolean secret (secret: 1 from mangled producer JSON)
+    // must scrub, not leak — every redaction gate shares this coercion
+    const secret = Boolean(w.secret)
     let caption: string
     let hint = false
-    if (isContainer) {
+    if (secret) {
+      // FAIL-CLOSED redaction (0.5.0 review G1 + round-2 B1): a secret
+      // record's withholdable facts — label, text, value, placeholder,
+      // href, and image (the captured pixels are the highest-bandwidth
+      // fact of all) — never reach the drawing, even when a producer bug
+      // left them in
+      // the record. `redacted` must never co-occur with the facts it
+      // claims were withheld; the marker is all a secret record says.
+      // (Assigned BEFORE the choke point so a forged arrow in `tag`
+      // still neutralizes — review R1.)
+      caption = `<${w.tag}> [withheld]`
+    } else if (isContainer) {
       caption = String(w.label ?? '')
     } else if (toggle) {
       caption = String(w.label ?? '')
@@ -605,7 +684,10 @@ export const schematic = (
     // embedded media first: pixels the producer captured, drawn in place —
     // everything else (state geometry, captions, badges) reads over it
     const drawImage =
-      !structural && typeof w.image === 'string' && w.image.startsWith('data:')
+      !structural &&
+      !secret && // B1: withheld pixels never draw
+      typeof w.image === 'string' &&
+      w.image.startsWith('data:')
     // CRAMPED: the box can't legibly carry its dress — draw it bare (shape,
     // state geometry, emphasis, focus) with an auto stamp pointing into the
     // legend, where the metadata actually lives. Toggles are exempt from
@@ -618,7 +700,9 @@ export const schematic = (
     // the toggle and inline-link exemptions, producer-flag supersession —
     // lives in the exported targetSizeFinding (issue #4: one
     // implementation, shared with tosijs's audit).
-    const undersized = targetSizeFinding(w, targetSize)
+    const undersized = targetSizeFinding(w, targetSize, {
+      honorProducerFlags: true,
+    })
     const emphasis = structural
       ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
       : w.disabled === true
@@ -675,13 +759,17 @@ export const schematic = (
     // the LEFT edge — the unclaimed slot — plus the first flag's label
     if (!cramped && !structural && Array.isArray(w.flags) && w.flags.length > 0) {
       w.flags.forEach((flag, at) => {
+        // kind is producer JSON too (#12) — same defence severity gets
         parts.push(
           `<rect x="${x + at * 3}" y="${y}" width="3" height="${height}" ` +
-            `fill="${flagColor(flag.severity)}" data-flag="${esc(flag.kind)}"/>`
+            `fill="${flagColor(flag?.severity)}" ` +
+            `data-flag="${esc(typeof flag?.kind === 'string' ? flag.kind : '')}"/>`
         )
       })
       const first = w.flags[0]
-      if (first.label && height >= minLabelHeight) {
+      // producer JSON to the last line (R2): flags:[null] and non-string
+      // labels must not take down the render — same defence the forEach got
+      if (typeof first?.label === 'string' && first.label !== '' && height >= minLabelHeight) {
         parts.push(
           `<rect x="${x + w.flags.length * 3 + 1}" y="${y + height - 9}" ` +
             `width="${first.label.length * 4.5 + 2}" height="8" ` +
@@ -797,12 +885,17 @@ export const schematic = (
     // a destination is always legend-worthy: it never fits a caption
     // legibly, and it's the fact an agent acts on ("goes to Y", not
     // "says X")
-    if (typeof w.href === 'string' && w.href !== '' && !structural) {
+    if (
+      typeof w.href === 'string' &&
+      w.href !== '' &&
+      !structural &&
+      !secret // G1: a withheld destination never reaches the legend
+    ) {
       elided.href = w.href
     }
     if (cramped || truncated) {
       if (shownCaption !== '' && !toggle) elided.caption = caption
-      const heldValue = shownValue(w.value)
+      const heldValue = secret ? undefined : shownValue(w.value)
       if (heldValue) elided.value = heldValue
       if (cramped) {
         if (editable) elided.editable = true
@@ -815,7 +908,12 @@ export const schematic = (
     if (w.invalid === true && cramped) elided.invalid = true
     if (w.disabled === true && cramped) elided.disabled = true
     if (undersized != null) elided.undersized = undersized
+    // redaction ALWAYS rides the legend, structural included: redacted is
+    // a fact about the record, not a drawing concern — the consumer
+    // reading "no href" must be able to tell withheld from absent (#15)
+    if (secret) elided.redacted = true
     const inLegend =
+      elided.redacted != null ||
       elided.caption != null ||
       elided.href != null ||
       elided.value != null ||

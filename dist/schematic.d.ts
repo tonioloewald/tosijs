@@ -93,6 +93,13 @@ export interface SchematicRecord {
     /** the producer's assertion that text goes in here — the DOM-side
      * counterpart of contentEditable/two-way bindings (issue #3) */
     editable?: boolean;
+    /** the producer WITHHELD facts about this element (tosijs 1.11.0's
+     * secret regions: a magic-link token lives in the href, so neither
+     * label nor href is published). Drawn with a `[withheld]` caption when
+     * nothing else names it, and the legend says redacted — "this link has
+     * no destination" and "its destination was withheld" are different
+     * facts (issue #15) */
+    secret?: boolean;
     [boundProp: string]: unknown;
 }
 /** the map: only `wiring` is read. The named optional fields are the
@@ -188,6 +195,9 @@ export interface SchematicLegendEntry {
     /** interactive element below the target-size floor, e.g.
      * "18×13 — below 24×24 (WCAG 2.5.8)" */
     undersized?: string;
+    /** the producer withheld facts about this record (`secret: true`) —
+     * a missing href here means "withheld", not "no destination" */
+    redacted?: boolean;
 }
 export interface SchematicResult {
     svg: string;
@@ -234,7 +244,16 @@ export declare const TARGET_SIZE_DEFAULT = 24;
  * finding via `flags`; that is the INTENDED path for DOM producers, and
  * the built-in never double-marks over it.
  */
-export declare const targetSizeFinding: (w: SchematicRecord, targetSize?: number) => string | null;
+/** flag kinds that claim to BE a target-size finding, and therefore
+ * supersede the built-in audit when the renderer honours producer flags.
+ * An explicit set, not a substring match: `includes('target')` let
+ * 'target-ok' — or any kind merely mentioning the word — silently stand
+ * the audit down (#8). Covers both producers' kinds in the wild
+ * (haltija: 'target', 'smallTarget'; tosijs auditFlags: 'target-size'). */
+export declare const TARGET_FLAG_KINDS: ReadonlySet<string>;
+export declare const targetSizeFinding: (w: SchematicRecord, targetSize?: number, { honorProducerFlags }?: {
+    honorProducerFlags?: boolean | undefined;
+}) => string | null;
 export declare const schematic: (description: SchematicDescription, options?: SchematicOptions) => SchematicResult;
 /** the string-only form — schematic().svg, kept for drop-in compatibility */
 export declare const schematicSVG: (description: SchematicDescription, options?: SchematicOptions) => string;

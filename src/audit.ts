@@ -33,27 +33,23 @@ contrast rule has nothing to measure and skips itself (it says so).
 Findings carry the record and its index, so a caller can jump straight to
 the element — or hand the pair to `schematicSVG`'s `flags` to *draw* them.
 
-> **The divergence is closed** (tosijs-floorplan 0.4.0, issue #4). `target-size`
-> and "is this interactive" used to be implemented *twice* — here, and in the
-> vendored renderer that draws the same map — and the two had drifted into
-> contradicting each other on real elements. Both now come from
-> `./schematic`, so the audit and the drawing cannot disagree by
-> construction. **Geometry is judged where the geometry lives**; this module
-> keeps only what it uniquely knows (the accessible name, the contrast
-> math) and the rule wording.
+> **The divergence is closed, and as of 1.11.0 there is no carve-out either**
+> (tosijs-floorplan #4, then #7/#8/#9 and #13). `target-size` and "is this
+> interactive" were once implemented *twice* — here and in the vendored
+> renderer — and had drifted into contradicting each other on real elements.
+> 0.4.0 shared the implementation; **0.5.0 removed the need for this module to
+> adjust it.**
 >
-> Adopting the shared rule changed five verdicts, deliberately, in both
-> directions — see the 1.11.0 CHANGELOG entry.
+> Three adjustments used to live here, as `auditView`: strip producer `flags`
+> (a lint never drew them), exempt `0×0` (hidden is not small), and treat a
+> list-bound element carrying its own evidence as a control. All three are now
+> in the rule itself, so `auditView` is **deleted** and this module contains no
+> definition of what evidence *is* — not a copy, not an adjustment, nothing.
+> The audit suite passes unchanged across the deletion, which is the only
+> evidence that the retirement is real rather than nominal.
 >
-> **It is one definition of evidence, not one set of answers.** Three questions
-> a *drawing* answers differently from a *lint* are adjusted here, by handing
-> the shared predicate an adjusted record rather than by keeping a copy of it:
-> **zero-size** (a `0×0` element is hidden, not a small target — the renderer
-> draws nothing either way), **list containers** that are themselves controls
-> (floorplan#7), and **producer `flags`**, which a renderer may honour because
-> it already drew them and a lint may not because it never reads them
-> (floorplan#8). All three are filed upstream; if they land, these become
-> no-ops.
+> What this module still owns is what it uniquely knows: the accessible name,
+> the contrast math, and the wording of each finding.
 
 > **EXPERIMENTAL.** Ships with the agent surface; rules and shapes may change.
 */
@@ -97,54 +93,6 @@ export interface AuditOptions {
   contrastRatio?: number
   /** rule ids to skip */
   exclude?: string[]
-}
-
-/**
- * THE RECORD AS A LINT MUST SEE IT.
- *
- * The shared rules answer a RENDERER's questions, and two of those answers are
- * wrong for an audit — not because the renderer is wrong, but because it has a
- * compensating half that a lint does not:
- *
- *  - **`flags`** (tosijs-floorplan#8). Any producer flag whose `kind` contains
- *    `"target"` suppresses the target-size finding. That is right for a
- *    drawing — it already painted the producer's flag and must not double-mark
- *    — but `auditAccessibility` never reads `flags` into `findings`, so
- *    suppression here means reporting *nothing*. Worse, `auditFlags()` emits
- *    `kind: 'target-size'`, so the documented draw-then-re-audit round trip
- *    would clear the very elements it just flagged. The audit never passes
- *    `flags` down. (This also sidesteps floorplan#12: a flag with no `kind`
- *    throws inside the shared rule, and we no longer hand it one.)
- *
- *  - **`list`** (tosijs-floorplan#7). `isGround` makes list-ness decisive, so a
- *    list-bound element that IS the control — `select({bindList, bindValue})`,
- *    exactly what 1.10.1 shipped a fix to enable — is classified as structure
- *    and goes silent on THREE rules, two of them errors. For a lint, direct
- *    evidence on the element wins over its container role.
- *
- * Both adjustments COMPOSE the shared predicate over an adjusted record; they
- * do not re-implement it. That distinction is the whole point of floorplan#4 —
- * there is still exactly one definition of what evidence *is*, and this file
- * contains none of it. Both are forward-compatible: if upstream takes #7 and
- * #8, these become no-ops rather than a second opinion.
- */
-const auditView = (w: AgentWiringRecord): AgentWiringRecord => {
-  // FAST PATH FIRST — most records carry neither `flags` nor `list`, and this
-  // runs once per wired element on a page. Spreading unconditionally would add
-  // an allocation per record to a rule set the pre-release review already
-  // flagged for doing more per-record work than 1.10.1 did.
-  const anyW = w as any
-  const hasFlags = anyW.flags != null
-  const listed = anyW.list != null && anyW.structural !== true
-  if (!hasFlags && !listed) return w
-
-  const rest = hasFlags ? { ...anyW } : anyW
-  if (hasFlags) delete rest.flags
-  if (!listed) return rest
-
-  const withoutList = { ...rest }
-  delete withoutList.list
-  return isInteractive(withoutList) ? withoutList : rest
 }
 
 const accessibleName = (w: AgentWiringRecord): string =>
@@ -240,8 +188,7 @@ export const auditAccessibility = (
     // the two shared rules see the audit's view; every MESSAGE and the
     // `record` on each finding keep the original, so a caller still gets back
     // exactly what it handed in
-    const view = auditView(w)
-    const interactive = isInteractive(view)
+    const interactive = isInteractive(w)
     const name = accessibleName(w)
 
     if (interactive && name === '' && w.value === undefined) {
@@ -295,10 +242,14 @@ export const auditAccessibility = (
     // record, and it is now documented as the general exported rule — so the
     // next caller writes this guard again, which is the drift floorplan#4
     // closed, one level up. tosijs-floorplan#9 asks for it to move in.
-    const tooSmall =
-      w.bounds != null && w.bounds.width > 0 && w.bounds.height > 0
-        ? targetSizeFinding(view, targetSize)
-        : null
+    // No local guard any more. tosijs-floorplan 0.5.0 folds every adjustment
+    // this module used to make into the shared rule itself: zero-size is never
+    // undersized (#9), producer flags no longer supersede by default (#8), and
+    // a list-bound element carrying its own evidence is an affordance (#7).
+    // `auditView` — three carve-outs and thirty lines of justification — is
+    // deleted, and the suite passes unchanged, which is the only evidence that
+    // the retirement is real.
+    const tooSmall = targetSizeFinding(w, targetSize)
     if (tooSmall != null) {
       add(
         'target-size',

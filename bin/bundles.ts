@@ -144,7 +144,16 @@ export const BUNDLES: BundleSpec[] = [
     // broken `bun start` for every developer (the budget loop is not gated
     // on `full`), and the fix a stranger reaches for is raising the number
     // without reading it. Budget per bundle from its own measurement.
-    budget: 46_000,
+    // 46_000 -> 47_000 in 1.11.0, deliberately and in the commit that caused
+    // the growth. Adopting tosijs-floorplan 0.5.0 costs +131 gz here and
+    // +125 on module.js — index.js, core.js and state.js are +0, since none
+    // carries the agent surface. That is NET of deleting `auditView`, the
+    // three-carve-out workaround 0.5.0 retires: the upstream fixes cost more
+    // than the local workaround saved, which is the right trade because the
+    // workaround was a second opinion about what evidence means.
+    // The headroom gate caught this at 989 B, under the 1 kB this file
+    // specifies. Restored to ~2 kB from main.js's own measurement (45_011).
+    budget: 47_000,
     probe: 'require',
     stage: 'main',
   },
