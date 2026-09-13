@@ -100,6 +100,25 @@ the default used to be read-only over the <em>entire registry</em>, which is how
 separate secret leaks became reachable through one unargumented call. Scope is
 the control; the redaction described below is defence in depth beneath it.</p>
 <h2>Secrets</h2>
+<blockquote>
+<p>⚠️ <strong><code>data-tosi-secret</code> is badly named and the name will change.</strong> It marks
+what <em>this library</em> must not copy into a description. It is <strong>not a security
+boundary and cannot be one</strong>: everything it covers is ordinary client-side
+DOM, readable with one <code>querySelector</code> by any script in your origin, any
+extension, and anyone with devtools — whatever tosijs does.</p>
+<p>Worse, <strong>it is an attribute, so it is a signpost.</strong>
+<code>document.querySelectorAll(&#39;[data-tosi-secret]&#39;)</code> hands a reader your own
+curation of which parts of the page you considered sensitive. That judgement
+is work an attacker would otherwise have to do. Nothing here is disclosed
+that was not already reachable — but the marker tells you where to look.</p>
+<p>So: <strong>mark as little as possible, and do not reach for it as protection.</strong>
+The actual control is <code>expose</code> — what the surface is willing to describe at
+all — and the CLOSED default beneath it. This mechanism is defence in depth
+for the case where a description <strong>leaves the origin</strong> (a model-context host
+receiving <code>tosi_describe</code>); against anything running <em>in</em> the page it buys
+you nothing. A rename, and a way to declare withholding in code rather than
+in markup, are tracked in <code>TODO.md</code>.</p>
+</blockquote>
 <p>A path bound to a password field, a <code>cc-*</code> autocomplete, a hidden CSRF token,
 or anything you mark <code>data-tosi-secret</code> is withheld — it reads back as the
 sentinel <code>⟨secret⟩</code> rather than its value:</p>

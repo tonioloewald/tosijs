@@ -64,6 +64,26 @@ the control; the redaction described below is defence in depth beneath it.
 
 ## Secrets
 
+> ⚠️ **`data-tosi-secret` is badly named and the name will change.** It marks
+> what *this library* must not copy into a description. It is **not a security
+> boundary and cannot be one**: everything it covers is ordinary client-side
+> DOM, readable with one `querySelector` by any script in your origin, any
+> extension, and anyone with devtools — whatever tosijs does.
+>
+> Worse, **it is an attribute, so it is a signpost.**
+> `document.querySelectorAll('[data-tosi-secret]')` hands a reader your own
+> curation of which parts of the page you considered sensitive. That judgement
+> is work an attacker would otherwise have to do. Nothing here is disclosed
+> that was not already reachable — but the marker tells you where to look.
+>
+> So: **mark as little as possible, and do not reach for it as protection.**
+> The actual control is `expose` — what the surface is willing to describe at
+> all — and the CLOSED default beneath it. This mechanism is defence in depth
+> for the case where a description **leaves the origin** (a model-context host
+> receiving `tosi_describe`); against anything running *in* the page it buys
+> you nothing. A rename, and a way to declare withholding in code rather than
+> in markup, are tracked in `TODO.md`.
+
 A path bound to a password field, a `cc-*` autocomplete, a hidden CSRF token,
 or anything you mark `data-tosi-secret` is withheld — it reads back as the
 sentinel `⟨secret⟩` rather than its value:

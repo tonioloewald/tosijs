@@ -165,24 +165,46 @@ the read gate exists to withhold.
 > password-reset region had reason to believe they were covered and was not.
 > Fixed in 1.11.0.
 >
-> **If you enabled the agent surface on a page with token-bearing links, treat
-> those tokens as disclosed** to anything that called `describe()` — including
-> any model-context host, since `tosi_describe` is registered unconditionally
-> in every posture. Rotate them. `read()` was never affected; this is the
+> **Keep the severity in proportion: `data-tosi-secret` is a hint to tosijs's
+> own harvest, not a privilege boundary — and the name is wrong, which is
+> tracked for 1.12.0 (`TODO.md`).** Everything that leaked here —
+> `href`, `placeholder`, `title`, `aria-description`, `checked` — is ordinary
+> client-side DOM. Any script on the page, any extension, and anyone who opens
+> devtools or reads the bundle can obtain all of it with `querySelector`,
+> whatever tosijs does. The marker asks *this library* not to copy those
+> attributes into a description; it has never been, and cannot be, a control
+> against code already running in the origin. So this is a **redaction
+> convenience that did not work**, not an escalation: it disclosed nothing to
+> an attacker who was not already able to read it.
+>
+> The one case where it is more than that is when `describe()` output **leaves
+> the origin** — a model-context host receiving `tosi_describe`, which is
+> registered unconditionally in every posture even though `tosi_read` sits
+> behind `canRead`. If you were piping descriptions to such a host from a page
+> with token-bearing links, those tokens went with them; rotate on that basis,
+> not on the page-local one. `read()` was never affected; this is the
 > `describe()` channel only.
 >
-> **Advisory decision — NOT YET MADE, and it is the maintainer's to make.**
-> Seven consecutive reviews have asked for this one sentence and it is still
-> missing, so it is recorded here as an open question rather than quietly
-> dropped an eighth time. The facts, gathered 2026-09-13: eight affected
-> versions (1.8.0 … 1.10.1), **none deprecated**; `dist-tags.latest` is
-> **1.10.1**, itself affected, so every `npm i tosijs` today installs a
-> vulnerable version; no GitHub security advisory exists; **~1,082
-> downloads/week** across the package, plausibly mostly automated. `npm
-> deprecate` is the only channel that reaches a pinned consumer at install
-> time; it does **not** reach `npm audit`/Dependabot — only a published
-> advisory does. *"Below the bar, because N/week and mostly bots"* is a
-> perfectly good answer. An absent answer is not.
+> **Advisory decision, recorded 2026-09-13: no `npm deprecate`, no security
+> advisory.** The affected range is 1.8.0 … 1.10.1 and stays undeprecated. The
+> reasoning is the paragraph above — no page-local disclosure that
+> `querySelector` did not already permit — together with the exposure
+> conditions: the surface is opt-in (`enableAgentInterface` must be called and
+> tree-shakes away otherwise), and from 1.9.0 it is CLOSED by default, so a
+> posture had to be deliberately opened as well. 1.8.0–1.8.2 are the only
+> releases where enabling alone sufficed. Publishing 1.11.0 moves `latest` off
+> the range. This is the answer eight consecutive reviews asked for; it is
+> settled, and should not be re-litigated without new information — a report of
+> a real adopter piping `describe()` to an external host would be new
+> information.
+>
+> **And a criticism of the mechanism, not just of this bug:** `data-tosi-secret`
+> is an *attribute*, so `querySelectorAll('[data-tosi-secret]')` hands a reader
+> the developer's own curation of what is sensitive — work an attacker would
+> otherwise do themselves. It discloses no data that was not already reachable,
+> but a marker meant to reduce exposure mildly increases it. 1.12.0 renames it
+> to say what it does and adds a way to declare withholding in code instead of
+> in markup; see `TODO.md`.
 
 `describeElement` was *given* a `ContentGuard` and asked it only inside
 `referencedText()` and `associatedLabel()`; the attribute harvest ran unguarded.

@@ -48,5 +48,19 @@ ones most likely to be real, in particular:
 `describe()` published `href`, `placeholder`, `title`-as-`label`,
 `aria-description` and a checkbox's `checked` state past `data-tosi-secret`, in
 **every release that has ever had the agent surface** (1.8.0 through 1.10.1).
-See `CHANGELOG.md` for the full entry, including which tokens to treat as
-disclosed and rotate. Fixed in 1.11.0.
+Fixed in 1.11.0.
+
+**Deliberately not deprecated or filed as an advisory**, and it is worth being
+clear why, because it also tells you what `data-tosi-secret` is for. Everything
+that leaked is ordinary client-side DOM: any script on the page, any extension,
+and anyone with devtools can read all of it with `querySelector` regardless of
+what this library does. The marker asks *tosijs* not to copy those attributes
+into a description — it is a redaction convenience, **not a control against
+code already running in your origin**, and it cannot be made into one. The
+failure disclosed nothing to a page-local attacker who could not already read
+it.
+
+The exception, and the reason the fix still matters: a description can **leave
+the origin** — `tosi_describe` is registered with a model-context host in every
+posture. If you pipe descriptions to such a host from a page carrying tokens in
+links, treat those as having travelled. Full entry in `CHANGELOG.md`.

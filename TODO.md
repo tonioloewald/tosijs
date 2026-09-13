@@ -1,18 +1,42 @@
 # todo
 
-## 🔴 Blocking the 1.11.0 PUBLISH (not the tag) — one decision, yours
+## 1.12.0 — `data-tosi-secret` is misnamed, and markup is the wrong channel
 
-- [ ] **Decide the advisory posture and act on it**, then delete this item.
-      Eight affected versions (1.8.0 … 1.10.1), none deprecated; npm `latest`
-      is 1.10.1, itself affected; ~1,082 downloads/week. `npm deprecate
-      'tosijs@>=1.8.0 <1.11.0'` reaches pinned consumers at install time but
-      NOT `npm audit`/Dependabot — only a published GitHub advisory does.
-      **"Below the bar" is a fine answer**; the CHANGELOG now states the
-      question beside the disclosure, so whichever way you go, say so there.
-      *Asked by reviews 1.8.3-round3, 1.8.3-round4, 1.9.0-round3, 1.11.0-round6,
-      round7, round10 and round11 — seven times, never answered. It kept being
-      transferred as "add SECURITY.md and record the decision", and each time
-      only the SECURITY.md half survived the transfer.*
+Raised by the maintainer at the 1.11.0 tag, and it is a better criticism than
+the bug that prompted it. **Two separate problems:**
+
+1. **The name claims a property the mechanism cannot have.** Everything it
+   covers is client-side DOM — `querySelector` reaches all of it regardless of
+   what tosijs does. It is a *withholding hint to this library's own harvest*,
+   not a boundary. Strong evidence the name causes real harm: three consecutive
+   review rounds (10, 11, 12) reasoned about it as a privilege boundary and
+   graded findings accordingly, and so did I. A name that misleads its own
+   reviewers is doing damage beyond aesthetics.
+
+2. **An attribute is a SIGNPOST.** `querySelectorAll('[data-tosi-secret]')`
+   hands a reader the developer's own curation of what is sensitive — a
+   judgement they would otherwise have to make themselves. It discloses no data
+   that was not already reachable, but it materially lowers the effort of
+   finding the interesting parts. A marker meant to reduce exposure mildly
+   increases it.
+
+- [ ] **Rename.** Candidates describing what it DOES: `data-tosi-withhold`,
+      `data-tosi-no-harvest`, `data-tosi-redact`. Ship the new spelling as
+      canonical with `data-tosi-secret` as a silent alias (this project's
+      normal idiom — cf. the `Xin*` type aliases, `styleSpec`); no breakage.
+- [ ] **Offer a non-markup channel**, which is the fix for problem 2 and is
+      probably the better API anyway: declare withholding in the manifest —
+      `enableAgentInterface({ withhold: ['.card-number', el => …] })` — so
+      nothing is written into the DOM for a reader to find. The attribute stays
+      for convenience, documented as the leaky-by-construction option.
+- [ ] **`record.secret` is a SHARED contract with tosijs-floorplan** (it reads
+      it as a redaction order, floorplan#15). Renaming the record field is a
+      cross-repo change — file upstream and coordinate; do not rename it here
+      unilaterally. `textWithheld`, added in round 12, is already the honest
+      name for the neighbouring fact and can be the template.
+- [ ] Until the rename lands, the doc block in `src/agent.ts` states the
+      limitation plainly (done in 1.11.0). Keep that wording in sync with
+      whatever the rename settles on.
 
 ## Deferred from the 1.11.0 round-11 re-review (BLOCK → cleared)
 
