@@ -3458,6 +3458,78 @@ describe('describe(): secrecy covers the ATTRIBUTE harvest, not just text', () =
    * An honest abstention, not a silent one — and `aria-label` survives
    * redaction precisely so an author can restore these rules.
    */
+  /*
+   * THE GATE MUST ASK THE DECISION, AND PER RULE (round 12, M-1 + M-2).
+   *
+   * Round 11 gated three audit rules on `w.secret === true` — the redaction
+   * ORDER — when the question is "was this record's text withheld". Wrong in
+   * both directions at once:
+   *
+   *   M-1  a record suppressed by CONTAINMENT carries no `secret` flag, so
+   *        the gate missed it and `anonymous-affordance` fired — as an
+   *        `error`, inflating `report.failed` — about a button whose visible
+   *        text reads "Sign in".
+   *   M-2  `bounds` are NEVER redacted, so abstaining from `target-size` on
+   *        every secret record hid genuinely undersized secret controls.
+   *
+   * `textWithheld` is the decision; the size rule now abstains only for the
+   * one shape whose missing text would have exempted it.
+   */
+  test('a contained-secret element is not accused of being nameless', async () => {
+    document.body.innerHTML = ''
+    tosi({ r12a: { n: 1 } })
+    await updates()
+
+    // visible text "Sign in"; the harvest is suppressed only because a CSRF
+    // hidden input sits inside it
+    const btn = elements.button(
+      { onClick: () => {} },
+      elements.span('Sign in'),
+      elements.input({ type: 'hidden', name: 'csrf' })
+    )
+    document.body.append(btn)
+    rect(btn)
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const described = agent.describe()
+    const rec = (described.wiring as any[]).find((r) => r.tag === 'button')
+    // the decision is on the record; the redaction ORDER is NOT
+    expect(rec?.textWithheld).toBe(true)
+    expect(rec?.secret).toBeUndefined()
+
+    const report = auditAccessibility(described)
+    expect(report.findings.map((f) => f.rule)).not.toContain(
+      'anonymous-affordance'
+    )
+    expect(report.failed).toBe(0)
+    agent.disable()
+  })
+
+  test('a genuinely undersized SECRET control is still reported', async () => {
+    document.body.innerHTML = ''
+    tosi({ r12b: { n: 1 } })
+    await updates()
+
+    const btn = elements.button(
+      { onClick: () => {}, 'data-tosi-secret': '' },
+      'x'
+    )
+    document.body.append(btn)
+    // 16×16 — measurably undersized, and geometry is never redacted, so
+    // secrecy is no excuse for silence here
+    Object.defineProperty(btn, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 16, height: 16 }),
+      configurable: true,
+    })
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const report = auditAccessibility(agent.describe())
+    expect(report.findings.map((f) => f.rule)).toContain('target-size')
+    agent.disable()
+  })
+
   test('a secret region gets an honest audit, not a fabricated one', async () => {
     document.body.innerHTML = ''
     tosi({ blk2: { n: 1 } })
@@ -3494,7 +3566,9 @@ describe('describe(): secrecy covers the ATTRIBUTE harvest, not just text', () =
     expect(rules).not.toContain('anonymous-affordance')
     expect(rules).not.toContain('target-size')
     expect(report.failed).toBe(0)
-    expect(report.skipped.some((s) => s.includes('marked `secret`'))).toBe(true)
+    expect(
+      report.skipped.some((s) => s.startsWith('anonymous-affordance:'))
+    ).toBe(true)
 
     // and the token never appears, in findings or skips
     expect(JSON.stringify(report)).not.toContain('TOKEN-B1b')

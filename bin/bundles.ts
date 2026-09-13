@@ -123,7 +123,14 @@ export const BUNDLES: BundleSpec[] = [
     //
     // That this lands on the same number as main.js is a coincidence, not a
     // copy: main.js needed no change at that round. See the warning below.
-    budget: 46_000,
+    //
+    // 46_000 -> 47_000 in 1.11.0 round 12, deliberately and in the commit that
+    // caused the growth. The secrecy/audit remediations (the `textWithheld`
+    // decision field, the per-rule audit gating, three new guards) landed the
+    // bundle under the 1 kB minimum this file specifies — caught by the
+    // headroom gate, off the budget ledger, not by a failing build. Restored
+    // to the ~2 kB slack every other shipped bundle carries.
+    budget: 47_000,
     probe: 'import',
     stage: 'main',
   },
@@ -230,7 +237,11 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.debug.js',
     format: 'esm',
     entry: './tjs-out/index-debug.js',
-    budget: 62_500,
+    // 62_500 -> 63_500 in 1.11.0 round 12, same remediation, same reason:
+    // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
+    // regressions on two EXPERIMENTAL, inert bundles, so the slack is
+    // deliberately generous.
+    budget: 63_500,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -241,7 +252,11 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.safe.js',
     format: 'esm',
     entry: './tjs-out/index-safe.js',
-    budget: 62_500,
+    // 62_500 -> 63_500 in 1.11.0 round 12, same remediation, same reason:
+    // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
+    // regressions on two EXPERIMENTAL, inert bundles, so the slack is
+    // deliberately generous.
+    budget: 63_500,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

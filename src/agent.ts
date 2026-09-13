@@ -401,8 +401,17 @@ export interface AgentWiringRecord {
   /** live checked state for checkboxes and radios — DOM truth at map time */
   checked?: boolean
   /** this control holds a secret (password / one-time code): its VALUE is
-   * never emitted, only the fact that it exists and what it's bound to */
+   * never emitted, only the fact that it exists and what it's bound to.
+   * A REDACTION ORDER — the renderer draws `<tag> [withheld]` for it. */
   secret?: boolean
+  /** this record's free text was NOT harvested, so an absent `text` means
+   * "not shown", not "not there". Set whenever the harvest is suppressed —
+   * including for an element that merely CONTAINS a secret control, where
+   * nothing about the record itself is secret and `secret` is correctly
+   * unset. A lint must not read an empty `text` as a missing name without
+   * checking this: `auditAccessibility` reported `anonymous-affordance` on a
+   * button whose visible text read "Sign in". */
+  textWithheld?: boolean
   /** this element holds keyboard focus right now — where the user IS */
   focused?: boolean
   /** resolved aria-describedby text — the author's own explanation */
@@ -1671,6 +1680,25 @@ const suppressHarvest = (
   // every wired ancestor's caption in the drawing, and produced records
   // carrying `secret: true` beside the very text they claimed was withheld.
   if (block === 'own') record.secret = true
+  /*
+   * ...AND A SEPARATE FACT: THIS RECORD'S FREE TEXT WAS WITHHELD.
+   *
+   * `secret` answers "is this record secret". A consumer also needs "is this
+   * record's text ABSENT, or merely NOT SHOWN" — and for containment those
+   * differ: the harvest is suppressed (correctly, or the parent launders the
+   * child's value) while nothing about the record is secret.
+   *
+   * Without this, `auditAccessibility` cannot tell the two apart and accuses
+   * the element: `button({onClick}, span('Sign in'), input({type:'hidden'}))`
+   * reported `anonymous-affordance` — severity `error`, so it inflates
+   * `report.failed` — about a button whose visible text reads "Sign in".
+   *
+   * Deliberately NOT folded into `secret`: that flag is a redaction ORDER the
+   * renderer obeys, and round 10 removed containment from it for good reason.
+   * Two facts, two fields. This one carries no content and no secret — it is
+   * the *absence* of content, described.
+   */
+  record.textWithheld = true
   /*
    * LIVE STATE GOES WITH THE HARVEST, and it is stripped HERE rather than
    * gated at the site that wrote it — the ninth per-site restatement is what

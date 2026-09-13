@@ -347,6 +347,18 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   `auditAccessibility()` went quiet on exactly the regions authors mark most
   carefully. Suppression is not absence, and a redacted record is not a source
   of truth about the DOM.
+- **Ask the DECISION, not the FLAG.** This one mistake produced three separate
+  defects in 1.11.0, each inside the fix for the last. A harvest gated on
+  `record.secret !== true` while its two siblings gated on
+  `mayNotCarryContent`; those were the same question only until the flag
+  stopped being set for one of the reasons the harvest was suppressed — after
+  which a `<select>` holding a `data-tosi-secret` `<option>` published its
+  value. The audit then made the identical mistake one file over, in the
+  remediation commit, and was wrong in *both* directions at once. **If two
+  sites answer the same question by reading different things, one of them is
+  reading a proxy for the answer** — and it will be silently wrong the moment
+  the proxy's definition is refined. The fix is a named field for the decision
+  (`textWithheld`), separate from the flag (`secret`).
 - **A flag meaning "we withheld something" must not be set by a condition that
   withholds nothing.** `record.secret` was set on mere subtree *containment* —
   which is the right reason to stop a free-text harvest, and the wrong reason to

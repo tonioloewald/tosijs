@@ -211,18 +211,46 @@ export const auditAccessibility = (
      * nobody trusts gets turned off, and `aria-label` deliberately survives
      * secrecy precisely so an author can keep these rules working.
      */
-    const nameRedacted = w.secret === true
-    if (nameRedacted && interactive) {
+    /*
+     * ASK THE DECISION, NOT THE FLAG — again, and this time it was this
+     * module making the mistake.
+     *
+     * The first cut of this gate read `w.secret === true`. That is the
+     * REDACTION ORDER, not the question "was this record's text withheld",
+     * and the two differ in both directions:
+     *
+     *   - a record suppressed by CONTAINMENT has its text stripped and NO
+     *     `secret` flag (deliberately — nothing about it is secret), so the
+     *     gate missed it and `anonymous-affordance` fired, as an `error`,
+     *     on a button whose visible text reads "Sign in";
+     *   - `bounds` are NEVER redacted, so abstaining from `target-size` on
+     *     every secret record hid genuinely undersized secret controls.
+     *
+     * `textWithheld` is the decision, set by `suppressHarvest` for every
+     * reason it suppresses. And the gate is now applied PER RULE, because
+     * each depends on a different withheld field:
+     */
+    const nameWithheld = w.textWithheld === true || w.secret === true
+    if (nameWithheld && interactive) {
       const note =
-        'anonymous-affordance/target-size/label-hidden-by-placeholder: ' +
-        'skipped for records marked `secret` — their name and text were ' +
-        'withheld by the producer, so "unnamed" cannot be distinguished from ' +
-        '"name not shown". Add aria-label (it survives redaction) to restore ' +
-        'these rules for secret controls.'
+        'anonymous-affordance: skipped for records whose text was withheld ' +
+        '(secret controls, and elements containing one) — "unnamed" cannot ' +
+        'be distinguished from "name not shown". An aria-label survives ' +
+        'redaction and restores this rule. `target-size` still runs except ' +
+        'where the withheld text is what would have exempted it (a wider- ' +
+        'than-tall link), because geometry is never redacted.'
       if (!skipped.includes(note)) skipped.push(note)
     }
+    // ONLY where the missing text is what would have exempted this element:
+    // WCAG 2.5.8's inline exception is `<a>` + text + wider-than-tall. A
+    // secret 16×16 button is measurably undersized and must still report.
+    const sizeExemptionUnknowable =
+      nameWithheld &&
+      w.tag === 'a' &&
+      w.bounds != null &&
+      w.bounds.width > w.bounds.height
 
-    if (!nameRedacted && interactive && name === '' && w.value === undefined) {
+    if (!nameWithheld && interactive && name === '' && w.value === undefined) {
       add(
         'anonymous-affordance',
         'error',
@@ -278,7 +306,9 @@ export const auditAccessibility = (
     // the inline exception keys on `w.text` (geometry: text, and a box wider
     // than tall), which secrecy removes — so this rule cannot tell an
     // icon-only 16×16 link from an exempt 120×18 text link once redacted
-    const tooSmall = nameRedacted ? null : targetSizeFinding(w, targetSize)
+    const tooSmall = sizeExemptionUnknowable
+      ? null
+      : targetSizeFinding(w, targetSize)
     if (tooSmall != null) {
       add(
         'target-size',
@@ -320,7 +350,6 @@ export const auditAccessibility = (
     }
 
     if (
-      !nameRedacted &&
       interactive &&
       w.label == null &&
       w.placeholder != null &&

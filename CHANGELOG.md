@@ -41,11 +41,26 @@ release's own* secrecy work and both invisible to a green suite.
   visible text.
 
   Nothing downstream can distinguish *"this has no name"* from *"you may not
-  see its name"*, so those three rules are now **skipped for `secret` records
-  and named in `report.skipped`** — the same answer this module already gives
-  for unmeasurable contrast. The cost is stated rather than hidden: a genuinely
-  unnamed control inside a secret region is no longer reported. `aria-label`
-  survives redaction deliberately, and restores every one of these rules.
+  see its name"*, so `anonymous-affordance` now **abstains and says so** in
+  `report.skipped` — the same answer this module already gives for unmeasurable
+  contrast. `aria-label` survives redaction deliberately and restores the rule.
+
+  **The record now carries `textWithheld`** for this, a separate field from
+  `secret`. They are different facts: `secret` is a *redaction order* the
+  renderer obeys, while `textWithheld` says only "an absent `text` here means
+  not-shown, not not-there". Gating the audit on `secret` was wrong in **both**
+  directions — an element suppressed by mere containment carries no `secret`
+  flag, so `anonymous-affordance` still fired, as an `error`, about a button
+  whose visible text reads "Sign in"; and `bounds` are never redacted, so
+  abstaining from `target-size` on every secret record hid genuinely undersized
+  secret controls. `target-size` now abstains only for the one shape whose
+  missing text would have exempted it — a wider-than-tall `<a>`, WCAG 2.5.8's
+  inline exception — and runs everywhere else.
+
+  Worth naming, because it is the same mistake three times in one release:
+  **asking a flag where the question is a decision.** It produced the
+  `<select>` leak below, and then produced this, one file over, inside the fix
+  for it.
 
 - **A `<select>` holding a `data-tosi-secret` `<option>` published its value.**
   Found by re-reviewing the fix above. The unbound-form-control harvest gated
@@ -334,19 +349,22 @@ turn, so the numbers now come from the thing that measures them):
 | bundle | v1.10.1 | this build | Δ |
 | --- | --- | --- | --- |
 | `index.js` | 29_265 | 29_328 | **+63** |
-| `module.js` | 43_928 | 44_918 | **+990** |
-| `main.js` | 44_201 | 45_203 | **+1002** |
+| `module.js` | 43_928 | 45_017 | **+1089** |
+| `main.js` | 44_201 | 45_300 | **+1099** |
 | `core.js` | 26_666 | 26_730 | **+64** |
 | `state.js` | 16_747 | 16_810 | **+63** |
-| `module.debug.js` | 59_515 | 61_454 | **+1939** |
-| `module.safe.js` | 59_375 | 61_300 | **+1925** |
+| `module.debug.js` | 59_515 | 61_583 | **+2068** |
+| `module.safe.js` | 59_375 | 61_433 | **+2058** |
 
 **A consumer who never imports the agent surface pays ~63 gzipped bytes** for
 this release — not zero. That is the rewritten deprecation message in
 `src/xin.ts`, which is on the ordinary path: the old one steered callers *off*
 `tosiValue()`/`tosiPath()`, the canonical functions, so it was actively
 misleading and the bytes buy a correct instruction. The tjs pair's 61_500 →
-62_500 raise is right-sized by their +1_939.
+61_500 → 63_500 raise on the tjs pair is right-sized by their +2_068, and
+`module.js` moved 46_000 → 47_000 for the same reason. **Both were found by the
+minimum-headroom gate reading the new budget ledger, not by a failing build** —
+which is the gate doing the job the ledger was added to make possible.
 
 > **Four consecutive reviews caught this table stale, this one included.** The
 > build emits it (`bun run build` prints "paste into the CHANGELOG") and a human

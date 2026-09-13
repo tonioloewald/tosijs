@@ -216,8 +216,17 @@ export interface AgentWiringRecord {
     /** live checked state for checkboxes and radios — DOM truth at map time */
     checked?: boolean;
     /** this control holds a secret (password / one-time code): its VALUE is
-     * never emitted, only the fact that it exists and what it's bound to */
+     * never emitted, only the fact that it exists and what it's bound to.
+     * A REDACTION ORDER — the renderer draws `<tag> [withheld]` for it. */
     secret?: boolean;
+    /** this record's free text was NOT harvested, so an absent `text` means
+     * "not shown", not "not there". Set whenever the harvest is suppressed —
+     * including for an element that merely CONTAINS a secret control, where
+     * nothing about the record itself is secret and `secret` is correctly
+     * unset. A lint must not read an empty `text` as a missing name without
+     * checking this: `auditAccessibility` reported `anonymous-affordance` on a
+     * button whose visible text read "Sign in". */
+    textWithheld?: boolean;
     /** this element holds keyboard focus right now — where the user IS */
     focused?: boolean;
     /** resolved aria-describedby text — the author's own explanation */
