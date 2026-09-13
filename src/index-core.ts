@@ -13,7 +13,7 @@ The full library minus the parts a bundle can't safely shake for you:
 | `<tosi-blueprint>` / `<tosi-loader>`, `makeComponent` | registers custom elements at import — a *markup* contract no import statement protects | `tosijs` |
 | `share`, `sync` | BroadcastChannel/IndexedDB and network transports | `tosijs` |
 | `hotReload` | dev-time localStorage state persistence | `tosijs` |
-| `enableAgentInterface`, `schematicSVG`, `auditAccessibility`, the contract harnesses | the opt-in agent surface (~15.3 kB gz marginal) | `tosijs` or `tosijs/agent` |
+| `enableAgentInterface`, `schematicSVG`, `auditAccessibility`, the contract harnesses | the opt-in agent surface (~15 kB gz marginal — README carries the generated figure) | `tosijs` or `tosijs/agent` |
 
 Everything else — state, bindings, elements, components, CSS, Color — is
 here, identical to `tosijs`.

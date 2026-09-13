@@ -23,12 +23,38 @@ release's own* secrecy work and both invisible to a green suite.
   authors mark most carefully. `expose: 'all'` only; under a manifest bare
   links were never mapped. Now the question goes to the DOM, and a redacted
   link additionally carries `interactive: true` — the producer's own affordance
-  assertion — so the audit still reports `anonymous-affordance` and
-  `target-size` on it **without** the destination being published.
+  assertion — so an agent can see that an affordance exists there **without**
+  the destination being published.
 
   The general rule, which is the part worth keeping: **never decide an
   element's fate by reading a record you just redacted.** Suppression is not
   absence.
+
+- **…but `auditAccessibility()` no longer reports name-dependent rules on
+  redacted records, and says so.** Putting secret links back in the map made
+  the audit *fabricate* findings: `anonymous-affordance` and `target-size` fire
+  on a correctly-named, inline-exempt `a({href}, 'Forgot password?')` at 120×18,
+  because both rules read exactly the fields secrecy removes — and
+  `anonymous-affordance` is an `error`, so it inflated `report.failed`, the
+  number a CI gate asserts on. The identical link outside the region reported
+  nothing, and the printed remedy was "add visible text" to an element that has
+  visible text.
+
+  Nothing downstream can distinguish *"this has no name"* from *"you may not
+  see its name"*, so those three rules are now **skipped for `secret` records
+  and named in `report.skipped`** — the same answer this module already gives
+  for unmeasurable contrast. The cost is stated rather than hidden: a genuinely
+  unnamed control inside a secret region is no longer reported. `aria-label`
+  survives redaction deliberately, and restores every one of these rules.
+
+- **A `<select>` holding a `data-tosi-secret` `<option>` published its value.**
+  Found by re-reviewing the fix above. The unbound-form-control harvest gated
+  on `record.secret !== true` — the *flag* — while its two sibling harvests
+  gate on `mayNotCarryContent`, the *decision*. Identical questions only while
+  the flag was set for every reason the harvest was suppressed; the moment
+  containment correctly stopped setting it, this gate opened.
+  `<input>`/`<textarea>` admit no element children, so this is the only
+  reachable shape, which is how fifteen secrecy tests missed it.
 
 - **`secret: true` was set on mere CONTAINMENT.** Until floorplan 0.5.0 that
   flag was inert metadata; 0.5.0 — new in this release — makes it a *redaction
@@ -129,6 +155,19 @@ the read gate exists to withhold.
 > any model-context host, since `tosi_describe` is registered unconditionally
 > in every posture. Rotate them. `read()` was never affected; this is the
 > `describe()` channel only.
+>
+> **Advisory decision — NOT YET MADE, and it is the maintainer's to make.**
+> Seven consecutive reviews have asked for this one sentence and it is still
+> missing, so it is recorded here as an open question rather than quietly
+> dropped an eighth time. The facts, gathered 2026-09-13: eight affected
+> versions (1.8.0 … 1.10.1), **none deprecated**; `dist-tags.latest` is
+> **1.10.1**, itself affected, so every `npm i tosijs` today installs a
+> vulnerable version; no GitHub security advisory exists; **~1,082
+> downloads/week** across the package, plausibly mostly automated. `npm
+> deprecate` is the only channel that reaches a pinned consumer at install
+> time; it does **not** reach `npm audit`/Dependabot — only a published
+> advisory does. *"Below the bar, because N/week and mostly bots"* is a
+> perfectly good answer. An absent answer is not.
 
 `describeElement` was *given* a `ContentGuard` and asked it only inside
 `referencedText()` and `associatedLabel()`; the attribute harvest ran unguarded.
@@ -295,19 +334,19 @@ turn, so the numbers now come from the thing that measures them):
 | bundle | v1.10.1 | this build | Δ |
 | --- | --- | --- | --- |
 | `index.js` | 29_265 | 29_328 | **+63** |
-| `module.js` | 43_928 | 44_770 | **+842** |
-| `main.js` | 44_201 | 45_045 | **+844** |
+| `module.js` | 43_928 | 44_918 | **+990** |
+| `main.js` | 44_201 | 45_203 | **+1002** |
 | `core.js` | 26_666 | 26_730 | **+64** |
 | `state.js` | 16_747 | 16_810 | **+63** |
-| `module.debug.js` | 59_515 | 61_286 | **+1771** |
-| `module.safe.js` | 59_375 | 61_142 | **+1767** |
+| `module.debug.js` | 59_515 | 61_454 | **+1939** |
+| `module.safe.js` | 59_375 | 61_300 | **+1925** |
 
 **A consumer who never imports the agent surface pays ~63 gzipped bytes** for
 this release — not zero. That is the rewritten deprecation message in
 `src/xin.ts`, which is on the ordinary path: the old one steered callers *off*
 `tosiValue()`/`tosiPath()`, the canonical functions, so it was actively
 misleading and the bytes buy a correct instruction. The tjs pair's 61_500 →
-62_500 raise is right-sized by their +1_711.
+62_500 raise is right-sized by their +1_939.
 
 > **Four consecutive reviews caught this table stale, this one included.** The
 > build emits it (`bun run build` prints "paste into the CHANGELOG") and a human

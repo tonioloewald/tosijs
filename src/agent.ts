@@ -2582,11 +2582,32 @@ export function enableAgentInterface(
           // which was the same question until the default became closed —
           // after which it would have harvested live control values for a
           // caller who exposed nothing at all.
+          /*
+           * ASK THE DECISION, NOT THE FLAG. (Round-11 B-1.)
+           *
+           * This gate asked `record.secret !== true` while its two sibling
+           * harvests — `record.text` above and the contenteditable `value`
+           * below — ask `mayNotCarryContent`. Those were the same question
+           * only for as long as `suppressHarvest` set the flag for EVERY
+           * reason it suppressed. Round 10 correctly stopped it setting the
+           * flag on mere containment (a contained secret is not a redacted
+           * record) — and this site, reading the flag as a proxy for the
+           * decision, silently opened: a `<select>` holding a
+           * `data-tosi-secret` `<option>` published its live value in
+           * cleartext under `expose: 'all'`.
+           *
+           * `<input>`/`<textarea>` admit no element children, so `<select>`
+           * with a marked `<option>`/`<optgroup>` is the only reachable shape
+           * — which is exactly why it survived a suite with fifteen secrecy
+           * tests. BOTH conditions are kept: they answer different questions
+           * and both are wanted.
+           */
           if (
             !scoped &&
             record.value === undefined &&
             record.checked === undefined &&
             record.secret !== true &&
+            !mayNotCarryContent &&
             (record.tag === 'input' ||
               record.tag === 'textarea' ||
               record.tag === 'select')

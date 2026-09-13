@@ -190,8 +190,39 @@ export const auditAccessibility = (
     // exactly what it handed in
     const interactive = isInteractive(w)
     const name = accessibleName(w)
+    /*
+     * A REDACTED RECORD IS NOT A DEFECTIVE ELEMENT.
+     *
+     * `secret: true` means the producer WITHHELD facts — so an empty `text`
+     * says "you may not see this", not "there is nothing here". Three rules
+     * read exactly the fields secrecy removes, and each turned a redaction
+     * into a confident accusation: `a({href}, 'Forgot password?')` at 120×18,
+     * correct and inline-exempt, reported BOTH `anonymous-affordance` (an
+     * `error`, so it inflates `report.failed`, which is what a CI gate
+     * asserts on) and `target-size` — while the identical link outside the
+     * region reported neither. The remedy it printed was "add visible text",
+     * to an element that has visible text.
+     *
+     * So they are SKIPPED and SAID, which is this module's existing answer to
+     * "I could not measure that" (see the contrast and empty-map skips). The
+     * honest cost, stated because it is real: a genuinely unnamed control
+     * inside a secret region is no longer reported. That is a false negative
+     * traded for a false positive, and it is the right way round — a lint
+     * nobody trusts gets turned off, and `aria-label` deliberately survives
+     * secrecy precisely so an author can keep these rules working.
+     */
+    const nameRedacted = w.secret === true
+    if (nameRedacted && interactive) {
+      const note =
+        'anonymous-affordance/target-size/label-hidden-by-placeholder: ' +
+        'skipped for records marked `secret` — their name and text were ' +
+        'withheld by the producer, so "unnamed" cannot be distinguished from ' +
+        '"name not shown". Add aria-label (it survives redaction) to restore ' +
+        'these rules for secret controls.'
+      if (!skipped.includes(note)) skipped.push(note)
+    }
 
-    if (interactive && name === '' && w.value === undefined) {
+    if (!nameRedacted && interactive && name === '' && w.value === undefined) {
       add(
         'anonymous-affordance',
         'error',
@@ -244,7 +275,10 @@ export const auditAccessibility = (
     // mutations to that probe produced thousands of divergences (the third —
     // removing the old local 0×0 guard — produced none, which is precisely the
     // proof that #9 moved in and the guard was already dead code).
-    const tooSmall = targetSizeFinding(w, targetSize)
+    // the inline exception keys on `w.text` (geometry: text, and a box wider
+    // than tall), which secrecy removes — so this rule cannot tell an
+    // icon-only 16×16 link from an exempt 120×18 text link once redacted
+    const tooSmall = nameRedacted ? null : targetSizeFinding(w, targetSize)
     if (tooSmall != null) {
       add(
         'target-size',
@@ -286,6 +320,7 @@ export const auditAccessibility = (
     }
 
     if (
+      !nameRedacted &&
       interactive &&
       w.label == null &&
       w.placeholder != null &&

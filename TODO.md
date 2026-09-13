@@ -1,5 +1,35 @@
 # todo
 
+## 🔴 Blocking the 1.11.0 PUBLISH (not the tag) — one decision, yours
+
+- [ ] **Decide the advisory posture and act on it**, then delete this item.
+      Eight affected versions (1.8.0 … 1.10.1), none deprecated; npm `latest`
+      is 1.10.1, itself affected; ~1,082 downloads/week. `npm deprecate
+      'tosijs@>=1.8.0 <1.11.0'` reaches pinned consumers at install time but
+      NOT `npm audit`/Dependabot — only a published GitHub advisory does.
+      **"Below the bar" is a fine answer**; the CHANGELOG now states the
+      question beside the disclosure, so whichever way you go, say so there.
+      *Asked by reviews 1.8.3-round3, 1.8.3-round4, 1.9.0-round3, 1.11.0-round6,
+      round7, round10 and round11 — seven times, never answered. It kept being
+      transferred as "add SECURITY.md and record the decision", and each time
+      only the SECURITY.md half survived the transfer.*
+
+## Deferred from the 1.11.0 round-11 re-review (BLOCK → cleared)
+
+Report: `reviews/1.11.0-preminor-round11.md`. The blocker and all three majors
+were fixed before the tag; these are the rest.
+
+- [ ] **`docs/index-agent/index.html` markdown hazard**: bare `~` prefixes in a
+      block quote parse as strikethrough delimiters and mangled a published
+      sentence. Fixed for this instance by removing the digits entirely; the
+      general hazard (unescaped `~` in doc blocks) is unguarded.
+- [ ] **Grep for other flag-vs-decision reads.** Round 11's blocker was one
+      site asking `record.secret !== true` where its siblings ask
+      `mayNotCarryContent`. That was the only one *after* `suppressHarvest` —
+      but the class is "a proxy read instead of the choke point", and the
+      choke-point comment claims a guarantee it can only make for callers that
+      actually route through it.
+
 ## Deferred from the 1.11.0 round-10 pre-tag review (BLOCK → cleared)
 
 Report: `reviews/1.11.0-preminor-round10.md`. All four blockers and both

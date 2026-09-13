@@ -3394,29 +3394,109 @@ describe('describe(): secrecy covers the ATTRIBUTE harvest, not just text', () =
     agent.disable()
   })
 
-  test('auditAccessibility still reports on a nameless secret link', async () => {
+  /*
+   * A `<select>` HOLDING A SECRET `<option>` MUST NOT PUBLISH ITS VALUE
+   * (round 11, B-1) — a regression introduced by round 10's own M-1 fix.
+   *
+   * The unbound-form-control harvest gated on `record.secret !== true` (the
+   * FLAG) while its two sibling harvests gate on `mayNotCarryContent` (the
+   * DECISION). Those were the same question only while `suppressHarvest` set
+   * the flag for every reason it suppressed; the moment containment stopped
+   * setting it — correctly — this gate opened.
+   *
+   * `<input>`/`<textarea>` admit no element children, so this shape is the
+   * only reachable one, which is why fifteen secrecy tests missed it.
+   */
+  test('a <select> with a secret <option> withholds its live value', async () => {
+    document.body.innerHTML = ''
+    tosi({ selq: { n: 1 } })
+    await updates()
+
+    const sel = elements.select(
+      { onChange: () => {} },
+      elements.option({ value: 'plain' }, 'Plain'),
+      elements.option(
+        { value: 'CARD-4111-9999', 'data-tosi-secret': '' },
+        'Card'
+      )
+    )
+    document.body.append(sel)
+    ;(sel as any).value = 'CARD-4111-9999'
+    rect(sel)
+    await updates()
+
+    const agent = enableAgentInterface({ quiet: true, expose: 'all' })
+    const described = agent.describe()
+    expect(JSON.stringify(described)).not.toContain('CARD-4111-9999')
+    // and the control is still MAPPED — withholding a value must not delete
+    // the affordance, which is the other half of this release's lesson
+    const rec = (described.wiring as any[]).find((r) => r.tag === 'select')
+    expect(rec).toBeDefined()
+    expect(rec?.value).toBeUndefined()
+    agent.disable()
+  })
+
+  /*
+   * WHAT THE AUDIT OWES A SECRET REGION — the reconciliation of round 10's
+   * B-1 and round 11's M-1, which pull opposite ways.
+   *
+   * Round 10: the audit went SILENT on secret links, because withholding
+   * `href` deleted them from the map. Round 11: making them reappear then made
+   * the audit FABRICATE `anonymous-affordance` and `target-size` on
+   * correctly-named inline links, because both rules read the very fields
+   * secrecy removes — so a redaction was reported as a defect, with the advice
+   * "add visible text" to an element that has visible text.
+   *
+   * Both cannot be satisfied for name-dependent rules: nothing downstream can
+   * distinguish "this has no name" from "you may not see its name". So:
+   *
+   *   - the ELEMENT is in the map (round 10's real point — an agent must see
+   *     that an affordance exists there at all), and
+   *   - rules that do NOT depend on withheld content still fire, and
+   *   - the three that do are SKIPPED **and said so** in `report.skipped`.
+   *
+   * An honest abstention, not a silent one — and `aria-label` survives
+   * redaction precisely so an author can restore these rules.
+   */
+  test('a secret region gets an honest audit, not a fabricated one', async () => {
     document.body.innerHTML = ''
     tosi({ blk2: { n: 1 } })
     await updates()
 
     const region = elements.div({ 'data-tosi-secret': '' })
-    const link = elements.a({ href: '/reset?token=TOKEN-B1b' })
+    // 120×18 with visible text: correct, and WCAG 2.5.8 inline-exempt. Before
+    // round 11 this reported BOTH errors while the identical link outside the
+    // region reported neither.
+    const link = elements.a(
+      { href: '/reset?token=TOKEN-B1b' },
+      'Forgot password?'
+    )
     region.append(link)
     document.body.append(region)
-    // 16×16: nameless AND below the WCAG 2.5.8 floor, so both rules should fire
     Object.defineProperty(link, 'getBoundingClientRect', {
-      value: () => ({ x: 0, y: 0, width: 16, height: 16 }),
+      value: () => ({ x: 0, y: 0, width: 120, height: 18 }),
       configurable: true,
     })
     await updates()
 
     const agent = enableAgentInterface({ quiet: true, expose: 'all' })
-    const report = auditAccessibility(agent.describe({ styles: true }))
+    const described = agent.describe({ styles: true })
+
+    // ROUND 10: the affordance is visible to an agent at all
+    const rec = (described.wiring as any[]).find((r) => r.tag === 'a')
+    expect(rec).toBeDefined()
+    expect(rec?.secret).toBe(true)
+    expect(rec?.href).toBeUndefined()
+
+    // ROUND 11: no fabricated findings, and the abstention is stated
+    const report = auditAccessibility(described)
     const rules = report.findings.map((f) => f.rule)
-    // the a11y instrument must not go quiet on the regions authors mark most
-    // carefully — a login/reset flow is where defects hurt most
-    expect(rules).toContain('anonymous-affordance')
-    expect(rules).toContain('target-size')
+    expect(rules).not.toContain('anonymous-affordance')
+    expect(rules).not.toContain('target-size')
+    expect(report.failed).toBe(0)
+    expect(report.skipped.some((s) => s.includes('marked `secret`'))).toBe(true)
+
+    // and the token never appears, in findings or skips
     expect(JSON.stringify(report)).not.toContain('TOKEN-B1b')
     agent.disable()
   })
