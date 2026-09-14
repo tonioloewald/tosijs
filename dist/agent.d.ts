@@ -244,7 +244,7 @@ export interface AgentWiringRecord {
      * href in the legend (URLs are the facts most often too long to draw)
      *
      * WITHHELD on a secret-marked element or one inside a `data-tosi-secret`
-     * region (1.11.0): a reset/magic-link token lives here, not in a bound
+     * region (1.10.2): a reset/magic-link token lives here, not in a bound
      * path. Such a record carries `secret: true` and no `href` at all, so a
      * renderer's caption fallback has nothing to fall back to — filed upstream.
      */

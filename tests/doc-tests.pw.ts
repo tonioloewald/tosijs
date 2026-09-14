@@ -101,7 +101,7 @@ test('no live example on any doc page renders an error', async ({
    * throws, and the page ships a red box under the prose it was meant to
    * illustrate.
    *
-   * That happened in 1.11.0: a snippet added to `observe()`'s docs, arguing
+   * That happened in 1.10.2: a snippet added to `observe()`'s docs, arguing
    * that `bind` is the better-engineered path, rendered "div is not defined"
    * directly beneath the argument. It cleared the build, the unit suite, the
    * smoke gate and NINE review rounds — because nothing in this project ever

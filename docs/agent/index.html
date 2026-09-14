@@ -135,7 +135,7 @@ value.</strong> A secret-marked element — or any element inside a
 <code>data-tosi-secret</code> region — publishes its tag, role, name, bound path and
 geometry, but <em>not</em> its <code>href</code>, <code>placeholder</code>, <code>title</code>/<code>alt</code>-derived name,
 <code>aria-description</code> or a toggle&#39;s <code>checked</code> state. A reset-link token lives in
-an <code>href</code>, not in a bound path, and until 1.11.0 it travelled in cleartext
+an <code>href</code>, not in a bound path, and until 1.10.2 it travelled in cleartext
 beside a <code>text</code> field that had been correctly withheld. The record carries
 <code>secret: true</code> so a consumer can tell suppression from absence.</p>
 <p>An <strong><code>aria-label</code> survives</strong> — it is authored to be announced, and dropping it
@@ -153,7 +153,7 @@ tosijs discovers a secret path by finding a secret control and looking for
 the binding that feeds it: on the control, on its immediate parent, through
 a wrapping <code>&lt;label&gt;</code>, on its owning <code>&lt;form&gt;</code>, or across one shadow boundary.
 <strong>Where the binding sits somewhere else, the path is never learned and the
-value reads back in cleartext.</strong> Known-uncovered as of 1.11.0, each verified
+value reads back in cleartext.</strong> Known-uncovered as of 1.10.2, each verified
 by execution:</p>
 <ul>
 <li>a <strong>custom element</strong> carrying <code>data-tosi-secret</code> inside a bound <code>&lt;form&gt;</code>

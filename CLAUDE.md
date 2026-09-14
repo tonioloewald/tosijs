@@ -58,7 +58,7 @@ unit suite, a **smoke import** of every published bundle (every export must
 be defined — a `sideEffects` array once shipped bundles whose exports had
 been shaken away), a **bare-node DOM-free gate** proving `tosijs/state`
 imports without a DOM, per-bundle **gzip budgets**, an **npm payload budget**
-(`PAYLOAD_BUDGET_MB`, 3.0 since 1.11.0), an **exports-target existence +
+(`PAYLOAD_BUDGET_MB`, 3.0 since 1.10.2), an **exports-target existence +
 `git ls-files` tracked** check, and a **source fingerprint** proving `dist/`
 was built from this source. `src/entries.test.ts` adds two more that run in
 the test lane: every budget comment must mention the number it sits above, and
@@ -337,7 +337,7 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   "no leak" reading twice, in two different sessions. Bind a *child* span, or
   use a binding that does not own `textContent`.
 
-### Two rules about redaction, both paid for in 1.11.0
+### Two rules about redaction, both paid for in 1.10.2
 
 - **Never decide an element's fate by reading a record you just redacted — ask
   the element.** Suppressing `record.href` for secret links made the only
@@ -348,7 +348,7 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   carefully. Suppression is not absence, and a redacted record is not a source
   of truth about the DOM.
 - **Ask the DECISION, not the FLAG.** This one mistake produced three separate
-  defects in 1.11.0, each inside the fix for the last. A harvest gated on
+  defects in 1.10.2, each inside the fix for the last. A harvest gated on
   `record.secret !== true` while its two siblings gated on
   `mayNotCarryContent`; those were the same question only until the flag
   stopped being set for one of the reasons the harvest was suppressed — after
@@ -612,7 +612,7 @@ not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` pat
 7. `git push` and `git push --tags`.
 8. `npm publish`. **`files` publishes `dist/`, `/src` (minus `*.test.ts` and
    dotfiles), `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md` and `llms.txt`.**
-   `/src` is there since 1.11.0 because the shipped source maps no longer inline
+   `/src` is there since 1.10.2 because the shipped source maps no longer inline
    `sourcesContent` — they resolve `../src/foo.ts` against the packed tree
    instead, which took the tarball from 4.51 MB to 2.51 MB and gives consumers a
    readable source. **Consequence worth internalising: a scratch file, fixture

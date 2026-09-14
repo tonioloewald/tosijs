@@ -43,12 +43,12 @@ ones most likely to be real, in particular:
   covered**, kept deliberately honest; a shape not on that list is a bug;
 - a write or `call()` reaching a path or action the manifest did not declare.
 
-### Disclosed in 1.11.0
+### Disclosed in 1.10.2
 
 `describe()` published `href`, `placeholder`, `title`-as-`label`,
 `aria-description` and a checkbox's `checked` state past `data-tosi-secret`, in
 **every release that has ever had the agent surface** (1.8.0 through 1.10.1).
-Fixed in 1.11.0.
+Fixed in 1.10.2.
 
 **Deliberately not deprecated or filed as an advisory**, and it is worth being
 clear why, because it also tells you what `data-tosi-secret` is for. Everything

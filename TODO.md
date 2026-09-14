@@ -2,7 +2,7 @@
 
 ## 1.12.0 — `data-tosi-secret` is misnamed, and markup is the wrong channel
 
-Raised by the maintainer at the 1.11.0 tag, and it is a better criticism than
+Raised by the maintainer at the 1.10.2 tag, and it is a better criticism than
 the bug that prompted it. **Two separate problems:**
 
 1. **The name claims a property the mechanism cannot have.** Everything it
@@ -35,12 +35,12 @@ the bug that prompted it. **Two separate problems:**
       unilaterally. `textWithheld`, added in round 12, is already the honest
       name for the neighbouring fact and can be the template.
 - [ ] Until the rename lands, the doc block in `src/agent.ts` states the
-      limitation plainly (done in 1.11.0). Keep that wording in sync with
+      limitation plainly (done in 1.10.2). Keep that wording in sync with
       whatever the rename settles on.
 
-## Deferred from the 1.11.0 round-11 re-review (BLOCK → cleared)
+## Deferred from the 1.10.2 round-11 re-review (BLOCK → cleared)
 
-Report: `reviews/1.11.0-preminor-round11.md`. The blocker and all three majors
+Report: `reviews/1.10.2-preminor-round11.md`. The blocker and all three majors
 were fixed before the tag; these are the rest.
 
 - [ ] **`docs/index-agent/index.html` markdown hazard**: bare `~` prefixes in a
@@ -54,9 +54,9 @@ were fixed before the tag; these are the rest.
       choke-point comment claims a guarantee it can only make for callers that
       actually route through it.
 
-## Deferred from the 1.11.0 round-10 pre-tag review (BLOCK → cleared)
+## Deferred from the 1.10.2 round-10 pre-tag review (BLOCK → cleared)
 
-Report: `reviews/1.11.0-preminor-round10.md`. All four blockers and both
+Report: `reviews/1.10.2-preminor-round10.md`. All four blockers and both
 majors were fixed before the tag; these are the remainder.
 
 - [ ] **The documented `#41` mitigation is wrong for the first shape it
@@ -112,9 +112,9 @@ majors were fixed before the tag; these are the remainder.
       token substitution to source doc blocks, or gate them against the
       measurement.
 
-## Deferred from the 1.11.0 DX-tier review (BLOCK → cleared)
+## Deferred from the 1.10.2 DX-tier review (BLOCK → cleared)
 
-Report: `reviews/1.11.0-dx.md`. First run of the `dx`/`docs`/`coverage`/
+Report: `reviews/1.10.2-dx.md`. First run of the `dx`/`docs`/`coverage`/
 `dryness` lenses — they are in the pool and in no tier, so eight rounds went by
 without them. The blocker and both majors are fixed; these are the rest.
 
@@ -139,9 +139,9 @@ without them. The blocker and both majors are fixed; these are the rest.
       one now contradicts the build-emitted table 20 lines above it. The
       emitter exists; the comments should point at it rather than restate it.
 
-## Deferred from the 1.11.0 round-7 review (BLOCK)
+## Deferred from the 1.10.2 round-7 review (BLOCK)
 
-Report: `reviews/1.11.0-round7.md`. Blockers B-1 (label trade), B-2 (`checked`
+Report: `reviews/1.10.2-round7.md`. Blockers B-1 (label trade), B-2 (`checked`
 behind `record.text`), B-3 (published guarantee unqualified) and B-4 (#41
 closed on the tracker) are all fixed. The rest:
 
@@ -158,7 +158,7 @@ closed on the tracker) are all fixed. The rest:
 - [ ] Upward propagation is now three arms (parent, label, form) plus a fourth
       predicate spelling (`propagates`). No keep-decision records why these
       four and not a single rule.
-- [x] **Source maps were 72% of the npm payload** — DONE in 1.11.0.
+- [x] **Source maps were 72% of the npm payload** — DONE in 1.10.2.
       `sourcesContent` dropped, `src/` shipped once: 4.51 -> 2.51 MB, and
       consumers gain a readable source tree. Pinned by a gate that asks the
       TARBALL (not the working tree) whether every map source is packed.
@@ -166,9 +166,9 @@ closed on the tracker) are all fixed. The rest:
       recurrence. The build emits the real numbers now; the comment should
       point at the emitter rather than restating it.
 
-## Deferred from the 1.11.0 round-5 review
+## Deferred from the 1.10.2 round-5 review
 
-Report: `reviews/1.11.0-round5.md`. B-1 (live state vs path secrecy) and B-3
+Report: `reviews/1.10.2-round5.md`. B-1 (live state vs path secrecy) and B-3
 (the CHANGELOG naming a removed helper) are fixed. B-2 is filed as **#41**.
 
 - [ ] **#41 — light-DOM wrapper secrecy (SECURITY, pre-existing, STILL OPEN).**
@@ -198,9 +198,9 @@ Report: `reviews/1.11.0-round5.md`. B-1 (live state vs path secrecy) and B-3
 - [ ] `stripArrows` on the structural tier and the deliberate `title`/`alt`
       loosening both still ship unpinned (carried from round 4).
 
-## Deferred from the 1.11.0 round-4 review (BLOCK → cleared)
+## Deferred from the 1.10.2 round-4 review (BLOCK → cleared)
 
-Report: `reviews/1.11.0-round4-post-b1.md`. All three blockers were inside the
+Report: `reviews/1.10.2-round4-post-b1.md`. All three blockers were inside the
 B1 security fix itself and are fixed + pinned. These are the rest.
 
 - [ ] **`auditAccessibility` has no notion of a withheld name.** Withholding
@@ -208,7 +208,7 @@ B1 security fix itself and are fixed + pinned. These are the rest.
       false `anonymous-affordance` at **error** severity. `src/audit.ts`
       contains zero occurrences of `secret`. The hole PRE-DATES this release
       (text-named and `<label for>`-named controls in a secret region already
-      did it); 1.11.0 widens it by one naming source. Fix at class level:
+      did it); 1.10.2 widens it by one naming source. Fix at class level:
       skip/downgrade `anonymous-affordance` for records carrying
       `secret: true`, or emit a `nameWithheld` marker.
 - [ ] **The structural-tier `stripArrows` fix has no test that fails without
@@ -223,7 +223,7 @@ B1 security fix itself and are fixed + pinned. These are the rest.
       ROBUSTNESS as a public entry point, which is where "validate at
       boundaries" applies. Mitigating: `kind` is declared required, so a TS
       consumer needs a cast. NOTE — the throw was ALREADY consumer-reachable
-      via `schematicSVG` since v1.10.1, so 1.11.0 adds a second door, not the
+      via `schematicSVG` since v1.10.1, so 1.10.2 adds a second door, not the
       first; that correction belongs in UPSTREAM.md too.
 - [ ] **`describe()` perf** — round 4 measured +45–55% in real Chromium from
       the per-element subtree scan. The narrowing to element-or-ancestor
@@ -235,9 +235,9 @@ B1 security fix itself and are fixed + pinned. These are the rest.
       round 3, now also the subject of floorplan#15 (nobody has drawn a
       redacted record).
 
-## Deferred from the 1.11.0 remediation re-review (BLOCK → cleared)
+## Deferred from the 1.10.2 remediation re-review (BLOCK → cleared)
 
-Report: `reviews/1.11.0-preminor-remediation.md`. The blocker (B1, the
+Report: `reviews/1.10.2-preminor-remediation.md`. The blocker (B1, the
 `describe()` attribute-harvest leak) is fixed and pinned. These are the rest.
 
 ### The one that is still a real defect
@@ -281,9 +281,9 @@ Report: `reviews/1.11.0-preminor-remediation.md`. The blocker (B1, the
       whose stated principle is "an audit must not fail silently". One
       `skipped.push` behind a `seen` guard.
 
-## Deferred from the 1.11.0 pre-minor review (GO_WITH_FOLLOWUPS, 0 blockers)
+## Deferred from the 1.10.2 pre-minor review (GO_WITH_FOLLOWUPS, 0 blockers)
 
-Report: `reviews/1.11.0-preminor.md`. Both majors are **upstream-gated** —
+Report: `reviews/1.10.2-preminor.md`. Both majors are **upstream-gated** —
 `src/schematic.ts` is machine-vendored and carries a DO-NOT-EDIT banner — so
 each is filed on tosijs-floorplan and needs a local decision here.
 
@@ -329,7 +329,7 @@ and #12 falls out for free). Pinned by 8 tests, 5 of which fail with
 - [x] Guard `f?.kind` where the audit reaches producer flags (floorplan#12) —
       DONE via `auditView` (the audit never passes `flags` down), and pinned.
       ⚠️ But the exported `targetSizeFinding` DOES still throw on
-      `flags:[{label:'x'}]`, and 1.11.0 makes that reachable from tosijs's
+      `flags:[{label:'x'}]`, and 1.10.2 makes that reachable from tosijs's
       PUBLIC API — new information for floorplan#12.
 - [ ] Print gzip **deltas** in the budget loop. The ceiling tracks growth
       upward by policy, so only a spike larger than the slack can ever fire:
@@ -854,7 +854,7 @@ constructor without |new|` — at _import_ time for static-field
       green build, unit suite, Playwright 4/4, and by exercising the broken
       paths in the built artifact. Cost ~340 gz bytes per tjs bundle, which
       left 7 bytes of budget headroom — budgets raised 56k → 58k in the same
-      commit. - The peer story is finally closed: since tosijs-ui 1.11.0, `tjs-lang` is
+      commit. - The peer story is finally closed: since tosijs-ui 1.10.2, `tjs-lang` is
       an **optional** peer, so 0.12.0 against `^0.13.1` is a warning and
       nothing more. The peer range was never the blocker in either direction.
 

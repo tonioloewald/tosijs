@@ -1,6 +1,6 @@
 # Migrating from `xinjs` to `tosijs`
 
-<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.11.0 agent-surface disclosure fix (rotate link tokens), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 In a nutshell:
 
@@ -13,7 +13,7 @@ should be the module names.
 
 > Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.
 
-# Upgrading to 1.11.0
+# Upgrading to 1.10.2
 
 **Nothing you wrote needs to change.** No API is removed or renamed. Two
 behaviours move, both narrowing what the *agent surface* discloses, and one is

@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.11.0] - 2026-09-13
+## [1.10.2] - 2026-09-14
 
 ### Fixed — redaction is not deletion, and `secret` is not proximity
 
@@ -98,8 +98,28 @@ written down at `src/audit.ts` rather than fixed, because the fix had to happen
 upstream. tosijs-floorplan 0.4.0 exports `isInteractive`, `targetSizeFinding`
 and `TARGET_SIZE_DEFAULT` (tosijs-floorplan#4); the local copies are deleted.
 
-Minor, not patch: **`auditAccessibility()` returns different findings for the
-same input**, in both directions. Nothing else in the public API moves.
+**A patch, deliberately, though it adds four exports** (`schematic`,
+`isInteractive`, `targetSizeFinding`, `TARGET_SIZE_DEFAULT` — 84 → 88 on
+`dist/module.js`). Semver says minor for that, and the minor was carried for
+twelve review rounds before being dropped.
+
+The reasoning: **adding an export cannot break a consumer.** The minor exists
+to announce a new capability, and the capability here is on the agent surface,
+which has no consumers — verified across eight sibling repos, where the single
+grep hit is a string inside an error message. Bumping a minor to signal to
+nobody, on a surface still iterating this fast, is ceremony. The changes that
+*could* bite a consumer are the audit's verdicts (stamped `EXPERIMENTAL — rules
+and shapes may change` in its own doc block) and `describe()` withholding more
+than it used to, which is the security fix.
+
+So: **`auditAccessibility()` returns different findings for the same input**, in
+both directions — read *Changed — audit verdicts* below before pinning a CI gate
+to `report.failed`. Nothing else in the public API moves, and nothing is
+removed.
+
+*(This is the second time a 1.11.0 has been reverted here as version inflation;
+`bin/bundles.ts` carries the note. The number is still available for whenever
+the agent surface is worth announcing.)*
 
 ### Changed — audit verdicts, deliberately
 
@@ -163,7 +183,7 @@ the read gate exists to withhold.
 > Verified by reading each tag: all of them harvest `href` with no secrecy
 > check *and* honour `data-tosi-secret`, so an author who marked a
 > password-reset region had reason to believe they were covered and was not.
-> Fixed in 1.11.0.
+> Fixed in 1.10.2.
 >
 > **Keep the severity in proportion: `data-tosi-secret` is a hint to tosijs's
 > own harvest, not a privilege boundary — and the name is wrong, which is
@@ -192,7 +212,7 @@ the read gate exists to withhold.
 > conditions: the surface is opt-in (`enableAgentInterface` must be called and
 > tree-shakes away otherwise), and from 1.9.0 it is CLOSED by default, so a
 > posture had to be deliberately opened as well. 1.8.0–1.8.2 are the only
-> releases where enabling alone sufficed. Publishing 1.11.0 moves `latest` off
+> releases where enabling alone sufficed. Publishing 1.10.2 moves `latest` off
 > the range. This is the answer eight consecutive reviews asked for; it is
 > settled, and should not be re-litigated without new information — a report of
 > a real adopter piping `describe()` to an external host would be new
@@ -210,7 +230,10 @@ the read gate exists to withhold.
 `referencedText()` and `associatedLabel()`; the attribute harvest ran unguarded.
 This is the seventh address of the invariant that guard was introduced to close,
 and it is the same defect wording as the blocker found in the 1.8.x review
-cycle — the work that shipped as 1.9.0. (**There is no 1.8.3 release**; tags go
+cycle — the work that shipped as 1.9.0. (**Review-round labels are not releases, and `reviews/` has two examples now:
+there is no 1.8.3 release, and no 1.11.0 either — the twelve rounds filed as
+`reviews/1.11.0-*.md` are the review history of what shipped as **1.10.2**.
+Tags go
 `v1.8.2` → `v1.9.0`, and `1.8.3-*` is a review-round label in `reviews/`. An
 earlier draft of this entry cited it as though a consumer could be running it.) Pre-existing — the code
 is untouched by the rest of this release — and found by a scoped re-review of
@@ -370,15 +393,15 @@ turn, so the numbers now come from the thing that measures them):
 
 | bundle | v1.10.1 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 29_265 | 29_328 | **+63** |
-| `module.js` | 43_928 | 45_017 | **+1089** |
-| `main.js` | 44_201 | 45_300 | **+1099** |
-| `core.js` | 26_666 | 26_730 | **+64** |
-| `state.js` | 16_747 | 16_810 | **+63** |
-| `module.debug.js` | 59_515 | 61_583 | **+2068** |
-| `module.safe.js` | 59_375 | 61_433 | **+2058** |
+| `index.js` | 29_265 | 29_327 | **+62** |
+| `module.js` | 43_928 | 45_018 | **+1090** |
+| `main.js` | 44_201 | 45_302 | **+1101** |
+| `core.js` | 26_666 | 26_732 | **+66** |
+| `state.js` | 16_747 | 16_811 | **+64** |
+| `module.debug.js` | 59_515 | 61_587 | **+2072** |
+| `module.safe.js` | 59_375 | 61_439 | **+2064** |
 
-**A consumer who never imports the agent surface pays ~63 gzipped bytes** for
+**A consumer who never imports the agent surface pays ~62 gzipped bytes** for
 this release — not zero. That is the rewritten deprecation message in
 `src/xin.ts`, which is on the ordinary path: the old one steered callers *off*
 `tosiValue()`/`tosiPath()`, the canonical functions, so it was actively
@@ -426,7 +449,7 @@ Both were fixed by a single `auditView()` that **composed** the shared predicate
 over an adjusted record, re-implementing nothing. **Upstream then took #7 and
 #8**, so — as that paragraph anticipated — the adjustments became no-ops and
 `auditView` was deleted before this release shipped. See *the audit/renderer
-split has no carve-out left*, below; nothing named `auditView` exists in 1.11.0.
+split has no carve-out left*, below; nothing named `auditView` exists in 1.10.2.
 The `record` on every finding is, as before, the original one.
 
 **These two were regressions this release introduced**, which is why the

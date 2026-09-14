@@ -500,7 +500,7 @@ test.skipIf(!existsSync('dist/module.js.map'))(
   'shipped source maps point at shipped sources, and inline none',
   async () => {
     /*
-     * 1.11.0 stopped inlining `sourcesContent` and started shipping `src/`
+     * 1.10.2 stopped inlining `sourcesContent` and started shipping `src/`
      * once instead: 2.71 MB of duplicated source (60% of it PROSE — doc blocks
      * already published as the website and as llms.txt) became a 0.79 MB tree
      * a consumer can actually read. Tarball 4.51 -> 2.51 MB.
@@ -574,7 +574,7 @@ test.skipIf(!existsSync('docs/docs.json'))(
      * A ```js or ```ts fence in a doc block RUNS on the doc site. One that
      * references identifiers it never brings into scope throws, and the page
      * ships a red error box under the prose it was meant to illustrate. That
-     * happened in 1.11.0 on `/path-listener/`, and cleared the build, this
+     * happened in 1.10.2 on `/path-listener/`, and cleared the build, this
      * suite, the smoke gate and nine review rounds.
      *
      * The authority is the browser lane (`tests/doc-tests.pw.ts` visits every
@@ -590,7 +590,7 @@ test.skipIf(!existsSync('docs/docs.json'))(
      * tosijs, or a destructure off the ambient `tosijs`/`tosijsui` global?
      *
      * Verified against all 43 executable fences in the corpus: zero false
-     * positives. The 1.11.0 defect had neither form.
+     * positives. The 1.10.2 defect had neither form.
      */
     const { readFileSync } = await import('node:fs')
     const pages = JSON.parse(readFileSync('docs/docs.json', 'utf8')) as Array<{

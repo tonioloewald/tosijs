@@ -284,7 +284,7 @@ async function buildLibrary(full = true) {
    * SHIP THE SOURCE ONCE, NOT FIVE TIMES INSIDE JSON.
    *
    * Bun emits `sourcesContent` — the full text of every file that went into a
-   * bundle, inlined into its `.map`. Measured on 1.11.0: 2.71 MB of the
+   * bundle, inlined into its `.map`. Measured on 1.10.2: 2.71 MB of the
    * 4.51 MB tarball, because five bundles each embed the subset of `src/`
    * they compiled, and `module.js.map`/`main.js.map` are byte-identical (the
    * same library built ESM and CJS).
@@ -673,7 +673,7 @@ async function buildLibrary(full = true) {
   const scale: Record<string, number> = { kb: 1 / 1024, mb: 1, gb: 1024 }
   const unpackedMb =
     Number(unpackedMatch[1]) * scale[unpackedMatch[2].toLowerCase()]
-  // 4.5 -> 4.75 -> 3.0 in 1.11.0. The raise lasted about an hour: Tier 0
+  // 4.5 -> 4.75 -> 3.0 in 1.10.2. The raise lasted about an hour: Tier 0
   // caught the tarball at 4.511 MB, I raised the ceiling with the measurement,
   // and then the repo owner pointed out that the maps were carrying the
   // documentation. They were — `sourcesContent` was 2.71 MB of the payload and

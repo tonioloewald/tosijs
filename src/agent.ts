@@ -102,7 +102,7 @@ value.** A secret-marked element — or any element inside a
 `data-tosi-secret` region — publishes its tag, role, name, bound path and
 geometry, but *not* its `href`, `placeholder`, `title`/`alt`-derived name,
 `aria-description` or a toggle's `checked` state. A reset-link token lives in
-an `href`, not in a bound path, and until 1.11.0 it travelled in cleartext
+an `href`, not in a bound path, and until 1.10.2 it travelled in cleartext
 beside a `text` field that had been correctly withheld. The record carries
 `secret: true` so a consumer can tell suppression from absence.
 
@@ -122,7 +122,7 @@ alternative is a window in which it isn't.
 > the binding that feeds it: on the control, on its immediate parent, through
 > a wrapping `<label>`, on its owning `<form>`, or across one shadow boundary.
 > **Where the binding sits somewhere else, the path is never learned and the
-> value reads back in cleartext.** Known-uncovered as of 1.11.0, each verified
+> value reads back in cleartext.** Known-uncovered as of 1.10.2, each verified
 > by execution:
 >
 > - a **custom element** carrying `data-tosi-secret` inside a bound `<form>`
@@ -449,7 +449,7 @@ export interface AgentWiringRecord {
    * href in the legend (URLs are the facts most often too long to draw)
    *
    * WITHHELD on a secret-marked element or one inside a `data-tosi-secret`
-   * region (1.11.0): a reset/magic-link token lives here, not in a bound
+   * region (1.10.2): a reset/magic-link token lives here, not in a bound
    * path. Such a record carries `secret: true` and no `href` at all, so a
    * renderer's caption fallback has nothing to fall back to — filed upstream.
    */

@@ -332,7 +332,7 @@ issues (repo redirects post-rename), mirrored here. Adopting a new
 version = bump the devDep, `bun update`, rebuild, sync any output-truth
 tests deliberately.
 
-### ✅ RESOLVED — tosijs-floorplan 0.5.0 (2026-09-12), adopted in tosijs 1.11.0
+### ✅ RESOLVED — tosijs-floorplan 0.5.0 (2026-09-12), adopted in tosijs 1.10.2
 ### All nine adoption-feedback issues (#7–#15), in one batch
 
 Filed while adopting 0.4.0; all landed in 0.5.0. **#7** list-ness no longer
@@ -349,7 +349,7 @@ Consequence here: `auditView` **deleted**, the local `0×0` guard **deleted**,
 and `audit.ts` now holds no definition of evidence and no adjustment to one.
 Verified by deletion — the audit suite passes unchanged.
 
-### ✅ RESOLVED (NARROWED) — tosijs-floorplan 0.4.0, adopted in tosijs 1.11.0 (2026-09-06)
+### ✅ RESOLVED (NARROWED) — tosijs-floorplan 0.4.0, adopted in tosijs 1.10.2 (2026-09-06)
 ### Provenance-arrow parsing is forgeable from data (tosijs 1.8.0 SEC-8)
 
 **Issue:** https://github.com/tonioloewald/tosijs-floorplan/issues/5
@@ -377,7 +377,7 @@ the producer-side fix from 1.8.0 remains the real defence. Re-filed as
 [#11](https://github.com/tonioloewald/tosijs-floorplan/issues/11) rather than
 left implied by a closed issue.
 
-### ✅ RESOLVED — tosijs-floorplan 0.4.0, adopted in tosijs 1.11.0 (2026-09-06)
+### ✅ RESOLVED — tosijs-floorplan 0.4.0, adopted in tosijs 1.10.2 (2026-09-06)
 ### Target-size + "is interactive" implemented twice, and they disagree
 
 **Issue:** https://github.com/tonioloewald/tosijs-floorplan/issues/4
@@ -394,14 +394,14 @@ rule so one implementation serves both, or accept producer `flags` as
 authoritative and drop the built-in audit.
 
 **0.4.0 took the first route** — `isInteractive`, `targetSizeFinding` and
-`TARGET_SIZE_DEFAULT` are exported, and tosijs 1.11.0 deletes its local
-copies. Seven audit verdicts moved; see the 1.11.0 CHANGELOG.
+`TARGET_SIZE_DEFAULT` are exported, and tosijs 1.10.2 deletes its local
+copies. Seven audit verdicts moved; see the 1.10.2 CHANGELOG.
 
 **Adopting it surfaced three NEW asks, all filed rather than patched here**
 (the vendor is DO-NOT-EDIT), and two of them exist because the renderer and
 the audit are asking different questions of one rule.
 
-✅ **#7, #8 and #12 are FIXED UPSTREAM in floorplan 0.5.0, and 1.11.0 ships
+✅ **#7, #8 and #12 are FIXED UPSTREAM in floorplan 0.5.0, and 1.10.2 ships
 that.** They were briefly mitigated here by an `auditView()` composition that
 handed the shared predicate an adjusted record (never a copy of the rule). 0.5.0
 folded all three adjustments into the rule itself, so **`auditView` is deleted**
@@ -436,18 +436,18 @@ Plus two more found while adopting:
 handlers directly; and
 **[#12](https://github.com/tonioloewald/tosijs-floorplan/issues/12)** — a
 `flags` entry with no `kind` throws in both `targetSizeFinding` and
-`schematic()`. ⚠️ **Correction worth keeping:** it is tempting to say 1.11.0
+`schematic()`. ⚠️ **Correction worth keeping:** it is tempting to say 1.10.2
 "widened this from internal to consumer-reachable" by exporting
 `targetSizeFinding`. It did not. `schematicSVG` has been a public export of
 `tosijs/agent` since **v1.10.1**, takes a caller-supplied description, and
 already throws the identical error — verified against
-`git show v1.10.1:dist/module.js`. 1.11.0 adds a SECOND door to a crash that
+`git show v1.10.1:dist/module.js`. 1.10.2 adds a SECOND door to a crash that
 was already public, and `targetSizeFinding` in fact returns early on
 `!isInteractive`/null bounds where the renderer computed unconditionally, so
 its throw surface is slightly NARROWER.
 
 **[#15](https://github.com/tonioloewald/tosijs-floorplan/issues/15)** — the
-renderer has never been drawn against a REDACTED record. After 1.11.0's
+renderer has never been drawn against a REDACTED record. After 1.10.2's
 secrecy fix a secret-marked link publishes neither `label` nor `href`, so the
 caption fallback documented in `AgentWiringRecord.href` has nothing left.
 
@@ -472,7 +472,7 @@ throws on failure, and the Playwright lane runs the ```test tier across two
 browsers. The gap is one step wide — `checkExamples` uses
 `new AsyncFunction(js)`, which COMPILES and does not CALL, so a block that
 compiles and throws on invocation passes. A page
-can ship a red error box with the doc-test lane green. It cost tosijs 1.11.0 a
+can ship a red error box with the doc-test lane green. It cost tosijs 1.10.2 a
 shipped "div is not defined" on `/path-listener/` that cleared the build, the
 suite, the smoke gate, CI and **nine review rounds**; the same scrape then
 found two more pre-existing on `/Migration/`. Asked for an `exampleErrors`
@@ -678,7 +678,7 @@ The one move above turned out to be two, because the halves disagree:
   number without reading it.
 
   The peer range was never the blocker in either direction: since tosijs-ui
-  1.11.0 `tjs-lang` is an **optional** peer. That retires the last trace of the
+  1.10.2 `tjs-lang` is an **optional** peer. That retires the last trace of the
   false "1.10.0 peers ^0.12.0 so we cannot bump" rationale below.
 
 - 🔭 **STILL OPEN, and NOT caused by any of this: `tjs convert`'s inline

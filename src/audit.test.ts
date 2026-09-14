@@ -240,7 +240,7 @@ describe('an empty map is not a clean bill of health', () => {
  *
  * `isInteractive` and the target-size rule used to live here AND in the
  * vendored renderer, and had drifted into contradicting each other on real
- * elements. 1.11.0 deletes the local copies and imports both.
+ * elements. 1.10.2 deletes the local copies and imports both.
  *
  * These tests exist because the audit suite passed UNCHANGED across that
  * adoption — 11/11 green while six verdicts moved — which means it did not
@@ -370,7 +370,7 @@ describe('shared interactivity/target-size rule (floorplan#4)', () => {
  * THE AUDIT'S OWN VIEW OF A RECORD (tosijs-floorplan#7 / #8).
  *
  * Two of the shared rules briefly answered a RENDERER's question where a lint
- * needs the other answer. Both were found by the 1.11.0 pre-release review as
+ * needs the other answer. Both were found by the 1.10.2 pre-release review as
  * regressions introduced by adopting floorplan 0.4.0, mitigated locally by an
  * `auditView()` composition, and then FIXED UPSTREAM in 0.5.0 — so the
  * composition is deleted and these assertions now pin the shared rule directly.

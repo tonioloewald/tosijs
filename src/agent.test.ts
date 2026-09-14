@@ -2975,7 +2975,7 @@ describe('redaction stays NARROW — fail-closed must not mean fail-everything',
 })
 
 /*
- * THE ATTRIBUTE HARVEST IS GUARDED TOO (1.11.0 remediation re-review, B1).
+ * THE ATTRIBUTE HARVEST IS GUARDED TOO (1.10.2 remediation re-review, B1).
  *
  * `describeElement` received a ContentGuard and asked it only inside
  * `referencedText()` and `associatedLabel()`, so `href`, `placeholder`,
@@ -3581,7 +3581,7 @@ test('the two provenance tokens are declared once, not twice (floorplan#4 class)
    * `BOUND_TWO_WAY`/`BOUND_TO_DOM` exist in BOTH src/agent.ts (what describe()
    * emits) and src/schematic.ts (what the now-EXPORTED isInteractive matches
    * against). Two independently-maintained copies of the exact constant whose
-   * duplication WAS the mechanism of floorplan#4 — and 1.11.0 makes the
+   * duplication WAS the mechanism of floorplan#4 — and 1.10.2 makes the
    * consumer of one copy public while exporting only the other. Coverage
    * existed but was incidental, riding on audit fixtures.
    */

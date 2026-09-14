@@ -90,7 +90,7 @@ export type {
 } from './agent'
 export { webmcpTools, webmcpAdapter } from './webmcp'
 export type { WebMCPTool, WebMCPAdapterOptions } from './webmcp'
-// THE SHARED AFFORDANCE RULES, reachable by a consumer (1.11.0). Adopting
+// THE SHARED AFFORDANCE RULES, reachable by a consumer (1.10.2). Adopting
 // tosijs-floorplan 0.4.0 gave the audit and the renderer ONE definition of
 // "can I act here" and "is this big enough" — but the definition stopped at
 // this package's boundary, so a downstream wanting the same verdict had to

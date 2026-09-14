@@ -86,8 +86,13 @@ export const BUNDLES: BundleSpec[] = [
     entry: './src/index.ts',
     // 43_000 -> 43_500 in 1.10.0 (set by 9589f89, which was numbered 1.11.0 at
     // the time — that numbering was reverted as version inflation and the work
-    // shipped as 1.10.0, so the fossil label collided with the REAL 1.11.0
-    // below). Deliberately. The agent surface's
+    // shipped as 1.10.0). ⚠️ AND IT HAPPENED AGAIN: what these comments below
+    // called "1.11.0" for twelve review rounds shipped as **1.10.2**, reverted
+    // for the same reason — the only thing forcing a minor was four new exports
+    // on the agent surface, which has no consumers (verified across eight
+    // sibling repos: one match, inside an error-message string). Adding exports
+    // cannot break anyone, so the minor signalled a capability to an audience
+    // that does not exist. Deliberately. The agent surface's
     // path-or-proxy resolution and its refusal text cost ~100 bytes gzipped
     // over the old ceiling; almost all of it is the error strings, which is
     // the growth we want (the defect being fixed was a SILENT coercion). The
@@ -99,7 +104,7 @@ export const BUNDLES: BundleSpec[] = [
     // that is neither — +264 gz. Most of it is the two warning strings, which
     // are the point: they convert three silent no-ops into a named mistake.
     //
-    // 45_000 -> 46_000 in 1.11.0, deliberately and in the commit that caused
+    // 45_000 -> 46_000 in 1.10.2, deliberately and in the commit that caused
     // the growth. Re-vendoring tosijs-floorplan 0.4.0 costs +318 gz here
     // (index.js +1 and core.js +0 — neither carries the agent surface, which
     // is where the schematic lives). It bought ONE implementation of
@@ -124,7 +129,7 @@ export const BUNDLES: BundleSpec[] = [
     // That this lands on the same number as main.js is a coincidence, not a
     // copy: main.js needed no change at that round. See the warning below.
     //
-    // 46_000 -> 47_000 in 1.11.0 round 12, deliberately and in the commit that
+    // 46_000 -> 47_000 in 1.10.2 round 12, deliberately and in the commit that
     // caused the growth. The secrecy/audit remediations (the `textWithheld`
     // decision field, the per-rule audit gating, three new guards) landed the
     // bundle under the 1 kB minimum this file specifies — caught by the
@@ -152,7 +157,7 @@ export const BUNDLES: BundleSpec[] = [
     // broken `bun start` for every developer (the budget loop is not gated
     // on `full`), and the fix a stranger reaches for is raising the number
     // without reading it. Budget per bundle from its own measurement.
-    // 46_000 -> 47_000 in 1.11.0, deliberately and in the commit that caused
+    // 46_000 -> 47_000 in 1.10.2, deliberately and in the commit that caused
     // the growth. Adopting tosijs-floorplan 0.5.0 costs a few hundred gz bytes
     // here, NET of deleting `auditView` — the upstream fixes cost more than the
     // local workaround saved, which is the right trade because the workaround
@@ -212,7 +217,7 @@ export const BUNDLES: BundleSpec[] = [
   // BYTES, and only under Bun's gzip; Node's measures the same artifact
   // under. The slack is restored rather than shaved to the new number, so the
   // gate keeps policing regressions instead of tripping on noise.
-  // RAISED 61_500 -> 62_500 in 1.11.0, deliberately and in the commit that
+  // RAISED 61_500 -> 62_500 in 1.10.2, deliberately and in the commit that
   // caused the growth. Re-exporting the shared affordance rules
   // (isInteractive, targetSizeFinding, TARGET_SIZE_DEFAULT, schematic) so a
   // CONSUMER can reach the same verdict the audit reaches costs +59 gz here
@@ -237,7 +242,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.debug.js',
     format: 'esm',
     entry: './tjs-out/index-debug.js',
-    // 62_500 -> 63_500 in 1.11.0 round 12, same remediation, same reason:
+    // 62_500 -> 63_500 in 1.10.2 round 12, same remediation, same reason:
     // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
     // regressions on two EXPERIMENTAL, inert bundles, so the slack is
     // deliberately generous.
@@ -252,7 +257,7 @@ export const BUNDLES: BundleSpec[] = [
     naming: 'module.safe.js',
     format: 'esm',
     entry: './tjs-out/index-safe.js',
-    // 62_500 -> 63_500 in 1.11.0 round 12, same remediation, same reason:
+    // 62_500 -> 63_500 in 1.10.2 round 12, same remediation, same reason:
     // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
     // regressions on two EXPERIMENTAL, inert bundles, so the slack is
     // deliberately generous.

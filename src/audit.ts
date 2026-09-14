@@ -33,7 +33,7 @@ contrast rule has nothing to measure and skips itself (it says so).
 Findings carry the record and its index, so a caller can jump straight to
 the element — or hand the pair to `schematicSVG`'s `flags` to *draw* them.
 
-> **The divergence is closed, and as of 1.11.0 there is no carve-out either**
+> **The divergence is closed, and as of 1.10.2 there is no carve-out either**
 > (tosijs-floorplan #4, then #7/#8/#9 and #13). `target-size` and "is this
 > interactive" were once implemented *twice* — here and in the vendored
 > renderer — and had drifted into contradicting each other on real elements.

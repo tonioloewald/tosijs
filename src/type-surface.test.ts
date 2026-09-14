@@ -199,7 +199,7 @@ import {
 } from '${process.cwd()}/dist/index'
 import type { SchematicRecord, SchematicResult } from '${process.cwd()}/dist/index'
 
-// THE SHARED AFFORDANCE RULES ARE REACHABLE AND USABLE (1.11.0). Exporting
+// THE SHARED AFFORDANCE RULES ARE REACHABLE AND USABLE (1.10.2). Exporting
 // them is the point of adopting one implementation: a consumer that reaches a
 // DIFFERENT verdict from auditAccessibility() is the drift floorplan#4 closed,
 // reappearing one level out. A value whose parameter type cannot be named is
@@ -302,7 +302,7 @@ test.skipIf(!existsSync('dist/index.d.ts'))(
       'AgentObserveRef',
       'AgentRefusalKind',
       'AgentRefusalError',
-      // the schematic / shared affordance rules (1.11.0) — these are named in
+      // the schematic / shared affordance rules (1.10.2) — these are named in
       // the signatures of exported VALUES (isInteractive, targetSizeFinding,
       // schematic), and shipping a value whose parameter type is unreachable
       // is the defect 1.10.1 spent a release fixing
