@@ -59,8 +59,14 @@ were fixed before the tag; these are the rest.
 Report: `reviews/1.10.2-preminor-round10.md`. All four blockers and both
 majors were fixed before the tag; these are the remainder.
 
-- [ ] **The documented `#41` mitigation is wrong for the first shape it
-      lists.** `src/agent.ts` says "marking the control itself, or its
+- [x] **DONE (post-1.10.2, on main): the documented `#41` mitigation was wrong
+      for the first shape it lists** — verified by execution against the
+      PUBLISHED tarball, so 1.10.2 shipped a false remedy in a security note.
+      `src/agent.ts` now says: mark the element that CARRIES THE BINDING, or an
+      ancestor of it, and names the old advice as wrong so anyone who followed
+      it re-checks. Ships with the next release.
+- [ ] ~~**The documented `#41` mitigation is wrong for the first shape it
+      lists.**~~ `src/agent.ts` says "marking the control itself, or its
       immediate wrapper, works in all of these" directly beneath a bullet list
       whose first entry is the case where marking the control leaks. Measured:
       `<form bind><div><my-secret data-tosi-secret></div></form>` → `read()`

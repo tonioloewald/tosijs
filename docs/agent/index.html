@@ -163,9 +163,19 @@ marker is currently <em>weaker</em> than the heuristic</li>
 <li>a <strong>shadow component containing a password</strong>, inside a bound <code>&lt;form&gt;</code></li>
 <li>a <strong>light-DOM container two or more levels up</strong> with no <code>&lt;form&gt;</code> between</li>
 </ul>
-<p>Tracked as <a href="https://github.com/tonioloewald/tosijs/issues/41">tosijs#41</a>.
-<strong>Marking the control itself, or its immediate wrapper, works in all of
-these</strong> and is the reliable form. Prefer it to relying on discovery.</p>
+<p>Tracked as <a href="https://github.com/tonioloewald/tosijs/issues/41">tosijs#41</a>.</p>
+<p><strong>The reliable form is to mark the element that CARRIES THE BINDING, or any
+ancestor of it</strong> — not the control. Discovery works outward from a secret
+control looking for a binding; marking the <em>binding&#39;s</em> element instead means
+there is nothing to discover.</p>
+<p>⚠️ A previous version of this note said <em>&quot;marking the control itself, or its
+immediate wrapper, works in all of these&quot;</em>. <strong>The first half is false, and it
+shipped in 1.10.2.</strong> Verified by execution against the published build:
+marking a custom element (bullet one) returns <code>&#39;hunter2&#39;</code> in cleartext,
+because the marker is only a <em>hint to discovery</em> and discovery is exactly
+what fails there — an explicit marker is weaker than the heuristic, which
+that bullet already said two lines above. The wrapper half is true. If you
+followed the old advice on a custom element, re-check it.</p>
 </blockquote>
 <p><strong>What this is for, and what it is not.</strong> It is not a defence against script
 running in your page — that code can read the state directly and never asks

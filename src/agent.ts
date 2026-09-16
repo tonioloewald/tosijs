@@ -133,8 +133,20 @@ alternative is a window in which it isn't.
 > - a **light-DOM container two or more levels up** with no `<form>` between
 >
 > Tracked as [tosijs#41](https://github.com/tonioloewald/tosijs/issues/41).
-> **Marking the control itself, or its immediate wrapper, works in all of
-> these** and is the reliable form. Prefer it to relying on discovery.
+>
+> **The reliable form is to mark the element that CARRIES THE BINDING, or any
+> ancestor of it** — not the control. Discovery works outward from a secret
+> control looking for a binding; marking the *binding's* element instead means
+> there is nothing to discover.
+>
+> ⚠️ A previous version of this note said *"marking the control itself, or its
+> immediate wrapper, works in all of these"*. **The first half is false, and it
+> shipped in 1.10.2.** Verified by execution against the published build:
+> marking a custom element (bullet one) returns `'hunter2'` in cleartext,
+> because the marker is only a *hint to discovery* and discovery is exactly
+> what fails there — an explicit marker is weaker than the heuristic, which
+> that bullet already said two lines above. The wrapper half is true. If you
+> followed the old advice on a custom element, re-check it.
 
 **What this is for, and what it is not.** It is not a defence against script
 running in your page — that code can read the state directly and never asks
