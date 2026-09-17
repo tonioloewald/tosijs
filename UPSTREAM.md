@@ -114,6 +114,34 @@ its value on the 110 files where the value is, and can no longer be held
 permanently red by a printer bug. Re-check idempotency before ever
 re-enabling it.
 
+## Outbound RFCs (we filed, they comment)
+
+### 🗳️ tosijs#44 — `observe()` should require a reason
+
+**Issue:** https://github.com/tonioloewald/tosijs/issues/44
+**Pointers filed so the consumers see it:** tosijs-3d#77, tosijs-ui#164
+
+Proposal: `observe` takes a third `reason` argument — enumerated, or
+`{ specificReason }` — warning if omitted, throwing in a future major. Reasons
+were derived from a nine-repo survey, not invented.
+
+Two decisions already settled: the unreasoned path pays a **stack capture** for
+per-call-site warnings (correct code pays nothing), and the library's own ~41
+internal uses get an **unexported Symbol**, not a string — unforgeable,
+zero-byte, and it keeps one code path instead of a private `listen()` that could
+drift.
+
+Two findings from the survey that the proposal has to live with:
+
+- **Consumers use `.observe()` (the accessor) almost exclusively** — bare
+  `observe(path, cb)` is effectively internal. The reason must land on the
+  accessor or the mechanism does nothing.
+- **"Almost all uses are misguided" is FALSE.** tosijs-ui runs 27 observers
+  against 20 bindings and is mostly right. The reasons list must be useful
+  rather than punitive, or everyone types `{ specificReason: 'because' }`.
+
+Awaiting comment. Nothing implemented; "don't do this" is a live outcome.
+
 ## tosijs-ui
 
 ### ✅ RESOLVED (closed upstream 2026-09-04): tosijs-ui#129 — devServer sends no cache headers
