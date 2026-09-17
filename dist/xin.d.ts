@@ -1,6 +1,6 @@
 import { TosiObject, PathTestFunction, ObserverCallbackFunction } from './xin-types';
 import { settings } from './settings';
-import { Listener, touch, unobserve, updates } from './path-listener';
+import { Listener, touch, unobserve, updates, OBSERVER_SHOULD_BE_REMOVED } from './path-listener';
 declare const isValidPath: (path: string) => boolean;
 /**
  * THE ACCESSOR SURFACE, AS DATA. This list is what the `get` trap actually
@@ -27,4 +27,4 @@ declare const boxed: {
     [x: number]: any;
     [x: symbol]: any;
 } & import("./xin-types").TosiProps<TosiObject>;
-export { xin, boxed, updates, touch, observe, unobserve, settings, isValidPath };
+export { xin, boxed, updates, touch, observe, unobserve, settings, isValidPath, OBSERVER_SHOULD_BE_REMOVED, };

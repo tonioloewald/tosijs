@@ -21,6 +21,6 @@ export { MoreMath } from './more-math';
 export { settings } from './settings';
 export { throttle, debounce } from './throttle';
 export { version } from './version';
-export { xin, boxed, observe, unobserve, touch, updates } from './xin';
+export { xin, boxed, observe, unobserve, touch, updates, OBSERVER_SHOULD_BE_REMOVED, } from './xin';
 export * from './xin-types';
 export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy';

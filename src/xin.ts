@@ -844,6 +844,7 @@ import {
   observe as _observe,
   unobserve,
   updates,
+  OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
 import { getByPath, setByPath } from './by-path'
 import { getBind, getOn } from './registry'
@@ -1470,4 +1471,14 @@ const boxed = new Proxy<TosiObject, BoxedProxy<TosiObject>>(
 )
 
 // settings and isValidPath are only used for internal testing
-export { xin, boxed, updates, touch, observe, unobserve, settings, isValidPath }
+export {
+  xin,
+  boxed,
+  updates,
+  touch,
+  observe,
+  unobserve,
+  settings,
+  isValidPath,
+  OBSERVER_SHOULD_BE_REMOVED,
+}

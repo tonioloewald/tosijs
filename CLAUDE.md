@@ -149,6 +149,23 @@ recorded the deletion, because a later build had left untracked copies on
 disk. **On disk is not in the commit.** The last one is the only ordering-proof
 guard.
 
+**⚠️ THE BROWSER LANE READS `dist/`, AND THE DEV SERVER RESTORES THE COMMITTED
+COPIES — so `bun run test:browser` tests WHAT YOU COMMITTED, not what you just
+built.** Playwright's `webServer` starts a dev server; `buildSite()` wipes
+`dist/`, and `buildLibrary()` restores the **committed** artifacts for anything
+a dev run does not rebuild. A `.pw.ts` that `readFileSync`s `dist/module.js` and
+serves it to the page therefore reads that restored copy.
+
+Measured: a tripwire test written to FAIL once a new export landed **passed**,
+because the working `dist/module.js` had the export (1 occurrence) and the
+committed one had 0. The lane was green against a bundle that predated the fix.
+
+**So: commit `dist/` before running the browser lane on anything that changes
+the published surface** — and remember the existing ordering rule still applies
+in the other direction (the lane deletes `module.debug.js`/`module.safe.js`, so
+re-run `bun run build` *after* it, before committing). The two together mean:
+build → commit → browser lane → build again.
+
 **Dev-server watch caveat:** `buildSite()` starts by `rm -rf docs`, which wipes the separately-built `docs/iife.js`. The watch rebuild re-runs `buildSite` + `buildDocsBundle` (but skips the slower `buildLibrary` tests/tjs step); if `iife.js` is missing the page 404s into the SPA fallback and "loads as HTML."
 
 **Documentation generation:** handled inside `buildSite` from the `docPaths` in `tosijs-site.config.ts` (currently `src`, `README.md`, `Building-Apps.md`, `Migration.md`, `React.md`). Two sources:

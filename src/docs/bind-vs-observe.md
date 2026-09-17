@@ -119,18 +119,30 @@ disturb its selection. It is identity, not deep equality: assigning a
 deep-equal *object* does notify. It applies to every `toDOM`, so an expensive
 custom redraw is skipped for free.
 
-**Observers can retire themselves.** `unobserve(listener)`, or the unsubscribe
-function returned by `proxy.observe(callback)`:
+**Observers can retire themselves — three ways.** Keep the unsubscribe, keep
+the listener, or say so from inside the callback:
 
 ```
+// 1. the unsubscribe returned by .observe()
 const stop = app.thing.observe(() => { /* … */ })
-stop()  // retired
+stop()
+
+// 2. keep the listener and unobserve it
+const listener = observe('app.thing', () => { /* … */ })
+unobserve(listener)
+
+// 3. from INSIDE the callback — the natural form for "stop when my
+//    element is gone", and the only one that needs no bookkeeping
+observe('app.thing', () => {
+  if (!el.isConnected) return OBSERVER_SHOULD_BE_REMOVED
+  el.textContent = app.thing.value
+})
 ```
 
-There is a third form — returning a sentinel from the callback — which is
-implemented but **not currently exported**, so it cannot be used from a
-published build
-([tosijs#45](https://github.com/tonioloewald/tosijs/issues/45)).
+Form 3 is pull-based: it costs one more call to notice it should go.
+
+None of this is required with `bind`, which is the point of the section above —
+detaching the element *is* the teardown.
 
 ---
 

@@ -169,7 +169,27 @@ import { settings } from './settings'
 import { getByPath } from './by-path'
 import { registry } from './registry'
 
-export const observerShouldBeRemoved = Symbol('observer should be removed')
+/**
+ * Return this from an observer callback to retire that observer.
+ *
+ * The only teardown form usable from INSIDE the callback, which makes it the
+ * natural one for "stop when the thing I was updating is gone":
+ *
+ *     observe('app.thing', () => {
+ *       if (!el.isConnected) return OBSERVER_SHOULD_BE_REMOVED
+ *       ...
+ *     })
+ *
+ * ⚠️ It was `observerShouldBeRemoved` and exported from THIS MODULE ONLY, so
+ * it reached no entry point and no consumer could import it — the mechanism
+ * was implemented, documented and unusable, and returning `undefined` instead
+ * silently retired nothing (tosijs#45). Renamed to match the convention every
+ * other exported constant here follows (TOSI_ACCESSOR, BOUND_CLASS,
+ * TARGET_SIZE_DEFAULT) and wired into the entries. The rename is safe because
+ * the `exports` map has no wildcard, so a deep import could never have
+ * resolved it.
+ */
+export const OBSERVER_SHOULD_BE_REMOVED = Symbol('observer should be removed')
 export const listeners: Listener[] = [] // { path_string_or_test, callback }
 const touchedPaths: string[] = []
 let updateTriggered: number | boolean = false
@@ -294,7 +314,7 @@ const update = (): void => {
             )
             return false
           }
-          if (heard === observerShouldBeRemoved) {
+          if (heard === OBSERVER_SHOULD_BE_REMOVED) {
             unobserve(listener)
             return false
           }
@@ -311,7 +331,7 @@ const update = (): void => {
               }" handling "${path}"`
             )
           }
-          if (outcome === observerShouldBeRemoved) {
+          if (outcome === OBSERVER_SHOULD_BE_REMOVED) {
             unobserve(listener)
           }
         })

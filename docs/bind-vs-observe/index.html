@@ -161,15 +161,26 @@ fires, and the DOM is never written. This is why binding an <code>&lt;input&gt;<
 disturb its selection. It is identity, not deep equality: assigning a
 deep-equal <em>object</em> does notify. It applies to every <code>toDOM</code>, so an expensive
 custom redraw is skipped for free.</p>
-<p><strong>Observers can retire themselves.</strong> <code>unobserve(listener)</code>, or the unsubscribe
-function returned by <code>proxy.observe(callback)</code>:</p>
-<pre><code>const stop = app.thing.observe(() =&gt; { /* … */ })
-stop()  // retired
+<p><strong>Observers can retire themselves — three ways.</strong> Keep the unsubscribe, keep
+the listener, or say so from inside the callback:</p>
+<pre><code>// 1. the unsubscribe returned by .observe()
+const stop = app.thing.observe(() =&gt; { /* … */ })
+stop()
+
+// 2. keep the listener and unobserve it
+const listener = observe(&#39;app.thing&#39;, () =&gt; { /* … */ })
+unobserve(listener)
+
+// 3. from INSIDE the callback — the natural form for &quot;stop when my
+//    element is gone&quot;, and the only one that needs no bookkeeping
+observe(&#39;app.thing&#39;, () =&gt; {
+  if (!el.isConnected) return OBSERVER_SHOULD_BE_REMOVED
+  el.textContent = app.thing.value
+})
 </code></pre>
-<p>There is a third form — returning a sentinel from the callback — which is
-implemented but <strong>not currently exported</strong>, so it cannot be used from a
-published build
-(<a href="https://github.com/tonioloewald/tosijs/issues/45">tosijs#45</a>).</p>
+<p>Form 3 is pull-based: it costs one more call to notice it should go.</p>
+<p>None of this is required with <code>bind</code>, which is the point of the section above —
+detaching the element <em>is</em> the teardown.</p>
 <hr>
 <p><em>The proposal to make <code>observe</code> state its reason is
 <a href="https://github.com/tonioloewald/tosijs/issues/44">tosijs#44</a>; comment there.

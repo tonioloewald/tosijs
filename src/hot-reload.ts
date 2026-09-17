@@ -52,7 +52,7 @@ export const hotReload = (test: PathTestFunction = () => true): void => {
   // a deep write still triggers a save — a raw `test(fullPath)` only saved
   // when a root key itself was reassigned.
   // returns boolean | symbol because a PathTestFunction may return
-  // observerShouldBeRemoved, which must be passed through unchanged
+  // OBSERVER_SHOULD_BE_REMOVED, which must be passed through unchanged
   const rootMatches = (changedPath: string): boolean | symbol => {
     const root = changedPath.split(/[.[]/)[0]
     return test(root)

@@ -101,6 +101,16 @@ export { MoreMath } from './more-math'
 export { settings } from './settings'
 export { throttle, debounce } from './throttle'
 export { version } from './version'
-export { xin, boxed, observe, unobserve, touch, updates } from './xin'
+export {
+  xin,
+  boxed,
+  observe,
+  unobserve,
+  touch,
+  updates,
+  // return this from an observer callback to retire it (tosijs#45 —
+  // it was previously unreachable, so the mechanism silently did nothing)
+  OBSERVER_SHOULD_BE_REMOVED,
+} from './xin'
 export * from './xin-types'
 export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'

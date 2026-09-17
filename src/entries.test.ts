@@ -625,6 +625,48 @@ test.skipIf(!existsSync('docs/docs.json'))(
   }
 )
 
+test('anything needed to USE an export ships from the same entry', async () => {
+  /*
+   * tosijs#45: `OBSERVER_SHOULD_BE_REMOVED` was exported from
+   * `path-listener.ts` and from NO entry point. The mechanism worked, was
+   * documented, and was unreachable — and its absence was SILENT, because a
+   * callback returning `undefined` retires nothing and the observer just keeps
+   * running against a detached node.
+   *
+   * The general rule: if an export cannot be used correctly without a
+   * companion symbol, that companion must ship from every entry the export
+   * ships from. `index-core-exports.ts` and `index-state.ts` use EXPLICIT
+   * export lists (deliberately — see their headers), so a symbol nobody names
+   * there reaches nobody.
+   *
+   * Asserted against the entry modules a consumer actually resolves, not
+   * against the module that declares the symbol — a deep import into `src/`
+   * cannot resolve anyway (the `exports` map has no wildcard), which is what
+   * made the original gap invisible to a unit test that took that shortcut.
+   */
+  const COMPANIONS: Array<[string, string]> = [
+    // [an export, something required to use it correctly]
+    ['observe', 'OBSERVER_SHOULD_BE_REMOVED'],
+  ]
+  const missing: string[] = []
+  for (const entry of [
+    'index',
+    'index-core-exports',
+    'index-core',
+    'index-state',
+    'index-browser',
+  ]) {
+    const mod: any = await import(`./${entry}`)
+    for (const [primary, companion] of COMPANIONS) {
+      if (!(primary in mod)) continue // this entry doesn't ship it — fine
+      if (mod[companion] === undefined) {
+        missing.push(`${entry}: ships ${primary} but not ${companion}`)
+      }
+    }
+  }
+  expect(missing).toEqual([])
+})
+
 test('no dependency is pinned to a local path', async () => {
   /*
    * A `file:` or `link:` dependency resolves on this machine and NOWHERE ELSE.

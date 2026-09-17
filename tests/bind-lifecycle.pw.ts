@@ -131,7 +131,7 @@ test('bind applies on setup — observe does not, which is the priming call', as
   expect(r.observed).toBe('') // never ran, so every hand-rolled version needs one
 })
 
-test('an observer can be retired — and the symbol form is UNREACHABLE (tosijs#45)', async ({
+test('an observer can be retired — all three forms, incl. the symbol (tosijs#45)', async ({
   page,
 }) => {
   const r = await withModule(
@@ -139,10 +139,11 @@ test('an observer can be retired — and the symbol form is UNREACHABLE (tosijs#
     `(async () => {
       const mod = await import('/__tosi-test/module.js')
       const { tosi, elements, observe, unobserve, updates } = mod
-      // tosijs#45: this is exported from path-listener.ts and from NO entry
-      // point, so it is undefined here — in the artifact a consumer resolves.
-      const observerShouldBeRemoved = mod.observerShouldBeRemoved
-      const symbolReachable = observerShouldBeRemoved !== undefined
+      // tosijs#45 — this must be reachable from the PUBLISHED bundle. It was
+      // exported from path-listener.ts and from no entry point, so it was
+      // undefined here, so returning it retired nothing, silently.
+      const OBSERVER_SHOULD_BE_REMOVED = mod.OBSERVER_SHOULD_BE_REMOVED
+      const symbolReachable = typeof OBSERVER_SHOULD_BE_REMOVED === 'symbol'
       const { td } = tosi({ td: { v: 0 } })
       await updates()
 
@@ -152,7 +153,7 @@ test('an observer can be retired — and the symbol form is UNREACHABLE (tosijs#
 
       observe('td.v', () => {
         magic++
-        if (!el.isConnected) return observerShouldBeRemoved
+        if (!el.isConnected) return OBSERVER_SHOULD_BE_REMOVED
         el.textContent = String(td.v.value)
       })
       const listener = observe('td.v', () => { explicit++ })
@@ -188,12 +189,10 @@ test('an observer can be retired — and the symbol form is UNREACHABLE (tosijs#
   expect(r.round2.accessor).toBe(0)
 
   /*
-   * tosijs#45 — the symbol form cannot work from a published bundle, because
-   * the symbol is not exported from any entry. `return undefined` retires
-   * nothing, so the observer runs forever against a detached node. This
-   * assertion is deliberately written to FAIL THE DAY IT IS FIXED, so the fix
-   * cannot land without updating the expectation here.
+   * tosijs#45, fixed: the symbol reaches a consumer, so the self-retiring form
+   * works from a published bundle. It is PULL-based, so it costs a bounded
+   * number of calls to notice — the property that matters is that it STOPS.
    */
-  expect(r.symbolReachable).toBe(false)
-  expect(r.round2.magic).toBeGreaterThan(0)
+  expect(r.symbolReachable).toBe(true)
+  expect(r.round2.magic).toBe(0)
 })

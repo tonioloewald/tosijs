@@ -24,7 +24,17 @@ bound for them to update.
 > Closes tosijs#18 (raised from react-tosijs, which consumes exclusively
 > DOM-free API).
 */
-export { xin, boxed, observe, unobserve, touch, updates } from './xin'
+export {
+  xin,
+  boxed,
+  observe,
+  unobserve,
+  touch,
+  updates,
+  // return this from an observer callback to retire it (tosijs#45 —
+  // it was previously unreachable, so the mechanism silently did nothing)
+  OBSERVER_SHOULD_BE_REMOVED,
+} from './xin'
 export { tosi, tosiUnique, xinProxy, boxedProxy } from './xin-proxy'
 // NOT re-exported: getByPath / setByPath / deleteByPath / pathParts / id.
 // They were never public from `tosijs`, and publishing them only from HERE
