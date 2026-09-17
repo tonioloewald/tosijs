@@ -110,3 +110,5 @@ use it to inspect STATE; a painted-output check needs a real test lane.
   The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association.
 - https://tosijs.net/webmcp/ — webmcp (EXPERIMENTAL)
   EXPERIMENTAL WebMCP adapter: generate the browser-agent tool set from the agent surface — the tools write themselves from wiring the app already records.
+- https://tosijs.net/bind-vs-observe/ — Why bind, and when to use observe
+  Why bind — and when observe is the right tool. The rule: observe for reactions that touch no DOM; bind for everything else.
