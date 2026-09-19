@@ -4,6 +4,35 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.3 — 2026-09-19
+
+- **Went well:** the always-on review caught an **inverted condition in the new
+  doc page** — it said `!==` where the code means the opposite — in the release
+  whose purpose was retracting a false statement from shipped docs. One
+  character, in prose, in the one file written to stop this exact thing.
+- **Went well:** the release-totals table was right on the first paste, then
+  went stale by 10 B on two rows when late doc edits moved the tjs bundles.
+  Re-pasting from the emitter at release-final caught it — first cycle the
+  discipline worked rather than being discovered after the fact.
+- **Didn't:** Tier 0 failed on a **false positive in its own new check** —
+  `dist/cli.mjs`'s `./components/${tag}` is a string inside a template literal
+  the scaffolder writes into the project it generates, not an import. Fixed in
+  the shared tool.
+- **Didn't:** `SECURITY.md` declared the version being released unsupported and
+  pointed reporters at a 1.11.x that does not exist. Shipped that way in 1.10.2;
+  a renumber fixed two references in the file and missed two.
+- **Surprised:** the 1.10.2 security remedy was wrong in **all three** known
+  shapes, not just the one cited — found by verifying a claim I had already
+  written down as narrower.
+- **Surprised:** the browser lane reads `dist/` and the dev server restores the
+  **committed** copies, so a tripwire written to fail on a new export passed
+  against a stale bundle. The lane tests what you committed, not what you built.
+- **Friction:** a backtick inside a comment inside a template literal made a
+  test file unparseable, and Playwright reported "No tests found" rather than a
+  syntax error.
+- **Cycle:** none in code. Both blockers were prose; no runtime defect was found
+  in the diff.
+
 ## 1.10.2 — 2026-09-16
 
 - **Went well:** the budget ledger added this release (build emits

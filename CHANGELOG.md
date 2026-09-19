@@ -92,8 +92,8 @@ emitter at release-final state):
 | `main.js` | 45_302 | 45_329 | **+27** |
 | `core.js` | 26_732 | 26_763 | **+31** |
 | `state.js` | 16_811 | 16_856 | **+45** |
-| `module.debug.js` | 61_587 | 61_621 | **+34** |
-| `module.safe.js` | 61_439 | 61_477 | **+38** |
+| `module.debug.js` | 61_587 | 61_611 | **+24** |
+| `module.safe.js` | 61_439 | 61_467 | **+28** |
 
 Every bundle grows, because the new export is on the ordinary `observe` path
 and reaches `tosijs/state` too. ~30–45 bytes for a mechanism that previously
