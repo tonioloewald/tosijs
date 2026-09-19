@@ -114,6 +114,21 @@ its value on the 110 files where the value is, and can no longer be held
 permanently red by a printer bug. Re-check idempotency before ever
 re-enabling it.
 
+## tosijs-floorplan
+
+### 🐛 floorplan#16 — vendored doc comment cites a tosijs version that never shipped
+
+**Issue:** https://github.com/tonioloewald/tosijs-floorplan/issues/16
+
+`src/index.ts`'s `secret` field comment says "tosijs 1.11.0's secret regions".
+That work was renumbered and shipped as **1.10.2**. Cosmetic — but the file is
+vendored verbatim into `src/schematic.ts`, which ships in our tarball (`/src` is
+in `files`) and renders on tosijs.net, so the wrong number reaches consumers.
+
+**Filed rather than patched**: `src/schematic.ts` carries a DO-NOT-EDIT banner
+and regenerates from upstream on every build, so a local fix would be silently
+reverted — the exact reason this file exists.
+
 ## Outbound RFCs (we filed, they comment)
 
 ### 🗳️ tosijs#44 — `observe()` should require a reason
