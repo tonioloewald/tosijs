@@ -6,6 +6,95 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.3] - 2026-09-19
+
+Two things 1.10.2 told you that were not true, and one new export. Additive
+throughout; nothing is removed and no behaviour changes.
+
+### Fixed — a security note that recommended something that does not work
+
+`src/agent.ts` said, of the `#41` secrecy gap:
+
+> *"Marking the control itself, or its immediate wrapper, works in all of
+> these and is the reliable form."*
+
+**The first half is false**, and it sat directly beneath a bullet list whose
+first entry is the case where it fails — a list that says so two lines earlier.
+Verified by executing the published 1.10.2 tarball: marking a custom element
+inside a bound `<form>` returns the value in cleartext. The wrapper half is
+true.
+
+The reliable form is to **mark the element that carries the BINDING, or any
+ancestor of it** — discovery works outward from a secret control looking for a
+binding, so marking the binding's own element leaves nothing to discover. The
+note now says that, and names the old advice as wrong so anyone who followed it
+re-checks. `src/` ships in the tarball and this text renders on the doc site,
+so the wrong version was reaching readers both ways.
+
+### Added — `OBSERVER_SHOULD_BE_REMOVED`, which was unreachable
+
+Return it from an observer callback to retire that observer — the only teardown
+form usable from *inside* the callback, and the natural one for "stop when the
+thing I was updating is gone".
+
+It was implemented, handled, documented in a comment, and **exported from
+`path-listener.ts` and from no entry point**, so no consumer could import it
+([tosijs#45](https://github.com/tonioloewald/tosijs/issues/45)). Its absence was
+silent in the worst way: `return undefined` retires nothing, so the observer
+kept running against a detached node forever.
+
+Renamed from `observerShouldBeRemoved` to match every other exported constant
+here (`TOSI_ACCESSOR`, `BOUND_CLASS`, `TARGET_SIZE_DEFAULT`). The rename strands
+nobody — `exports` has no wildcard, so a deep import could never have resolved
+the old name, which is both why the gap existed and why it was invisible.
+
+**Gated, because the class is "a companion symbol nobody named":**
+`src/entries.test.ts` now asserts that anything required to *use* an export
+ships from every entry that ships the export.
+
+### Added — *Why `bind`, and when to use `observe`*
+
+A new documentation page under **binding**. The rule:
+
+> Using `observe` to persist a value is entirely legitimate. If you `observe`
+> and then shove something into the DOM, you are almost certainly adding code
+> and bugs for no good reason.
+
+`observe` is for reactions that touch **no DOM** — persist, sync, telemetry,
+process control, derived state. Everything else has an element to bind to, and
+`bind` accepts an arbitrary `toDOM` whose effect may land on a different node
+entirely, so the shapes people reach for `observe` for (a global CSS-variable
+write, a structural rebuild, handing state to a canvas) are all bindings.
+
+The page deliberately does not argue from a feature list — that framing is
+finite and closable. It argues that `bind` is one implementation refined over
+ten years across many environments, while every hand-rolled observer is a new
+one whose edge-case coverage is whatever its author thought of, and whose fixes
+reach nobody else.
+
+**Release totals** (v1.10.2 → this tag, Bun zlib, pasted from the build's own
+emitter at release-final state):
+
+| bundle | v1.10.2 | 1.10.3 | Δ |
+| --- | --- | --- | --- |
+| `index.js` | 29_327 | 29_370 | **+43** |
+| `module.js` | 45_018 | 45_046 | **+28** |
+| `main.js` | 45_302 | 45_329 | **+27** |
+| `core.js` | 26_732 | 26_763 | **+31** |
+| `state.js` | 16_811 | 16_856 | **+45** |
+| `module.debug.js` | 61_587 | 61_621 | **+34** |
+| `module.safe.js` | 61_439 | 61_477 | **+38** |
+
+Every bundle grows, because the new export is on the ordinary `observe` path
+and reaches `tosijs/state` too. ~30–45 bytes for a mechanism that previously
+could not be used at all.
+
+Pinned by `tests/bind-lifecycle.pw.ts` in real Chromium and Firefox — detaching
+an element *is* `bind`'s teardown; `bind` applies on setup and `observe` does
+not; all three teardown forms retire and stay retired. The proposal to make
+`observe` state a reason is
+[tosijs#44](https://github.com/tonioloewald/tosijs/issues/44).
+
 ## [1.10.2] - 2026-09-14
 
 ### Fixed — redaction is not deletion, and `secret` is not proximity
