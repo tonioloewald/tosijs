@@ -20,8 +20,14 @@ on an older line, the upgrade path is forward.
 
 | version | supported |
 | --- | --- |
-| 1.11.x | ✅ |
-| ≤ 1.10.x | ❌ — upgrade |
+| the current minor | ✅ |
+| anything older | ❌ — upgrade |
+
+(Deliberately not numbered. A hardcoded table here said `1.11.x ✅ / ≤ 1.10.x ❌`
+while the published `latest` was 1.10.2 — so the policy told every reporter their
+version was unsupported and pointed them at a release that did not exist. It
+shipped that way, because a renumber updated the two references further down this
+file and missed these two.)
 
 ## Scope, and what the agent surface changes about it
 

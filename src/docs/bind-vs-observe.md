@@ -112,9 +112,10 @@ changed — see below.
 
 ## Two things worth knowing either way
 
-**An unchanged scalar notifies nobody.** Assigning a value that `!==` the
-current one does not call `touch()` at all, so no binding runs, no observer
-fires, and the DOM is never written. This is why binding an `<input>` does not
+**An unchanged scalar notifies nobody.** `touch()` is only called when the new
+value `!==` the existing one — so assigning a value **equal** to the current one
+does nothing at all: no binding runs, no observer fires, and the DOM is never
+written. This is why binding an `<input>` does not
 disturb its selection. It is identity, not deep equality: assigning a
 deep-equal *object* does notify. It applies to every `toDOM`, so an expensive
 custom redraw is skipped for free.

@@ -155,9 +155,10 @@ bind(canvas, &#39;scene.time&#39;, { toDOM: (el, t) =&gt; renderFrame(el, t) })
 element goes away. The canvas one also stops redrawing when the value has not
 changed — see below.</p>
 <h2>Two things worth knowing either way</h2>
-<p><strong>An unchanged scalar notifies nobody.</strong> Assigning a value that <code>!==</code> the
-current one does not call <code>touch()</code> at all, so no binding runs, no observer
-fires, and the DOM is never written. This is why binding an <code>&lt;input&gt;</code> does not
+<p><strong>An unchanged scalar notifies nobody.</strong> <code>touch()</code> is only called when the new
+value <code>!==</code> the existing one — so assigning a value <strong>equal</strong> to the current one
+does nothing at all: no binding runs, no observer fires, and the DOM is never
+written. This is why binding an <code>&lt;input&gt;</code> does not
 disturb its selection. It is identity, not deep equality: assigning a
 deep-equal <em>object</em> does notify. It applies to every <code>toDOM</code>, so an expensive
 custom redraw is skipped for free.</p>

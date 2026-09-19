@@ -140,13 +140,16 @@ alternative is a window in which it isn't.
 > there is nothing to discover.
 >
 > ⚠️ A previous version of this note said *"marking the control itself, or its
-> immediate wrapper, works in all of these"*. **The first half is false, and it
-> shipped in 1.10.2.** Verified by execution against the published build:
-> marking a custom element (bullet one) returns `'hunter2'` in cleartext,
-> because the marker is only a *hint to discovery* and discovery is exactly
-> what fails there — an explicit marker is weaker than the heuristic, which
-> that bullet already said two lines above. The wrapper half is true. If you
-> followed the old advice on a custom element, re-check it.
+> immediate wrapper, works in all of these"*. **The first half is false in ALL
+> THREE shapes above, and it shipped in 1.10.2.** Verified by executing the
+> published build: marking the control returns the value in cleartext for the
+> custom element, the shadow component *and* the two-levels-up container. The
+> marker is only a *hint to discovery*, and discovery is precisely what fails in
+> each of these — an explicit marker is weaker than the heuristic, which bullet
+> one already said. The "immediate wrapper" half is true only where that
+> wrapper happens to BE the bound element, which is the rule above stated in a
+> way that holds by accident. **If you marked a control on the strength of the
+> old advice, re-check it.**
 
 **What this is for, and what it is not.** It is not a defence against script
 running in your page — that code can read the state directly and never asks

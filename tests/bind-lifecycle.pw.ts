@@ -196,3 +196,53 @@ test('an observer can be retired — all three forms, incl. the symbol (tosijs#4
   expect(r.symbolReachable).toBe(true)
   expect(r.round2.magic).toBe(0)
 })
+
+test('an unchanged scalar notifies nobody — identity, not deep equality', async ({
+  page,
+}) => {
+  /*
+   * The doc page asserted this in PROSE and got the condition backwards — it
+   * said assigning a value that `!==` the current one does nothing, when
+   * `!==` is precisely what fires `touch()` (src/xin.ts:1116, :1436). Caught
+   * by review, in the page written to stop the library stating untruths.
+   *
+   * Prose cannot be wrong in the same direction as a passing test, so the
+   * claim is pinned here now: both halves of it, including the deliberate
+   * identity-vs-deep-equality asymmetry.
+   */
+  const r = await withModule(
+    page,
+    `(async () => {
+      const { tosi, elements, bind, updates } =
+        await import('/__tosi-test/module.js')
+      const { nz } = tosi({ nz: { s: 'SAME', o: { k: 1 } } })
+      await updates()
+
+      let scalarRuns = 0, objectRuns = 0
+      const a = elements.div(), b = elements.div()
+      document.body.append(a, b)
+      bind(a, 'nz.s', { toDOM: () => { scalarRuns++ } })
+      bind(b, 'nz.o', { toDOM: () => { objectRuns++ } })
+      await updates()
+
+      const s0 = scalarRuns, o0 = objectRuns
+      nz.s.value = 'SAME'              // identical scalar -> no touch
+      await updates()
+      const afterNoop = scalarRuns - s0
+
+      nz.s.value = 'DIFFERENT'         // a real change -> one update
+      await updates()
+      const afterChange = scalarRuns - s0 - afterNoop
+
+      nz.o.value = { k: 1 }            // deep-equal but a NEW object -> DOES fire
+      await updates()
+      const afterDeepEqualObject = objectRuns - o0
+
+      return { afterNoop, afterChange, afterDeepEqualObject }
+    })()`
+  )
+
+  expect(r.afterNoop).toBe(0) // the heading: an unchanged scalar notifies nobody
+  expect(r.afterChange).toBeGreaterThan(0) // ...and a real change still does
+  expect(r.afterDeepEqualObject).toBeGreaterThan(0) // identity, not deep equality
+})

@@ -18,11 +18,21 @@ throughout; nothing is removed and no behaviour changes.
 > *"Marking the control itself, or its immediate wrapper, works in all of
 > these and is the reliable form."*
 
-**The first half is false**, and it sat directly beneath a bullet list whose
-first entry is the case where it fails — a list that says so two lines earlier.
-Verified by executing the published 1.10.2 tarball: marking a custom element
-inside a bound `<form>` returns the value in cleartext. The wrapper half is
-true.
+**The first half is false, and worse than the bullet list implied** — it sat
+directly beneath a list whose first entry is a case where it fails, a list that
+says so two lines earlier. Executed against the published 1.10.2 tarball,
+marking the control itself returns the value in cleartext in **all three**
+known-uncovered shapes, not just the first:
+
+| shape | mark the CONTROL (old advice) | mark the BINDING's element (new) |
+| --- | --- | --- |
+| custom element in a bound `<form>` | ❌ cleartext | ✅ withheld |
+| shadow component w/ password, bound `<form>` | ❌ cleartext | ✅ withheld |
+| light-DOM container 2+ levels up | ❌ cleartext | ✅ withheld |
+
+The "or its immediate wrapper" half of the old advice is true where the wrapper
+*is* the bound element — which is exactly the new rule, stated in a way that
+only happens to hold sometimes.
 
 The reliable form is to **mark the element that carries the BINDING, or any
 ancestor of it** — discovery works outward from a secret control looking for a
