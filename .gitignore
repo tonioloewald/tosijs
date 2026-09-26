@@ -150,3 +150,6 @@ docs/*.map
 
 # macOS drops this into any indexed dir; it must not ride the npm tarball
 dist/.metadata_never_index
+
+# the publish workflow checks tosijs-coding-practices out here
+/.practices/

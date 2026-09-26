@@ -13,6 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
       - run: bun test
       # FORMATTING IS A GATE NOW. `.prettierignore` used to admit the vendored
@@ -36,6 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
 
       # The dev server serves HTTPS and won't start without a cert. A throwaway
