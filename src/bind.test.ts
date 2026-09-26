@@ -2,7 +2,13 @@ import { test, expect, describe } from 'bun:test'
 import { tosi } from './xin-proxy'
 import { elements, svgElements, bindParts } from './elements'
 import { updates, touch } from './path-listener'
-import { on, bind, touchElement, hydrateInsertedSubtree } from './bind'
+import {
+  on,
+  bind,
+  touchElement,
+  hydrateInsertedSubtree,
+  _resetShadowWarning,
+} from './bind'
 import { bindings } from './bindings'
 
 test('element binding works', async () => {
@@ -394,6 +400,8 @@ test('bindParts works on SVG elements', async () => {
 })
 
 test('bind() on an element already inside a shadow root warns', () => {
+  // the latch is once-per-process; another file may already have spent it
+  _resetShadowWarning()
   const host = document.createElement('div')
   document.body.append(host)
   const shadow = host.attachShadow({ mode: 'open' })

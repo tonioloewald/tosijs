@@ -1,6 +1,12 @@
 import { test, expect } from 'bun:test'
 import { existsSync } from 'node:fs'
 
+// The local compiler, NOT `npx tsc`: these gates assert tsc's output is EMPTY,
+// and npx routes through npm, which prints its own warnings into it. On the
+// GitHub runner, setup-node's `.npmrc` made npm 11 print `Unknown user config
+// "always-auth"` — three compile-clean gates failed on an npm config notice.
+const TSC = `${process.cwd()}/node_modules/.bin/tsc`
+
 /*
  * THE PUBLIC TYPE SURFACE MUST BE IMPORTABLE — CHECKED BY THE COMPILER,
  * AGAINST THE BUILT ARTIFACT.
@@ -67,8 +73,7 @@ export { _notAny, _notAnyPath, _notAnyObserve, _btn, _fn }
   await Bun.write(probePath, probe)
   const result = Bun.spawnSync(
     [
-      'npx',
-      'tsc',
+      TSC,
       '--noEmit',
       '--strict',
       '--target',
@@ -149,8 +154,7 @@ export { _a, _d, _s }
   await Bun.write(probePath, probe)
   const result = Bun.spawnSync(
     [
-      'npx',
-      'tsc',
+      TSC,
       '--noEmit',
       '--strict',
       '--target',
@@ -249,8 +253,7 @@ export { a, b, off, off2, off3, bindings, Probe, ProbeSingle }
     await Bun.write(probePath, probe)
     const result = Bun.spawnSync(
       [
-        'npx',
-        'tsc',
+        TSC,
         '--noEmit',
         '--strict',
         '--target',
@@ -339,8 +342,7 @@ test.skipIf(!existsSync('dist/index.d.ts'))(
 
     const result = Bun.spawnSync(
       [
-        'npx',
-        'tsc',
+        TSC,
         '--noEmit',
         '--strict',
         '--target',

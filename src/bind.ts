@@ -677,6 +677,16 @@ function bindTake<T extends Element>(
 // via composedPath.) The failure used to be SILENT — warn at the point of
 // misuse instead. Once per session: the trap, not every element in it.
 let warnedShadowedBinding = false
+/**
+ * Re-arm the once-per-session shadow warning (testing only). The latch is
+ * process-wide, so whichever test FIRST binds inside a shadow root spends it —
+ * and which one that is depends on the order Bun runs test files, which
+ * differs between macOS and Linux. The assertion that the warning fires then
+ * passed on one OS and failed on the other.
+ */
+export function _resetShadowWarning(): void {
+  warnedShadowedBinding = false
+}
 export const warnIfShadowed = (element: Element, what: string): void => {
   if (warnedShadowedBinding) return
   if (
