@@ -73,17 +73,15 @@ majors were fixed before the tag; these are the remainder.
       returns the value, not `⟨secret⟩`. What actually works: mark the element
       that **carries the binding**, or any ancestor of it. Rewrite to that
       rule; keep the bullet list as the honest disclosure.
-- [ ] **Under a manifest, the structural tier publishes heading text and
-      `aria-label` from anywhere on the page.** `contentWithheld()`'s scope arm
-      iterates `subtreeBindingPaths(node)`, so for an *unbound* element the
-      loop body never runs and it returns "publish". An unbound
-      `h2('Reset token: sk-live-123')` is published while `read()` on the same
-      path correctly refuses. Pre-existing since 1.9.0. **Decide and write it
-      down** — failing closed would withhold all unbound structural text under
-      the production posture — then fix the CHANGELOG's flat claim that "the
-      structural tier obeys scope, secrecy and `aria-hidden`" either way.
-      (`reviews/1.9.0-preminor-round2.md` filed the identical mechanism and it
-      was never carried forward. This is the second drop.)
+- [x] **DONE (b17d53d): under a manifest, the structural tier publishes
+      unbound heading text.** DECIDED, not fixed: unbound text has no path, so
+      scope has nothing to ask; failing closed would withhold the page's
+      structure. Written into *Secrets* (`src/agent.ts`) and the CHANGELOG,
+      correcting 1.9.0's flat "obeys scope" claim. The half that WAS a defect —
+      a scope-withheld bound heading carried no `textWithheld` mark — is fixed.
+      Pinned in the unit suite and by `tests/structural-scope.pw.ts` (real
+      geometry). The author-side non-markup control is the `withhold` manifest
+      item under 1.12.0 above.
 - [ ] **`deepHas` runs a full subtree enumeration per described element with
       no early exit**, and every wiring record now pays it since
       `suppressHarvest` was hoisted. `deepQueryAll` unconditionally runs both
