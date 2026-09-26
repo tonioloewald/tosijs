@@ -6,7 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [Unreleased]
+## [1.10.4] - 2026-09-26
+
+One fix, one boundary written down, and the first release through the new
+publish workflow. Additive; no behaviour a consumer relies on changes.
 
 ### Fixed
 
@@ -27,6 +30,38 @@ a documented decision, not an oversight: withholding every unbound heading
 would withhold the page's structure. To keep authored text out, bind it or mark
 the heading `data-tosi-secret` / `aria-hidden`. See *Secrets* in the agent
 surface docs.
+
+### Changed — packaging
+
+- **`src/index-iife.ts` no longer ships.** It is the doc site's bundle entry,
+  not a package entry, and was in the tarball only because `/src` is in
+  `files` — importing `tosijs-ui`, which is a devDependency. Nothing exported
+  or mapped references it.
+
+### Internal — how releases are made
+
+- Published through `.github/workflows/publish.yml` (OIDC trusted publishing +
+  npm staged publishing): CI rebuilds from the tag and must reproduce every
+  shipped file byte-for-byte, checks the tarball against a local test
+  attestation, and stages; the maintainer approves with 2FA. `.bun-version`
+  pins the Bun the committed `dist/` is built with.
+- Two tests only passed on macOS, found by the workflow's first dry run: the
+  type-surface gates captured an npm warning as `tsc` errors (they now run the
+  local `tsc`), and the shadow-root `bind()` warning test depended on test-file
+  order to find a once-per-process latch unspent.
+
+**Release totals** (v1.10.3 → this tag, Bun zlib, pasted from the build's own
+emitter at release-final state):
+
+| bundle | v1.10.3 | 1.10.4 | Δ |
+| --- | --- | --- | --- |
+| `index.js` | 29_370 | 29_364 | **-6** |
+| `module.js` | 45_046 | 45_074 | **+28** |
+| `main.js` | 45_329 | 45_334 | **+5** |
+| `core.js` | 26_763 | 26_761 | **-2** |
+| `state.js` | 16_856 | 16_858 | **+2** |
+| `module.debug.js` | 61_611 | 61_692 | **+81** |
+| `module.safe.js` | 61_467 | 61_550 | **+83** |
 
 ## [1.10.3] - 2026-09-19
 
