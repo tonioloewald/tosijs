@@ -62,6 +62,12 @@
     "prepublishOnly": "bun bin/check-publish-tag.ts",
     "format:check": "bun prettier --check ."
   },
+  "releaseDoctor": {
+    "attestedLanes": [
+      "test",
+      "test:browser"
+    ]
+  },
   "author": "Tonio Loewald",
   "license": "Apache-2.0",
   "devDependencies": {
@@ -98,6 +104,7 @@
     "/src",
     "!/src/**/*.test.ts",
     "!/src/**/.*",
+    "!/src/index-iife.ts",
     "/SECURITY.md",
     "/LICENSE",
     "/NOTICE",
