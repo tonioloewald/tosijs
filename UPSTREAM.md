@@ -532,7 +532,7 @@ lives here** in `tests/doc-tests.pw.ts` — delete it when the upstream lands.
 it travels. Array unification behaves as asked. devDep bumped to `^1.6.0`;
 tosijs's contract suite is green against it. Integration into `describe()`
 is post-1.8.0 (tosijs is zero-runtime-dependency, so the app owns the
-engine) — see TODO.md § 2.0 / tjs.
+engine) — see `reviews/TODO-archive-2026-09-26.md` § 2.0 / tjs.
 Requested by tosijs-ui's schema-powered form editor; tosijs is the third
 consumer. It is the adoption half of tjs-lang#27: contracts today are
 DECLARED (a cliff — nothing until someone writes a schema), and inference
@@ -779,7 +779,7 @@ So, deliberately, for 1.8.0:
 
   So the bump is unblocked and always was. It is deferred now for one honest
   reason only — it is a build-host change and 1.8.0 is mid-release — and it is
-  reopened as work rather than closed as a decision (`TODO.md` E1).
+  reopened as work rather than closed as a decision (`reviews/TODO-archive-2026-09-26.md` E1).
 
 - **The `tosijs-2.0` port branch stays on hold** (it already was). When it
   resumes, the 0.13.0 ergonomics ARE the experiment: re-walk `by-path.tjs`

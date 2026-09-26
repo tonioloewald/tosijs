@@ -82,7 +82,7 @@ the control; the redaction described below is defence in depth beneath it.
 > for the case where a description **leaves the origin** (a model-context host
 > receiving `tosi_describe`); against anything running *in* the page it buys
 > you nothing. A rename, and a way to declare withholding in code rather than
-> in markup, are tracked in `TODO.md`.
+> in markup, are planned for 1.12.0.
 
 A path bound to a password field, a `cc-*` autocomplete, a hidden CSRF token,
 or anything you mark `data-tosi-secret` is withheld — it reads back as the
@@ -1201,8 +1201,8 @@ const isSecretPath = (path: string): boolean => {
     if (secretPaths.has(ancestor)) return true
   }
   if (indexSpellingAliasesSecret(path, true)) return true
-  // ⚠️ NARROWED, NOT CLOSED — tosijs#32, and TODO.md "Agent surface —
-  // secret-path matching is spelling-sensitive". Matching is by SPELLING and
+  // ⚠️ NARROWED, NOT CLOSED — tosijs#32 (history: reviews/TODO-archive-2026-09-26.md
+  // "Agent surface — secret-path matching is spelling-sensitive"). Matching is by SPELLING and
   // the rule above is a conservative containment, not canonicalisation. An
   // earlier version of this comment claimed ancestor descent was fully
   // covered; that was FALSE, and it was load-bearing — it was the stated
