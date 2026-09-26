@@ -811,7 +811,7 @@ export const elementSet = (elt: HTMLElement, key: string, value: any) => {
     // and friends are functions too, so testing `typeof existing` there would
     // hijack every ordinary handler.
     //
-    // Known sharp edge (tracked in TODO.md): this reads the member off the
+    // Known sharp edge (tracked on the tosijs task board): this reads the member off the
     // INSTANCE, so it depends on the element having been upgraded. A
     // component delivered by `<tosi-blueprint>` and created before
     // `customElements.define` runs sees `undefined` here and takes the sugar

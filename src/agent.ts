@@ -1312,7 +1312,7 @@ const SECRET_CONTROL_SELECTOR = [
  * them `[autocomplete^=…]` prefix matches no engine can bucket. A cheaper scan
  * that is still correct — narrowing to bound elements, or checking secrecy at
  * the point a path is read rather than sweeping the document — would be a real
- * improvement. Tracked in TODO.md.
+ * improvement. Tracked on the tosijs task board.
  *
  * Two lessons in one comment: do not benchmark a DOM operation in happy-dom,
  * and do not write a number into a comment phrased to close future argument.

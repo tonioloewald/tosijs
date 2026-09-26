@@ -285,7 +285,7 @@ let loadModule = (src: string): Promise<any> => import(src)
 // nobody. Everything else is allowed by default: CDN-hosted blueprints are the
 // documented use case, and `settings.blueprintSrcCheck` is how an app that
 // doesn't want them says so. (2.0 candidate: flip the default to same-origin —
-// see TODO.md.)
+// tracked on the tosijs task board.)
 const REFUSED_SCHEMES = ['javascript', 'data', 'vbscript']
 
 // Browsers ignore ASCII whitespace and control characters inside a scheme, so

@@ -46,9 +46,17 @@ test('structural headings under a manifest: bound is withheld and marked, unboun
     const marked = elements.h2({ id: 'st-marked' }, 'MARKED-STRUCT')
     marked.setAttribute('data-tosi-secret', '')
     const plain = elements.h2({ id: 'st-plain' }, 'Plain Section')
-    const wrap = elements.div(bound, copied, marked, plain)
+    const hidden = elements.h2(
+      { id: 'st-hidden', 'aria-hidden': 'true' },
+      'HIDDEN-STRUCT'
+    )
+    // a LANDMARK holding a child bound to the undeclared path
+    const leaf = elements.span()
+    const landmark = elements.section({ id: 'st-section' }, 'Key: ', leaf)
+    const wrap = elements.div(bound, copied, marked, plain, hidden, landmark)
     document.body.append(wrap)
     bind(bound, 'stPriv.key', bindings.text)
+    bind(leaf, 'stPriv.key', bindings.text)
     await updates()
 
     const agent = enableAgentInterface({
@@ -77,4 +85,9 @@ test('structural headings under a manifest: bound is withheld and marked, unboun
   // the author's marker still withholds unbound text
   expect(json).not.toContain('MARKED-STRUCT')
   expect(byId('st-marked')?.textWithheld).toBe(true)
+  // aria-hidden: hidden from assistive tech means hidden here, in a real engine
+  expect(json).not.toContain('HIDDEN-STRUCT')
+  // the landmark is mapped, but carries none of its bound child's value
+  expect(byId('st-section')).toBeDefined()
+  expect(JSON.stringify(byId('st-section'))).not.toContain('sk-BROWSER-STRUCT')
 })

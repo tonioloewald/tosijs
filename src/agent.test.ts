@@ -1338,13 +1338,17 @@ describe('the posture: safe by default, full access behind one line', () => {
       'HIDDEN-STRUCT'
     )
     const plain = elements.h2({ id: 's-plain' }, 'Ordinary Section')
-    document.body.append(bad, good, laundered, hidden, plain)
+    // the binding sits on a CHILD: scope must see it through the subtree
+    const inner = elements.span()
+    const contained = elements.h2({ id: 's-contained' }, 'Key: ', inner)
+    document.body.append(bad, good, laundered, hidden, plain, contained)
     bind(bad, 'sPriv.key', bindings.text)
+    bind(inner, 'sPriv.key', bindings.text)
     bind(good, 'sPub.title', bindings.text)
     await updates()
     // happy-dom reports zero-size rects, which suppresses this tier here and
     // in no real browser — the leak was invisible locally for that reason
-    for (const el of [bad, good, laundered, hidden, plain]) {
+    for (const el of [bad, good, laundered, hidden, plain, contained]) {
       Object.defineProperty(el, 'getBoundingClientRect', {
         value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
         configurable: true,
@@ -1373,6 +1377,10 @@ describe('the posture: safe by default, full access behind one line', () => {
     const records = agent.describe().wiring
     const byId = (id: string) => records.find((r) => r.id === id)
     expect(byId('s-bad')?.textWithheld).toBe(true)
+    // on the map, withheld, and marked — not absent
+    expect(byId('s-contained')).toBeDefined()
+    expect(byId('s-contained')?.text).toBeUndefined()
+    expect(byId('s-contained')?.textWithheld).toBe(true)
     expect(byId('s-plain')?.textWithheld).toBeUndefined()
   })
 

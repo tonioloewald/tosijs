@@ -16,7 +16,9 @@ publish workflow. Additive; no behaviour a consumer relies on changes.
 - **A heading whose text scope withheld now says so.** Under a manifest, a
   structural-tier heading bound to an undeclared path correctly published no
   text, but carried no mark, so a consumer could not tell withheld from empty.
-  It now carries `textWithheld: true`, as every other suppressed harvest does.
+  It now carries `textWithheld: true`, as every other suppressed harvest does
+  — and so does a heading whose text any content guard withheld (a
+  `data-tosi-secret` mark, a bound child), not only scope.
   Filed in the 1.9.0 round-2 review and dropped twice since.
 
 ### Documented — what scope does NOT cover in `describe()`
