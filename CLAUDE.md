@@ -132,10 +132,12 @@ publish (tosijs-ui#130).** `buildSite()`'s prebuild runs `rm -rf dist` on every
 run, dev server included, and a dev run rebuilds only five of the seven
 bundles: `dist/module.debug.js` and `dist/module.safe.js` are `--build`-only.
 `package.json` still exports `./debug` and `./safe`, so a publish from that tree
-ships two subpaths that throw `ERR_MODULE_NOT_FOUND`. **The release checklist
-walks straight into it** — step 3 builds, step 4 (`bun run test:browser`) starts
-a dev server via Playwright's `webServer` and deletes them, step 8 publishes.
-**Re-run `bun run build` after the browser lane, before committing.** This is
+ships two subpaths that throw `ERR_MODULE_NOT_FOUND`. **The old manual release
+checklist walked straight into it** — build, then `bun run test:browser` (whose
+Playwright `webServer` is a dev server) deleted them, then publish. Since the
+publish workflow (2026-09-26) it cannot reach npm: CI publishes what it rebuilt
+from the tag, and requires every shipped file to reproduce. It still bites local
+work: **re-run `bun run build` after the browser lane, before committing.** This is
 now *more* important, not less: `buildLibrary()` restores the **committed**
 copies of anything a dev run deleted, so the tree stays valid — but those
 copies can be older than your source, and the restore makes that staleness
@@ -611,23 +613,21 @@ THAT project; GitHub issues remain for external reporters and repos not on the b
 
 ## Releasing
 
-There is no CI publish workflow — releases are cut locally, and the built
-`dist/` and `docs/` are committed to the repo (so a release commit includes
-regenerated bundles). To cut a release:
+Releases publish through **`.github/workflows/publish.yml`** (the shared template from
+`tosijs-coding-practices`, adopted 2026-09-26): OIDC trusted publishing plus npm **staged**
+publishing. The workflow can only *stage*; the owner's 2FA approval on npmjs.com publishes.
+**The suites run LOCALLY and are attested**, not re-run in CI (owner's preference: test
+locally, attest the checksummed build product). `releaseDoctor.attestedLanes` in
+`package.json` names them (`test`, `test:browser`). The built `dist/` and `docs/` are still
+committed, and CI must reproduce every shipped file byte-for-byte from the tag.
+Authoritative: `../tosijs-coding-practices/practices/publishing-via-oidc.md`.
 
 1. Bump `version` in `package.json` (semver).
 2. Add an entry to `CHANGELOG.md` (Keep a Changelog format) under the new version.
-3. `bun run build` — runs tests, stamps `src/version.ts`, and regenerates `dist/` + `docs/`.
-4. `bun run test:browser` — the Playwright doc-test lane (`playwright test`). Runs the
-   inline ```test doc fences through real Chromium + Firefox (behaviors happy-dom can't
-do). Playwright starts its own dev server on a dedicated port (`playwright.config.ts`webServer,`HALTIJA_DEV=0`), so no port collisions and no `bun start` needed. **`bun
-   run build` does NOT run this** — it's a separate, mandatory gate for any release that
-touches DOM behavior. Also runs in CI (`.github/workflows/ci.yml`). First run
-downloads browsers (`bunx playwright install chromium firefox`). The haltija
-doc-fence lane (`bun bin/site.ts --test`) still exists for local living-docs, but is
-not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` path
-   delegates to Playwright anyway).
-5. `bun run stamps --max-age 60` — **re-survey the perishable claims.** Facts about
+3. `bun run build` — runs the unit suite, stamps `src/version.ts`, and regenerates `dist/` +
+   `docs/`. Refuses to run on any Bun but `.bun-version`'s: a different Bun builds a
+   different `dist/`, which the publish workflow rejects.
+4. `bun run stamps --max-age 60` — **re-survey the perishable claims.** Facts about
    the outside world (browser versions, what a competitor ships, a spec's status) are
    stamped `<!-- as-of: YYYY-MM-DD | … -->` rather than continuously maintained, because
    nothing in the build can generate or check them. This lists them by age and exits
@@ -636,26 +636,35 @@ not the release gate — see UPSTREAM.md haltija#6 for why (its `--headless` pat
    against the previous survey** — rewrite it as a fresh statement and let git hold the
    history. (Deliberately NOT a `bun run build` gate: a stale doc is not a broken build,
    and failing the build over it would train everyone to bypass it.)
-6. Commit everything with a `vX.Y.Z: <summary>` message and tag `vX.Y.Z` (lightweight tag).
-7. `git push` and `git push --tags`.
-8. `npm publish`. **`files` publishes `dist/`, `/src` (minus `*.test.ts` and
+5. Commit everything with a `vX.Y.Z: <summary>` message and push. **Commit before any
+   browser lane runs**: it reads the COMMITTED `dist/` (see the browser-lane caveat above).
+6. **Dry-run the workflow before tagging**: `gh workflow run publish.yml -f tag=main -f
+   dry_run=true`. Every check up to staging, no tag to move if it fails. Without an
+   attestation the lanes run in CI and `test:browser` fails there (no TLS certs or
+   browsers): read that one as expected, and the rest as real.
+7. **Attest**: `bun ../tosijs-coding-practices/tools/attest.ts` on the clean release commit
+   (the sibling checkout, pulled). It runs `test` and `test:browser` (real Chromium +
+   Firefox, Playwright starting its own dev server) and writes `release-attestation.json`
+   with the sha256 of every shipped file. The dev server rewrites `docs/version.json` and
+   the ePub; neither ships, so attest warns and carries on — `git checkout docs/` them.
+   Commit **only** `release-attestation.json` (`attest: vX.Y.Z`), tag **that** commit
+   `vX.Y.Z` (lightweight), `git push && git push --tags`. `attest.ts --verify` checks it.
+8. `gh workflow run publish.yml -f tag=vX.Y.Z`. The run checks tag == version, rebuilds
+   and requires every shipped file unchanged, packs, verifies the tarball against the
+   attestation, smoke-tests it, runs `release-doctor`, then **stages**. The dist-tag
+   comes from the version (`-rc.N` → `rc`, …), never from a flag.
+   8b. **The owner approves** at npmjs.com → tosijs → Staged Packages (2FA; works from a
+   phone). The run waits 60 minutes, then verifies the published integrity, the
+   dist-tags and a consumer smoke test **against the registry's copy**. Approved later?
+   Re-run with `verify_only` ticked. **A green run is the "published and verified"
+   statement**: read the run, don't re-derive it by polling npm.
+   **`files` publishes `dist/`, `/src` (minus `*.test.ts`, the doc-site entry `index-iife.ts` and
    dotfiles), `LICENSE`, `NOTICE`, `README.md`, `CHANGELOG.md` and `llms.txt`.**
    `/src` is there since 1.10.2 because the shipped source maps no longer inline
    `sourcesContent` — they resolve `../src/foo.ts` against the packed tree
    instead, which took the tarball from 4.51 MB to 2.51 MB and gives consumers a
    readable source. **Consequence worth internalising: a scratch file, fixture
    or credential left in `src/` NOW SHIPS.** It did not before.
-   For a **prerelease**, `npm publish --tag rc` (or `beta`) so `latest` is not moved.
-   `prepublishOnly` now refuses a prerelease with no tag, but the flag is still
-   yours to pass.
-   8b. **`npm view tosijs dist-tags` — did `latest` move, and did you mean it to?**
-   This is not optional and it is not paranoia: 1.8.0-rc.2 published without the
-   flag, npm moved `latest` to a release candidate, and it was found because
-   someone happened to look. Ten seconds here.
-   8c. **Install what you published and run it** — `bun add tosijs@<tag>` in a scratch
-   dir, import it, exercise the headline feature. The tarball is not the repo; a
-   `files` mistake or a shaken-away export is invisible until you execute the
-   artifact.
 9. Add the release row to the shared scoreboard in `../tosijs-coding-practices`.
 
 > **This list is a SUMMARY.** `../tosijs-coding-practices/practices/releasing.md`
