@@ -597,7 +597,17 @@ too, including the Enter-commit doctrine and the `sideEffects`-array trap.
 
 ## Issue Tracking
 
-Open tasks and known issues are tracked in `TODO.md` at the project root.
+**Tasks live on the virta board**: <https://virta.tosijs.net/host/#?virta.scope=tosijs>
+(onboarded 2026-09-26). Use the `virta` CLI / MCP, writing as `Tosi × tosijs`; the
+SessionStart hook runs `virta brief`, and each message runs `virta brief --changes`.
+`ready` is the owner's go-ahead: agents put work in the backlog and let the owner promote it.
+`TODO.md` is a pointer now and `UPSTREAM.md` a record: don't add tasks to either (a list item
+in `TODO.md` would be imported as a task). Asks of another project on the board are tasks in
+THAT project; GitHub issues remain for external reporters and repos not on the board.
+
+- `DECISIONS.md` — settled design decisions and why; read before re-proposing one
+- `reviews/TODO-archive-2026-09-26.md` — the pre-board backlog, verbatim: evidence,
+  measurements, review ledgers. Read it before re-deriving anything.
 
 ## Releasing
 
