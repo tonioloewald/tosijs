@@ -209,6 +209,23 @@ known gap is narrower: exotic spellings of a <em>direct</em> query that no
 canonicalisation resolves. Treat the redaction as defence in depth beneath
 manifest scoping, not as the boundary itself.</p>
 </blockquote>
+<blockquote>
+<p><strong>Scope withholds what tosijs can trace to a path — not text you wrote into
+the page.</strong> Under a manifest, <code>describe()</code>&#39;s structural tier maps headings and
+landmarks. A heading <strong>bound</strong> to an undeclared path (or containing such a
+binding) publishes no text, and its record carries <code>textWithheld: true</code> so the
+absence reads as withheld rather than empty. An <strong>unbound</strong> heading&#39;s text is
+published: it has no path, so there is nothing for scope to check —
+including when the text was interpolated from state at creation time:</p>
+<pre><code>h2(`Reset token: ${app.token.value}`)   // published: a copy, not a binding
+h2({ bindText: &#39;app.token&#39; })          // withheld: scope sees the path
+</code></pre>
+<p>This is deliberate. Withholding every unbound heading under a manifest would
+withhold the page&#39;s structure, which is most of what makes the map useful.
+To keep authored text out, bind it, or mark the heading <code>data-tosi-secret</code> or
+<code>aria-hidden</code>. <code>describe({ structure: false })</code> is <strong>not</strong> an author control —
+it is the describing caller&#39;s option.</p>
+</blockquote>
 <p>One call is the whole story: where the browser provides a WebMCP host
 (<code>document.modelContext</code>), <code>enableAgentInterface()</code> also registers the
 generated tool set automatically — <code>agent.webmcp</code> is the receipt, and

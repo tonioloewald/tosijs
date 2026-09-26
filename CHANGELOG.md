@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Fixed
+
+- **A heading whose text scope withheld now says so.** Under a manifest, a
+  structural-tier heading bound to an undeclared path correctly published no
+  text, but carried no mark, so a consumer could not tell withheld from empty.
+  It now carries `textWithheld: true`, as every other suppressed harvest does.
+  Filed in the 1.9.0 round-2 review and dropped twice since.
+
+### Documented — what scope does NOT cover in `describe()`
+
+1.9.0's entry said flatly *"the structural tier obeys scope, secrecy and
+`aria-hidden`"*. Secrecy and `aria-hidden` hold unconditionally; **scope holds
+only for text tosijs can trace to a path.** An unbound heading's text is
+published under a manifest, including text interpolated from state at creation
+time (`` h2(`Token: ${app.t.value}`) `` is a copy, not a binding). That is now
+a documented decision, not an oversight: withholding every unbound heading
+would withhold the page's structure. To keep authored text out, bind it or mark
+the heading `data-tosi-secret` / `aria-hidden`. See *Secrets* in the agent
+surface docs.
+
 ## [1.10.3] - 2026-09-19
 
 Two things 1.10.2 told you that were not true, and one new export. Additive

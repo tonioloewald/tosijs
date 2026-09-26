@@ -181,6 +181,23 @@ nothing outside can bind into one either.
 > canonicalisation resolves. Treat the redaction as defence in depth beneath
 > manifest scoping, not as the boundary itself.
 
+> **Scope withholds what tosijs can trace to a path — not text you wrote into
+> the page.** Under a manifest, `describe()`'s structural tier maps headings and
+> landmarks. A heading **bound** to an undeclared path (or containing such a
+> binding) publishes no text, and its record carries `textWithheld: true` so the
+> absence reads as withheld rather than empty. An **unbound** heading's text is
+> published: it has no path, so there is nothing for scope to check —
+> including when the text was interpolated from state at creation time:
+>
+>     h2(`Reset token: ${app.token.value}`)   // published: a copy, not a binding
+>     h2({ bindText: 'app.token' })          // withheld: scope sees the path
+>
+> This is deliberate. Withholding every unbound heading under a manifest would
+> withhold the page's structure, which is most of what makes the map useful.
+> To keep authored text out, bind it, or mark the heading `data-tosi-secret` or
+> `aria-hidden`. `describe({ structure: false })` is **not** an author control —
+> it is the describing caller's option.
+
 One call is the whole story: where the browser provides a WebMCP host
 (`document.modelContext`), `enableAgentInterface()` also registers the
 generated tool set automatically — `agent.webmcp` is the receipt, and
@@ -2929,14 +2946,33 @@ export function enableAgentInterface(
             record.structural = true
             const structuralPaths = bindingPathsOf(el)
             const heading = /^H[1-6]$/.test(el.tagName)
-            if (
+            /*
+             * WHAT SCOPE CAN AND CANNOT SEE HERE — decided, not overlooked.
+             *
+             * Scope governs STATE: it withholds text that tosijs can trace to
+             * a path, i.e. a heading carrying a binding (or containing one).
+             * An UNBOUND heading's text was written into the markup, or
+             * interpolated at creation time — `h2(\`Token: ${app.t.value}\`)`
+             * — and has no path, so there is nothing for scope to ask. It is
+             * published as the page's authored structure, like `aria-label`.
+             *
+             * Failing closed instead would withhold every heading under the
+             * production posture, which is the map. The author's controls are
+             * `data-tosi-secret` / `aria-hidden` on the heading (TODO: a
+             * non-markup `withhold` channel in the manifest). `structure:
+             * false` is NOT one: it is the describing caller's option.
+             */
+            const textBlocked =
               heading &&
               record.text === undefined &&
               // SCOPE: a heading bound to an undeclared path must not print
               // the value `read()` refuses on that same path
-              !suppressHarvest(el, record, structuralPaths) &&
-              !contentWithheld(el)
-            ) {
+              (suppressHarvest(el, record, structuralPaths) ||
+                contentWithheld(el))
+            // withheld must not read as absent: without the mark, a heading
+            // whose text scope refused was indistinguishable from an empty one
+            if (textBlocked) record.textWithheld = true
+            if (heading && record.text === undefined && !textBlocked) {
               // stripArrows like the other three text harvests (2234, 2255,
               // 2296). This was the one exception, under a docstring saying
               // there is none — inert, because a structural record is ground

@@ -1368,6 +1368,54 @@ describe('the posture: safe by default, full access behind one line', () => {
     // still describes. Without these the three above pass on an empty map.
     expect(json).toContain('Ordinary Section')
     expect(json).toContain('Public Title')
+    // WITHHELD IS NOT ABSENT: the scope-refused heading says its text was
+    // withheld; the ordinary one, whose text is present, does not
+    const records = agent.describe().wiring
+    const byId = (id: string) => records.find((r) => r.id === id)
+    expect(byId('s-bad')?.textWithheld).toBe(true)
+    expect(byId('s-plain')?.textWithheld).toBeUndefined()
+  })
+
+  test('scope cannot see unbound structural text — documented, and the author controls work', async () => {
+    /*
+     * A DECISION, PINNED. An unbound heading has no path, so scope has nothing
+     * to ask: its text is published under a manifest even when it was
+     * interpolated from an undeclared path. If this ever starts failing
+     * because the text vanished, the posture changed — update the Secrets
+     * docs and the CHANGELOG, don't just flip the assertion.
+     */
+    const { uPriv } = tosi({ uPub: { n: 1 }, uPriv: { key: 'sk-UNBOUND' } })
+    await updates()
+    const copied = elements.h2({ id: 'u-copied' }, `Token ${uPriv.key.value}`)
+    const marked = elements.h2({ id: 'u-marked' }, 'MARKED-UNBOUND')
+    marked.setAttribute('data-tosi-secret', '')
+    const hidden = elements.h2(
+      { id: 'u-hidden', 'aria-hidden': 'true' },
+      'HIDDEN-UNBOUND'
+    )
+    document.body.append(copied, marked, hidden)
+    for (const el of [copied, marked, hidden]) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+        configurable: true,
+      })
+    }
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['uPub'] },
+    }))
+    expect(() => agent.read('uPriv.key')).toThrow(/not exposed/)
+    const records = agent.describe().wiring
+    // published: a copy of the value, with no path for scope to check
+    expect(records.find((r) => r.id === 'u-copied')?.text).toBe(
+      'Token sk-UNBOUND'
+    )
+    // the author's documented controls both hold
+    const json = JSON.stringify(records)
+    expect(json).not.toContain('MARKED-UNBOUND')
+    expect(records.find((r) => r.id === 'u-marked')?.textWithheld).toBe(true)
+    expect(json).not.toContain('HIDDEN-UNBOUND')
   })
 
   test("expose: 'all' is the deliberate override — everything, with a warning", async () => {
