@@ -4,6 +4,27 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.4 — 2026-09-26
+
+- **Went well:** first release through the OIDC + staged-publish workflow with
+  local attestation. Tag to served in one run; published bytes identical to
+  the staged tarball; registry smoke test green. Staged → served ~26 min,
+  approval included.
+- **Went well:** the dry runs found three defects no local lane could: two
+  tests that only passed on macOS (npm notice captured as `tsc` errors; a
+  warn-once latch spent under Linux file order) and `src/index-iife.ts`
+  shipping with an undeclared import.
+- **Didn't:** `attest.ts` could not attest at all (the browser lane's dev
+  server rewrites non-shipped doc stamps). Fixed in the shared tool; the fix's
+  first version misparsed the first porcelain line and would have waved a
+  shipped file through. Caught by its own output (`ocs/tosijs.epub`).
+- **Surprised:** the pre-tag review verified a latent supply-chain gap in the
+  template: an unattested publish fails closed only because the job lacks a TLS
+  cert. Filed upstream (practices #1751, #1083).
+- **Friction:** `git checkout` to undo a mutation check reverted the whole
+  uncommitted patch it was testing.
+- **Cycle:** none. GO_WITH_FOLLOWUPS, 0 blockers.
+
 ## 1.10.3 — 2026-09-19
 
 - **Went well:** the always-on review caught an **inverted condition in the new
