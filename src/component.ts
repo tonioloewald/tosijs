@@ -1,4 +1,4 @@
-/*{ "order": 6, "description": "The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, initAttributes, form association." }*/
+/*{ "order": 6, "description": "The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, form association. Declare attributes with withAttributes() so they are typed on this — since 1.10.0 Component has no index signature, so an undeclared this.foo is a type error (see Migration)." }*/
 /*#
 # Web-Components
 

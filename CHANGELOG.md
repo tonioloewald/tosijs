@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Documented
+
+- **`llms.txt` now says how to declare a component's attributes.** An agent
+  reading the 1.10.x typings sees `Component` has no index signature, but
+  nothing it reads first said what replaced it: `llms.txt` and the README
+  never mentioned `withAttributes`. The Component and Migration page
+  descriptions, which feed `llms.txt` and the site metadata, now say it:
+  declare attributes with `withAttributes()`; since 1.10.0 an undeclared
+  `this.foo` is a type error. Prompted by an agent that reported the 1.10.0
+  change as "likely TS fallout" after reading only the `.d.ts`.
+
 ## [1.10.4] - 2026-09-26
 
 One fix, one boundary written down, and the first release through the new
