@@ -6,7 +6,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [Unreleased]
+## [1.10.5] - 2026-09-29
+
+Documentation only; no code changes.
 
 ### Documented
 
@@ -18,6 +20,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   declare attributes with `withAttributes()`; since 1.10.0 an undeclared
   `this.foo` is a type error. Prompted by an agent that reported the 1.10.0
   change as "likely TS fallout" after reading only the `.d.ts`.
+
+**Release totals** (v1.10.4 → this tag): every bundle within ±1 byte gzipped
+(the version stamp).
 
 ## [1.10.4] - 2026-09-26
 
