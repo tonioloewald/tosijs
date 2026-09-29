@@ -266,6 +266,10 @@ export class MyComponent extends Component {
   content = [ h1(&#39;hello world&#39;), slot() ]
 }
 </code></pre>
+<p>Give a component attributes with <code>withAttributes()</code> — <code>class MyCard extends withAttributes({ caption: &#39;&#39; }) {}</code> — so they are typed on <code>this</code>. Since 1.10.0
+<code>Component</code> has no index signature, so an undeclared <code>this.caption</code> is a type
+error rather than a silent <code>any</code>. <code>static initAttributes</code> is not deprecated; see
+<a href="https://tosijs.net/Migration/">Migration</a> for both forms.</p>
 <p>The difference is that <code>web-components</code> are drop-in replacements for standard HTML elements
 and interoperate happily with one-another and other libraries, load asynchronously,
 and are natively supported by all modern browsers.</p>

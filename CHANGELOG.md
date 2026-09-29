@@ -15,10 +15,11 @@ Documentation only; no code changes.
 - **`llms.txt` now says how to declare a component's attributes.** An agent
   reading the 1.10.x typings sees `Component` has no index signature, but
   nothing it reads first said what replaced it: `llms.txt` and the README
-  never mentioned `withAttributes`. The Component and Migration page
-  descriptions, which feed `llms.txt` and the site metadata, now say it:
+  never mentioned `withAttributes`. Both do now. The Component and Migration
+  page descriptions, which feed `llms.txt` and the site metadata, say it:
   declare attributes with `withAttributes()`; since 1.10.0 an undeclared
-  `this.foo` is a type error. Prompted by an agent that reported the 1.10.0
+  `this.foo` is a type error; `static initAttributes` is not deprecated. The
+  README's `Component` section says the same. Prompted by an agent that reported the 1.10.0
   change as "likely TS fallout" after reading only the `.d.ts`.
 
 **Release totals** (v1.10.4 → this tag): every bundle within ±1 byte gzipped

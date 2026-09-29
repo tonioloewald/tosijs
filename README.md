@@ -220,6 +220,12 @@ more compactly than with `jsx` (and without a virtual DOM).
       content = [ h1('hello world'), slot() ]
     }
 
+Give a component attributes with `withAttributes()` — `class MyCard extends
+withAttributes({ caption: '' }) {}` — so they are typed on `this`. Since 1.10.0
+`Component` has no index signature, so an undeclared `this.caption` is a type
+error rather than a silent `any`. `static initAttributes` is not deprecated; see
+[Migration](https://tosijs.net/Migration/) for both forms.
+
 The difference is that `web-components` are drop-in replacements for standard HTML elements
 and interoperate happily with one-another and other libraries, load asynchronously,
 and are natively supported by all modern browsers.
