@@ -4,6 +4,28 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.6 — 2026-10-01
+
+- **Went well:** the fixed `verify_only` (audit in warn mode) was proven on the
+  release it was written for — 1.10.5's verification is now on record, green.
+- **Went well:** every bundle diffed against 1.10.5 before tagging: four
+  byte-identical, the rest one version character plus `debugId`.
+- **Didn't:** the attestation's browser lane collided with tosijs-ui's on port
+  8799, and the aborted dev server deleted `dist/`. Re-attested on
+  `E2E_PORT=8812` (#1716).
+- **Surprised:** a timed-out approval now ends the run GREEN with nothing
+  verified (#2495); and the packument listed 1.10.6 ~220 s before the CDN
+  served its tarball, failing the first registry smoke test.
+- **Cycle:** none.
+
+## 1.10.5 — 2026-09-29
+
+- **Went well:** docs-only patch; the pre-tag review caught that the CHANGELOG
+  claimed a README fix that had not been made.
+- **Didn't:** approved after the 60-minute wait, and `verify_only` then failed
+  on an advisory published the next day (fixed in the template, #2469).
+- **Cycle:** none.
+
 ## 1.10.4 — 2026-09-26
 
 - **Went well:** first release through the OIDC + staged-publish workflow with
