@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.6] - 2026-10-01
+
+Development dependencies and release tooling only. **Nothing a consumer installs
+changes**: tosijs has no runtime dependencies, and the shipped bundles differ
+from 1.10.5 only by the version stamp.
+
+### Security — development dependency
+
+- **`brace-expansion` 5.0.9 → 5.0.12** (the existing `overrides` floor, raised).
+  Two high-severity, DoS-only advisories —
+  [GHSA-qhr7-859c-m2p7](https://github.com/advisories/GHSA-qhr7-859c-m2p7) and
+  [GHSA-6j4f-fj2g-mc7p](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p) —
+  were published the day after 1.10.5, in a package eslint pulls in through
+  `minimatch`. It is not in the published package. The build's dependency
+  audit refused every build until it was patched. 5.0.12 is published by the
+  same maintainer as 5.0.9, signed, from the same repository.
+
+### Internal — publish workflow
+
+- `publish.yml` is the current shared template. Its `verify_only` re-run (for
+  an approval that comes after the run's 60-minute wait) now runs the
+  dependency audit in `warn` mode: 1.10.5 could not be verified because an
+  advisory published after the release failed the audit when the re-run
+  rebuilt the tag. 1.10.5 was verified by hand instead (the registry tarball
+  against the release attestation, 126/126 files, plus the consumer smoke
+  test).
+
 ## [1.10.5] - 2026-09-29
 
 Documentation only; no code changes.

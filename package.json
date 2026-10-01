@@ -1,6 +1,6 @@
 {
   "name": "tosijs",
-  "version": "1.10.5",
+  "version": "1.10.6",
   "description": "path-based state management for web apps",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
@@ -128,7 +128,7 @@
     ]
   },
   "overrides": {
-    "brace-expansion": ">=5.0.9"
+    "brace-expansion": ">=5.0.12"
   },
   "bin": {
     "tosijs": "dist/cli.mjs"

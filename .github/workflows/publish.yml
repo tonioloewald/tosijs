@@ -12,7 +12,8 @@
 # Before tagging, run it with `dry_run` on the branch: every check, no staging, no tag to move.
 #
 # Approved after the 60-minute wait? Run it again with `verify_only` — a re-run starts over and
-# stops at "already published". npm pack is deterministic, so verify_only re-packs the tag.
+# stops at "already published". npm pack is deterministic, so verify_only re-packs the tag. Its
+# build reports the dependency audit rather than failing on it: what shipped cannot change.
 #
 # Every check runs BEFORE staging: a staged version burns its number exactly as a publish does.
 # The npm Trusted Publisher entry names this file (publish.yml) with direct `npm publish`
@@ -138,6 +139,13 @@ jobs:
       # that does not gets it built here from the frozen lockfile and pinned Bun. Files that do
       # not ship (a site's ePub, a version stamp) are not this check's business.
       - name: Build
+        env:
+          # verify_only checks bytes that are ALREADY published, so a gate whose verdict can change
+          # after publication must not decide it: an advisory announced the day after a release
+          # made that release impossible to verify (tosijs v1.10.5, practices #2469). The build
+          # still runs, because a repo that does not commit its build output needs it to
+          # reproduce the tarball; the tosijs-ui/site dependency audit only REPORTS here.
+          TOSIJS_AUDIT: ${{ inputs.verify_only && 'warn' || '' }}
         run: |
           set -euo pipefail
           # The full build is not always called `build`: tjs-lang's is `make`, because `bun build`
@@ -244,7 +252,12 @@ jobs:
             echo "This run waits up to 60 minutes for the approval, then verifies."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A timeout is NOT a failure: the version is staged and simply not approved yet (approval
+      # often comes later, from a phone). It ends green with a warning and a summary saying
+      # "run verify_only after approving"; the verification steps then skip. A red run here
+      # emailed the maintainer a CI failure for something that had gone exactly right.
       - name: Wait for approval
+        id: wait
         if: ${{ !inputs.verify_only && !inputs.dry_run }}
         run: |
           set -euo pipefail
@@ -252,15 +265,28 @@ jobs:
             if curl -fsS -H 'Cache-Control: no-cache' "https://registry.npmjs.org/${{ steps.meta.outputs.name }}" \
               | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.exit(JSON.parse(s).versions?.[process.argv[1]]?0:1))" "${{ steps.meta.outputs.version }}"; then
               echo "served by the registry after ~$((i * 30))s"
+              echo "approved=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 30
           done
-          echo "::error::not approved within 60 minutes. Approve it, then run this workflow again for the same tag with verify_only ticked — a re-run would start over and stop at 'already published'."
-          exit 1
+          echo "approved=false" >> "$GITHUB_OUTPUT"
+          echo "::warning::staged but not approved within 60 minutes. Approve it, then run this workflow again for the same tag with verify_only ticked (a re-run would start over and stop at 'already published')."
+          {
+            echo "## ⏸ ${{ steps.meta.outputs.name }}@${{ steps.meta.outputs.version }} is staged, awaiting approval"
+            echo
+            echo "Nothing is published yet and nothing has been verified. After approving on npmjs.com, run:"
+            echo
+            echo '```'
+            # $TAG (job env), never the inputs.tag EXPRESSION inline: an expression is pasted
+            # into the script before bash runs it (comments included), so a crafted tag would
+            # be code, not text.
+            echo "gh workflow run publish.yml -f tag=$TAG -f verify_only=true"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify what shipped
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && (inputs.verify_only || steps.wait.outputs.approved == 'true') }}
         env:
           VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
@@ -291,7 +317,7 @@ jobs:
 
       # The smoke test once more, against the tarball adopters actually download.
       - name: Consumer smoke test (from the registry)
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && (inputs.verify_only || steps.wait.outputs.approved == 'true') }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/registry"
@@ -299,7 +325,7 @@ jobs:
           bun .practices/tools/publish-smoke.ts "$(ls "$RUNNER_TEMP"/registry/*.tgz)"
 
       - name: Summary
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && (inputs.verify_only || steps.wait.outputs.approved == 'true') }}
         run: |
           {
             echo "## ✅ ${{ steps.meta.outputs.name }}@${{ steps.meta.outputs.version }} is published and verified"
