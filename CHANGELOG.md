@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Added — `agent.settled()`, and exactly what it can and cannot see
+
+Asked by haltija ([#48](https://github.com/tonioloewald/tosijs/issues/48)):
+after an action, how does an agent know it is safe to look, when it does not
+know what it is waiting for? `await agent.settled({ timeout, quietMs })`
+resolves once nothing tosijs knows about is pending and no state the surface
+can see has changed for `quietMs`.
+
+**The definition is the feature.** `settled: true` vouches for four things only,
+listed in the result's `covers`: queued state notifications delivered, visible
+state quiet for `quietMs`, no Component render queued, and every promise
+*returned* by an action started through this surface's `call()` settled. Every
+result also lists `notCovered`: network, timers, async work tosijs did not
+start (including an action's work it does not return), throttled list updates,
+share/sync queues, unbound DOM and paint, and, under a manifest, undeclared
+state. Each of those is pinned by a test in which `settled` resolves true while
+that work is still pending. It does not mean the app is idle or that data has
+loaded. A timeout resolves `{ settled: false, reason: 'timeout', pending }`;
+it never rejects. `'settled'` is in `describe().version.capabilities`, and
+`SETTLED_COVERS` / `SETTLED_NOT_COVERED` are exported.
+
 ## [1.10.6] - 2026-10-01
 
 Development dependencies and release tooling only. **Nothing a consumer installs

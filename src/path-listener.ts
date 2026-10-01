@@ -272,6 +272,14 @@ export class Listener {
   }
 }
 
+/**
+ * Whether a notification drain is queued right now: a touch has been made and
+ * its observers (bind()'s DOM updates included) have not run yet. Synchronous,
+ * unlike `updates()`, so a caller can ask "is anything pending" without
+ * waiting — the agent surface's `settled()` is the one that needs to.
+ */
+export const pendingUpdates = (): boolean => updateTriggered !== false
+
 export const updates = async (): Promise<void> => {
   if (updatePromise === undefined) {
     return

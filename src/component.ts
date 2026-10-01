@@ -1269,6 +1269,15 @@ export const withAttributes = <A extends Record<string, any>>(
   return ComponentWithAttributes as unknown as WithAttributes<A>
 }
 
+/*
+ * How many Component renders are queued (scheduled for the next animation frame
+ * and not yet run), across every component. The agent surface's `settled()`
+ * reads it; nothing else needs it. While the page is hidden, animation frames
+ * do not fire, so queued renders stay counted until it is visible again.
+ */
+let queuedRenders = 0
+export const pendingRenders = (): number => queuedRenders
+
 export abstract class Component<T = PartsMap> extends HTMLElement {
   static elements: ElementsProxy = elements
   private static _elementCreator?: ElementCreator<Component>
@@ -2677,7 +2686,10 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     if (!this._changeQueued) this._changeQueued = triggerChangeEvent
     if (!this._renderQueued) {
       this._renderQueued = true
+      queuedRenders++
       requestAnimationFrame(() => {
+        // before render(), so a render that throws cannot leave it counted
+        queuedRenders--
         // TODO add mechanism to allow component developer to have more control over
         // whether input vs. change events are emitted
         if (this._changeQueued) {

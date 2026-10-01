@@ -130,6 +130,7 @@ export type WithAttributes<A extends Record<string, any>> = (new <T = PartsMap>(
     initAttributes: Record<string, any>;
 };
 export declare const withAttributes: <A extends Record<string, any>>(initAttributes: A) => WithAttributes<A>;
+export declare const pendingRenders: () => number;
 export declare abstract class Component<T = PartsMap> extends HTMLElement {
     static elements: ElementsProxy;
     private static _elementCreator?;

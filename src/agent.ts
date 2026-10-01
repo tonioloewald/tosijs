@@ -28,6 +28,7 @@ is exactly what it sees:
     agent.observe(app.cart, (path) => { ... }) // push; returns un-observe
     agent.changes(cursor)     // turn-based drain: final value per changed path
     await agent.when(app.order.status, (s) => s === 'confirmed') // await a condition
+    await agent.settled()     // await quiet — read what it could NOT see, below
     agent.write(app.filter, 'milk') // through the same observers as any write
     agent.call(app.addItem, 'buy milk')           // invoke an action by path
     agent.log()               // the audit trail
@@ -61,6 +62,57 @@ While developing, one word opens everything:
 the default used to be read-only over the *entire registry*, which is how four
 separate secret leaks became reachable through one unargumented call. Scope is
 the control; the redaction described below is defence in depth beneath it.
+
+## `settled()` — what it means, and what it does not
+
+After an action, an agent often needs to know when it is safe to look again.
+**If you know what you are waiting for, use `when()`**: it waits for that
+exact condition and is right every time. `settled()` is for when you don't.
+
+    const r = await agent.settled({ timeout: 5000, quietMs: 50 })
+    // { settled: true, waitedMs: 63, quietMs: 50,
+    //   covers: ['state-notifications', 'state-quiet', 'component-renders', 'agent-calls'],
+    //   notCovered: ['network', 'timers', 'external-async', 'list-throttle',
+    //                'share-sync', 'unbound-dom'] }
+
+**`settled: true` means exactly this:** at the moment it resolved, tosijs had
+nothing pending *that it knows about*, and no state this surface can see had
+changed for `quietMs`. "Nothing pending" is the four items in `covers`:
+
+| `covers` | |
+| --- | --- |
+| `state-notifications` | every queued observer and binding notification has been delivered (`bind()`'s DOM updates happen there) |
+| `state-quiet` | no visible state changed during the last `quietMs` — the window starts when you call, never earlier |
+| `component-renders` | no `Component` render is queued |
+| `agent-calls` | every promise **returned** by an action started through *this surface's* `call()` has settled |
+
+**It does not mean** that the app is idle, that data has loaded, that a request
+has finished, that the screen has painted, or that nothing will change a
+millisecond later. tosijs can only vouch for work it queues or starts itself.
+Everything else is listed in `notCovered`, on every result, settled or not:
+
+| `notCovered` | why tosijs cannot see it |
+| --- | --- |
+| `network` | a request in flight is not state until its result is written, which can happen after `settled` resolves |
+| `timers` | `setTimeout`, `setInterval` and animation-frame loops outside tosijs |
+| `external-async` | async work tosijs did not start — **including work an action starts without returning its promise** |
+| `list-throttle` | a `bindList`'s throttled DOM update changes the DOM, not state |
+| `share-sync` | `share()` / `sync()` outbound queues |
+| `unbound-dom` | DOM changed outside bindings, CSS transitions and animations, paint |
+| `out-of-scope-state` | under a manifest only: undeclared state is deliberately not watched, because waiting on it would disclose that it changed |
+
+Each of those is pinned by a test in which `settled` resolves **true while that
+work is still pending**, so the limits are part of the contract, not a caveat.
+**Pass `notCovered` on** to whatever trusts the answer (a test runner, a model),
+rather than turning the result into a bare yes.
+
+Two things make an app easier to settle: return the promise from an async
+action (then `agent-calls` covers it), and when you know the end state, wait
+for it with `when()` instead. `settled: false` is not an error: it resolves with
+`reason: 'timeout'` and a `pending` summary of what was still busy. It rejects
+only for bad options or a surface revoked while waiting. While the page is
+hidden, animation frames stop, so a queued render keeps it unsettled until the
+page is visible again.
 
 ## Secrets
 
@@ -219,7 +271,15 @@ generated tool set automatically — `agent.webmcp` is the receipt, and
 import { registry } from './registry'
 import { version } from './version'
 import { settings } from './settings'
-import { observe, unobserve, extendsPath, Listener } from './path-listener'
+import {
+  observe,
+  unobserve,
+  extendsPath,
+  Listener,
+  updates,
+  pendingUpdates,
+} from './path-listener'
+import { pendingRenders } from './component'
 import { getByPath, setByPath } from './by-path'
 import { xin } from './xin'
 import {
@@ -556,6 +616,7 @@ export const AGENT_CAPABILITIES = [
   'call',
   'changes', // turn-based drain with a cursor
   'when', // await a state condition
+  'settled', // await quiet — with what it checked and what it cannot see
   'log', // the audit ledger
   'bounds', // per-record geometry
   'styles', // describe({ styles: true }) computed colors
@@ -568,6 +629,76 @@ export const AGENT_CAPABILITIES = [
   'components', // per-component self-declaration (ComponentMap)
   'webmcp', // generated WebMCP tool set (auto-registered where hosted)
 ] as const
+
+/**
+ * What `settled()` CHECKS. Each is something tosijs itself queues or starts,
+ * so it can know when it is done.
+ */
+export const SETTLED_COVERS = [
+  /** every queued observer and binding notification has been delivered
+   * (bind()'s DOM updates run in that drain) */
+  'state-notifications',
+  /** no state this surface can see changed for `quietMs` */
+  'state-quiet',
+  /** no Component render is queued */
+  'component-renders',
+  /** every promise returned by an action started through THIS surface's
+   * call() has settled, resolved or rejected */
+  'agent-calls',
+] as const
+
+/**
+ * What `settled()` CANNOT see. Reported on every result, settled or not,
+ * because each is true of every result: a `settled: true` says nothing
+ * about any of these.
+ */
+export const SETTLED_NOT_COVERED = [
+  /** requests in flight: a response can land a millisecond after settled */
+  'network',
+  /** setTimeout, setInterval and animation-frame loops outside tosijs */
+  'timers',
+  /** async work tosijs did not start — including work an action starts
+   * without returning its promise */
+  'external-async',
+  /** a bindList's throttled DOM update: it changes the DOM, not state */
+  'list-throttle',
+  /** share() and sync() outbound queues */
+  'share-sync',
+  /** DOM changed outside tosijs bindings, CSS transitions and animations,
+   * and paint */
+  'unbound-dom',
+] as const
+
+/** Reported under a manifest only: undeclared state is deliberately not
+ * watched, because a settled() that waited on it would disclose it. */
+export const SETTLED_OUT_OF_SCOPE = 'out-of-scope-state'
+
+export type SettledCoverage = (typeof SETTLED_COVERS)[number]
+
+export interface AgentSettled {
+  /** true: when it resolved, nothing in `covers` was pending and no
+   * visible state had changed for `quietMs`. A statement about that
+   * instant, not about the app, and not about the future. */
+  settled: boolean
+  /** present when `settled` is false */
+  reason?: 'timeout'
+  /** how long the call waited */
+  waitedMs: number
+  /** the quiet window that was required */
+  quietMs: number
+  /** what was checked — the ONLY things `settled: true` vouches for */
+  covers: SettledCoverage[]
+  /** what was not, and could not be */
+  notCovered: string[]
+  /** on a timeout: what was still pending when the time ran out */
+  pending?: {
+    notifications: boolean
+    renders: number
+    calls: number
+    /** ms since visible state last changed */
+    changedMsAgo: number
+  }
+}
 
 export interface AgentDescription {
   /** the surface's identity — travels WITH the map, so a serialized
@@ -741,6 +872,28 @@ export interface AgentInterface {
    * audit-logged. No built-in timeout — Promise.race one in if you need it.
    */
   when: (path: AgentPathRef, predicate: (value: any) => boolean) => Promise<any>
+  /**
+   * Await QUIET when you don't know what you're waiting for. (When you do,
+   * use `when()`: it is exact.)
+   *
+   * Resolves `{ settled: true }` once nothing tosijs knows about is pending —
+   * queued notifications, queued Component renders, promises returned by
+   * actions started through this surface's `call()` — and no state this
+   * surface can see has changed for `quietMs` (default 50). Resolves
+   * `{ settled: false, reason: 'timeout', pending }` if that does not happen
+   * within `timeout` (default 5000). It does not reject on a timeout; it
+   * rejects only if the surface is revoked, or for bad options.
+   *
+   * **What `settled: true` does NOT mean**: that the app is idle, that data
+   * has loaded, that a request has finished, that the screen has painted, or
+   * that nothing will change a millisecond later. Every result lists what it
+   * could not see in `notCovered`; pass that list on to whoever trusts the
+   * answer. See *settled* in the agent docs.
+   */
+  settled: (options?: {
+    timeout?: number
+    quietMs?: number
+  }) => Promise<AgentSettled>
   log: () => AgentLogEntry[]
   disable: () => void
   /**
@@ -2404,6 +2557,9 @@ export function enableAgentInterface(
     }
   }
   const pendingWhens = new Set<{ reject: (reason: Error) => void }>()
+  // promises returned by actions started through call(), until they settle:
+  // the only async work outside tosijs's own queues that settled() can see
+  const pendingCalls = new Set<PromiseLike<unknown>>()
   const ledgerListener: Listener = observe(
     () => true,
     (path: string) => {
@@ -3209,7 +3365,112 @@ export function enableAgentInterface(
         path: actionPath,
         note: `call: ${args.length} arg${args.length === 1 ? '' : 's'}`,
       })
-      return fn(...args)
+      const result = fn(...args)
+      // a returned promise is work this surface started, so settled() can
+      // wait for it. An action that starts async work WITHOUT returning it
+      // is invisible here — that is 'external-async' in SETTLED_NOT_COVERED.
+      if (result != null && typeof result.then === 'function') {
+        pendingCalls.add(result)
+        const done = (): void => {
+          pendingCalls.delete(result)
+        }
+        result.then(done, done)
+      }
+      return result
+    },
+
+    settled(
+      options: { timeout?: number; quietMs?: number } = {}
+    ): Promise<AgentSettled> {
+      const timeout = options.timeout ?? 5000
+      const quietMs = options.quietMs ?? 50
+      try {
+        assertLive('settled')
+        if (!(Number.isFinite(timeout) && timeout > 0)) {
+          throw new TypeError(
+            `agent interface: settled() timeout must be a positive number of ms, got ${timeout}`
+          )
+        }
+        if (!(Number.isFinite(quietMs) && quietMs >= 0 && quietMs < timeout)) {
+          throw new TypeError(
+            `agent interface: settled() quietMs must be at least 0 and less than timeout (${timeout}), got ${quietMs}`
+          )
+        }
+      } catch (e) {
+        return Promise.reject(e)
+      }
+      const start = Date.now()
+      // the quiet window starts NOW: what happened before the call was not
+      // watched, so it cannot count as quiet
+      let lastChange = start
+      // only state this surface can see: under a manifest, waiting on an
+      // undeclared path would disclose that it changed
+      const listener = observe(
+        (path: string) => inScope(path),
+        () => {
+          lastChange = Date.now()
+        }
+      )
+      subscriptions.add(listener)
+      const notCovered: string[] = [...SETTLED_NOT_COVERED]
+      if (scoped) notCovered.push(SETTLED_OUT_OF_SCOPE)
+      const finish = (
+        settled: boolean,
+        pending?: AgentSettled['pending']
+      ): AgentSettled => {
+        if (subscriptions.delete(listener)) unobserve(listener)
+        const waitedMs = Date.now() - start
+        record({
+          seq: ++seq,
+          path: '',
+          note: `settled: ${settled ? 'settled' : 'timeout'} after ${waitedMs}ms`,
+        })
+        const result: AgentSettled = {
+          settled,
+          waitedMs,
+          quietMs,
+          covers: [...SETTLED_COVERS],
+          notCovered,
+        }
+        if (!settled) {
+          result.reason = 'timeout'
+          result.pending = pending
+        }
+        return result
+      }
+      return (async () => {
+        for (;;) {
+          if (disabled) {
+            if (subscriptions.delete(listener)) unobserve(listener)
+            throw refuse(
+              'revoked',
+              'agent interface: settled() refused — this surface was disabled while waiting.'
+            )
+          }
+          await updates()
+          const now = Date.now()
+          const notifications = pendingUpdates()
+          const renders = pendingRenders()
+          const calls = pendingCalls.size
+          if (
+            !notifications &&
+            renders === 0 &&
+            calls === 0 &&
+            now - lastChange >= quietMs
+          ) {
+            return finish(true)
+          }
+          if (now - start >= timeout) {
+            return finish(false, {
+              notifications,
+              renders,
+              calls,
+              changedMsAgo: now - lastChange,
+            })
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+      })()
     },
 
     // await a state condition: the value now if it already satisfies,
@@ -3351,6 +3612,7 @@ export function enableAgentInterface(
         pending.reject(new Error('agent interface disabled'))
       }
       pendingWhens.clear()
+      pendingCalls.clear()
       // delete OUR global, and only if it is still ours: a stale surface
       // must never remove the current one's (activeGlobalName was
       // module-level, so it did exactly that)
@@ -3396,6 +3658,7 @@ export function enableAgentInterface(
       call: (path, ...args) => live().call(path, ...args),
       changes: (since) => live().changes(since),
       when: (path, predicate) => live().when(path, predicate),
+      settled: (options) => live().settled(options),
       log: () => live().log(),
       disable: () => live().disable(),
       // the delegate must be interrogable too — a WebMCP consumer asking

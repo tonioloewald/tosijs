@@ -324,7 +324,46 @@ export declare const AGENT_SURFACE_VERSION = "1.0.0";
  * `agent.version.capabilities.includes('bounds')` rather than inferring
  * from a version number — the whole point of tosijs#23.
  */
-export declare const AGENT_CAPABILITIES: readonly ["describe", "read", "write", "observe", "call", "changes", "when", "log", "bounds", "styles", "scope", "viewport", "structure", "aria", "validity", "contract", "components", "webmcp"];
+export declare const AGENT_CAPABILITIES: readonly ["describe", "read", "write", "observe", "call", "changes", "when", "settled", "log", "bounds", "styles", "scope", "viewport", "structure", "aria", "validity", "contract", "components", "webmcp"];
+/**
+ * What `settled()` CHECKS. Each is something tosijs itself queues or starts,
+ * so it can know when it is done.
+ */
+export declare const SETTLED_COVERS: readonly ["state-notifications", "state-quiet", "component-renders", "agent-calls"];
+/**
+ * What `settled()` CANNOT see. Reported on every result, settled or not,
+ * because each is true of every result: a `settled: true` says nothing
+ * about any of these.
+ */
+export declare const SETTLED_NOT_COVERED: readonly ["network", "timers", "external-async", "list-throttle", "share-sync", "unbound-dom"];
+/** Reported under a manifest only: undeclared state is deliberately not
+ * watched, because a settled() that waited on it would disclose it. */
+export declare const SETTLED_OUT_OF_SCOPE = "out-of-scope-state";
+export type SettledCoverage = (typeof SETTLED_COVERS)[number];
+export interface AgentSettled {
+    /** true: when it resolved, nothing in `covers` was pending and no
+     * visible state had changed for `quietMs`. A statement about that
+     * instant, not about the app, and not about the future. */
+    settled: boolean;
+    /** present when `settled` is false */
+    reason?: 'timeout';
+    /** how long the call waited */
+    waitedMs: number;
+    /** the quiet window that was required */
+    quietMs: number;
+    /** what was checked — the ONLY things `settled: true` vouches for */
+    covers: SettledCoverage[];
+    /** what was not, and could not be */
+    notCovered: string[];
+    /** on a timeout: what was still pending when the time ran out */
+    pending?: {
+        notifications: boolean;
+        renders: number;
+        calls: number;
+        /** ms since visible state last changed */
+        changedMsAgo: number;
+    };
+}
 export interface AgentDescription {
     /** the surface's identity — travels WITH the map, so a serialized
      * description is self-describing wherever it lands (tosijs#23) */
@@ -434,6 +473,28 @@ export interface AgentInterface {
      * audit-logged. No built-in timeout — Promise.race one in if you need it.
      */
     when: (path: AgentPathRef, predicate: (value: any) => boolean) => Promise<any>;
+    /**
+     * Await QUIET when you don't know what you're waiting for. (When you do,
+     * use `when()`: it is exact.)
+     *
+     * Resolves `{ settled: true }` once nothing tosijs knows about is pending —
+     * queued notifications, queued Component renders, promises returned by
+     * actions started through this surface's `call()` — and no state this
+     * surface can see has changed for `quietMs` (default 50). Resolves
+     * `{ settled: false, reason: 'timeout', pending }` if that does not happen
+     * within `timeout` (default 5000). It does not reject on a timeout; it
+     * rejects only if the surface is revoked, or for bad options.
+     *
+     * **What `settled: true` does NOT mean**: that the app is idle, that data
+     * has loaded, that a request has finished, that the screen has painted, or
+     * that nothing will change a millisecond later. Every result lists what it
+     * could not see in `notCovered`; pass that list on to whoever trusts the
+     * answer. See *settled* in the agent docs.
+     */
+    settled: (options?: {
+        timeout?: number;
+        quietMs?: number;
+    }) => Promise<AgentSettled>;
     log: () => AgentLogEntry[];
     disable: () => void;
     /**

@@ -33,6 +33,13 @@ export declare class Listener {
     callback: ObserverCallbackFunction;
     constructor(test: string | RegExp | PathTestFunction, callback: string | ObserverCallbackFunction);
 }
+/**
+ * Whether a notification drain is queued right now: a touch has been made and
+ * its observers (bind()'s DOM updates included) have not run yet. Synchronous,
+ * unlike `updates()`, so a caller can ask "is anything pending" without
+ * waiting — the agent surface's `settled()` is the one that needs to.
+ */
+export declare const pendingUpdates: () => boolean;
 export declare const updates: () => Promise<void>;
 export declare const touch: (touchable: TosiTouchableType) => void;
 export declare const observe: (test: string | RegExp | PathTestFunction, callback: ObserverCallbackFunction) => Listener;

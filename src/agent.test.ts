@@ -3968,3 +3968,239 @@ describe('#41: light-DOM wrapper secrecy, and what must NOT be marked', () => {
     agent.disable()
   })
 })
+
+describe('settled(): what it checks, and what it cannot see (tosijs#48)', () => {
+  /*
+   * The definition is the deliverable (owner, 2026-10-01: "absolutely clear
+   * what settled means and doesn't"). So every COVERED item has a test that
+   * settled waits for it, and every NOT-COVERED item has a test that
+   * settled resolves TRUE while that kind of work is still pending — the
+   * limits are pinned, not just documented.
+   */
+  const { SETTLED_COVERS, SETTLED_NOT_COVERED } = require('./agent')
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  test('an idle app settles, and the result says exactly what was and was not checked', async () => {
+    tosi({ stIdle: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const r = await agent.settled({ quietMs: 20 })
+    expect(r.settled).toBe(true)
+    expect(r.reason).toBeUndefined()
+    expect(r.pending).toBeUndefined()
+    expect(r.covers).toEqual([...SETTLED_COVERS])
+    expect(r.notCovered).toEqual([...SETTLED_NOT_COVERED])
+    // the quiet window starts at the call: it cannot resolve sooner
+    expect(r.waitedMs).toBeGreaterThanOrEqual(20)
+    expect(agent.describe().version.capabilities).toContain('settled')
+  })
+
+  test('COVERED: a visible state change restarts the quiet window', async () => {
+    const { stQuiet } = tosi({ stQuiet: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    setTimeout(() => (stQuiet.n.value = 1), 30)
+    const r = await agent.settled({ quietMs: 50 })
+    expect(r.settled).toBe(true)
+    // the write at ~30ms reset the 50ms window: ≥ 80ms, not ≥ 50ms
+    expect(r.waitedMs).toBeGreaterThanOrEqual(78)
+  })
+
+  test('COVERED: a promise returned by an action started through call()', async () => {
+    let finish: () => void = () => {}
+    tosi({
+      stCall: {
+        save: () => new Promise<void>((r) => (finish = r)),
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    agent.call('stCall.save')
+    setTimeout(() => finish(), 120)
+    const r = await agent.settled({ quietMs: 10 })
+    expect(r.settled).toBe(true)
+    expect(r.waitedMs).toBeGreaterThanOrEqual(115)
+  })
+
+  test('COVERED: a queued Component render', async () => {
+    const { Component } = await import('./component')
+    let rendered = 0
+    class StPending extends Component {
+      static preferredTagName = 'st-pending-render'
+      render() {
+        super.render()
+        rendered++
+      }
+    }
+    // hold animation frames BEFORE the element connects, so its hydration
+    // render is the one that stays queued (a render already queued makes a
+    // later queueRender() a no-op, so queueing one by hand proves nothing)
+    const raf = globalThis.requestAnimationFrame
+    const held: FrameRequestCallback[] = []
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      held.push(cb)
+      return 0
+    }) as any
+    try {
+      const el = StPending.elementCreator()()
+      document.body.append(el)
+      expect(held.length).toBeGreaterThan(0)
+      expect(rendered).toBe(0)
+      const agent = (current = enableAgentInterface({
+        quiet: true,
+        global: false,
+        expose: 'all',
+      }))
+      setTimeout(() => held.splice(0).forEach((cb) => cb(0)), 100)
+      const r = await agent.settled({ quietMs: 10 })
+      expect(r.settled).toBe(true)
+      expect(r.waitedMs).toBeGreaterThanOrEqual(95)
+      expect(rendered).toBeGreaterThan(0)
+    } finally {
+      globalThis.requestAnimationFrame = raf
+    }
+  })
+
+  test('TIMEOUT: still busy when time runs out — settled: false, with what was pending', async () => {
+    const { stBusy } = tosi({ stBusy: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const timer = setInterval(() => stBusy.n.value++, 5)
+    try {
+      const r = await agent.settled({ timeout: 120, quietMs: 50 })
+      expect(r.settled).toBe(false)
+      expect(r.reason).toBe('timeout')
+      expect(r.pending).toBeDefined()
+      expect(r.pending!.changedMsAgo).toBeLessThan(50)
+      // limits are reported on a timeout too
+      expect(r.notCovered).toContain('network')
+    } finally {
+      clearInterval(timer)
+    }
+  })
+
+  test('NOT COVERED — network / external-async: an action that does not RETURN its work', async () => {
+    let landed = false
+    tosi({
+      stFetch: {
+        load() {
+          // a fetch the action starts and does not return
+          sleep(150).then(() => (landed = true))
+        },
+      },
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    agent.call('stFetch.load')
+    const r = await agent.settled({ quietMs: 10 })
+    expect(r.settled).toBe(true) // ← settled, and the "request" is still in flight
+    expect(landed).toBe(false)
+    expect(r.notCovered).toContain('network')
+    expect(r.notCovered).toContain('external-async')
+  })
+
+  test('NOT COVERED — timers: a setTimeout that will write state later', async () => {
+    const { stTimer } = tosi({ stTimer: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const t = setTimeout(() => (stTimer.n.value = 1), 200)
+    try {
+      const r = await agent.settled({ quietMs: 10 })
+      expect(r.settled).toBe(true) // ← settled, and a write is 190ms away
+      expect(stTimer.n.value).toBe(0)
+      expect(r.notCovered).toContain('timers')
+    } finally {
+      clearTimeout(t)
+    }
+  })
+
+  test('NOT COVERED — unbound DOM: changes made outside tosijs bindings', async () => {
+    const div = document.createElement('div')
+    document.body.append(div)
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const timer = setInterval(() => (div.textContent += 'x'), 5)
+    try {
+      const r = await agent.settled({ timeout: 500, quietMs: 30 })
+      expect(r.settled).toBe(true) // ← settled while the DOM keeps changing
+      expect(r.notCovered).toContain('unbound-dom')
+    } finally {
+      clearInterval(timer)
+    }
+  })
+
+  test('NOT COVERED under a manifest — out-of-scope state is not watched (watching it would disclose it)', async () => {
+    const { stHidden } = tosi({ stShown: { n: 0 }, stHidden: { n: 0 } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: { roots: ['stShown'] },
+    }))
+    const timer = setInterval(() => stHidden.n.value++, 5)
+    try {
+      const r = await agent.settled({ timeout: 500, quietMs: 30 })
+      expect(r.settled).toBe(true) // ← settled while undeclared state churns
+      expect(r.notCovered).toContain('out-of-scope-state')
+    } finally {
+      clearInterval(timer)
+    }
+    // and under expose: 'all' there is no such category
+    const all = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    expect((await all.settled({ quietMs: 5 })).notCovered).not.toContain(
+      'out-of-scope-state'
+    )
+  })
+
+  test('bad options and a revoked surface reject; a timeout never does', async () => {
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    await expect(agent.settled({ timeout: 0 })).rejects.toThrow(/timeout/)
+    await expect(agent.settled({ timeout: 50, quietMs: 50 })).rejects.toThrow(
+      /quietMs/
+    )
+    const { stRevoke } = tosi({ stRevoke: { n: 0 } })
+    const timer = setInterval(() => stRevoke.n.value++, 5)
+    try {
+      const pending = agent.settled({ timeout: 2000, quietMs: 50 })
+      setTimeout(() => agent.disable(), 40)
+      await expect(pending).rejects.toThrow(/disabled/)
+    } finally {
+      clearInterval(timer)
+    }
+  })
+})
