@@ -81,6 +81,13 @@ call, because the proxy already carries its path. Prefer the proxy: it survives
 a rename and it cannot be misspelled. Strings remain fully supported, and are
 what you want when the path arrives from outside the program (a tool call, a
 config file, a wire message).</p>
+<p><strong>Every record in <code>describe().wiring</code> has a <code>key</code>.</strong> Refer back to a control by
+its key, not its index: the index moves whenever the list changes (a row is
+added, a section renders), the key does not. A key lasts while the element
+exists <em>and</em> stays bound to the same paths; it changes when the element is
+replaced, or re-targeted — a virtual list reuses row elements for different
+items as it scrolls, and a key that survived that would point you at the wrong
+row. Keys are opaque (<code>k1</code>, <code>k2</code>, …): they say nothing about paths or position.</p>
 <p>Anything that is <em>neither</em> — a plain object, a raw value read out of the tree —
 is <strong>refused</strong>, with <code>kind: &#39;path&#39;</code>. It used to be coerced with <code>String()</code>, so
 <code>roots: [app.cart]</code> declared a root named <code>&quot;[object Object]&quot;</code> and every read

@@ -500,12 +500,21 @@ async function buildLibrary(full = true) {
   // would ship green and only trip on the next developer's local run.
   // The figures live on BUNDLES above, beside the entry they measure — they
   // were a fifth copy of the artifact list until the round-3 DRY pass.
-  const { gzipSync } = await import('node:zlib')
+  const { gzipSync, brotliCompressSync, constants } = await import('node:zlib')
+  // brotli is what most CDNs actually serve; reported beside gzip, budgets
+  // stay on gzip so the ledger keeps one comparable history
+  const brotliSize = (bytes: Uint8Array): number =>
+    brotliCompressSync(bytes, {
+      params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
+    }).length
+  const fmt = (n: number): string =>
+    n.toLocaleString('en-US').replace(/,/g, '_')
   const sizes: string[] = []
   const budgetLedger: string[] = []
   const measured = new Map<string, number>()
   for (const { naming: file, budget } of BUILT) {
-    const bytes = gzipSync(await Bun.file(`${DIST}/${file}`).bytes()).length
+    const raw = await Bun.file(`${DIST}/${file}`).bytes()
+    const bytes = gzipSync(raw).length
     measured.set(file, bytes)
     sizes.push(
       `${file} ${(bytes / 1024).toFixed(1)}k/${(budget / 1024).toFixed(0)}k`
@@ -516,9 +525,8 @@ async function buildLibrary(full = true) {
     // releases, twice in a correction that was itself fixing a drift. Those
     // comments now point at this line instead of restating it.
     budgetLedger.push(
-      `| \`${file}\` | ${bytes.toLocaleString('en-US').replace(/,/g, '_')} | ` +
-        `${budget.toLocaleString('en-US').replace(/,/g, '_')} | ` +
-        `${(budget - bytes).toLocaleString('en-US').replace(/,/g, '_')} |`
+      `| \`${file}\` | ${fmt(bytes)} | ${fmt(brotliSize(raw))} | ` +
+        `${fmt(budget)} | ${fmt(budget - bytes)} |`
     )
     if (bytes > budget) {
       throw new Error(
@@ -528,13 +536,79 @@ async function buildLibrary(full = true) {
       )
     }
   }
+  /*
+   * WHAT A CONSUMER WHO NEVER IMPORTS THE AGENT SURFACE ACTUALLY SHIPS.
+   *
+   * "The agent surface is opt-in and shakes away if unimported" was a sentence,
+   * not a gate. This builds what such a consumer's bundler builds: every
+   * non-agent export (the names `index-browser.ts` exports — the library minus
+   * the agent surface, by construction) imported from the SHIPPED
+   * `dist/module.js`, tree-shaken and minified. If agent code survives that, the
+   * claim is false for every ESM consumer, and the build says so.
+   */
+  {
+    const { NO_AGENT_CONSUMER } = await import('./bundles')
+    const { tmpdir } = await import('node:os')
+    const opts = {
+      target: 'browser' as const,
+      sourcemap: 'none' as const,
+      minify: MINIFY,
+      format: 'esm' as const,
+    }
+    const slim = await Bun.build({
+      ...opts,
+      entrypoints: ['./src/index-browser.ts'],
+    })
+    if (!slim.success) throw new Error('no-agent export list: build failed')
+    const slimCode = await slim.outputs[0].text()
+    const exportList = slimCode.match(/export\s*\{([^}]*)\}\s*;?\s*$/)
+    if (exportList == null) {
+      throw new Error('no-agent export list: no export statement found')
+    }
+    const names = exportList[1]
+      .split(',')
+      .map((item) => item.trim().split(/\s+as\s+/).pop()!.trim())
+      .filter(Boolean)
+    const entry = path.join(tmpdir(), `tosijs-no-agent-${process.pid}.ts`)
+    await Bun.write(
+      entry,
+      `export { ${names.join(', ')} } from '${DIST}/module.js'\n`
+    )
+    const consumer = await Bun.build({ ...opts, entrypoints: [entry] })
+    await $`rm -f ${entry}`.quiet()
+    if (!consumer.success) throw new Error('no-agent consumer: build failed')
+    const consumerRaw = new Uint8Array(
+      await consumer.outputs[0].arrayBuffer()
+    )
+    const consumerCode = new TextDecoder().decode(consumerRaw)
+    // the agent surface's own refusal text: present iff its code survived
+    if (consumerCode.includes('agent interface:')) {
+      throw new Error(
+        'the agent surface did NOT tree-shake out of dist/module.js for a ' +
+          'consumer that never imports it — every ESM consumer pays for it. ' +
+          'Something on the ordinary path now reaches agent code.'
+      )
+    }
+    const gz = gzipSync(consumerRaw).length
+    budgetLedger.push(
+      `| module.js, tree-shaken, no agent (${names.length} exports) | ` +
+        `${fmt(gz)} | ${fmt(brotliSize(consumerRaw))} | ` +
+        `${fmt(NO_AGENT_CONSUMER.budget)} | ${fmt(NO_AGENT_CONSUMER.budget - gz)} |`
+    )
+    if (gz > NO_AGENT_CONSUMER.budget) {
+      throw new Error(
+        `a consumer importing everything but the agent surface ships ${gz} ` +
+          `gzipped, over its ${NO_AGENT_CONSUMER.budget} budget.`
+      )
+    }
+  }
   console.log('gzip budgets:', sizes.join(', '))
   console.log(
     [
       'budget ledger — the figures bin/bundles.ts used to restate:',
       '',
-      '| bundle | gz | budget | spare |',
-      '| --- | --- | --- | --- |',
+      '| bundle | gz | br | budget (gz) | spare |',
+      '| --- | --- | --- | --- | --- |',
       ...budgetLedger,
     ].join('\n')
   )

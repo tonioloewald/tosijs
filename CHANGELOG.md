@@ -8,6 +8,18 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+### Added — a stable `key` on every `describe().wiring` record
+
+Asked by haltija ([#47](https://github.com/tonioloewald/tosijs/issues/47)): an
+agent working across turns had only a record's INDEX to refer back to, and the
+index moves whenever the list changes, so "the third record" could be a
+different control on the next turn. Every record now carries an opaque `key`
+that stays the same while its element exists and is bound to the same paths.
+It changes when the element is replaced, **or re-targeted**: a virtual list
+reuses row elements for different items as it scrolls, and a key that survived
+that would point an agent at the wrong row. `'keys'` is in
+`describe().version.capabilities`. Additive; the record shape gains one field.
+
 ### Added — `agent.settled()`, and exactly what it can and cannot see
 
 Asked by haltija ([#48](https://github.com/tonioloewald/tosijs/issues/48)):
@@ -28,6 +40,27 @@ that work is still pending. It does not mean the app is idle or that data has
 loaded. A timeout resolves `{ settled: false, reason: 'timeout', pending }`;
 it never rejects. `'settled'` is in `describe().version.capabilities`, and
 `SETTLED_COVERS` / `SETTLED_NOT_COVERED` are exported.
+
+### Size — what the agent features cost, and who pays
+
+Measured by the build, which now also reports brotli and gates the
+**no-agent consumer**: every non-agent export imported from the shipped
+`dist/module.js` and tree-shaken, the way a consumer's bundler would. The build
+fails if any agent-surface code survives that.
+
+| | gzip | brotli |
+| --- | --- | --- |
+| no-agent consumer, v1.10.6 | 29_140 | 25_614 |
+| no-agent consumer, this release | 29_144 | 25_587 |
+| `module.js` (everything) | 45_814 (+740) | 40_034 |
+| `main.js` (CJS, cannot tree-shake) | 46_081 (+746) | 40_227 |
+| `core.js` / `state.js` | +5 / +0 | |
+
+So `settled()` and record keys cost a consumer who does not use the agent
+surface **4 bytes** (the render counter in `Component`). The rest is on the
+agent surface and on CommonJS. Budgets raised to keep the 1 kB minimum
+headroom: `module.js` and `main.js` 47_000 → 48_000, the experimental
+debug/safe pair 63_500 → 65_000; new `NO_AGENT_CONSUMER` budget 31_000.
 
 ## [1.10.6] - 2026-10-01
 

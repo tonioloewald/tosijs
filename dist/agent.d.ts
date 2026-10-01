@@ -203,6 +203,16 @@ export declare const BOUND_TWO_WAY = "\u27F7";
  */
 export interface AgentWiringRecord {
     tag: string;
+    /**
+     * A stable handle on this record across `describe()` calls (tosijs#47).
+     * Set on every record `describe()` returns. The index in `wiring` moves
+     * whenever the list changes; the key does not. It stays the same while
+     * the element exists AND is bound to the same paths, and changes when the
+     * element is replaced or RE-TARGETED — a virtual list reuses row elements
+     * for different items as it scrolls, and a key that survived that would
+     * point an agent at the wrong row. Opaque: it carries no path or position.
+     */
+    key?: string;
     id?: string;
     part?: string;
     role?: string;
@@ -324,7 +334,7 @@ export declare const AGENT_SURFACE_VERSION = "1.0.0";
  * `agent.version.capabilities.includes('bounds')` rather than inferring
  * from a version number — the whole point of tosijs#23.
  */
-export declare const AGENT_CAPABILITIES: readonly ["describe", "read", "write", "observe", "call", "changes", "when", "settled", "log", "bounds", "styles", "scope", "viewport", "structure", "aria", "validity", "contract", "components", "webmcp"];
+export declare const AGENT_CAPABILITIES: readonly ["describe", "read", "write", "observe", "call", "changes", "when", "keys", "settled", "log", "bounds", "styles", "scope", "viewport", "structure", "aria", "validity", "contract", "components", "webmcp"];
 /**
  * What `settled()` CHECKS. Each is something tosijs itself queues or starts,
  * so it can know when it is done.

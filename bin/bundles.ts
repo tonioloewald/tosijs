@@ -135,7 +135,14 @@ export const BUNDLES: BundleSpec[] = [
     // bundle under the 1 kB minimum this file specifies — caught by the
     // headroom gate, off the budget ledger, not by a failing build. Restored
     // to the ~2 kB slack every other shipped bundle carries.
-    budget: 47_000,
+    //
+    // 47_000 -> 48_000, 2026-10-01: agent.settled() and a stable key per describe() record (tosijs#47/#48,
+    // asked by haltija) cost ~750 gz here, on the opt-in agent surface. ESM
+    // consumers who do not import it pay nothing (NO_AGENT_CONSUMER below
+    // measures and gates exactly that); CJS cannot shake, so main.js carries
+    // it. The headroom gate caught both under the 1 kB floor; owner approved
+    // the raise (2026-10-01) on condition the no-agent figure is measured.
+    budget: 48_000,
     probe: 'import',
     stage: 'main',
   },
@@ -166,7 +173,14 @@ export const BUNDLES: BundleSpec[] = [
     // rather than the bundle shipping on a hair trigger.
     //
     // Sizes deliberately not quoted — `bun run build`'s budget ledger has them.
-    budget: 47_000,
+    //
+    // 47_000 -> 48_000, 2026-10-01: agent.settled() and a stable key per describe() record (tosijs#47/#48,
+    // asked by haltija) cost ~750 gz here, on the opt-in agent surface. ESM
+    // consumers who do not import it pay nothing (NO_AGENT_CONSUMER below
+    // measures and gates exactly that); CJS cannot shake, so main.js carries
+    // it. The headroom gate caught both under the 1 kB floor; owner approved
+    // the raise (2026-10-01) on condition the no-agent figure is measured.
+    budget: 48_000,
     probe: 'require',
     stage: 'main',
   },
@@ -246,7 +260,10 @@ export const BUNDLES: BundleSpec[] = [
     // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
     // regressions on two EXPERIMENTAL, inert bundles, so the slack is
     // deliberately generous.
-    budget: 63_500,
+    // 63_500 -> 65_000, 2026-10-01: agent.settled() and record keys (~1 kB gz
+    // in these whole-library builds) left module.debug.js with 764 B; restored
+    // to the ~2 kB slack for these EXPERIMENTAL, inert bundles.
+    budget: 65_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -261,7 +278,8 @@ export const BUNDLES: BundleSpec[] = [
     // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
     // regressions on two EXPERIMENTAL, inert bundles, so the slack is
     // deliberately generous.
-    budget: 63_500,
+    // 63_500 -> 65_000, 2026-10-01, same reason as module.debug.js above.
+    budget: 65_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -269,6 +287,20 @@ export const BUNDLES: BundleSpec[] = [
     sourcemap: false,
   },
 ]
+
+/**
+ * What a consumer pays who imports everything EXCEPT the agent surface from
+ * the shipped `dist/module.js` and lets their bundler tree-shake (measured by
+ * `bin/site.ts`, which also fails the build if any agent code survives).
+ * This is the number the "opt-in, shakes away if unimported" promise is about,
+ * so it gets its own ceiling rather than hiding inside module.js's.
+ */
+export const NO_AGENT_CONSUMER = {
+  // 31_000 when introduced (2026-10-01, with agent.settled() and record keys):
+  // set from the first measurement plus the ~1.5 kB slack the shipped bundles
+  // carry. See the budget ledger for the current figure.
+  budget: 31_000,
+}
 
 /**
  * A FINGERPRINT OF EVERYTHING THAT DETERMINES `dist/`.

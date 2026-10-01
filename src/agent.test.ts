@@ -4204,3 +4204,115 @@ describe('settled(): what it checks, and what it cannot see (tosijs#48)', () => 
     }
   })
 })
+
+describe('describe(): a stable key per wiring record (tosijs#47)', () => {
+  const rect = (el: Element) =>
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+      configurable: true,
+    })
+  const keyOf = (agent: any, id: string) =>
+    agent.describe().wiring.find((r: any) => r.id === id)?.key
+
+  test('every record carries a key, and keys are unique', async () => {
+    tosi({ kAll: { a: 'x', b: 'y' } })
+    await updates()
+    const a = elements.input({ id: 'k-a' })
+    const b = elements.input({ id: 'k-b' })
+    const h = elements.h2({ id: 'k-h' }, 'Heading')
+    document.body.append(a, b, h)
+    bind(a, 'kAll.a', bindings.value)
+    bind(b, 'kAll.b', bindings.value)
+    rect(h)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const wiring = agent.describe().wiring
+    expect(wiring.length).toBeGreaterThanOrEqual(3)
+    for (const r of wiring) expect(typeof r.key).toBe('string')
+    expect(new Set(wiring.map((r) => r.key)).size).toBe(wiring.length)
+    expect(agent.describe().version.capabilities).toContain('keys')
+  })
+
+  test('the key survives the INDEX moving — and a re-enabled surface', async () => {
+    tosi({ kMove: { a: 'x', b: 'y' } })
+    await updates()
+    const target = elements.input({ id: 'k-target' })
+    document.body.append(target)
+    bind(target, 'kMove.a', bindings.value)
+    await updates()
+    let agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const before = agent.describe().wiring
+    const key = before.find((r) => r.id === 'k-target')!.key
+    const indexBefore = before.findIndex((r) => r.id === 'k-target')
+    // something renders AHEAD of it: its index moves, its key must not
+    const ahead = elements.input({ id: 'k-ahead' })
+    document.body.prepend(ahead)
+    bind(ahead, 'kMove.b', bindings.value)
+    await updates()
+    const after = agent.describe().wiring
+    expect(after.findIndex((r) => r.id === 'k-target')).not.toBe(indexBefore)
+    expect(after.find((r) => r.id === 'k-target')!.key).toBe(key)
+    // a fresh surface (reconfigure) sees the same key
+    agent = current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    })
+    expect(keyOf(agent, 'k-target')).toBe(key)
+  })
+
+  test('a REPLACED element gets a new key, even with the same id and binding', async () => {
+    tosi({ kRep: { a: 'x' } })
+    await updates()
+    const first = elements.input({ id: 'k-rep' })
+    document.body.append(first)
+    bind(first, 'kRep.a', bindings.value)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const k1 = keyOf(agent, 'k-rep')
+    first.remove()
+    const second = elements.input({ id: 'k-rep' })
+    document.body.append(second)
+    bind(second, 'kRep.a', bindings.value)
+    await updates()
+    const k2 = keyOf(agent, 'k-rep')
+    expect(k2).toBeDefined()
+    expect(k2).not.toBe(k1)
+  })
+
+  test('a RE-TARGETED element gets a new key — recycling must not point an agent at the wrong row', async () => {
+    tosi({ kRow: { items: [{ name: 'one' }, { name: 'two' }] } })
+    await updates()
+    const row = elements.span({ id: 'k-row' })
+    document.body.append(row)
+    bind(row, 'kRow.items[0].name', bindings.text)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const k1 = keyOf(agent, 'k-row')
+    expect(keyOf(agent, 'k-row')).toBe(k1) // stable while nothing changes
+    // what a virtual list does on scroll: the same element, re-pointed at
+    // another item by rewriting its binding path in place
+    const { getElementBindings } = await import('./metadata')
+    const { dataBindings } = getElementBindings(row) as any
+    dataBindings[0].path = 'kRow.items[1].name'
+    const k2 = keyOf(agent, 'k-row')
+    expect(k2).not.toBe(k1)
+    expect(keyOf(agent, 'k-row')).toBe(k2) // and stable again after
+  })
+})

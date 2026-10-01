@@ -40,6 +40,14 @@ a rename and it cannot be misspelled. Strings remain fully supported, and are
 what you want when the path arrives from outside the program (a tool call, a
 config file, a wire message).
 
+**Every record in `describe().wiring` has a `key`.** Refer back to a control by
+its key, not its index: the index moves whenever the list changes (a row is
+added, a section renders), the key does not. A key lasts while the element
+exists *and* stays bound to the same paths; it changes when the element is
+replaced, or re-targeted — a virtual list reuses row elements for different
+items as it scrolls, and a key that survived that would point you at the wrong
+row. Keys are opaque (`k1`, `k2`, …): they say nothing about paths or position.
+
 Anything that is *neither* — a plain object, a raw value read out of the tree —
 is **refused**, with `kind: 'path'`. It used to be coerced with `String()`, so
 `roots: [app.cart]` declared a root named `"[object Object]"` and every read
@@ -500,6 +508,16 @@ export const BOUND_TWO_WAY = '⟷'
  */
 export interface AgentWiringRecord {
   tag: string
+  /**
+   * A stable handle on this record across `describe()` calls (tosijs#47).
+   * Set on every record `describe()` returns. The index in `wiring` moves
+   * whenever the list changes; the key does not. It stays the same while
+   * the element exists AND is bound to the same paths, and changes when the
+   * element is replaced or RE-TARGETED — a virtual list reuses row elements
+   * for different items as it scrolls, and a key that survived that would
+   * point an agent at the wrong row. Opaque: it carries no path or position.
+   */
+  key?: string
   id?: string
   part?: string
   role?: string
@@ -616,6 +634,7 @@ export const AGENT_CAPABILITIES = [
   'call',
   'changes', // turn-based drain with a cursor
   'when', // await a state condition
+  'keys', // a stable key on every wiring record
   'settled', // await quiet — with what it checked and what it cannot see
   'log', // the audit ledger
   'bounds', // per-record geometry
@@ -1851,6 +1870,35 @@ const isSecretControl = (el: Element, type?: string): boolean => {
  * — it re-visits elements `recordFor` deliberately rejected, and had no way to
  * see what they were bound to.
  */
+/*
+ * RECORD KEYS (tosijs#47). One per element, kept beside the signature of what
+ * the element is bound to: same element and same bindings → same key; a new
+ * element, or an element re-targeted to other paths (virtual-list recycling
+ * rewrites binding paths in place), → a new key. Module-level, so a key
+ * survives re-renders elsewhere and a re-enabled surface; WeakMap, so it
+ * never keeps a removed element alive.
+ */
+const recordKeys = new WeakMap<Element, { signature: string; key: string }>()
+let recordKeySeq = 0
+const keyFor = (el: Element): string => {
+  const signature = bindingPathsOf(el).join('\n')
+  const known = recordKeys.get(el)
+  if (known != null && known.signature === signature) return known.key
+  const key = `k${(++recordKeySeq).toString(36)}`
+  recordKeys.set(el, { signature, key })
+  return key
+}
+
+/** every record describe() returns goes out through here — the one place
+ * keys are assigned, so no push site can forget */
+const withKey = (
+  el: Element,
+  record: AgentWiringRecord
+): AgentWiringRecord => {
+  record.key = keyFor(el)
+  return record
+}
+
 const bindingPathsOf = (el: Element): string[] => {
   try {
     const { dataBindings } = getElementBindings(el)
@@ -3032,7 +3080,7 @@ export function enableAgentInterface(
           walkRoot.getElementsByClassName(BOUND_CLASS)
         )) {
           const record = recordFor(el)
-          if (record) wiring.push(record)
+          if (record) wiring.push(withKey(el, record))
         }
         for (const el of [
           walkRoot,
@@ -3043,7 +3091,7 @@ export function enableAgentInterface(
           // recordFor decides, we just make sure it gets ASKED
           if (elementToHandlers.has(el) || el.tagName.includes('-')) {
             const record = recordFor(el)
-            if (record) wiring.push(record)
+            if (record) wiring.push(withKey(el, record))
           }
         }
         // contenteditable regions are affordances in themselves — enumerated
@@ -3054,12 +3102,12 @@ export function enableAgentInterface(
         )) {
           if (el.getAttribute('contenteditable') === 'false') continue
           const record = recordFor(el)
-          if (record) wiring.push(record)
+          if (record) wiring.push(withKey(el, record))
         }
         // links likewise: navigation is app surface, bindings or not
         for (const el of Array.from(walkRoot.querySelectorAll('a[href]'))) {
           const record = recordFor(el)
-          if (record) wiring.push(record)
+          if (record) wiring.push(withKey(el, record))
         }
         // the structural tier (unless structure: false): headings and
         // landmarks — the page's information architecture — plus the
@@ -3151,7 +3199,7 @@ export function enableAgentInterface(
             }
             record.bounds = measured.bounds
             if (measured.fixed) record.viewportFixed = true
-            wiring.push(record)
+            wiring.push(withKey(el, record))
           }
         }
       }
