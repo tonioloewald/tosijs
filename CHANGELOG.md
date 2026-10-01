@@ -10,7 +10,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 Development dependencies and release tooling only. **Nothing a consumer installs
 changes**: tosijs has no runtime dependencies, and the shipped bundles differ
-from 1.10.5 only by the version stamp.
+from 1.10.5 only by the version stamp (checked bundle by bundle: four are
+byte-identical, the rest differ in the version string and the `debugId` hash
+that follows from it).
 
 ### Security — development dependency
 
@@ -18,7 +20,10 @@ from 1.10.5 only by the version stamp.
   Two high-severity, DoS-only advisories —
   [GHSA-qhr7-859c-m2p7](https://github.com/advisories/GHSA-qhr7-859c-m2p7) and
   [GHSA-6j4f-fj2g-mc7p](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p) —
-  were published the day after 1.10.5, in a package eslint pulls in through
+  plus a moderate one,
+  [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr),
+  which is the one that sets the 5.0.12 floor (the highs are fixed by 5.0.11).
+  They were published the day after 1.10.5, in a package eslint pulls in through
   `minimatch`. It is not in the published package. The build's dependency
   audit refused every build until it was patched. 5.0.12 is published by the
   same maintainer as 5.0.9, signed, from the same repository.
@@ -29,9 +34,10 @@ from 1.10.5 only by the version stamp.
   an approval that comes after the run's 60-minute wait) now runs the
   dependency audit in `warn` mode: 1.10.5 could not be verified because an
   advisory published after the release failed the audit when the re-run
-  rebuilt the tag. 1.10.5 was verified by hand instead (the registry tarball
-  against the release attestation, 126/126 files, plus the consumer smoke
-  test).
+  rebuilt the tag. With the fixed template, `verify_only` for 1.10.5 is green:
+  published bytes identical to the staged tarball, `latest` → 1.10.5, and the
+  consumer smoke test passing against the registry's copy, with the advisories
+  reported rather than blocking.
 
 ## [1.10.5] - 2026-09-29
 
