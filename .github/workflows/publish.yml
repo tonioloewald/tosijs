@@ -256,24 +256,40 @@ jobs:
       # often comes later, from a phone). It ends green with a warning and a summary saying
       # "run verify_only after approving"; the verification steps then skip. A red run here
       # emailed the maintainer a CI failure for something that had gone exactly right.
+      #
+      # But green must not read as VERIFIED (practices #2495): the timeout annotation is titled
+      # "Verification owed" and the job output `verification` says owed, so the outcome is
+      # distinguishable from a run that checked the published bytes. And an hour in which the
+      # registry never answered is an outage, not "not approved yet": that is red.
       - name: Wait for approval
         id: wait
         if: ${{ !inputs.verify_only && !inputs.dry_run }}
+        env:
+          NAME: ${{ steps.meta.outputs.name }}
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
+          REACHED=0
           for i in $(seq 1 120); do
-            if curl -fsS -H 'Cache-Control: no-cache' "https://registry.npmjs.org/${{ steps.meta.outputs.name }}" \
-              | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.exit(JSON.parse(s).versions?.[process.argv[1]]?0:1))" "${{ steps.meta.outputs.version }}"; then
-              echo "served by the registry after ~$((i * 30))s"
-              echo "approved=true" >> "$GITHUB_OUTPUT"
-              exit 0
+            if curl -fsS -H 'Cache-Control: no-cache' -o "$RUNNER_TEMP/packument.json" "https://registry.npmjs.org/$NAME"; then
+              REACHED=$((REACHED + 1))
+              if node -e "process.exit(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).versions?.[process.argv[2]]?0:1)" "$RUNNER_TEMP/packument.json" "$VERSION"; then
+                echo "listed by the registry after ~$((i * 30))s"
+                echo "approved=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
             fi
             sleep 30
           done
+          if [ "$REACHED" -eq 0 ]; then
+            echo "::error::the registry did not answer once in 60 minutes, so this run cannot say whether $NAME@$VERSION was approved. Check npmjs.com, then run verify_only for this tag."
+            exit 1
+          fi
           echo "approved=false" >> "$GITHUB_OUTPUT"
-          echo "::warning::staged but not approved within 60 minutes. Approve it, then run this workflow again for the same tag with verify_only ticked (a re-run would start over and stop at 'already published')."
+          echo "verification=owed" >> "$GITHUB_OUTPUT"
+          echo "::warning title=Verification owed::$NAME@$VERSION is staged but was not approved within 60 minutes, so NOTHING has been verified. Approve it, then run this workflow again for the same tag with verify_only ticked (a re-run would start over and stop at 'already published')."
           {
-            echo "## ⏸ ${{ steps.meta.outputs.name }}@${{ steps.meta.outputs.version }} is staged, awaiting approval"
+            echo "## ⏸ $NAME@$VERSION is staged, awaiting approval — verification owed"
             echo
             echo "Nothing is published yet and nothing has been verified. After approving on npmjs.com, run:"
             echo
@@ -284,6 +300,27 @@ jobs:
             echo "gh workflow run publish.yml -f tag=$TAG -f verify_only=true"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The packument lists a version before the CDN serves its tarball: tosijs 1.10.6 was listed
+      # ~220s before /-/tosijs-1.10.6.tgz stopped returning 404, and the registry smoke test
+      # (npm pack name@version) failed in between (practices #2495). Wait for the file itself.
+      - name: Wait for the tarball to be served
+        if: ${{ !inputs.dry_run && (inputs.verify_only || steps.wait.outputs.approved == 'true') }}
+        env:
+          NAME: ${{ steps.meta.outputs.name }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          TARBALL=$(curl -fsS -H 'Cache-Control: no-cache' "https://registry.npmjs.org/$NAME/$VERSION" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).dist.tarball))")
+          for i in $(seq 1 40); do
+            if curl -fsSI -o /dev/null "$TARBALL"; then
+              echo "tarball served after ~$(((i - 1) * 15))s: $TARBALL"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::$TARBALL was still not served 10 minutes after the version was listed."
+          exit 1
 
       - name: Verify what shipped
         if: ${{ !inputs.dry_run && (inputs.verify_only || steps.wait.outputs.approved == 'true') }}
