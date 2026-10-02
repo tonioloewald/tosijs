@@ -965,6 +965,16 @@ const measureBounds = (
 } | null => {
   const rect = (el as HTMLElement).getBoundingClientRect?.()
   if (rect == null) return null
+  // FINITE NUMBERS OR NOTHING. A conforming DOM always returns finite
+  // numbers; a shim or polyfill may not, and Math.round(NaN) is NaN. The
+  // record format promises numbers to every consumer — tosijs-floorplan 0.5.1
+  // stops drawing anything else, after a string x reached an SVG attribute
+  // (tosijs #2755) — so unmeasurable geometry is treated like no rect at all.
+  if (
+    ![rect.x, rect.y, rect.width, rect.height].every((n) => Number.isFinite(n))
+  ) {
+    return null
+  }
   if (viewportView) {
     // the camera: screen coordinates, and only what the screen shows
     const vw = (globalThis as any).innerWidth ?? 0
@@ -1006,6 +1016,12 @@ const measureBounds = (
       scrollY += (ancestor as HTMLElement).scrollTop ?? 0
       ancestor = ancestor.parentElement
     }
+  }
+  // a non-numeric scrollLeft/scrollTop (a custom element can define its own)
+  // would make these non-finite too
+  if (!Number.isFinite(scrollX) || !Number.isFinite(scrollY)) {
+    scrollX = 0
+    scrollY = 0
   }
   return {
     bounds: {

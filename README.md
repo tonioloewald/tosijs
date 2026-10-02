@@ -83,7 +83,7 @@ age of AI assistants, also means **fewer tokens** to generate and reason about.
   DOM-free `tosijs/state`; the full ESM entry is ~45 kB.
   <!-- sizes:end -->
   The agent surface is opt-in and shakes away if you never import it. It costs
-  <!--agentmarginal-->~16.3 kB<!--/agentmarginal--> — the marginal measurement,
+  <!--agentmarginal-->~16.4 kB<!--/agentmarginal--> — the marginal measurement,
   the same ESM bundle built with and without it — including the schematic
   renderer, the accessibility audit and the contract harnesses. (The gap
   between `tosijs` and `tosijs/core` is a larger

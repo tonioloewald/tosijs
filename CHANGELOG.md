@@ -41,6 +41,15 @@ loaded. A timeout resolves `{ settled: false, reason: 'timeout', pending }`;
 it never rejects. `'settled'` is in `describe().version.capabilities`, and
 `SETTLED_COVERS` / `SETTLED_NOT_COVERED` are exported.
 
+### Fixed — record bounds are finite numbers, or absent
+
+`describe()` built bounds with `Math.round(...)`, so they were always numbers,
+but `Math.round(NaN)` is `NaN`: a shim or polyfill whose `getBoundingClientRect`
+returned non-numeric geometry (or a custom element with a non-numeric
+`scrollLeft`) produced `NaN` bounds. A record now carries finite numbers or no
+`bounds` at all. Prompted by tosijs-floorplan 0.5.1, which stops drawing
+records with non-finite bounds after a string `x` reached an SVG attribute.
+
 ### Size — what the agent features cost, and who pays
 
 Measured by the build, which now also reports brotli and gates the

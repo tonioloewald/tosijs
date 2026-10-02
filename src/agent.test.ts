@@ -4316,3 +4316,53 @@ describe('describe(): a stable key per wiring record (tosijs#47)', () => {
     expect(keyOf(agent, 'k-row')).toBe(k2) // and stable again after
   })
 })
+
+describe('describe(): bounds are finite numbers or absent (tosijs #2755)', () => {
+  test('a shim that returns non-numeric geometry yields no bounds, never NaN or a string', async () => {
+    tosi({ fin: { a: 'x', b: 'y' } })
+    await updates()
+    const bad = elements.input({ id: 'fin-bad' })
+    const good = elements.input({ id: 'fin-good' })
+    const scrolled = elements.div({ id: 'fin-scroll' })
+    const inner = elements.input({ id: 'fin-inner' })
+    scrolled.append(inner)
+    document.body.append(bad, good, scrolled)
+    bind(bad, 'fin.a', bindings.value)
+    bind(good, 'fin.b', bindings.value)
+    bind(inner, 'fin.a', bindings.value)
+    Object.defineProperty(bad, 'getBoundingClientRect', {
+      value: () => ({ x: undefined, y: '10', width: NaN, height: Infinity }),
+      configurable: true,
+    })
+    for (const el of [good, inner]) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ x: 5, y: 5, width: 100, height: 20 }),
+        configurable: true,
+      })
+    }
+    // a custom scroll position that is not a number
+    Object.defineProperty(scrolled, 'scrollLeft', {
+      value: 'wide',
+      configurable: true,
+    })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      global: false,
+      expose: 'all',
+    }))
+    const wiring = agent.describe().wiring
+    const byId = (id: string) => wiring.find((r) => r.id === id)
+    expect(byId('fin-bad')).toBeDefined() // still on the map
+    expect(byId('fin-bad')!.bounds).toBeUndefined() // just not measured
+    for (const r of wiring) {
+      if (r.bounds == null) continue
+      for (const v of Object.values(r.bounds)) {
+        expect(typeof v).toBe('number')
+        expect(Number.isFinite(v)).toBe(true)
+      }
+    }
+    expect(byId('fin-good')!.bounds).toEqual({ x: 5, y: 5, width: 100, height: 20 })
+    expect(byId('fin-inner')!.bounds).toBeDefined()
+  })
+})
