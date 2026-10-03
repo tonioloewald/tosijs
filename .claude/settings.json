@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "virta brief"
+            "command": "command -v virta >/dev/null 2>&1 && virta brief || true"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "virta brief --changes"
+            "command": "command -v virta >/dev/null 2>&1 && virta brief --changes || true"
           }
         ]
       }

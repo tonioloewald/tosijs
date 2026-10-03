@@ -194,6 +194,19 @@ jobs:
           echo "tarball=$RUNNER_TEMP/pack/$FILE" >> "$GITHUB_OUTPUT"
           echo "integrity=$INTEGRITY" >> "$GITHUB_OUTPUT"
 
+      # The ONLY thing that crosses into the stage job, uploaded the moment it exists: nothing
+      # that runs after this (the smoke test, an unlocked extra install, release-doctor at the
+      # practices HEAD) can change the bytes that get staged. The stage job re-hashes them AND
+      # checks them against the hash this Pack step recorded, which no later step can rewrite.
+      - name: Hand the tarball to the stage job
+        if: ${{ !inputs.verify_only && !inputs.dry_run }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+          retention-days: 3
+
       # A tag carrying release-attestation.json vouches for a build made and tested LOCALLY
       # (tools/attest.ts). The tarball just packed must contain exactly the files recorded
       # there, so what is staged is what was signed off, and the suite never runs here.
@@ -212,9 +225,9 @@ jobs:
 
       # A repo with a second package tree (tosijs-platform's npm-managed functions/) names the
       # script that installs it for its test lane: package.json releaseDoctor.install.
-      # Deliberately AFTER Pack: the tarball is sealed (its integrity recorded) before any
-      # extra install runs, so an unlocked install's dependencies cannot touch what ships.
-      # It still runs in the job holding id-token: write — keep it `--ignore-scripts`.
+      # Deliberately AFTER Pack and its upload: the tarball has left this job, and the stage job
+      # checks it against Pack's recorded hash, so an unlocked install's dependencies cannot
+      # change what ships. This job holds no publish credential (only the stage job does).
       - name: Extra install (releaseDoctor.install)
         if: ${{ !inputs.verify_only }}
         run: |
@@ -236,17 +249,6 @@ jobs:
           RELEASE_DOCTOR_PUBLISHING: ${{ !inputs.dry_run && inputs.tag || '' }}
         run: bun .practices/tools/release-doctor.ts
 
-      # The ONLY thing that crosses into the stage job. Its bytes are re-hashed there, so a value a
-      # step above wrote to GITHUB_OUTPUT is never what decides what is staged or verified.
-      - name: Hand the tarball to the stage job
-        if: ${{ !inputs.verify_only && !inputs.dry_run }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: package-tarball
-          path: ${{ steps.pack.outputs.tarball }}
-          if-no-files-found: error
-          retention-days: 3
-
   # ---- nothing above this line has touched the registry ----
 
   # The only job that can mint an npm credential. No checkout, no repo code, no practices code:
@@ -265,18 +267,25 @@ jobs:
       approved: ${{ steps.wait.outputs.approved }}
       verification: ${{ steps.wait.outputs.verification }}
       integrity: ${{ steps.derive.outputs.integrity }}
+      name: ${{ steps.derive.outputs.name }}
+      version: ${{ steps.derive.outputs.version }}
+      dist_tag: ${{ steps.derive.outputs.dist_tag }}
     env:
       TAG: ${{ inputs.tag }}
+      # The hash the build job's Pack step recorded. A later build step can't rewrite a step's
+      # outputs, so this is the packed bytes' identity even if something after Pack tampered.
+      PACKED_INTEGRITY: ${{ needs.build.outputs.integrity }}
     steps:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22.x' # trusted publishing needs 22.14+
           registry-url: 'https://registry.npmjs.org'
 
-      # `npm stage` needs npm 11.15.0+, newer than the runner's bundled npm.
+      # `npm stage` needs npm 11.15.0+, newer than the runner's bundled npm. Pinned EXACTLY:
+      # this job holds the publish credential, so nothing in it floats.
       - name: Upgrade npm
         run: |
-          npm install -g npm@^11.15.0
+          npm install -g npm@11.21.0
           npm --version
 
       - name: Receive the tarball
@@ -324,6 +333,12 @@ jobs:
             *) DIST_TAG=latest ;;
           esac
           INTEGRITY="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | base64 -w0)"
+          # The bytes received must be the bytes PACKED. Without this, a step that ran after Pack
+          # could swap the tarball, and verify would still report "identical to what was staged".
+          if [ "$INTEGRITY" != "$PACKED_INTEGRITY" ]; then
+            echo "::error::the tarball received ($INTEGRITY) is not the one the build packed ($PACKED_INTEGRITY) — refusing to stage"
+            exit 1
+          fi
           {
             echo "tarball=$TARBALL"
             echo "name=$NAME"
@@ -413,9 +428,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      NAME: ${{ needs.build.outputs.name }}
-      VERSION: ${{ needs.build.outputs.version }}
-      DIST_TAG: ${{ needs.build.outputs.dist_tag }}
+      # From the stage job, which derived them from the bytes it staged; the build job (which
+      # ran repo code) stands in only for verify_only, where nothing was staged in this run.
+      NAME: ${{ needs.stage.outputs.name || needs.build.outputs.name }}
+      VERSION: ${{ needs.stage.outputs.version || needs.build.outputs.version }}
+      DIST_TAG: ${{ needs.stage.outputs.dist_tag || needs.build.outputs.dist_tag }}
       LATEST_BEFORE: ${{ needs.build.outputs.latest_before }}
       # What was STAGED, hashed by the stage job from the bytes it staged. For verify_only there
       # is no stage job, and the build job's re-pack of the tag stands in (npm pack is
