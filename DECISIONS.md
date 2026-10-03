@@ -24,6 +24,20 @@ and discarded when they leave the slice (owner; `list-binding.ts`'s removal
 phase; pinned by the record-key test in `agent.test.ts`). The decision stands
 on the churn, which is real either way.
 
+## Virtual lists clone rows; they do not recycle them
+
+A row that scrolls in is cloned fresh from the template; a row that scrolls
+out is discarded; rows that stay on screen are left alone. Recycling (reusing
+departing rows for arriving items and re-pointing their bindings) **was tried
+and found both slower and buggier** than cloning (owner, 2026-10-04; the
+attempt predates this repo's history). Cloning a template is cheap, and a
+recycled row carries state from its previous item — listeners, focus, form
+values, component internals — that every reuse must remember to reset. Do not
+reintroduce recycling as an optimisation without measuring it against cloning
+and covering that stale-state class. Consequences that depend on it: a
+record's `key` lasts while its row stays on screen (`agent.test.ts`), and
+path-indexed dispatch is rejected partly because rows churn (above).
+
 ## A shadow-DOM component binds like an `<input>`, through its `value`
 
 Binding into a shadow tree is unsupported by design (SB-1, 2026-07-17): bind the
