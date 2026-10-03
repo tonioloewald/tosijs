@@ -4,6 +4,22 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.7 — 2026-10-03
+
+- **Went well:** first release through the three-job publish workflow; the
+  one untested piece (npm stage publish from the code-free stage job) worked
+  first time. Approved inside the window; verify job green.
+- **Went well:** the light review earned its keep: a scoping claim in the
+  settled() docs that was wrong for two of four signals, and a stated
+  mechanism (row recycling) the library does not have.
+- **Didn't:** CI on main was red for five commits (a require() in a test;
+  `bun run format` hid it because eslint gates prettier and I had silenced
+  the output). Found while checking status for the owner, not by any gate.
+- **Surprised:** a nested template literal broke `tjs convert` ~470 lines
+  later, only in context (tjs-lang #2837); and the long-list warning cost
+  480 B gz per bundle until the message was cut to 290.
+- **Cycle:** none.
+
 ## 1.10.6 — 2026-10-01
 
 - **Went well:** the fixed `verify_only` (audit in warn mode) was proven on the
