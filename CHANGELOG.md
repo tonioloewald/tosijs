@@ -44,7 +44,9 @@ the reason. It is advice: `settings.quiet` silences it. Every doc example was
 checked in a real browser and none trips it.
 
 **Expect it in existing apps**, including tosijs-ui: that is the point. Each
-warning is a list to virtualize, or a reason to write down.
+warning is a list to virtualize, or a reason to write down. tosijs-ui's own
+internal lists that authors cannot reach are tracked on the virta board
+(tosijs-ui #2842).
 
 Cost: about 290 bytes gzipped in every bundle, `state.js` included (it
 already carried list binding; filed separately). The message was cut from a
@@ -58,9 +60,9 @@ agent working across turns had only a record's INDEX to refer back to, and the
 index moves whenever the list changes, so "the third record" could be a
 different control on the next turn. Every record now carries an opaque `key`
 that stays the same while its element exists and is bound to the same paths.
-It changes when the element is replaced, **or re-targeted**: a virtual list
-reuses row elements for different items as it scrolls, and a key that survived
-that would point an agent at the wrong row. `'keys'` is in
+It changes when the element is replaced (a virtual list replaces rows as they
+scroll in and out), and if an element is ever re-pointed at different paths,
+so a key never follows an element to different data. `'keys'` is in
 `describe().version.capabilities`. Additive; the record shape gains one field.
 
 ### Added — `agent.settled()`, and exactly what it can and cannot see
@@ -79,7 +81,10 @@ result also lists `notCovered`: network, timers, async work tosijs did not
 start (including an action's work it does not return), throttled list updates,
 share/sync queues, unbound DOM and paint, and, under a manifest, undeclared
 state. Each of those is pinned by a test in which `settled` resolves true while
-that work is still pending. It does not mean the app is idle or that data has
+that work is still pending. Under a manifest only the quiet window is scoped:
+the notification and render queues are page-wide, so a render caused by
+undeclared state can delay `settled` and is counted in `pending.renders`
+(timing only, never a path or a value). It does not mean the app is idle or that data has
 loaded. A timeout resolves `{ settled: false, reason: 'timeout', pending }`;
 it never rejects. `'settled'` is in `describe().version.capabilities`, and
 `SETTLED_COVERS` / `SETTLED_NOT_COVERED` are exported.

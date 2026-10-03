@@ -580,8 +580,14 @@ async function buildLibrary(full = true) {
       entry,
       `export { ${names.join(', ')} } from '${DIST}/module.js'\n`
     )
-    const consumer = await Bun.build({ ...opts, entrypoints: [entry] })
-    await $`rm -f ${entry}`.quiet()
+    // finally: Bun.build throws on failure, and the entry must not be left
+    // behind in the OS temp dir when it does
+    let consumer: Awaited<ReturnType<typeof Bun.build>>
+    try {
+      consumer = await Bun.build({ ...opts, entrypoints: [entry] })
+    } finally {
+      await $`rm -f ${entry}`.quiet()
+    }
     if (!consumer.success) throw new Error('no-agent consumer: build failed')
     const consumerRaw = new Uint8Array(await consumer.outputs[0].arrayBuffer())
     const consumerCode = new TextDecoder().decode(consumerRaw)

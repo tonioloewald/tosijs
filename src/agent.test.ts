@@ -4297,7 +4297,7 @@ describe('describe(): a stable key per wiring record (tosijs#47)', () => {
     expect(k2).not.toBe(k1)
   })
 
-  test('a RE-TARGETED element gets a new key — recycling must not point an agent at the wrong row', async () => {
+  test('an element RE-POINTED at other paths gets a new key — a key never follows an element to different data', async () => {
     tosi({ kRow: { items: [{ name: 'one' }, { name: 'two' }] } })
     await updates()
     const row = elements.span({ id: 'k-row' })
@@ -4311,8 +4311,9 @@ describe('describe(): a stable key per wiring record (tosijs#47)', () => {
     }))
     const k1 = keyOf(agent, 'k-row')
     expect(keyOf(agent, 'k-row')).toBe(k1) // stable while nothing changes
-    // what a virtual list does on scroll: the same element, re-pointed at
-    // another item by rewriting its binding path in place
+    // the same element, re-pointed at another item by rewriting its binding
+    // path in place. ListBinding replaces rows rather than doing this; the
+    // test pins the defence for anything that does
     const { getElementBindings } = await import('./metadata')
     const { dataBindings } = getElementBindings(row) as any
     dataBindings[0].path = 'kRow.items[1].name'
@@ -4375,4 +4376,15 @@ describe('describe(): bounds are finite numbers or absent (tosijs #2755)', () =>
     })
     expect(byId('fin-inner')!.bounds).toBeDefined()
   })
+})
+
+test('settled(): a short timeout with the DEFAULT quiet window resolves instead of rejecting', async () => {
+  const agent = (current = enableAgentInterface({
+    quiet: true,
+    global: false,
+    expose: 'all',
+  }))
+  const r = await agent.settled({ timeout: 40 })
+  expect(r.quietMs).toBe(20) // the default shrank to fit
+  expect(typeof r.settled).toBe('boolean')
 })

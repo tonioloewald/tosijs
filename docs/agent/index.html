@@ -84,10 +84,12 @@ config file, a wire message).</p>
 <p><strong>Every record in <code>describe().wiring</code> has a <code>key</code>.</strong> Refer back to a control by
 its key, not its index: the index moves whenever the list changes (a row is
 added, a section renders), the key does not. A key lasts while the element
-exists <em>and</em> stays bound to the same paths; it changes when the element is
-replaced, or re-targeted — a virtual list reuses row elements for different
-items as it scrolls, and a key that survived that would point you at the wrong
-row. Keys are opaque (<code>k1</code>, <code>k2</code>, …): they say nothing about paths or position.</p>
+exists <em>and</em> stays bound to the same paths. It changes when the element is
+replaced: a virtual list removes rows that scroll out and creates new ones for
+rows that scroll in, so a row&#39;s key lasts while it is on screen. It also
+changes if an element is ever re-pointed at different paths, so a key never
+follows an element to different data. Keys are opaque (<code>k1</code>, <code>k2</code>, …): they
+say nothing about paths or position.</p>
 <p>Anything that is <em>neither</em> — a plain object, a raw value read out of the tree —
 is <strong>refused</strong>, with <code>kind: &#39;path&#39;</code>. It used to be coerced with <code>String()</code>, so
 <code>roots: [app.cart]</code> declared a root named <code>&quot;[object Object]&quot;</code> and every read
@@ -184,6 +186,12 @@ Everything else is listed in <code>notCovered</code>, on every result, settled o
 <td>under a manifest only: undeclared state is deliberately not watched, because waiting on it would disclose that it changed</td>
 </tr>
 </tbody></table>
+<p><strong>Under a manifest, only <code>state-quiet</code> is scoped.</strong> <code>state-notifications</code> and
+<code>component-renders</code> are page-wide: tosijs&#39;s notification queue and render
+queue are shared by the whole page, so a render caused by undeclared state can
+delay <code>settled</code>, and on a timeout <code>pending.renders</code> counts it. That reveals
+<em>that</em> something rendered, never which path or what value; if that timing is
+sensitive for your app, do not expose <code>settled</code> to an agent you do not trust.</p>
 <p>Each of those is pinned by a test in which <code>settled</code> resolves <strong>true while that
 work is still pending</strong>, so the limits are part of the contract, not a caveat.
 <strong>Pass <code>notCovered</code> on</strong> to whatever trusts the answer (a test runner, a model),

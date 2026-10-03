@@ -43,10 +43,12 @@ config file, a wire message).
 **Every record in `describe().wiring` has a `key`.** Refer back to a control by
 its key, not its index: the index moves whenever the list changes (a row is
 added, a section renders), the key does not. A key lasts while the element
-exists *and* stays bound to the same paths; it changes when the element is
-replaced, or re-targeted — a virtual list reuses row elements for different
-items as it scrolls, and a key that survived that would point you at the wrong
-row. Keys are opaque (`k1`, `k2`, …): they say nothing about paths or position.
+exists *and* stays bound to the same paths. It changes when the element is
+replaced: a virtual list removes rows that scroll out and creates new ones for
+rows that scroll in, so a row's key lasts while it is on screen. It also
+changes if an element is ever re-pointed at different paths, so a key never
+follows an element to different data. Keys are opaque (`k1`, `k2`, …): they
+say nothing about paths or position.
 
 Anything that is *neither* — a plain object, a raw value read out of the tree —
 is **refused**, with `kind: 'path'`. It used to be coerced with `String()`, so
@@ -108,6 +110,13 @@ Everything else is listed in `notCovered`, on every result, settled or not:
 | `share-sync` | `share()` / `sync()` outbound queues |
 | `unbound-dom` | DOM changed outside bindings, CSS transitions and animations, paint |
 | `out-of-scope-state` | under a manifest only: undeclared state is deliberately not watched, because waiting on it would disclose that it changed |
+
+**Under a manifest, only `state-quiet` is scoped.** `state-notifications` and
+`component-renders` are page-wide: tosijs's notification queue and render
+queue are shared by the whole page, so a render caused by undeclared state can
+delay `settled`, and on a timeout `pending.renders` counts it. That reveals
+*that* something rendered, never which path or what value; if that timing is
+sensitive for your app, do not expose `settled` to an agent you do not trust.
 
 Each of those is pinned by a test in which `settled` resolves **true while that
 work is still pending**, so the limits are part of the contract, not a caveat.
@@ -513,9 +522,9 @@ export interface AgentWiringRecord {
    * Set on every record `describe()` returns. The index in `wiring` moves
    * whenever the list changes; the key does not. It stays the same while
    * the element exists AND is bound to the same paths, and changes when the
-   * element is replaced or RE-TARGETED — a virtual list reuses row elements
-   * for different items as it scrolls, and a key that survived that would
-   * point an agent at the wrong row. Opaque: it carries no path or position.
+   * element is replaced (a virtual list replaces rows as they scroll in and
+   * out) or re-pointed at different paths, so a key never follows an element
+   * to different data. Opaque: it carries no path or position.
    */
   key?: string
   id?: string
@@ -689,7 +698,10 @@ export const SETTLED_NOT_COVERED = [
 ] as const
 
 /** Reported under a manifest only: undeclared state is deliberately not
- * watched, because a settled() that waited on it would disclose it. */
+ * watched, because a settled() that waited on it would disclose it. NOTE:
+ * only the QUIET WINDOW is scoped. The notification and render queues are
+ * page-wide, so renders caused by undeclared state still delay settled()
+ * and appear in pending.renders (timing only: never a path or a value). */
 export const SETTLED_OUT_OF_SCOPE = 'out-of-scope-state'
 
 export type SettledCoverage = (typeof SETTLED_COVERS)[number]
@@ -1889,8 +1901,9 @@ const isSecretControl = (el: Element, type?: string): boolean => {
 /*
  * RECORD KEYS (tosijs#47). One per element, kept beside the signature of what
  * the element is bound to: same element and same bindings → same key; a new
- * element, or an element re-targeted to other paths (virtual-list recycling
- * rewrites binding paths in place), → a new key. Module-level, so a key
+ * element, or an element re-pointed at other paths, → a new key. (ListBinding
+ * does not re-point rows: it replaces them. The signature is a defence against
+ * anything that does, so a key cannot follow an element to different data.) Module-level, so a key
  * survives re-renders elsewhere and a re-enabled surface; WeakMap, so it
  * never keeps a removed element alive.
  */
@@ -3444,7 +3457,9 @@ export function enableAgentInterface(
       options: { timeout?: number; quietMs?: number } = {}
     ): Promise<AgentSettled> {
       const timeout = options.timeout ?? 5000
-      const quietMs = options.quietMs ?? 50
+      // the DEFAULT window shrinks to fit a short timeout: settled({ timeout:
+      // 40 }) used to reject over a quietMs the caller never passed
+      const quietMs = options.quietMs ?? Math.min(50, timeout / 2)
       try {
         assertLive('settled')
         if (!(Number.isFinite(timeout) && timeout > 0)) {

@@ -208,9 +208,9 @@ export interface AgentWiringRecord {
      * Set on every record `describe()` returns. The index in `wiring` moves
      * whenever the list changes; the key does not. It stays the same while
      * the element exists AND is bound to the same paths, and changes when the
-     * element is replaced or RE-TARGETED — a virtual list reuses row elements
-     * for different items as it scrolls, and a key that survived that would
-     * point an agent at the wrong row. Opaque: it carries no path or position.
+     * element is replaced (a virtual list replaces rows as they scroll in and
+     * out) or re-pointed at different paths, so a key never follows an element
+     * to different data. Opaque: it carries no path or position.
      */
     key?: string;
     id?: string;
@@ -347,7 +347,10 @@ export declare const SETTLED_COVERS: readonly ["state-notifications", "state-qui
  */
 export declare const SETTLED_NOT_COVERED: readonly ["network", "timers", "external-async", "list-throttle", "share-sync", "unbound-dom"];
 /** Reported under a manifest only: undeclared state is deliberately not
- * watched, because a settled() that waited on it would disclose it. */
+ * watched, because a settled() that waited on it would disclose it. NOTE:
+ * only the QUIET WINDOW is scoped. The notification and render queues are
+ * page-wide, so renders caused by undeclared state still delay settled()
+ * and appear in pending.renders (timing only: never a path or a value). */
 export declare const SETTLED_OUT_OF_SCOPE = "out-of-scope-state";
 export type SettledCoverage = (typeof SETTLED_COVERS)[number];
 export interface AgentSettled {
