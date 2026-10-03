@@ -26,7 +26,7 @@ linking it back to `description.wiring[i]` — the image as index).
 > **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
 */
 
-// VENDORED from tosijs-floorplan@0.5.0 — the upstream package
+// VENDORED from tosijs-floorplan@0.5.2 — the upstream package
 // is the source of truth. DO NOT EDIT below this line: edit
 // tosijs-floorplan and rebuild (this section regenerates at build time).
 // tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
@@ -112,8 +112,8 @@ export interface SchematicRecord {
   /** the producer's assertion that text goes in here — the DOM-side
    * counterpart of contentEditable/two-way bindings (issue #3) */
   editable?: boolean
-  /** the producer WITHHELD facts about this element (tosijs 1.11.0's
-   * secret regions: a magic-link token lives in the href, so neither
+  /** the producer WITHHELD facts about this element (tosijs' secret
+   * regions: a magic-link token lives in the href, so neither
    * label nor href is published). Drawn with a `[withheld]` caption when
    * nothing else names it, and the legend says redacted — "this link has
    * no destination" and "its destination was withheld" are different
@@ -381,10 +381,27 @@ export const TARGET_FLAG_KINDS: ReadonlySet<string> = new Set([
 export const targetSizeFinding = (
   w: SchematicRecord,
   targetSize = TARGET_SIZE_DEFAULT,
+  options: { honorProducerFlags?: boolean } = {}
+): string | null => {
+  // a disabled audit never touches the record (0.5.1's order)
+  if (targetSize <= 0) return null
+  const bounds = w.bounds
+  return bounds == null
+    ? null
+    : sizeFinding(w, bounds.width, bounds.height, targetSize, options)
+}
+
+// the rule over given dimensions: the renderer passes the geometry it
+// snapshotted (read once), never a rebuilt record — spreading one drops
+// inherited fields and lost class-backed records their verdict (0.5.2 M1)
+const sizeFinding = (
+  w: SchematicRecord,
+  width: number,
+  height: number,
+  targetSize = TARGET_SIZE_DEFAULT,
   { honorProducerFlags = false } = {}
 ): string | null => {
-  if (targetSize <= 0 || w.bounds == null || !isInteractive(w)) return null
-  const { width, height } = w.bounds
+  if (targetSize <= 0 || !isInteractive(w)) return null
   // hidden is not small (#9): a 0×0 (or unlaid-out) element is not a
   // target too small to hit — the guard lives here so callers passing raw
   // wiring don't each grow their own copy
@@ -415,6 +432,25 @@ export const targetSizeFinding = (
     : null
 }
 
+// geometry fails closed: coordinates are interpolated into SVG attributes,
+// so a value of the WRONG TYPE (a string, an object — anything whose text
+// isn't a number's) must never reach one (#2739: a string x on a
+// viewportFixed record landed in x="…" verbatim — attribute injection).
+// RECORDS are untrusted producer data: bounds that aren't finite numbers
+// are not drawn. OPTIONS of the declared type behave exactly as in 0.5.0
+// (numbers of any value, null, absent — pinned byte-for-byte by
+// tools/byte-stability.ts); only the options that PRINT (pad, fontSize,
+// within) are guarded, and only against the wrong type. maxCaption,
+// minLabelHeight and targetSize feed comparisons and slice() alone.
+const finiteBounds = (b: SchematicBounds): boolean =>
+  Number.isFinite(b.x) &&
+  Number.isFinite(b.y) &&
+  Number.isFinite(b.width) &&
+  Number.isFinite(b.height)
+
+const printable = (value: unknown): boolean =>
+  value == null || typeof value === 'number'
+
 const intersects = (a: SchematicBounds, b: SchematicBounds): boolean =>
   a.x < b.x + b.width &&
   b.x < a.x + a.width &&
@@ -429,14 +465,30 @@ const contains = (outer: SchematicBounds, inner: SchematicBounds): boolean =>
 
 // string args (not regexes) — tjs convert's lexer mis-reads a quote inside a
 // regex literal (/"/g) as a string opener; see tjs-lang issue
-const esc = (s: string): string =>
-  s
+// a sink that trusts its input's type can be handed an object with its
+// own replaceAll: anything but a string escapes to '' (0.5.2 review)
+const esc = (s: unknown): string =>
+  typeof s !== 'string'
+    ? ''
+    : s
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)'
+
+// a producer's computed colour, or the fallback: records are untrusted data,
+// and a non-string here (a number, an object, a missing key) used to reach
+// esc() and throw, so one malformed record denied the whole map (#2748).
+// Read once, so the value checked is the value drawn.
+const styleColor = (style: unknown, key: string, fallback: string): string => {
+  const value =
+    style != null && typeof style === 'object'
+      ? (style as Record<string, unknown>)[key]
+      : undefined
+  return typeof value === 'string' ? value : fallback
+}
 
 const FLAG_COLORS: Record<string, string> = {
   error: '#d32f2f',
@@ -490,30 +542,69 @@ export const schematic = (
   options: SchematicOptions = {}
 ): SchematicResult => {
   const {
-    pad = 8,
     minLabelHeight = 14,
     maxCaption = 36,
-    fontSize = 11,
-    within,
+    within: withinIn,
     index: showIndex = false,
     targetSize = TARGET_SIZE_DEFAULT,
     legendNote = true,
     decorate,
   } = options
+  // the options that print: the wrong type falls back to the default
+  // each value READ ONCE (#2753): the value checked is the value printed,
+  // so a getter or Proxy can't pass the check and inject on a second read
+  const padIn = options.pad
+  const pad = padIn === undefined || !printable(padIn) ? 8 : padIn
+  const fontSizeIn = options.fontSize
+  const fontSize = fontSizeIn === undefined || !printable(fontSizeIn) ? 11 : fontSizeIn
   const legend: SchematicLegendEntry[] = []
-  const boxes = description.wiring.filter(
-    (w) =>
-      w.bounds != null &&
-      w.bounds.width > 0 &&
-      w.bounds.height > 0 &&
+  const within: SchematicBounds | undefined =
+    withinIn == null
+      ? undefined
+      : {
+          x: withinIn.x,
+          y: withinIn.y,
+          width: withinIn.width,
+          height: withinIn.height,
+        }
+  // a region of the wrong type draws nothing rather than silently
+  // widening the crop to the whole map
+  const withinOk =
+    within == null ||
+    (printable(within.x) &&
+      printable(within.y) &&
+      printable(within.width) &&
+      printable(within.height))
+  // record geometry, snapshotted once into plain numbers: everything below
+  // reads geometry.get(w), never w.bounds again
+  // a record object listed twice reuses its first snapshot, so a getter
+  // can't make one occurrence filtered and the other drawn (0.5.2 M4);
+  // null = read once, unusable
+  const geometry = new Map<SchematicRecord, SchematicBounds | null>()
+  const snapshotOf = (w: SchematicRecord): SchematicBounds | null => {
+    if (geometry.has(w)) return geometry.get(w)!
+    const b = w.bounds
+    const g = b == null ? null : { x: b.x, y: b.y, width: b.width, height: b.height }
+    const usable = g != null && finiteBounds(g) ? g : null
+    geometry.set(w, usable)
+    return usable
+  }
+  const boxes = description.wiring.filter((w) => {
+    if (!withinOk) return false
+    const g = snapshotOf(w)
+    if (g == null) return false
+    return (
+      g.width > 0 &&
+      g.height > 0 &&
       // fully negative coordinates = hidden by off-page positioning (the
       // spatial analog of zero-size): invisible to humans, invisible here
       (w.viewportFixed === true ||
-        (w.bounds.x + w.bounds.width > 0 && w.bounds.y + w.bounds.height > 0)) &&
+        (g.x + g.width > 0 && g.y + g.height > 0)) &&
       (within == null ||
         w.viewportFixed === true ||
-        intersects(w.bounds, within))
-  )
+        intersects(g, within))
+    )
+  })
   // viewport furniture (fixed/sticky) has viewport coordinates: it neither
   // stretches the viewBox nor sits at a page position — it gets PINNED as an
   // overlay at the map's origin, which is where it lives on screen
@@ -530,19 +621,19 @@ export const schematic = (
   const minX =
     within != null
       ? within.x - pad
-      : Math.min(...fitBoxes.map((w) => w.bounds!.x)) - pad
+      : Math.min(...fitBoxes.map((w) => geometry.get(w)!.x)) - pad
   const minY =
     within != null
       ? within.y - pad
-      : Math.min(...fitBoxes.map((w) => w.bounds!.y)) - pad
+      : Math.min(...fitBoxes.map((w) => geometry.get(w)!.y)) - pad
   const maxX =
     within != null
       ? within.x + within.width + pad
-      : Math.max(...fitBoxes.map((w) => w.bounds!.x + w.bounds!.width)) + pad
+      : Math.max(...fitBoxes.map((w) => geometry.get(w)!.x + geometry.get(w)!.width)) + pad
   const maxY =
     within != null
       ? within.y + within.height + pad
-      : Math.max(...fitBoxes.map((w) => w.bounds!.y + w.bounds!.height)) + pad
+      : Math.max(...fitBoxes.map((w) => geometry.get(w)!.y + geometry.get(w)!.height)) + pad
 
   // explicit width/height (not just viewBox): gives the svg an intrinsic
   // size as a document/img, and Firefox refuses to draw an svg image onto a
@@ -582,25 +673,27 @@ export const schematic = (
       'NOT established; a producer that cannot introspect handlers ' +
       'should assert `interactive`/`editable` per record (see README)'
     : undefined
+  // the container scan is O(N²): look each box's snapshot up once (0.5.2 M2)
+  const boxGeometry = boxes.map((b) => geometry.get(b)!)
   for (const w of drawOrder) {
     const index = description.wiring.indexOf(w)
     const pinOffsetX = w.viewportFixed === true ? minX + pad : 0
     const pinOffsetY = w.viewportFixed === true ? minY + pad : 0
-    const x = w.bounds!.x + pinOffsetX
-    const y = w.bounds!.y + pinOffsetY
-    const { width, height } = w.bounds!
+    const own = geometry.get(w)!
+    const x = own.x + pinOffsetX
+    const y = own.y + pinOffsetY
+    const { width, height } = own
     // a box that CONTAINS other drawn boxes is a container: its textContent
     // is its children's text concatenated, so a text-derived caption would
     // overprint the children's own captions — the children speak for
     // themselves. Only an explicit label earns a container a caption.
-    const isContainer =
-      w.viewportFixed !== true &&
-      boxes.some(
-        (other) =>
-          other !== w &&
-          other.viewportFixed !== true &&
-          contains(w.bounds!, other.bounds!)
-      )
+    let isContainer = false
+    if (w.viewportFixed !== true)
+      for (let j = 0; j < boxes.length && !isContainer; j++)
+        isContainer =
+          boxes[j] !== w &&
+          boxes[j].viewportFixed !== true &&
+          contains(own, boxGeometry[j])
     // caption truth, per control kind:
     // - checkbox/radio: the state is GEOMETRY (✕ in the box, dot in the
     //   circle — drawn below, legible at any raster scale); the caption is
@@ -613,6 +706,10 @@ export const schematic = (
     // truthy non-boolean secret (secret: 1 from mangled producer JSON)
     // must scrub, not leak — every redaction gate shares this coercion
     const secret = Boolean(w.secret)
+    // read ONCE: the data:-only gate below must judge the value that is
+    // drawn, or a getter answering 'data:' to the check gets an external
+    // URL fetched by the <image> (0.5.2 review B1)
+    const image = w.image
     let caption: string
     let hint = false
     if (secret) {
@@ -673,21 +770,17 @@ export const schematic = (
     const editable = !structural && hasEditEvidence(w)
     const fill = structural
       ? 'none'
-      : w.style != null
-        ? w.style.background
-        : 'transparent'
-    const stroke =
-      !structural && w.style != null && w.style.borderColor !== TRANSPARENT
-        ? w.style.borderColor
-        : 'currentColor'
-    const color = w.style != null ? w.style.color : 'currentColor'
+      : styleColor(w.style, 'background', 'transparent')
+    const border = styleColor(w.style, 'borderColor', 'currentColor')
+    const stroke = !structural && border !== TRANSPARENT ? border : 'currentColor'
+    const color = styleColor(w.style, 'color', 'currentColor')
     // embedded media first: pixels the producer captured, drawn in place —
     // everything else (state geometry, captions, badges) reads over it
     const drawImage =
       !structural &&
       !secret && // B1: withheld pixels never draw
-      typeof w.image === 'string' &&
-      w.image.startsWith('data:')
+      typeof image === 'string' &&
+      image.startsWith('data:')
     // CRAMPED: the box can't legibly carry its dress — draw it bare (shape,
     // state geometry, emphasis, focus) with an auto stamp pointing into the
     // legend, where the metadata actually lives. Toggles are exempt from
@@ -700,7 +793,8 @@ export const schematic = (
     // the toggle and inline-link exemptions, producer-flag supersession —
     // lives in the exported targetSizeFinding (issue #4: one
     // implementation, shared with tosijs's audit).
-    const undersized = targetSizeFinding(w, targetSize, {
+    // the snapshot, so the legend's size text is the geometry drawn
+    const undersized = sizeFinding(w, width, height, targetSize, {
       honorProducerFlags: true,
     })
     const emphasis = structural
@@ -739,7 +833,7 @@ export const schematic = (
       if (drawImage) {
         parts.push(
           `<image x="${x + 1}" y="${y + 1}" width="${width - 2}" ` +
-            `height="${height - 2}" href="${esc(w.image as string)}" ` +
+            `height="${height - 2}" href="${esc(image)}" ` +
             `preserveAspectRatio="xMidYMid meet"/>`
         )
       }

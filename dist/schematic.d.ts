@@ -93,8 +93,8 @@ export interface SchematicRecord {
     /** the producer's assertion that text goes in here — the DOM-side
      * counterpart of contentEditable/two-way bindings (issue #3) */
     editable?: boolean;
-    /** the producer WITHHELD facts about this element (tosijs 1.11.0's
-     * secret regions: a magic-link token lives in the href, so neither
+    /** the producer WITHHELD facts about this element (tosijs' secret
+     * regions: a magic-link token lives in the href, so neither
      * label nor href is published). Drawn with a `[withheld]` caption when
      * nothing else names it, and the legend says redacted — "this link has
      * no destination" and "its destination was withheld" are different
@@ -251,8 +251,8 @@ export declare const TARGET_SIZE_DEFAULT = 24;
  * the audit down (#8). Covers both producers' kinds in the wild
  * (haltija: 'target', 'smallTarget'; tosijs auditFlags: 'target-size'). */
 export declare const TARGET_FLAG_KINDS: ReadonlySet<string>;
-export declare const targetSizeFinding: (w: SchematicRecord, targetSize?: number, { honorProducerFlags }?: {
-    honorProducerFlags?: boolean | undefined;
+export declare const targetSizeFinding: (w: SchematicRecord, targetSize?: number, options?: {
+    honorProducerFlags?: boolean;
 }) => string | null;
 export declare const schematic: (description: SchematicDescription, options?: SchematicOptions) => SchematicResult;
 /** the string-only form — schematic().svg, kept for drop-in compatibility */

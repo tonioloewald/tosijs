@@ -6,7 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [Unreleased]
+## [1.10.7] - 2026-10-03
+
+Two things haltija asked for on the agent surface (`settled()`, record keys),
+a warning for the commonest way a tosijs page gets slow, and the vendored
+floorplan security fixes. Additive throughout; nothing removed, no behaviour
+an app relies on changes. The new warning will fire in apps with long
+unvirtualized lists: that is its job.
+
+### Security — vendored tosijs-floorplan 0.5.0 → 0.5.2
+
+`schematic()` (re-exported on the agent surface) is vendored from
+tosijs-floorplan, pinned exactly. 0.5.1 and 0.5.2 fix:
+- **SVG attribute injection** (floorplan #2739): a record whose bounds were not
+  numbers, or a string `pad`/`fontSize`/`within`, was written verbatim into an
+  attribute. Non-finite bounds now mean the record is not drawn. tosijs's own
+  `describe()` never emitted such bounds, and now guarantees it (below).
+- **Read once**: an `<image>` draws only the `data:` URI that was checked, and
+  bounds, `within`, `pad`, `fontSize` and style colours are read once, so a
+  getter cannot pass a check and then print markup.
+- A non-string `style` value no longer makes `schematic()` fail for the whole
+  map.
+
 
 ### Added — a long list must virtualize, or say why
 
@@ -72,26 +93,28 @@ returned non-numeric geometry (or a custom element with a non-numeric
 `bounds` at all. Prompted by tosijs-floorplan 0.5.1, which stops drawing
 records with non-finite bounds after a string `x` reached an SVG attribute.
 
-### Size — what the agent features cost, and who pays
+### Size — what this release costs, and who pays
 
 Measured by the build, which now also reports brotli and gates the
 **no-agent consumer**: every non-agent export imported from the shipped
 `dist/module.js` and tree-shaken, the way a consumer's bundler would. The build
 fails if any agent-surface code survives that.
 
-| | gzip | brotli |
-| --- | --- | --- |
-| no-agent consumer, v1.10.6 | 29_140 | 25_614 |
-| no-agent consumer, this release | 29_144 | 25_587 |
-| `module.js` (everything) | 45_814 (+740) | 40_034 |
-| `main.js` (CJS, cannot tree-shake) | 46_081 (+746) | 40_227 |
-| `core.js` / `state.js` | +5 / +0 | |
+| | v1.10.6 gz | 1.10.7 gz | Δ | 1.10.7 br |
+| --- | --- | --- | --- | --- |
+| no-agent consumer | 29_140 | 29_441 | **+301** | 25_878 |
+| `index.js` (script tag) | 29_365 | 29_663 | **+298** | 26_029 |
+| `module.js` (everything) | 45_074 | 46_488 | **+1_414** | 40_619 |
+| `main.js` (CJS, cannot shake) | 45_335 | 46_758 | **+1_423** | 40_843 |
+| `core.js` | 26_762 | 27_046 | **+284** | 23_808 |
+| `state.js` | 16_858 | 17_151 | **+293** | 15_249 |
 
-So `settled()` and record keys cost a consumer who does not use the agent
-surface **4 bytes** (the render counter in `Component`). The rest is on the
-agent surface and on CommonJS. Budgets raised to keep the 1 kB minimum
-headroom: `module.js` and `main.js` 47_000 → 48_000, the experimental
-debug/safe pair 63_500 → 65_000; new `NO_AGENT_CONSUMER` budget 31_000.
+Who pays for what: the long-list warning is ~290 B in every bundle;
+`settled()` and record keys are agent-surface only (4 B to a non-agent
+consumer, the render counter); the floorplan fixes are agent-surface only.
+Budgets raised to keep the 1 kB minimum headroom: `module.js` and `main.js`
+47_000 → 48_000, the experimental debug/safe pair 63_500 → 65_000; new
+`NO_AGENT_CONSUMER` budget 31_000.
 
 ## [1.10.6] - 2026-10-01
 
