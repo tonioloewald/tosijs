@@ -109,8 +109,8 @@ fails if any agent-surface code survives that.
 | --- | --- | --- | --- | --- |
 | no-agent consumer | 29_140 | 29_441 | **+301** | 25_878 |
 | `index.js` (script tag) | 29_365 | 29_663 | **+298** | 26_029 |
-| `module.js` (everything) | 45_074 | 46_488 | **+1_414** | 40_619 |
-| `main.js` (CJS, cannot shake) | 45_335 | 46_758 | **+1_423** | 40_843 |
+| `module.js` (everything) | 45_074 | 46_498 | **+1_424** | 40_660 |
+| `main.js` (CJS, cannot shake) | 45_335 | 46_773 | **+1_438** | 40_872 |
 | `core.js` | 26_762 | 27_046 | **+284** | 23_808 |
 | `state.js` | 16_858 | 17_151 | **+293** | 15_249 |
 
