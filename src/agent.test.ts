@@ -1,5 +1,11 @@
 import { test, expect, describe, afterEach } from 'bun:test'
-import { enableAgentInterface, BOUND_TWO_WAY, BOUND_TO_DOM } from './agent'
+import {
+  enableAgentInterface,
+  BOUND_TWO_WAY,
+  BOUND_TO_DOM,
+  SETTLED_COVERS,
+  SETTLED_NOT_COVERED,
+} from './agent'
 import { tosi } from './xin-proxy'
 import { xin } from './xin'
 import { updates } from './path-listener'
@@ -3977,7 +3983,6 @@ describe('settled(): what it checks, and what it cannot see (tosijs#48)', () => 
    * settled resolves TRUE while that kind of work is still pending — the
    * limits are pinned, not just documented.
    */
-  const { SETTLED_COVERS, SETTLED_NOT_COVERED } = require('./agent')
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
   test('an idle app settles, and the result says exactly what was and was not checked', async () => {
@@ -4362,7 +4367,12 @@ describe('describe(): bounds are finite numbers or absent (tosijs #2755)', () =>
         expect(Number.isFinite(v)).toBe(true)
       }
     }
-    expect(byId('fin-good')!.bounds).toEqual({ x: 5, y: 5, width: 100, height: 20 })
+    expect(byId('fin-good')!.bounds).toEqual({
+      x: 5,
+      y: 5,
+      width: 100,
+      height: 20,
+    })
     expect(byId('fin-inner')!.bounds).toBeDefined()
   })
 })

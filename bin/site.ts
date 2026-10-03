@@ -567,7 +567,13 @@ async function buildLibrary(full = true) {
     }
     const names = exportList[1]
       .split(',')
-      .map((item) => item.trim().split(/\s+as\s+/).pop()!.trim())
+      .map((item) =>
+        item
+          .trim()
+          .split(/\s+as\s+/)
+          .pop()!
+          .trim()
+      )
       .filter(Boolean)
     const entry = path.join(tmpdir(), `tosijs-no-agent-${process.pid}.ts`)
     await Bun.write(
@@ -577,9 +583,7 @@ async function buildLibrary(full = true) {
     const consumer = await Bun.build({ ...opts, entrypoints: [entry] })
     await $`rm -f ${entry}`.quiet()
     if (!consumer.success) throw new Error('no-agent consumer: build failed')
-    const consumerRaw = new Uint8Array(
-      await consumer.outputs[0].arrayBuffer()
-    )
+    const consumerRaw = new Uint8Array(await consumer.outputs[0].arrayBuffer())
     const consumerCode = new TextDecoder().decode(consumerRaw)
     // the agent surface's own refusal text: present iff its code survived
     if (consumerCode.includes('agent interface:')) {
@@ -593,7 +597,9 @@ async function buildLibrary(full = true) {
     budgetLedger.push(
       `| module.js, tree-shaken, no agent (${names.length} exports) | ` +
         `${fmt(gz)} | ${fmt(brotliSize(consumerRaw))} | ` +
-        `${fmt(NO_AGENT_CONSUMER.budget)} | ${fmt(NO_AGENT_CONSUMER.budget - gz)} |`
+        `${fmt(NO_AGENT_CONSUMER.budget)} | ${fmt(
+          NO_AGENT_CONSUMER.budget - gz
+        )} |`
     )
     if (gz > NO_AGENT_CONSUMER.budget) {
       throw new Error(

@@ -1907,10 +1907,7 @@ const keyFor = (el: Element): string => {
 
 /** every record describe() returns goes out through here — the one place
  * keys are assigned, so no push site can forget */
-const withKey = (
-  el: Element,
-  record: AgentWiringRecord
-): AgentWiringRecord => {
+const withKey = (el: Element, record: AgentWiringRecord): AgentWiringRecord => {
   record.key = keyFor(el)
   return record
 }
@@ -3487,7 +3484,9 @@ export function enableAgentInterface(
         record({
           seq: ++seq,
           path: '',
-          note: `settled: ${settled ? 'settled' : 'timeout'} after ${waitedMs}ms`,
+          note: `settled: ${
+            settled ? 'settled' : 'timeout'
+          } after ${waitedMs}ms`,
         })
         const result: AgentSettled = {
           settled,
