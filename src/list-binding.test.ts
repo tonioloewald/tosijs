@@ -1275,6 +1275,22 @@ describe('a long list must virtualize or say why (NON_VIRTUAL_WARN_THRESHOLD)', 
     expect(warnings).toEqual([])
   })
 
+  test('a list that starts small and is REPLACED by a long one warns then, once', async () => {
+    const { lvSwap } = tosi({ lvSwap: { items: rows(3) } })
+    await updates()
+    const warnings = await capture(async () => {
+      await mount(lvSwap.items)
+      lvSwap.items.push(...rows(5)) // 8: still under the threshold
+      await updates()
+      lvSwap.items = rows(30) as any // the whole array replaced
+      await updates()
+      lvSwap.items = rows(40) as any // and again: still once
+      await updates()
+    })
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain('30 items') // reports the size that tripped it
+  })
+
   test('a list that GROWS past 10 later warns then, once', async () => {
     const { lvGrow } = tosi({ lvGrow: { items: [] as any[] } })
     await updates()
