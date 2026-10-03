@@ -9,12 +9,20 @@ reopen it deliberately. Full evidence for each lives in the archived backlog,
 ## Bind dispatch is DOM-as-registry; a path→element index is rejected
 
 Tried, and rejected twice (2026-07-17). Virtual list bindings keep the DOM at
-O(visible) by recycling elements and rewriting their binding paths in place on
-every scroll frame, so any path-keyed index turns scrolling into index churn on
-the hot path virtual scrolling exists to keep flat. A leak-free path→element map
-is also genuinely hard: strong refs leak subtrees, WeakRefs leak keys. The
-`querySelectorAll` scan is bounded because virtual lists cap live DOM; the two
-are co-designed. Archive § "SB-1", item 3.
+O(visible): rows that stay on screen keep their elements, a row that scrolls
+out is discarded, and one that scrolls in is cloned fresh from the template
+(faster than cleaning up and reusing an old row). So bound elements are created
+and destroyed continuously while scrolling, and any path-keyed index would churn
+with them on the hot path virtual scrolling exists to keep flat. A leak-free
+path→element map is also genuinely hard: strong refs leak subtrees, WeakRefs
+leak keys. The `querySelectorAll` scan is bounded because virtual lists cap live
+DOM; the two are co-designed. Archive § "SB-1", item 3.
+
+*Corrected 2026-10-04:* this entry used to say virtual lists recycle elements
+and rewrite their binding paths in place. They do not: rows are cloned per item
+and discarded when they leave the slice (owner; `list-binding.ts`'s removal
+phase; pinned by the record-key test in `agent.test.ts`). The decision stands
+on the churn, which is real either way.
 
 ## A shadow-DOM component binds like an `<input>`, through its `value`
 

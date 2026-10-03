@@ -85,8 +85,10 @@ config file, a wire message).</p>
 its key, not its index: the index moves whenever the list changes (a row is
 added, a section renders), the key does not. A key lasts while the element
 exists <em>and</em> stays bound to the same paths. It changes when the element is
-replaced: a virtual list removes rows that scroll out and creates new ones for
-rows that scroll in, so a row&#39;s key lasts while it is on screen. It also
+replaced. In a virtual list, rows that stay on screen keep their elements
+across scrolls; a row that scrolls out is discarded, and one that scrolls in is
+cloned fresh from the template (faster than cleaning up and reusing an old
+row). So a row&#39;s key lasts while it stays on screen. It also
 changes if an element is ever re-pointed at different paths, so a key never
 follows an element to different data. Keys are opaque (<code>k1</code>, <code>k2</code>, …): they
 say nothing about paths or position.</p>

@@ -208,9 +208,10 @@ export interface AgentWiringRecord {
      * Set on every record `describe()` returns. The index in `wiring` moves
      * whenever the list changes; the key does not. It stays the same while
      * the element exists AND is bound to the same paths, and changes when the
-     * element is replaced (a virtual list replaces rows as they scroll in and
-     * out) or re-pointed at different paths, so a key never follows an element
-     * to different data. Opaque: it carries no path or position.
+     * element is replaced or re-pointed at different paths, so a key never
+     * follows an element to different data. In a virtual list a row keeps its
+     * key while it stays on screen; one that scrolls out and back is a fresh
+     * clone, with a new key. Opaque: it carries no path or position.
      */
     key?: string;
     id?: string;

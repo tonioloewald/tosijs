@@ -44,8 +44,10 @@ config file, a wire message).
 its key, not its index: the index moves whenever the list changes (a row is
 added, a section renders), the key does not. A key lasts while the element
 exists *and* stays bound to the same paths. It changes when the element is
-replaced: a virtual list removes rows that scroll out and creates new ones for
-rows that scroll in, so a row's key lasts while it is on screen. It also
+replaced. In a virtual list, rows that stay on screen keep their elements
+across scrolls; a row that scrolls out is discarded, and one that scrolls in is
+cloned fresh from the template (faster than cleaning up and reusing an old
+row). So a row's key lasts while it stays on screen. It also
 changes if an element is ever re-pointed at different paths, so a key never
 follows an element to different data. Keys are opaque (`k1`, `k2`, …): they
 say nothing about paths or position.
@@ -522,9 +524,10 @@ export interface AgentWiringRecord {
    * Set on every record `describe()` returns. The index in `wiring` moves
    * whenever the list changes; the key does not. It stays the same while
    * the element exists AND is bound to the same paths, and changes when the
-   * element is replaced (a virtual list replaces rows as they scroll in and
-   * out) or re-pointed at different paths, so a key never follows an element
-   * to different data. Opaque: it carries no path or position.
+   * element is replaced or re-pointed at different paths, so a key never
+   * follows an element to different data. In a virtual list a row keeps its
+   * key while it stays on screen; one that scrolls out and back is a fresh
+   * clone, with a new key. Opaque: it carries no path or position.
    */
   key?: string
   id?: string

@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Documented
+
+- **How virtual lists treat rows, and what that means for record keys.** Rows
+  that stay on screen keep their elements across scrolls; a row that scrolls
+  out is discarded, and one that scrolls in is cloned fresh from the template.
+  So a record's `key` lasts while its row stays on screen, and a row scrolled
+  out and back has a new one. 1.10.7's agent docs said this in a way that read
+  as rows being rebuilt needlessly; now stated precisely, and pinned by a test
+  that scrolls a real virtual list.
+
 ## [1.10.7] - 2026-10-03
 
 Two things haltija asked for on the agent surface (`settled()`, record keys),

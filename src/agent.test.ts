@@ -4388,3 +4388,84 @@ test('settled(): a short timeout with the DEFAULT quiet window resolves instead 
   expect(r.quietMs).toBe(20) // the default shrank to fit
   expect(typeof r.settled).toBe('boolean')
 })
+
+test('a virtual-list row keeps its element and key while on screen; scrolled out and back, it is a fresh clone with a new key (tosijs#47)', async () => {
+  /*
+   * How virtual lists work (owner, 2026-10-04, and list-binding.ts's removal
+   * phase): rows that stay in the visible slice keep their elements — nothing
+   * is rebuilt needlessly. A row that leaves the slice is removed and its
+   * cache entry dropped; a row that enters is CLONED fresh from the template,
+   * which is faster than cleaning up and reusing another row. So a row's key
+   * lasts while it stays on screen.
+   */
+  const { ListBinding } = await import('./list-binding')
+  const items = Array.from({ length: 100 }, (_, i) => ({
+    id: i,
+    label: `R${i}`,
+  }))
+  tosi({ kVirt: { items } })
+  await updates()
+  const proxied = xin['kVirt.items'] as any[]
+  const container = elements.div(
+    elements.template(elements.div({ class: 'krow', bindText: '^.label' }))
+  )
+  for (const [k, v] of [
+    ['offsetWidth', 400],
+    ['offsetHeight', 300],
+    ['scrollTop', 0],
+  ] as const) {
+    Object.defineProperty(container, k, {
+      value: v,
+      writable: true,
+      configurable: true,
+    })
+  }
+  document.body.append(container)
+  const lb = new ListBinding(container, proxied, {
+    idPath: 'id',
+    virtual: { height: 30 },
+  })
+  lb.update(proxied)
+  await updates()
+  const rowFor = (label: string) =>
+    Array.from(container.querySelectorAll('.krow')).find(
+      (el) => el.textContent === label
+    ) as HTMLElement | undefined
+  const agent = (current = enableAgentInterface({
+    quiet: true,
+    global: false,
+    expose: 'all',
+  }))
+  const keyOf = (el: HTMLElement) => {
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 200, height: 30 }),
+      configurable: true,
+    })
+    el.id = `k-virt-${el.textContent}`
+    return agent.describe().wiring.find((r) => r.id === el.id)?.key
+  }
+
+  const r5 = rowFor('R5')!
+  const r5Key = keyOf(r5)
+  expect(r5Key).toBeDefined()
+
+  // a small scroll that keeps R5 on screen: same element, same key
+  container.scrollTop = 60
+  lb.update(proxied, true)
+  expect(rowFor('R5')).toBe(r5)
+  expect(keyOf(r5)).toBe(r5Key)
+
+  // scroll far away: R5 is removed
+  container.scrollTop = 2400
+  lb.update(proxied, true)
+  expect(r5.isConnected).toBe(false)
+  expect(rowFor('R5')).toBeUndefined()
+
+  // and back: a FRESH clone (not the old element), so a new key
+  container.scrollTop = 0
+  lb.update(proxied, true)
+  const again = rowFor('R5')!
+  expect(again).toBeDefined()
+  expect(again).not.toBe(r5)
+  expect(keyOf(again)).not.toBe(r5Key)
+})
