@@ -122,6 +122,7 @@ for each item in the source array.</p>
 <li><code>initInstance: (element, item: any) =&gt; void</code></li>
 <li><code>updateInstance: (element, item: any) =&gt; void</code></li>
 <li><code>virtual: {width?: number, height: number}</code></li>
+<li><code>nonVirtualReason: string</code> — why a long list deliberately renders every item</li>
 <li><code>hiddenProp: symbol | string</code></li>
 <li><code>visibleProp: symbol | string</code></li>
 </ul>
@@ -129,6 +130,18 @@ for each item in the source array.</p>
 that element and the array value that it represents.</p>
 <p>Meanwhile, <code>updateInstance</code> is called once on creation and then any time the
 array value is updated.</p>
+<h3>Long lists: virtualize, or say why</h3>
+<p>A list of <strong>more than 10 items</strong> with neither <code>virtual</code> nor <code>nonVirtualReason</code>
+logs a warning, once per list. An unvirtualized list keeps one live, bound DOM
+subtree per item and updates them all, which is the commonest way a tosijs page
+gets slow. The warning names the bound path, the item count and the element,
+and the two fixes:</p>
+<pre><code>{ virtual: { height: 32 } }                  // only the visible rows exist
+{ nonVirtualReason: &#39;fixed list of 12 months&#39; } // rendering all is deliberate
+</code></pre>
+<p>The reason does nothing at runtime except silence the warning; it is there so
+the next reader knows the choice was made, not missed. <code>settings.quiet</code>
+silences this along with tosijs&#39;s other advice.</p>
 <h3>Virtual List Binding</h3>
 <p>If you want to bind large arrays with minimal performance impact, you can make a list
 binding <code>virtual</code> by passing the <code>height</code> (and optionally <code>width</code>) of an item.

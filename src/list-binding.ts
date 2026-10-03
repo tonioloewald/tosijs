@@ -227,6 +227,11 @@ you notify the registry by path rather than reaching for a proxy reference.
 
 The real power of list bindings comes from their support for virtualizing lists.
 
+**A list of more than 10 items must virtualize or say why.** Without `virtual`
+or a `nonVirtualReason` (e.g. `{ nonVirtualReason: 'fixed list of 12 months' }`)
+it logs one warning naming the list, its size and both fixes. See
+[bindings](/bindings/) for the details.
+
     ...emojiListExample.array.tosi.listBinding(({ div }, item) => div(item.name), {
       idPath: 'name',
       virtual: {
@@ -1095,6 +1100,50 @@ function updateRelativeBindings(element: Element, path: string): void {
 // warned once per session about duplicate id-path values in a list binding
 let warnedDuplicateListId = false
 
+/*
+ * LONG LISTS MUST SAY HOW THEY SCALE (owner, 2026-10-03).
+ *
+ * An unvirtualized list binding keeps one live, bound DOM subtree per item and
+ * updates them all; past a handful of items that is the commonest way a tosijs
+ * page gets slow, and nothing said so. So a list of more than 10 items must
+ * either virtualize or state, in `nonVirtualReason`, why it renders them all.
+ * The warning is advice (settings.quiet silences it), once per list, and says
+ * exactly what to write.
+ */
+export const NON_VIRTUAL_WARN_THRESHOLD = 10
+
+const describeListElement = (el: Element): string => {
+  const id = el.id ? `#${el.id}` : ''
+  // the developer's own classes: tosijs's markers (-tosi-data,
+  // -xin-empty-list) name nothing they wrote
+  const own =
+    typeof el.className === 'string'
+      ? el.className.split(/\s+/).filter((c) => c && !c.startsWith('-'))
+      : []
+  const cls = own.length > 0 ? '.' + own.slice(0, 2).join('.') : ''
+  return `<${el.tagName.toLowerCase()}${id}${cls}>`
+}
+
+const nonVirtualWarning = (
+  el: Element,
+  array: any[],
+  namespaced: boolean
+): string => {
+  const path = tosiPath(array)
+  // no template literal nested in a template literal: tjs convert cannot
+  // tokenize one (the debug/safe build failed on it)
+  const what = path ? 'list `' + path + '`' : 'a list'
+  return (
+    `tosijs: ${what} renders all ` +
+    `${array.length} items into ${describeListElement(el)}. ` +
+    (namespaced
+      ? 'SVG cannot virtualize; '
+      : 'Virtualize it: { virtual: { height: 32 } } (row px), or ') +
+    "if rendering all is deliberate, say why: { nonVirtualReason: '…' }. " +
+    'tosijs.net/bindings'
+  )
+}
+
 export class ListBinding {
   boundElement: Element
   listTop: HTMLElement | null
@@ -1108,6 +1157,7 @@ export class ListBinding {
   private _filteredCache?: any[]
   private readonly _update?: VoidFunction
   private _previousSlice?: VirtualListSlice
+  private _warnedNonVirtual = false
   static filterBoundObservers = new WeakMap<Element, Listener>()
 
   constructor(
@@ -1379,6 +1429,19 @@ export class ListBinding {
       array = []
     }
     this.array = array
+    if (
+      array.length > NON_VIRTUAL_WARN_THRESHOLD &&
+      !this._warnedNonVirtual &&
+      this.options.virtual == null &&
+      !this.options.nonVirtualReason
+    ) {
+      this._warnedNonVirtual = true
+      if (settings.quiet !== true) {
+        console.warn(
+          nonVirtualWarning(this.boundElement, array, this.isNamespaced)
+        )
+      }
+    }
     if (!isSlice) this._filteredCache = undefined
 
     const { hiddenProp, visibleProp } = this.options

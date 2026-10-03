@@ -1217,3 +1217,112 @@ describe('duplicate id-path warning (medium backlog)', () => {
     expect(errors.some((e) => e.includes('duplicate idPath value'))).toBe(true)
   })
 })
+
+describe('a long list must virtualize or say why (NON_VIRTUAL_WARN_THRESHOLD)', () => {
+  const capture = async (run: () => Promise<void>): Promise<string[]> => {
+    const warnings: string[] = []
+    const original = console.warn
+    console.warn = (...args: any[]) => warnings.push(args.map(String).join(' '))
+    try {
+      await run()
+    } finally {
+      console.warn = original
+    }
+    return warnings.filter((w) => w.includes('renders all'))
+  }
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ n: i }))
+  const mount = async (value: any, options: any = {}, tag = 'ul') => {
+    const list = (elements as any)[tag](
+      { class: 'todo-list', bindList: { value, ...options } },
+      elements.template(elements.li())
+    )
+    document.body.append(list)
+    await updates()
+    return list
+  }
+
+  test('more than 10 items, neither virtual nor a reason: ONE actionable warning', async () => {
+    const { lvWarn } = tosi({ lvWarn: { items: rows(25) } })
+    await updates()
+    const warnings = await capture(async () => {
+      await mount(lvWarn.items)
+      lvWarn.items.push({ n: 99 }) // further updates do not repeat it
+      await updates()
+    })
+    expect(warnings.length).toBe(1)
+    const w = warnings[0]
+    // what, how many, where — and both fixes, copy-pasteable
+    expect(w).toContain('`lvWarn.items`')
+    expect(w).toContain('25 items')
+    expect(w).toContain('<ul.todo-list>') // the developer's class, not -tosi-data
+    expect(w).toContain('{ virtual: { height: 32 } }')
+    expect(w).toContain("{ nonVirtualReason: '")
+  })
+
+  test('10 items or fewer: silent', async () => {
+    const { lvTen } = tosi({ lvTen: { items: rows(10) } })
+    await updates()
+    expect(await capture(() => mount(lvTen.items).then(() => {}))).toEqual([])
+  })
+
+  test('virtual, or a stated nonVirtualReason: silent', async () => {
+    const { lvOk } = tosi({ lvOk: { a: rows(50), b: rows(50) } })
+    await updates()
+    const warnings = await capture(async () => {
+      await mount(lvOk.a, { virtual: { height: 20 } })
+      await mount(lvOk.b, { nonVirtualReason: 'print layout: every row' })
+    })
+    expect(warnings).toEqual([])
+  })
+
+  test('a list that GROWS past 10 later warns then, once', async () => {
+    const { lvGrow } = tosi({ lvGrow: { items: [] as any[] } })
+    await updates()
+    const warnings = await capture(async () => {
+      await mount(lvGrow.items)
+      lvGrow.items.push(...rows(12)) // data arrives after the binding
+      await updates()
+      lvGrow.items.push(...rows(12))
+      await updates()
+    })
+    expect(warnings.length).toBe(1)
+  })
+
+  test('settings.quiet silences it (advice, not a defect report)', async () => {
+    const { settings } = await import('./settings')
+    const { lvQuiet } = tosi({ lvQuiet: { items: rows(30) } })
+    await updates()
+    settings.quiet = true
+    try {
+      expect(await capture(() => mount(lvQuiet.items).then(() => {}))).toEqual(
+        []
+      )
+    } finally {
+      settings.quiet = false
+    }
+  })
+
+  test('in SVG, where virtual is unavailable, the hint offers only the reason', async () => {
+    const { lvSvg } = tosi({ lvSvg: { items: rows(15) } })
+    await updates()
+    const warnings = await capture(async () => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      const tpl = document.createElement('template')
+      tpl.content.append(
+        document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      )
+      g.append(tpl)
+      svg.append(g)
+      document.body.append(svg)
+      const { bind } = await import('./bind')
+      const { bindings } = await import('./bindings')
+      bind(g, lvSvg.items as any, bindings.list)
+      await updates()
+    })
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain('SVG cannot virtualize')
+    expect(warnings[0]).not.toContain('{ virtual:')
+    expect(warnings[0]).toContain('nonVirtualReason')
+  })
+})

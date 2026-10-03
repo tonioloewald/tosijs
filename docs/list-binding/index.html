@@ -240,6 +240,10 @@ string is used here deliberately: you&#39;ve already bypassed the proxy, so
 you notify the registry by path rather than reaching for a proxy reference.</p>
 <h2>Virtualized Lists</h2>
 <p>The real power of list bindings comes from their support for virtualizing lists.</p>
+<p><strong>A list of more than 10 items must virtualize or say why.</strong> Without <code>virtual</code>
+or a <code>nonVirtualReason</code> (e.g. <code>{ nonVirtualReason: &#39;fixed list of 12 months&#39; }</code>)
+it logs one warning naming the list, its size and both fixes. See
+<a href="/bindings/">bindings</a> for the details.</p>
 <pre><code>...emojiListExample.array.tosi.listBinding(({ div }, item) =&gt; div(item.name), {
   idPath: &#39;name&#39;,
   virtual: {

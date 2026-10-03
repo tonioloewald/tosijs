@@ -8,6 +8,8 @@ export interface TosiSettings {
    * What this silences — things that tell you about a CHOICE:
    * - deprecation warnings (`warnDeprecated`, the largest family)
    * - the `on<Event>` member-collision advice
+   * - the long-list advice (a list binding of more than 10 items with neither
+   *   `virtual` nor `nonVirtualReason`)
    * - the agent surface's posture notices
    * - the slim entry's "this page has blueprint markup I cannot hydrate" check
    *

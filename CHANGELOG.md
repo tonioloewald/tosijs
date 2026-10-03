@@ -8,6 +8,28 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+### Added — a long list must virtualize, or say why
+
+A list binding of **more than 10 items** with neither `virtual` nor the new
+`nonVirtualReason` option now logs one warning per list. An unvirtualized list
+keeps one live, bound DOM subtree per item and updates them all, which is the
+commonest way a tosijs page gets slow, and nothing used to say so. The warning
+names the bound path, the item count and the element (`<ul.todo-list>`), and
+gives both fixes to copy: `{ virtual: { height: 32 } }`, or
+`{ nonVirtualReason: 'fixed list of 12 months' }` when rendering every item is
+deliberate. It fires when a list first crosses 10 items, including after data
+arrives. In SVG/MathML, where virtual scrolling is unavailable, it offers only
+the reason. It is advice: `settings.quiet` silences it. Every doc example was
+checked in a real browser and none trips it.
+
+**Expect it in existing apps**, including tosijs-ui: that is the point. Each
+warning is a list to virtualize, or a reason to write down.
+
+Cost: about 290 bytes gzipped in every bundle, `state.js` included (it
+already carried list binding; filed separately). The message was cut from a
+first draft that cost 480: it names the list and both fixes, and links to the
+docs for the explanation.
+
 ### Added — a stable `key` on every `describe().wiring` record
 
 Asked by haltija ([#47](https://github.com/tonioloewald/tosijs/issues/47)): an

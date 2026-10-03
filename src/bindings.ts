@@ -95,6 +95,7 @@ The `list` binding accepts as options:
 - `initInstance: (element, item: any) => void`
 - `updateInstance: (element, item: any) => void`
 - `virtual: {width?: number, height: number}`
+- `nonVirtualReason: string` — why a long list deliberately renders every item
 - `hiddenProp: symbol | string`
 - `visibleProp: symbol | string`
 
@@ -103,6 +104,21 @@ that element and the array value that it represents.
 
 Meanwhile, `updateInstance` is called once on creation and then any time the
 array value is updated.
+
+### Long lists: virtualize, or say why
+
+A list of **more than 10 items** with neither `virtual` nor `nonVirtualReason`
+logs a warning, once per list. An unvirtualized list keeps one live, bound DOM
+subtree per item and updates them all, which is the commonest way a tosijs page
+gets slow. The warning names the bound path, the item count and the element,
+and the two fixes:
+
+    { virtual: { height: 32 } }                  // only the visible rows exist
+    { nonVirtualReason: 'fixed list of 12 months' } // rendering all is deliberate
+
+The reason does nothing at runtime except silence the warning; it is there so
+the next reader knows the choice was made, not missed. `settings.quiet`
+silences this along with tosijs's other advice.
 
 ### Virtual List Binding
 

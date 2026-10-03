@@ -286,6 +286,14 @@ export interface ListBindingOptions {
         /** Number of elements to stamp per array item (for grid layouts). Default 1. */
         itemsPerRow?: number;
     };
+    /**
+     * Why this list renders every item instead of virtualizing. A list of more
+     * than 10 items with neither `virtual` nor a reason gets a console warning
+     * (once): an unvirtualized long list is the commonest way a tosijs page gets
+     * slow. Say why it is deliberate here, e.g. `'fixed list of 12 months'`,
+     * and the warning goes away, with the reason left in the code for a reader.
+     */
+    nonVirtualReason?: string;
     hiddenProp?: symbol | string;
     visibleProp?: symbol | string;
     filter?: ListFilter;
