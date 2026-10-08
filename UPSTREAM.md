@@ -612,8 +612,9 @@ tosijs suite against the _converted_ output (`tjs-out/`) rather than `src/` —
 behavioural differences (tests that hardcode `import.meta.dir` or a `.ts`
 extension). That is precisely the shape of gate that catches this bug class: it
 exercises generated intermediates against a real suite. It is ~26
-location-independence fixes away from being a standing lane. Recorded on the
-branch in `TJS-PORT-DX.md`.
+location-independence fixes away from being a standing lane. Recorded in
+`reviews/TJS-PORT-DX-2026-08.md` (archived from the `tosijs-2.0` branch, which
+was deleted 2026-10-08; tag `tosijs-2.0-archive-2026-10-08`).
 
 ### 📋 FILED — schema islands enforced from inside the proxy (the 2.0 dissolve)
 
@@ -781,9 +782,11 @@ So, deliberately, for 1.8.0:
   reason only — it is a build-host change and 1.8.0 is mid-release — and it is
   reopened as work rather than closed as a decision (`reviews/TODO-archive-2026-09-26.md` E1).
 
-- **The `tosijs-2.0` port branch stays on hold** (it already was). When it
-  resumes, the 0.13.0 ergonomics ARE the experiment: re-walk `by-path.tjs`
-  against the branch's `TJS-PORT-DX.md` friction log as the BEFORE.
+- **The `tosijs-2.0` port branch was deleted 2026-10-08** (archived at tags
+  `tosijs-2.0-archive-2026-08-26` and `-2026-10-08`; its friction log is
+  `reviews/TJS-PORT-DX-2026-08.md`). The plan changed: tjs was re-architected
+  so the port is transpile, verify, file bugs on tjs-lang, then spot rewrites
+  and perf-informed optimizations. See board #1730.
 
 ### 🚧 FIXED UPSTREAM, NOT ADOPTED — post-eval reconfiguration seam for `globalThis.__tjs`
 
