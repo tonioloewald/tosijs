@@ -150,7 +150,11 @@ export const BUNDLES: BundleSpec[] = [
     // anchor rows and track the scroll 1:1 (#3302, #3230) cost over a kilobyte gz in
     // every bundle that carries list binding. Owner approved the raise
     // (2026-10-15: "a price worth paying"), after a trimming pass.
-    budget: 49_500,
+    // 49_500 -> 50_500, 2026-10-27: tosijs-floorplan 0.6.0 re-vendored (#2804,
+    // ~+315 gz on the agent surface, which CJS cannot shake) plus the <head>
+    // load fix (#3511, ~+25) left main.js at 996 B spare, under the 1 kB floor.
+    // Owner approved the raise (2026-10-27).
+    budget: 50_500,
     probe: 'import',
     stage: 'main',
   },
@@ -192,7 +196,11 @@ export const BUNDLES: BundleSpec[] = [
     // anchor rows and track the scroll 1:1 (#3302, #3230) cost over a kilobyte gz in
     // every bundle that carries list binding. Owner approved the raise
     // (2026-10-15: "a price worth paying"), after a trimming pass.
-    budget: 49_500,
+    // 49_500 -> 50_500, 2026-10-27: tosijs-floorplan 0.6.0 re-vendored (#2804,
+    // ~+315 gz on the agent surface, which CJS cannot shake) plus the <head>
+    // load fix (#3511, ~+25) left main.js at 996 B spare, under the 1 kB floor.
+    // Owner approved the raise (2026-10-27).
+    budget: 50_500,
     probe: 'require',
     stage: 'main',
   },

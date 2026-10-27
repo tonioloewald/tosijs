@@ -57,18 +57,19 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Size
 
-gz bytes against v1.10.9. About 25 B per bundle is the `<head>` fix; the rest,
-on the bundles that carry the agent surface, is floorplan 0.6.0.
+gz bytes against v1.10.9. About 30 B per bundle is this release's fixes; the rest,
+on the bundles that carry the agent surface, is floorplan 0.6.0. The
+`module.js` and `main.js` budgets rose 49_500 → 50_500 to keep the 1 kB floor.
 
 | bundle | v1.10.9 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 31_008 | 31_034 | **+26** |
-| `module.js` | 47_858 | 48_193 | **+335** |
-| `main.js` | 48_151 | 48_487 | **+336** |
-| `core.js` | 28_387 | 28_410 | **+23** |
-| `state.js` | 18_532 | 18_555 | **+23** |
-| `module.debug.js` | 65_129 | 65_464 | **+335** |
-| `module.safe.js` | 64_984 | 65_316 | **+332** |
+| `index.js` | 31_008 | 31_044 | **+36** |
+| `module.js` | 47_858 | 48_201 | **+343** |
+| `main.js` | 48_151 | 48_504 | **+353** |
+| `core.js` | 28_387 | 28_417 | **+30** |
+| `state.js` | 18_532 | 18_559 | **+27** |
+| `module.debug.js` | 65_129 | 65_476 | **+347** |
+| `module.safe.js` | 64_984 | 65_326 | **+342** |
 
 ## [1.10.9] - 2026-10-15
 
