@@ -291,6 +291,7 @@ test.skipIf(!existsSync('dist/index.d.ts'))(
       'ComponentAttrs',
       'DeclaredAttributes',
       'WithAttributes',
+      'ComputedAttribute',
       'ComponentClass',
       'PartsOf',
       'ComponentMap',
@@ -372,6 +373,83 @@ test.skipIf(!existsSync('dist/index.d.ts'))(
       missing: [],
       exitCode: 0,
     })
+  },
+  60_000
+)
+
+/*
+ * A DOWNSTREAM LIBRARY MUST BE ABLE TO EMIT ITS OWN DECLARATIONS.
+ *
+ * `tsc --noEmit` is clean in exactly the cases that break here, so the gates
+ * above cannot see this class: a type that is reachable only through
+ * `dist/<module>.d.ts`, which `package.json` `exports` does not expose, fails a
+ * consumer's `tsc --declaration` with TS2742 ("cannot be named without a
+ * reference to …/dist/component"). tosijs#38 (withAttributes' return type) and
+ * #3456 (Component.computed()'s marker) were both this.
+ *
+ * The probe has to stand where a consumer stands — outside the repo, importing
+ * `tosijs` by package name through node_modules — because a file inside the
+ * package can name `./component` directly and never reproduces it.
+ */
+test.skipIf(!existsSync('dist/index.d.ts'))(
+  'a consumer can emit declarations for components built with withAttributes and computed()',
+  async () => {
+    const { mkdtempSync, mkdirSync, symlinkSync, rmSync } = await import(
+      'node:fs'
+    )
+    const { tmpdir } = await import('node:os')
+    const dir = mkdtempSync(`${tmpdir()}/tosijs-decl-`)
+    try {
+      mkdirSync(`${dir}/node_modules`)
+      symlinkSync(process.cwd(), `${dir}/node_modules/tosijs`, 'dir')
+      await Bun.write(
+        `${dir}/probe.ts`,
+        `import { Component, withAttributes } from 'tosijs'
+export class Mixed extends withAttributes({
+  position: Component.computed(''),
+  inside: Component.computed(false),
+  fallback: '',
+}) {
+  get position(): string { return '' }
+  set position(_v: string) {}
+  get inside(): boolean { return false }
+  set inside(_v: boolean) {}
+}
+export class Plain extends withAttributes({ label: '', count: 0 }) {}
+export class Static extends Component {
+  static initAttributes = { position: Component.computed(''), fallback: '' }
+  get position(): string { return '' }
+  set position(_v: string) {}
+}
+`
+      )
+      const result = Bun.spawnSync(
+        [
+          TSC,
+          '--declaration',
+          '--emitDeclarationOnly',
+          '--strict',
+          '--target',
+          'es2022',
+          '--module',
+          'esnext',
+          '--moduleResolution',
+          'bundler',
+          '--skipLibCheck',
+          '--outDir',
+          `${dir}/out`,
+          `${dir}/probe.ts`,
+        ],
+        { cwd: dir, stdout: 'pipe', stderr: 'pipe' }
+      )
+      const output = result.stdout.toString() + result.stderr.toString()
+      expect({ errors: output.trim(), exitCode: result.exitCode }).toEqual({
+        errors: '',
+        exitCode: 0,
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   },
   60_000
 )

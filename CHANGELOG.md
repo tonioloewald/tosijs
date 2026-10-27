@@ -23,6 +23,13 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   (#3485, from tosijs-ui). The two handles looked interchangeable and were not:
   passing the stop function threw `unobserve failed, listener not found` and
   left the observer running. Now either handle releases it.
+- **A library whose components use `Component.computed()` can emit its own
+  declarations** (#3456, from tosijs-ui). `withAttributes({ x:
+  Component.computed('') })` and `static initAttributes = { x:
+  Component.computed('') }` compiled under `tsc --noEmit` but failed
+  `tsc --declaration` with TS2742, because the `ComputedAttribute` marker was
+  not exported. It is now, and a new gate runs `tsc --declaration` from a
+  consumer that imports `tosijs` by package name.
 
 ### Changed
 

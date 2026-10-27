@@ -48,6 +48,10 @@ export type {
   // `export *`, so a type not named here does not reach anyone.
   DeclaredAttributes,
   WithAttributes,
+  // Component.computed()'s return type: a withAttributes() map holding one
+  // is part of the subclass's inferred type, so a downstream .d.ts must name
+  // it (tosijs #3456, TS2742 — the same failure as tosijs#38)
+  ComputedAttribute,
 } from './component'
 // exported from their own module (component.ts re-exports the setter for
 // historical reasons) — the plug is a security boundary, and a getter that
