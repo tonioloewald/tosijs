@@ -19,6 +19,10 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   three now hang on `<body>` where it exists, and on `<html>` before it does.
   Pasting a CDN script into `<head>` is the default way people load a library,
   and anything that bundles tosijs into a classic script inherited this.
+- **`unobserve()` takes the stop function a proxy's `.observe()` returns**
+  (#3485, from tosijs-ui). The two handles looked interchangeable and were not:
+  passing the stop function threw `unobserve failed, listener not found` and
+  left the observer running. Now either handle releases it.
 
 ### Changed
 

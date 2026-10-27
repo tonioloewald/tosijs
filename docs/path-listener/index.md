@@ -50,7 +50,9 @@ even when you've mutated the underlying data behind the proxy's back.
 be passed the path that changed and you can do whatever you like. It returns
 a reference to the listener to allow you to dispose of it later.
 
-`unobserve(listener)` removes the listener.
+`unobserve(listener)` removes the listener. It also takes the stop function a
+proxy's `.observe()` returns, so either handle can be stored and released the
+same way.
 
 ### If the callback updates the DOM, you almost certainly want `bind` instead
 

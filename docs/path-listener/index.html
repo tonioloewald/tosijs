@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=62247645493a" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=8e3518f08fd6" data-tosi-doc-system />
   <title>Path Listener — tosijs</title>
   <meta name="description" content="The path-based observer engine behind tosijs: touch(), observe(), unobserve(), and updates() for direct interaction with the observer system." />
   <link rel="canonical" href="https://tosijs.net/path-listener/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=b590206db28c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=6aa6c7a938cc" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="path-listener.ts">
 <h1 id="path-listener-path-listener">Path Listener (path-listener)</h1>
 <p><code>path-listener</code> implements the <code>tosijs</code> observer model. Although these events
@@ -75,7 +75,9 @@ unobserve(listener);
 <p><code>observe(…)</code> lets you call a function whenever a specified path changes. You&#39;ll
 be passed the path that changed and you can do whatever you like. It returns
 a reference to the listener to allow you to dispose of it later.</p>
-<p><code>unobserve(listener)</code> removes the listener.</p>
+<p><code>unobserve(listener)</code> removes the listener. It also takes the stop function a
+proxy&#39;s <code>.observe()</code> returns, so either handle can be stored and released the
+same way.</p>
 <h3 id="if-the-callback-updates-the-dom-you-almost-certainly-want-bind-instead">If the callback updates the DOM, you almost certainly want <code>bind</code> instead</h3>
 <p>This is the single commonest way to write more code than you need in tosijs,
 and the cost is not the extra lines — it is that <strong>the element becomes
@@ -239,6 +241,6 @@ specific and stable enough to look like a real finding.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=62247645493a"></script>
+  <script src="../iife.js?v=8e3518f08fd6"></script>
 </body>
 </html>

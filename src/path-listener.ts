@@ -52,7 +52,9 @@ even when you've mutated the underlying data behind the proxy's back.
 be passed the path that changed and you can do whatever you like. It returns
 a reference to the listener to allow you to dispose of it later.
 
-`unobserve(listener)` removes the listener.
+`unobserve(listener)` removes the listener. It also takes the stop function a
+proxy's `.observe()` returns, so either handle can be stored and released the
+same way.
 
 ### If the callback updates the DOM, you almost certainly want `bind` instead
 
@@ -408,7 +410,11 @@ export const observe = (
   return new Listener(test, callback)
 }
 
-export const unobserve = (listener: Listener): void => {
+export const unobserve = (listener: Listener | (() => void)): void => {
+  // a proxy's .observe() hands out a stop function, not the Listener; it
+  // throws 'listener not found' on its own if the listener is already gone
+  // (tosijs #3485: a stored stop function passed here leaked the observer)
+  if (typeof listener === 'function') return listener()
   const index = listeners.indexOf(listener)
   if (index > -1) {
     listeners.splice(index, 1)

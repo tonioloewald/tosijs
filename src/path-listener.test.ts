@@ -123,3 +123,20 @@ describe('segment-boundary path matching (H-1)', () => {
     unobserve(listener)
   })
 })
+
+describe('unobserve() takes either handle (#3485)', () => {
+  test("a proxy's stop function releases the observer", async () => {
+    const { tosi } = await import('./xin-proxy')
+    const { unobserveDemo } = tosi({ unobserveDemo: { n: 0 } })
+    await updates()
+    let calls = 0
+    const stop = unobserveDemo.n.observe(() => calls++)
+    unobserveDemo.n.value = 1
+    await updates()
+    expect(calls).toBe(1)
+    unobserve(stop)
+    unobserveDemo.n.value = 2
+    await updates()
+    expect(calls).toBe(1)
+  })
+})
