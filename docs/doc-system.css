@@ -63,6 +63,14 @@ tosi-doc-system[data-layout="full-screen"] > .doc-nav.doc-nav, tosi-doc-system[d
   display: none;
 }
 
+tosi-doc-system[data-no-header] {
+  --header-height: 0px;
+}
+
+tosi-doc-system[data-no-header]::before, tosi-doc-system[data-no-header] header {
+  display: none;
+}
+
 .darkmode {
   --text-color: #dddddd;
   --brand-color: #e04a8a;

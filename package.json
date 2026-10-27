@@ -72,7 +72,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@happy-dom/global-registrator": "^20.11.1",
+    "@happy-dom/global-registrator": "^21.0.4",
     "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^21.1.7",
@@ -89,7 +89,7 @@
     "tosijs": "file:.",
     "tosijs-floorplan": "0.6.0",
     "tosijs-schema": "^1.6.0",
-    "tosijs-ui": "1.16.15",
+    "tosijs-ui": "1.16.38",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
   },

@@ -437,6 +437,12 @@ export function hydrateInsertedSubtree(node: Element): void {
   })
 }
 
+// The element the hydration observer and the delegated listeners hang on.
+// <body> where it exists; a classic <script> in <head> runs before <body> is
+// parsed, and document.body is null there (tosijs #3511: observe(null) threw
+// and aborted the whole bundle). <html> exists in <head> and contains <body>.
+const delegationRoot = (): Element => document.body ?? document.documentElement
+
 // this is just to allow bind to be testable in node
 if (MutationObserver != null) {
   const observer = new MutationObserver((mutationsList) => {
@@ -448,7 +454,7 @@ if (MutationObserver != null) {
       })
     })
   })
-  observer.observe(document.body, { subtree: true, childList: true })
+  observer.observe(delegationRoot(), { subtree: true, childList: true })
 }
 
 observe(
@@ -624,8 +630,8 @@ const handleChange = (event: Event): void => {
 }
 
 if (globalThis.document != null) {
-  document.body.addEventListener('change', handleChange, true)
-  document.body.addEventListener('input', handleChange, true)
+  delegationRoot().addEventListener('change', handleChange, true)
+  delegationRoot().addEventListener('input', handleChange, true)
 }
 
 interface BindingOptions {
@@ -853,7 +859,7 @@ export function on<E extends HTMLElement, K extends EventType>(
   eventBindings[eventType].add(eventHandler as TosiEventHandler)
   if (!handledEventTypes.has(eventType)) {
     handledEventTypes.add(eventType)
-    document.body.addEventListener(eventType, handleBoundEvent, true)
+    delegationRoot().addEventListener(eventType, handleBoundEvent, true)
   }
   return () => {
     eventBindings[eventType].delete(eventHandler as TosiEventHandler)

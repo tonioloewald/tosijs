@@ -8,6 +8,18 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+### Fixed
+
+- **tosijs loaded by a classic `<script>` in `<head>` threw on load** (#3511,
+  found by tosijs-product). The script runs before `<body>` is parsed, and the
+  module-scope hydration observer called `observe(document.body)` with `body`
+  still null. The `TypeError` aborted the whole bundle: no exports, no custom
+  elements, an inert page with no error anyone would connect to it. The
+  delegated `change`/`input` listeners and `on()` used `document.body` too. All
+  three now hang on `<body>` where it exists, and on `<html>` before it does.
+  Pasting a CDN script into `<head>` is the default way people load a library,
+  and anything that bundles tosijs into a classic script inherited this.
+
 ### Changed
 
 - **The vendored tosijs-floorplan (`schematic`, `schematicSVG`) is 0.6.0**, up
@@ -28,20 +40,24 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   `isInteractive` and `targetSizeFinding`, which `auditAccessibility()` uses,
   are unchanged.
 
+- **Dev dependencies:** tosijs-ui 1.16.15 → 1.16.38 (#3453: per-device tunnel
+  edit passes) and happy-dom 20 → 21.0.4, which fixes GHSA-834v-8h66-3h79 in
+  the unit-test DOM. Neither ships.
+
 ### Size
 
-gz bytes against v1.10.9; the bundles that carry the agent surface grow by
-floorplan 0.6.0's additions.
+gz bytes against v1.10.9. About 25 B per bundle is the `<head>` fix; the rest,
+on the bundles that carry the agent surface, is floorplan 0.6.0.
 
 | bundle | v1.10.9 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 31_008 | 31_008 | **+0** |
-| `module.js` | 47_858 | 48_164 | **+306** |
-| `main.js` | 48_151 | 48_466 | **+315** |
-| `core.js` | 28_387 | 28_387 | **+0** |
-| `state.js` | 18_532 | 18_532 | **+0** |
-| `module.debug.js` | 65_129 | 65_419 | **+290** |
-| `module.safe.js` | 64_984 | 65_277 | **+293** |
+| `index.js` | 31_008 | 31_034 | **+26** |
+| `module.js` | 47_858 | 48_193 | **+335** |
+| `main.js` | 48_151 | 48_487 | **+336** |
+| `core.js` | 28_387 | 28_410 | **+23** |
+| `state.js` | 18_532 | 18_555 | **+23** |
+| `module.debug.js` | 65_129 | 65_464 | **+335** |
+| `module.safe.js` | 64_984 | 65_316 | **+332** |
 
 ## [1.10.9] - 2026-10-15
 
