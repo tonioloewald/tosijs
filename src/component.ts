@@ -990,6 +990,7 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
+import { SHADOW_ADVICE } from './bind'
 import {
   contractViolation,
   setContractValidator,
@@ -1186,6 +1187,36 @@ const DRAIN_WRAPPED = Symbol('tosiDrainWrapped')
 const handlerCollisionChecked = new WeakSet<new () => Component>()
 // warn once per tag+attribute about a type-contradicting attribute write
 const attrTypeMismatchWarned = new Set<string>()
+
+// Reflect an attribute property write into the attribute, by the type of its
+// default, and queue a render; false when nothing changed. Shared by the
+// declared-attribute accessors and the deprecated instance initAttributes().
+const reflectAttr = (
+  el: any,
+  kabob: string,
+  def: any,
+  value: any,
+  current: any
+): boolean => {
+  if (typeof def === 'boolean') {
+    if (value === current) return false
+    if (value) el.setAttribute(kabob, '')
+    else el.removeAttribute(kabob)
+  } else if (typeof def === 'number') {
+    if (value === parseFloat(current)) return false
+    el.setAttribute(kabob, value)
+  } else {
+    if (
+      typeof value !== 'object' &&
+      `${value as string}` === `${current as string}`
+    )
+      return false
+    if (value == null || typeof value === 'object') el.removeAttribute(kabob)
+    else el.setAttribute(kabob, value)
+  }
+  el.queueRender()
+  return true
+}
 
 // Lazy shared MutationObserver for deprecated initAttributes
 let legacyAttributeObserver: MutationObserver | null = null
@@ -1486,15 +1517,27 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     const ownInit = Object.prototype.hasOwnProperty.call(this, 'initAttributes')
       ? this.initAttributes
       : undefined
-    if (declaredContract?.attributes != null) {
-      const cached = derivedInitAttributes.get(this)
-      if (cached != null) return cached
+    const contractAttrs = declaredContract?.attributes
+    // A CLASS THAT DECLARES NOTHING MUST STILL INHERIT THE RESOLVED MAP. This
+    // used to `return this.initAttributes` — a static lookup that finds the
+    // nearest ancestor's OWN raw static and stops there, so the merge below
+    // survived one level: `class C extends B {}` (B adding to a withAttributes
+    // base A) lost A's attributes, reflection severed both ways, silently.
+    // Ask the ancestor for its RESOLVED map instead.
+    if (contractAttrs == null && ownInit == null) {
+      const parent = Object.getPrototypeOf(this) as typeof Component
+      return typeof parent?._resolveInitAttributes === 'function'
+        ? parent._resolveInitAttributes()
+        : this.initAttributes
+    }
+    const cached = derivedInitAttributes.get(this)
+    if (cached != null) return cached
+    let derived: Record<string, any> | undefined = ownInit
+    if (contractAttrs != null) {
       // initAttributes is the BASE layer; contract.attributes overlays it.
-      const derived: Record<string, any> = { ...(ownInit ?? {}) }
+      derived = { ...(ownInit ?? {}) }
       const missingDefaults: string[] = []
-      for (const [name, schema] of Object.entries(
-        declaredContract.attributes
-      )) {
+      for (const [name, schema] of Object.entries(contractAttrs)) {
         if (schema != null && 'default' in (schema as any)) {
           derived[name] = (schema as any).default
         } else if (!(name in derived)) {
@@ -1514,82 +1557,29 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             `static initAttributes.`
         )
       }
-      // INHERITANCE: a subclass declaring contract.attributes must not
-      // silently drop the base class's initAttributes. `hasOwnProperty`
-      // skips the same-class BOTH-declared throw for inherited ones, so
-      // without this merge `Child.observedAttributes` lost every inherited
-      // name and reflection was severed in both directions — no throw, no
-      // warning. That is exactly the intended migration shape (add a
-      // contract to a subclass of an initAttributes base), so merge with
-      // the subclass winning per key.
-      const inherited = Object.getPrototypeOf(this) as typeof Component
-      const inheritedAttrs =
-        typeof inherited?._resolveInitAttributes === 'function'
-          ? inherited._resolveInitAttributes()
-          : undefined
-      const merged =
-        inheritedAttrs != null ? { ...inheritedAttrs, ...derived } : derived
-      derivedInitAttributes.set(this, merged)
-      return merged
     }
-    // NO NUDGE HERE ANY MORE. This used to warn that attributes "ideally live
-    // in the contract … so one declaration feeds the types, the docs, the
-    // agents, and the tests" — whose only real force was the agents clause,
-    // and that was true only because `initAttributes` never reached
-    // `describe()`. It does now (see `_describedAttributes`), so the nudge
-    // pushed people toward the verbose form for a reason that no longer
-    // exists — and toward the form with, at last count, far fewer users than
-    // the one it was nudging them away from. tosijs#29.
-    // SAME INHERITANCE RULE AS THE CONTRACT BRANCH ABOVE. This used to be a
-    // bare `return this.initAttributes` — a STATIC lookup, so a subclass's own
-    // `static initAttributes` shadowed the base's entirely:
-    //
-    //   class Base extends withAttributes({ label: 'base' }) {}
-    //   class Sub extends Base { static initAttributes = { extra: 7 } }
-    //   Sub.observedAttributes  // ['hidden', 'extra'] — `label` GONE
-    //   sub.label               // undefined, and setAttribute never fixes it
-    //
-    // Reflection was severed in both directions with no throw and no warning,
-    // while the contract branch twenty lines up did exactly this merge and its
-    // comment called dropping the base's attributes the defect it is. The two
-    // branches disagreed about the same question, decided only by whether a
-    // contract happened to be present — and the documented migration path
-    // (a `withAttributes` base, subclasses adding attributes) went through the
-    // branch that was wrong.
-    // A CLASS THAT DECLARES NOTHING MUST STILL INHERIT THE RESOLVED MAP.
-    //
-    // This used to `return this.initAttributes` — a static prototype-chain
-    // lookup for the RAW value, which finds the nearest ancestor's OWN static
-    // and stops there. So the merge survived exactly one level:
-    //
-    //   class A extends withAttributes({ a: 'a' }) {}
-    //   class B extends A { static initAttributes = { b: 'b' } }
-    //   class C extends B {}          // declares nothing — the commonest kind
-    //   C.observedAttributes          // ['hidden', 'b'] — 'a' GONE again
-    //
-    // Silently, reflection severed both ways: the very defect this function
-    // was fixed for, one level further down, while the docs had just started
-    // promising "tosijs merges the whole prototype chain for you". Ask the
-    // ancestor for its RESOLVED map instead of reading the raw static.
-    if (ownInit == null) {
-      const parent = Object.getPrototypeOf(this) as typeof Component
-      return typeof parent?._resolveInitAttributes === 'function'
-        ? parent._resolveInitAttributes()
-        : this.initAttributes
-    }
-    const cachedPlain = derivedInitAttributes.get(this)
-    if (cachedPlain != null) return cachedPlain
-    const inheritedPlain = Object.getPrototypeOf(this) as typeof Component
-    const inheritedPlainAttrs =
-      typeof inheritedPlain?._resolveInitAttributes === 'function'
-        ? inheritedPlain._resolveInitAttributes()
+    // INHERITANCE, the same rule with or without a contract: a subclass that
+    // declares attributes must not silently drop the base class's, so merge
+    // with the subclass winning per key. Both branches once got this wrong in
+    // turn — a contract on a subclass of an initAttributes base, and a
+    // `static initAttributes` on a subclass of a withAttributes base, each
+    // lost every inherited name from observedAttributes with no throw and no
+    // warning, in exactly the shapes the docs recommend.
+    const inherited = Object.getPrototypeOf(this) as typeof Component
+    const inheritedAttrs =
+      typeof inherited?._resolveInitAttributes === 'function'
+        ? inherited._resolveInitAttributes()
         : undefined
-    if (inheritedPlainAttrs == null || inheritedPlainAttrs === ownInit) {
+    if (
+      contractAttrs == null &&
+      (inheritedAttrs == null || inheritedAttrs === ownInit)
+    ) {
       return ownInit
     }
-    const mergedPlain = { ...inheritedPlainAttrs, ...ownInit }
-    derivedInitAttributes.set(this, mergedPlain)
-    return mergedPlain
+    const merged =
+      inheritedAttrs != null ? { ...inheritedAttrs, ...derived } : derived!
+    derivedInitAttributes.set(this, merged)
+    return merged
   }
 
   /**
@@ -1885,37 +1875,17 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           }
         },
         set(value) {
-          if (typeof attributes[attributeName] === 'boolean') {
-            if (value !== this[attributeName]) {
-              if (value) {
-                this.setAttribute(attributeKabob, '')
-              } else {
-                this.removeAttribute(attributeKabob)
-              }
-              this.queueRender()
-            }
-          } else if (typeof attributes[attributeName] === 'number') {
-            if (value !== parseFloat(this[attributeName])) {
-              this.setAttribute(attributeKabob, value)
-              this.queueRender()
-            }
-          } else {
-            if (
-              typeof value === 'object' ||
-              `${value as string}` !== `${this[attributeName] as string}`
-            ) {
-              if (
-                value === null ||
-                value === undefined ||
-                typeof value === 'object'
-              ) {
-                this.removeAttribute(attributeKabob)
-              } else {
-                this.setAttribute(attributeKabob, value)
-              }
-              this.queueRender()
-              attributeValues[attributeName] = value
-            }
+          const def = attributes[attributeName]
+          const changed = reflectAttr(
+            this,
+            attributeKabob,
+            def,
+            value,
+            this[attributeName]
+          )
+          // only string-shaped attributes keep their last written value here
+          if (changed && typeof def !== 'boolean' && typeof def !== 'number') {
+            attributeValues[attributeName] = value
           }
         },
       })
@@ -2604,40 +2574,19 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
             )
           }
         }
-        if (typeof defaultValue === 'boolean') {
-          if (value !== dynamic(this)[attrName]) {
-            if (value) {
-              this.setAttribute(attrKabob, '')
-            } else {
-              this.removeAttribute(attrKabob)
-            }
-            this.queueRender()
-            this._attrValues!.set(attrName, !!value)
-          }
-        } else if (typeof defaultValue === 'number') {
-          if (value !== parseFloat(dynamic(this)[attrName])) {
-            this.setAttribute(attrKabob, value)
-            this.queueRender()
-            this._attrValues!.set(attrName, value)
-          }
-        } else {
-          if (
-            typeof value === 'object' ||
-            `${value as string}` !== `${dynamic(this)[attrName] as string}`
-          ) {
-            if (
-              value === null ||
-              value === undefined ||
-              typeof value === 'object'
-            ) {
-              this.removeAttribute(attrKabob)
-            } else {
-              this.setAttribute(attrKabob, value)
-            }
-            this.queueRender()
-            this._attrValues!.set(attrName, value)
-          }
-        }
+        if (
+          reflectAttr(
+            this,
+            attrKabob,
+            defaultValue,
+            value,
+            dynamic(this)[attrName]
+          )
+        )
+          this._attrValues!.set(
+            attrName,
+            typeof defaultValue === 'boolean' ? !!value : value
+          )
       },
     })
     this._installedAttrAccessors!.add(attrName)
@@ -2946,10 +2895,9 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
           warnedShadowContentBindings.add(this.tagName)
           console.warn(
             `<${this.tagName.toLowerCase()}> has data-binding sugar in its ` +
-              'shadow-DOM content, where bindings do not operate. A shadow-DOM ' +
-              'component is bound like an <input>: bind its VALUE from outside ' +
-              '(bindings.value) and implement render() to reflect value into ' +
-              'the shadow DOM — setting value queues render() and emits change ' +
+              'shadow-DOM content, where bindings do not operate. ' +
+              SHADOW_ADVICE +
+              'Setting value queues render() and emits change ' +
               'automatically. on() event handlers are fine. Warned once per ' +
               'component class.'
           )

@@ -162,11 +162,12 @@ The returned `disconnect()` removes all observers and calls
 */
 
 import { registry } from './registry'
-import { getByPath, setByPath } from './by-path'
-import { touch, observe, unobserve, updates } from './path-listener'
+import { getByPath } from './by-path'
+import { observe, unobserve } from './path-listener'
 import { tosiPath } from './metadata'
 import { throttle } from './throttle'
 import type { Listener } from './path-listener'
+import { under, findRoot, inboundTracker } from './inbound'
 
 export interface SyncMessage {
   path: string
@@ -189,57 +190,12 @@ export interface SyncOptions {
   throttleInterval?: number
 }
 
-// --- Helpers (same pattern as share.ts) ---
+// --- Inbound deltas (inbound.ts, shared with share.ts; this channel has its own tracker) ---
 
-const inboundPaths = new Set<string>()
-
-function findSyncedRoot(
-  syncedPaths: Set<string>,
-  changedPath: string
-): string | undefined {
-  for (const synced of syncedPaths) {
-    if (changedPath === synced || changedPath.startsWith(synced + '.')) {
-      return synced
-    }
-  }
-  return undefined
-}
-
-function isInbound(changedPath: string): boolean {
-  for (const path of inboundPaths) {
-    if (changedPath === path || changedPath.startsWith(path + '.')) {
-      return true
-    }
-  }
-  return false
-}
+const tracker = inboundTracker()
 
 function applyInbound(path: string, value: any): void {
-  inboundPaths.add(path)
-  try {
-    setByPath(registry, path, value)
-    touch(path)
-  } catch (e) {
-    // A REFUSED DELTA MUST NOT POISON THE CHANNEL. The path is registered as
-    // inbound BEFORE the write so the echo suppressor can recognize it; if
-    // the write throws, the cleanup below was never scheduled, so the path
-    // stayed in inboundPaths for the life of the page — and isInbound()
-    // matches by PREFIX, so every subsequent LOCAL change to that path and
-    // its whole subtree was mistaken for an echo and silently never sent.
-    // One bad message killed sync for a subtree, permanently and quietly.
-    // 1.8.0 made this reachable on purpose: setByPath now REFUSES unsafe path
-    // segments, and a peer or server supplies those paths.
-    inboundPaths.delete(path)
-    console.error(
-      `tosijs: refused an inbound delta at "${path}" —`,
-      e,
-      '(the local state is unchanged and this channel keeps working)'
-    )
-    return
-  }
-  updates().then(() => {
-    inboundPaths.delete(path)
-  })
+  tracker.apply(path, value)
 }
 
 export async function sync(
@@ -276,7 +232,7 @@ export async function sync(
   // Register inbound handler
   transport.onReceive((messages: SyncMessage[]) => {
     for (const msg of messages) {
-      if (findSyncedRoot(syncedPaths, msg.path) === undefined) continue
+      if (findRoot(syncedPaths, msg.path) === undefined) continue
       applyInbound(msg.path, msg.value)
     }
   })
@@ -293,11 +249,10 @@ export async function sync(
     syncedPaths.add(path)
 
     const listener = observe(
-      (changedPath: string) =>
-        changedPath === path || changedPath.startsWith(path + '.'),
+      (changedPath: string) => under(changedPath, path),
       (changedPath: string) => {
-        if (isInbound(changedPath)) return
-        if (findSyncedRoot(syncedPaths, changedPath) === undefined) return
+        if (tracker.isInbound(changedPath)) return
+        if (findRoot(syncedPaths, changedPath) === undefined) return
 
         const value = getByPath(registry, changedPath)
         outboundBatch.push({ path: changedPath, value })

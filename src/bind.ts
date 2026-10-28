@@ -683,6 +683,11 @@ function bindTake<T extends Element>(
 // is inert. (Event sugar is different: on() works across open shadow roots
 // via composedPath.) The failure used to be SILENT — warn at the point of
 // misuse instead. Once per session: the trap, not every element in it.
+// shared with component.ts's shadow-content warning: one copy in the bundle
+export const SHADOW_ADVICE =
+  'A shadow-DOM component is bound like an <input>: bind its VALUE from ' +
+  'outside (bindings.value) and implement render() to reflect value ' +
+  'into the shadow DOM. '
 let warnedShadowedBinding = false
 /**
  * Re-arm the once-per-session shadow warning (testing only). The latch is
@@ -705,9 +710,8 @@ export const warnIfShadowed = (element: Element, what: string): void => {
     console.warn(
       `tosijs: ${what} targets an element inside a shadow root, where data ` +
         'bindings do not operate (documented Component design boundary). ' +
-        'A shadow-DOM component is bound like an <input>: bind its VALUE from ' +
-        'outside (bindings.value) and implement render() to reflect value ' +
-        'into the shadow DOM. Warned once per session.',
+        SHADOW_ADVICE +
+        'Warned once per session.',
       element
     )
   }

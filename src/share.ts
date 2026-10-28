@@ -148,10 +148,11 @@ preview.querySelector('.spawn').addEventListener('click', () => {
 */
 
 import { registry } from './registry'
-import { getByPath, setByPath } from './by-path'
-import { touch, observe, updates } from './path-listener'
+import { getByPath } from './by-path'
+import { observe } from './path-listener'
 import { tosiPath } from './metadata'
 import { debounce } from './throttle'
+import { under, findRoot, inboundTracker } from './inbound'
 
 const CHANNEL_NAME = 'tosijs-share'
 const DB_NAME = 'tosijs-share'
@@ -167,7 +168,7 @@ interface ShareMessage {
 
 // Module-level state
 const sharedPaths = new Set<string>()
-const inboundPaths = new Set<string>()
+const tracker = inboundTracker()
 // Paths whose stored snapshot is being read during share() setup. If a live
 // delta arrives (via the channel) while we're awaiting the store read, it is
 // fresher than the snapshot — record it so the stale snapshot doesn't clobber
@@ -247,56 +248,14 @@ function isShareMessage(data: any): data is ShareMessage {
   )
 }
 
-function findSharedRoot(changedPath: string): string | undefined {
-  for (const shared of sharedPaths) {
-    if (changedPath === shared || changedPath.startsWith(shared + '.')) {
-      return shared
-    }
-  }
-  return undefined
-}
-
-function isInbound(changedPath: string): boolean {
-  for (const path of inboundPaths) {
-    if (changedPath === path || changedPath.startsWith(path + '.')) {
-      return true
-    }
-  }
-  return false
-}
-
 function applyInbound(path: string, value: any): void {
   // a live delta landing while a path's snapshot is still being read is
   // fresher than that snapshot — flag it so restore won't overwrite it
-  const root = findSharedRoot(path)
+  const root = findRoot(sharedPaths, path)
   if (root !== undefined && restoringPaths.has(root)) {
     freshDuringRestore.add(root)
   }
-  inboundPaths.add(path)
-  try {
-    setByPath(registry, path, value)
-    touch(path)
-  } catch (e) {
-    // A REFUSED DELTA MUST NOT POISON THE CHANNEL. The path is registered as
-    // inbound BEFORE the write so the echo suppressor can recognize it; if
-    // the write throws, the cleanup below was never scheduled, so the path
-    // stayed in inboundPaths for the life of the page — and isInbound()
-    // matches by PREFIX, so every subsequent LOCAL change to that path and
-    // its whole subtree was mistaken for an echo and silently never sent.
-    // One bad message killed sync for a subtree, permanently and quietly.
-    // 1.8.0 made this reachable on purpose: setByPath now REFUSES unsafe path
-    // segments, and a peer or server supplies those paths.
-    inboundPaths.delete(path)
-    console.error(
-      `tosijs: refused an inbound delta at "${path}" —`,
-      e,
-      '(the local state is unchanged and this channel keeps working)'
-    )
-    return
-  }
-  updates().then(() => {
-    inboundPaths.delete(path)
-  })
+  tracker.apply(path, value)
 }
 
 function initChannel(): BroadcastChannel {
@@ -310,7 +269,7 @@ function initChannel(): BroadcastChannel {
     if (!isShareMessage(msg)) return
     if (msg.origin === origin) return
     // Check that the message path falls under a shared root
-    if (findSharedRoot(msg.path) === undefined) return
+    if (findRoot(sharedPaths, msg.path) === undefined) return
 
     applyInbound(msg.path, msg.value)
   }
@@ -387,12 +346,11 @@ export async function share(...proxies: any[]): Promise<{ restored: any[] }> {
 
     // Outbound observer: sync local changes to other tabs
     observe(
-      (changedPath: string) =>
-        changedPath === path || changedPath.startsWith(path + '.'),
+      (changedPath: string) => under(changedPath, path),
       (changedPath: string) => {
-        if (isInbound(changedPath)) return
+        if (tracker.isInbound(changedPath)) return
 
-        const rootPath = findSharedRoot(changedPath)
+        const rootPath = findRoot(sharedPaths, changedPath)
         if (rootPath === undefined) return
 
         // Broadcast the delta at the changed path

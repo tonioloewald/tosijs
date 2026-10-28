@@ -1807,13 +1807,8 @@ export class ListBinding {
           // @ts-expect-error storing binding ref on element
           el[LIST_INSTANCE_REF] = typeof item === 'object' ? rawItem : true
         }
-        for (const el of group) {
-          if (this.listBottom != null) {
-            this.boundElement.insertBefore(el, this.listBottom)
-          } else {
-            this.boundElement.append(el)
-          }
-        }
+        for (const el of group)
+          this.boundElement.insertBefore(el, this.listBottom)
         if (idPath != null) {
           const idValue = item[idPath] as string
           const itemPath = `${arrayPath}[${idPath}=${idValue}]`
@@ -1857,16 +1852,10 @@ export class ListBinding {
     for (const element of elements) {
       if (element.previousElementSibling !== insertionPoint) {
         moved++
-        if (insertionPoint?.nextElementSibling != null) {
-          this.boundElement.insertBefore(
-            element,
-            insertionPoint.nextElementSibling
-          )
-        } else if (this.listBottom != null) {
-          this.boundElement.insertBefore(element, this.listBottom)
-        } else {
-          this.boundElement.append(element)
-        }
+        this.boundElement.insertBefore(
+          element,
+          insertionPoint?.nextElementSibling ?? this.listBottom
+        )
       }
       insertionPoint = element
     }

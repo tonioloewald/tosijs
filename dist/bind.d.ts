@@ -4,6 +4,7 @@ export declare function hydrateInsertedSubtree(node: Element): void;
 interface BindingOptions {
     [key: string]: any;
 }
+export declare const SHADOW_ADVICE: string;
 /**
  * Re-arm the once-per-session shadow warning (testing only). The latch is
  * process-wide, so whichever test FIRST binds inside a shadow root spends it —
