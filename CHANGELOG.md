@@ -57,19 +57,20 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Size
 
-gz bytes against v1.10.9. About 30 B per bundle is this release's fixes; the rest,
-on the bundles that carry the agent surface, is floorplan 0.6.0. The
+gz bytes against v1.10.9. The bundles that carry the agent surface grow by floorplan 0.6.0's additions
+(about +315); deduplicating five code paths took about 170 B back from every
+bundle. The
 `module.js` and `main.js` budgets rose 49_500 → 50_500 to keep the 1 kB floor.
 
 | bundle | v1.10.9 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 31_008 | 31_044 | **+36** |
-| `module.js` | 47_858 | 48_201 | **+343** |
-| `main.js` | 48_151 | 48_504 | **+353** |
-| `core.js` | 28_387 | 28_417 | **+30** |
-| `state.js` | 18_532 | 18_559 | **+27** |
-| `module.debug.js` | 65_129 | 65_476 | **+347** |
-| `module.safe.js` | 64_984 | 65_326 | **+342** |
+| `index.js` | 31_008 | 30_869 | **-139** |
+| `module.js` | 47_858 | 48_038 | **+180** |
+| `main.js` | 48_151 | 48_331 | **+180** |
+| `core.js` | 28_387 | 28_274 | **-113** |
+| `state.js` | 18_532 | 18_544 | **+12** |
+| `module.debug.js` | 65_129 | 65_301 | **+172** |
+| `module.safe.js` | 64_984 | 65_153 | **+169** |
 
 ## [1.10.9] - 2026-10-15
 
