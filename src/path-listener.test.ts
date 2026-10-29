@@ -139,4 +139,15 @@ describe('unobserve() takes either handle (#3485)', () => {
     await updates()
     expect(calls).toBe(1)
   })
+
+  test('any other function throws instead of being called', () => {
+    // the common mistake is passing the observer's own callback: it used to
+    // throw 'listener not found', and briefly ran the callback and leaked
+    let calls = 0
+    const callback = () => calls++
+    const listener = observe('unobserveMistake', callback)
+    expect(() => unobserve(callback as any)).toThrow(/not the callback/)
+    expect(calls).toBe(0)
+    unobserve(listener)
+  })
 })

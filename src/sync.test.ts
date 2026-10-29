@@ -180,6 +180,19 @@ describe('sync', () => {
     expect(getByPath(registry, 's4a')).toEqual([{ name: 'c' }])
   })
 
+  test('an inbound [=key] delta cannot reach the prototype chain', async () => {
+    const { s4p } = tosi({ s4p: { a: 1 } })
+    await sync(transport, {}, s4p)
+    transport.deliver([
+      { path: 's4p[=constructor].syncHijack', value: 'H' },
+      { path: 's4p[=__proto__]', value: { isAdmin: true } },
+    ])
+    await tick()
+    await updates()
+    expect((Object as any).syncHijack).toBeUndefined()
+    expect((xin.s4p as any).isAdmin).toBeUndefined()
+  })
+
   test('inbound batch applies multiple messages', async () => {
     const { s8 } = tosi({ s8: { x: 0, y: 0 } })
     await sync(transport, {}, s8)

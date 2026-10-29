@@ -6,15 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [Unreleased]
+## [1.10.10] - 2026-10-29
+
+### Security
+
+- **A `[=key]` path segment bypassed the prototype guard** (found by the
+  1.10.10 pre-release review). **Affects 1.8.0 through 1.10.9.** `[=key]` is a
+  key access spelled as an id-path, and `setByPath` guarded only the dotted
+  spelling, so through `agent.write()` (including its contract proposal clone),
+  `share()` inbound and `sync()` inbound:
+  - `app.cart[=constructor].x = 1` set a property on the global `Object`, and
+    `…[=constructor].assign` could replace `Object.assign` for the origin;
+  - `app[=__proto__] = { isAdmin: true }` reassigned a registry object's
+    prototype, so the write showed up nowhere in the map or the audit ledger.
+
+  `[=key]` now takes exactly the dotted key's guard (`__proto__`, `constructor`
+  and `prototype` refused when descending, `__proto__` at the leaf), and an
+  `[idPath=value]` idPath may not name them either. A table test covers every
+  segment syntax `pathParts` emits against every forbidden name; the agent,
+  share and sync sinks each have a test that fails on 1.10.9.
 
 ### Fixed
 
 - **`agent.call()` refused with plain `Error`s** (#53, reported by snowfox).
   Calling an undeclared action, or a path that isn't a function, threw an
   error with no `tosiRefusal`, so `isAgentRefusal(e)` was false and a caller
-  couldn't tell "the surface refused" from "the action threw". Both now refuse
-  with kind `'callable'`. The WebMCP tools' "no active surface" error after
+  couldn't tell "the surface refused" from "the action threw". An action the
+  manifest doesn't declare now refuses with kind `'scope'`, like `read()` and
+  `observe()` outside the roots; a declared action that isn't a function
+  refuses with `'callable'`. `AgentRefusalKind` now documents each kind. The WebMCP tools' "no active surface" error after
   `disable()` is now a `'revoked'` refusal, matching the surface's own. A test
   enumerates every refusal site across the verbs.
 - **`share()` and `sync()` ignored writes by index under an array root**
@@ -37,7 +57,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 - **`unobserve()` takes the stop function a proxy's `.observe()` returns**
   (#3485, from tosijs-ui). The two handles looked interchangeable and were not:
   passing the stop function threw `unobserve failed, listener not found` and
-  left the observer running. Now either handle releases it.
+  left the observer running. Now either handle releases it. Only the stop
+  functions tosijs hands out are accepted: any other function (commonly the
+  observer's own callback) still throws rather than being called.
 - **A library whose components use `Component.computed()` can emit its own
   declarations** (#3456, from tosijs-ui). `withAttributes({ x:
   Component.computed('') })` and `static initAttributes = { x:
@@ -74,18 +96,19 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 gz bytes against v1.10.9. The bundles that carry the agent surface grow by floorplan 0.6.0's additions
 (about +315); deduplicating five code paths took about 170 B back from every
-bundle. The
+bundle. The path-guard fix, the share/sync index-path fix and the `unobserve`
+check add about 100 back, which is most of `state.js`'s growth. The
 `module.js` and `main.js` budgets rose 49_500 → 50_500 to keep the 1 kB floor.
 
 | bundle | v1.10.9 | this build | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 31_008 | 30_869 | **-139** |
-| `module.js` | 47_858 | 48_038 | **+180** |
-| `main.js` | 48_151 | 48_331 | **+180** |
-| `core.js` | 28_387 | 28_274 | **-113** |
-| `state.js` | 18_532 | 18_544 | **+12** |
-| `module.debug.js` | 65_129 | 65_301 | **+172** |
-| `module.safe.js` | 64_984 | 65_153 | **+169** |
+| `index.js` | 31_008 | 30_956 | **-52** |
+| `module.js` | 47_858 | 48_109 | **+251** |
+| `main.js` | 48_151 | 48_416 | **+265** |
+| `core.js` | 28_387 | 28_359 | **-28** |
+| `state.js` | 18_532 | 18_650 | **+118** |
+| `module.debug.js` | 65_129 | 65_411 | **+282** |
+| `module.safe.js` | 64_984 | 65_261 | **+277** |
 
 ## [1.10.9] - 2026-10-15
 
@@ -2212,7 +2235,7 @@ tosijs in order to _run_ the app. 1.8.0 lets you ask for them.
   / `log`, installs `globalThis.tosiAgent`, and (where the browser provides
   `document.modelContext`) **auto-registers a generated WebMCP tool set** —
   verified registering _and executing_ in Chrome Canary 153 (as of
-  2026-08<!-- as-of: 2026-08-21 | which Chrome verified WebMCP end-to-end -->).
+  2026-08<!-- as-of: 2026-10-29 | which Chrome verified WebMCP end-to-end (a historical record of the 1.8.0 verification; re-stamped deliberately, it does not go stale) -->).
   Nothing new is
   recorded: `describe()` assembles the picture from the registry, the
   binding metadata, and the handler wiring the framework already had.

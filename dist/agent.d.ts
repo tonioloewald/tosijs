@@ -423,7 +423,17 @@ export interface AgentLogEntry {
  * byte-identical to a genuinely validated run, in a public API consumers run
  * in their own CI.
  */
-export type AgentRefusalKind = 'scope' | 'mutability' | 'callable' | 'path' | 'revoked';
+export type AgentRefusalKind = 
+/** the path or action is not exposed by this surface's manifest */
+'scope'
+/** the surface does not permit this verb (no write: true, or exposes nothing) */
+ | 'mutability'
+/** the action/data boundary: write() to an action, or call() on a non-function */
+ | 'callable'
+/** the argument is not a path or a proxy carrying one */
+ | 'path'
+/** the surface has been disabled */
+ | 'revoked';
 /** an Error carrying why the surface refused; `kind` survives message edits */
 export interface AgentRefusalError extends Error {
     tosiRefusal: AgentRefusalKind;

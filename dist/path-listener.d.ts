@@ -43,4 +43,5 @@ export declare const pendingUpdates: () => boolean;
 export declare const updates: () => Promise<void>;
 export declare const touch: (touchable: TosiTouchableType) => void;
 export declare const observe: (test: string | RegExp | PathTestFunction, callback: ObserverCallbackFunction) => Listener;
+export declare const stopFunction: (listener: Listener) => (() => void);
 export declare const unobserve: (listener: Listener | (() => void)) => void;

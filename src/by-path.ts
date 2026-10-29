@@ -184,6 +184,20 @@ function byIdPath(
   idValue: string,
   valueToInsert?: any
 ): any {
+  if (idPath === '') {
+    // `[=key]` is a KEY, spelled as an id-path, so it takes the same guard as
+    // a dotted key. It took none: `x[=constructor].y = 1` wrote onto Object,
+    // `x[=constructor].assign` replaced Object.assign, and `x[=__proto__] =
+    // {...}` swapped a prototype, through agent.write, share and sync alike
+    // (found in the 1.10.10 review; in every release since the 1.8.0 guard).
+    // Descending goes through byKey, which is where the dotted form is guarded.
+    if (valueToInsert === _newObject_)
+      return byKey(array as TosiObject, idValue, {})
+    if (valueToInsert === undefined) assertSafeKey(idValue)
+    else if (valueToInsert !== _delete_) assertSafeLeafKey(idValue)
+  } else {
+    for (const key of idPath.split('.')) assertSafeKey(key)
+  }
   let idx =
     idPath !== '' ? keyToIndex(array as any[], idPath, idValue) : idValue
   if (valueToInsert === _delete_) {
@@ -195,9 +209,7 @@ function byIdPath(
     }
     return Symbol('deleted')
   } else if (valueToInsert === _newObject_) {
-    if (idPath === '' && array[idx as number] === undefined) {
-      array[idx as number] = {}
-    }
+    // descending through [idPath=value]: an existing item or nothing
   } else if (valueToInsert !== undefined) {
     if (idx !== undefined) {
       array[idx as number] = valueToInsert

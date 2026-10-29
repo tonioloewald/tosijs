@@ -299,6 +299,27 @@ describe('share', () => {
     channel.close()
   })
 
+  test('an inbound [=key] delta cannot reach the prototype chain', async () => {
+    const { t15p } = tosi({ t15p: { a: 1 } })
+    await share(t15p)
+    const sender = new BroadcastChannel(CHANNEL_NAME)
+    for (const [path, value] of [
+      ['t15p[=constructor].shareHijack', 'H'],
+      ['t15p[=__proto__]', { isAdmin: true }],
+    ])
+      sender.postMessage({
+        type: 'tosijs-share',
+        path,
+        value,
+        origin: 'other-tab-id',
+      })
+    await tick()
+    await updates()
+    expect((Object as any).shareHijack).toBeUndefined()
+    expect((xin.t15p as any).isAdmin).toBeUndefined()
+    sender.close()
+  })
+
   test('boxed .value= on scalar broadcasts correct value', async () => {
     const { t16 } = tosi({ t16: { a: 1, b: 2 } })
     await share(t16)

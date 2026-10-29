@@ -410,11 +410,30 @@ export const observe = (
   return new Listener(test, callback)
 }
 
+// the stop functions a proxy's .observe() hands out, and the Listener each stops
+const stopFunctions = new WeakMap<Function, Listener>()
+
+export const stopFunction = (listener: Listener): (() => void) => {
+  const stop = () => unobserve(listener)
+  stopFunctions.set(stop, listener)
+  return stop
+}
+
 export const unobserve = (listener: Listener | (() => void)): void => {
-  // a proxy's .observe() hands out a stop function, not the Listener; it
-  // throws 'listener not found' on its own if the listener is already gone
-  // (tosijs #3485: a stored stop function passed here leaked the observer)
-  if (typeof listener === 'function') return listener()
+  // a proxy's .observe() hands out a stop function, not the Listener (tosijs
+  // #3485: a stored stop function passed here leaked the observer). Only
+  // OUR stop functions: any other function is a mistake, commonly the
+  // observer's own callback, and must throw rather than be called
+  if (typeof listener === 'function') {
+    const stopped = stopFunctions.get(listener)
+    if (stopped === undefined) {
+      throw new Error(
+        'unobserve failed: pass the Listener observe() returned, or the stop ' +
+          "function a proxy's .observe() returned, not the callback"
+      )
+    }
+    listener = stopped
+  }
   const index = listeners.indexOf(listener)
   if (index > -1) {
     listeners.splice(index, 1)

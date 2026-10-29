@@ -1843,6 +1843,29 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(({} as any).x).toBeUndefined()
   })
 
+  test('SEC-1b: the [=key] spelling is guarded too (1.10.10 review)', async () => {
+    // [=key] is a key access spelled as an id-path, and it bypassed the guard
+    // from 1.8.0 to 1.10.9: these wrote onto Object and swapped a prototype
+    tosi({ protoKey: { cart: { total: 1 } } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: { roots: ['protoKey'], write: true },
+    }))
+    for (const path of [
+      'protoKey.cart[=constructor].agentHijack',
+      'protoKey.cart[=constructor].assign',
+      'protoKey[=__proto__]',
+    ]) {
+      expect(() => agent.write(path, { isAdmin: true })).toThrow(
+        /unsafe path segment/
+      )
+    }
+    expect((Object as any).agentHijack).toBeUndefined()
+    expect(typeof Object.assign).toBe('function')
+    expect(Object.getPrototypeOf(xin.protoKey)).toBe(Object.prototype)
+  })
+
   test('SEC-2: a secret path is redacted by read, changes AND ancestor reads', async () => {
     tosi({ secretRead: { login: { user: 'ada', password: 'hunter2' } } })
     await updates()
@@ -2630,13 +2653,14 @@ describe('every refusal is tagged (tosijs #53)', () => {
     const readOnly = (current = enableAgentInterface({
       quiet: true,
       webmcp: false,
-      expose: { roots: ['refusals'], actions: ['refusals.go'] },
+      // refusals.a is declared but is not a function
+      expose: { roots: ['refusals'], actions: ['refusals.go', 'refusals.a'] },
     }))
     const cases: Array<[string, () => unknown, string]> = [
       [
         'call: undeclared action',
         () => readOnly.call('refusals.sneaky'),
-        'callable',
+        'scope',
       ],
       ['call: not a function', () => readOnly.call('refusals.a'), 'callable'],
       [

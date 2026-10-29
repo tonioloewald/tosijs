@@ -921,6 +921,7 @@ import {
   touch,
   observe as _observe,
   unobserve,
+  stopFunction,
   updates,
   OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
@@ -1111,8 +1112,7 @@ const accessorHandler = (path: string, target: any): ProxyHandler<any> => ({
         return () => touch(path)
       case 'observe':
         return (callback: ObserverCallbackFunction) => {
-          const listener = _observe(path, callback)
-          return () => unobserve(listener)
+          return stopFunction(_observe(path, callback))
         }
       case 'bind':
         return (

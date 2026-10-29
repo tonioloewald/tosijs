@@ -286,3 +286,73 @@ describe('an own property holding undefined is empty, not a container', () => {
     expect(({} as any).x).toBeUndefined()
   })
 })
+
+describe('the prototype guard covers EVERY segment syntax', () => {
+  /*
+   * The guard sat in byKey, so it covered dotted keys only. `[=key]` is the
+   * same key access spelled differently, and it went unguarded from 1.8.0 to
+   * 1.10.9: `x[=constructor].y` wrote onto Object and `x[=__proto__] = {...}`
+   * swapped a prototype, through agent.write, share and sync. The table is
+   * every syntax pathParts emits, against every forbidden name, descending and
+   * at the leaf; a new syntax belongs in KINDS and in the table.
+   */
+  const KINDS = ['keys', 'index', 'key', 'idPath'] as const
+  const kindOf = (part: string | string[]): (typeof KINDS)[number] =>
+    Array.isArray(part)
+      ? 'keys'
+      : part.startsWith('=')
+      ? 'key'
+      : part.includes('=')
+      ? 'idPath'
+      : 'index'
+
+  test('pathParts emits exactly these syntaxes', () => {
+    const parts = pathParts('a.b[0][=k][id=1].c')
+    expect([...new Set(parts.map(kindOf))].sort()).toEqual([...KINDS].sort())
+  })
+
+  const descend = (name: string) => [`r.${name}.x`, `r[=${name}].x`]
+  const leaf = (name: string) => [`r.${name}`, `r[=${name}]`]
+  for (const name of ['__proto__', 'constructor', 'prototype']) {
+    for (const path of descend(name)) {
+      test(`setByPath refuses to descend through ${path}`, () => {
+        const root = { r: { list: [] } } as TosiObject
+        expect(() => setByPath(root, path, 'H')).toThrow(/unsafe path segment/)
+        expect((Object as any).x).toBeUndefined()
+        expect(({} as any).x).toBeUndefined()
+      })
+    }
+    test(`an [idPath=value] idPath may not name ${name}`, () => {
+      const root = { r: [{ id: 1 }] } as TosiObject
+      expect(() => setByPath(root, `r[${name}=1].x`, 'H')).toThrow(
+        /unsafe path segment/
+      )
+    })
+  }
+
+  test('at the leaf only __proto__ is refused, in either spelling', () => {
+    for (const path of leaf('__proto__')) {
+      const root = { r: {} } as TosiObject
+      expect(() => setByPath(root, path, { isAdmin: true })).toThrow(
+        /unsafe path segment/
+      )
+      expect((root.r as any).isAdmin).toBeUndefined()
+    }
+    // constructor/prototype are ordinary data keys when merely assigned
+    for (const name of ['constructor', 'prototype'])
+      for (const path of leaf(name)) {
+        const root = { r: {} } as TosiObject
+        setByPath(root, path, 'data')
+        expect(Object.getOwnPropertyDescriptor(root.r, name)?.value).toBe(
+          'data'
+        )
+      }
+  })
+
+  test('[=key] still reads and writes ordinary keys', () => {
+    const root = { r: {} } as TosiObject
+    setByPath(root, 'r[=a].b', 1)
+    expect(root).toEqual({ r: { a: { b: 1 } } })
+    expect(getByPath(root, 'r[=a].b')).toBe(1)
+  })
+})

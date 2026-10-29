@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=1ec33d0f59e2" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=e34b59bdac71" data-tosi-doc-system />
   <title>The Agent Surface — tosijs</title>
   <meta name="description" content="enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." />
   <link rel="canonical" href="https://tosijs.net/agent-surface/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=6aa6c7a938cc" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=c548813b2702" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="agent-surface.md">
 <h1 id="the-agent-surface">The Agent Surface</h1>
 <!--{ "parent": "One User Interface", "order": 2, "description": "enableAgentInterface(): the protocol-neutral surface, push-and-drain observation, exposure tiers (schema-first), authoring-time declarations, and ComponentMap." }-->
@@ -43,8 +43,9 @@ set write itself from an ordinary little app:</p>
 <code>webmcpTools(agent)</code> <strong>generates</strong> them: the introspection pair
 (<code>tosi_describe</code>, <code>tosi_surface</code>), the read pair (<code>tosi_read</code>,
 <code>tosi_changes</code>), <code>tosi_write</code>, and one <em>named</em> tool per action the registry
-already holds. With a WebMCP host present (<code>document.modelContext</code> — a
-Chrome origin trial as of 2026-08<!-- as-of: 2026-08-21 | WebMCP host
+already holds. With a WebMCP host present (<code>document.modelContext</code> — an
+origin trial in Chrome 149–156, with a separate one in Edge, and in neither
+Firefox nor Safari, as of 2026-10<!-- as-of: 2026-10-29 | WebMCP host
 availability + API location -->),
 <code>enableAgentInterface()</code> registers them <strong>automatically at enable time</strong>
 (<code>agent.webmcp</code> carries the receipt; <code>webmcp: false</code> opts out); without a
@@ -848,6 +849,6 @@ a component <em>says so in a checkable form</em>.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=1ec33d0f59e2"></script>
+  <script src="../iife.js?v=e34b59bdac71"></script>
 </body>
 </html>
