@@ -4,6 +4,26 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.10 — 2026-10-29
+
+- **Went well:** the always-on review found a real prototype-pollution hole
+  (`[=key]` skipped the guard, 1.8.0–1.10.9) that every earlier security pass
+  missed, because they pinned the dotted spelling only. Fixed with a table over
+  every segment syntax, and the scoped re-review found the one regression the
+  fix introduced (a guarded read) before the tag.
+- **Went well:** the dedupe pass paid off twice in one release: lining up
+  share/sync's copy of `extendsPath` found #3544, and the `[=key]` hole is the
+  same shape (two implementations of one key access, one guarded).
+- **Didn't:** my #3485 change made `unobserve()` call any function it was given;
+  the review caught it, not a test.
+- **Surprised:** approval again landed after the 60-minute window; `verify_only`
+  supplied the verification, as in 1.10.9.
+- **Friction:** the review workflow's cached script path wasn't readable by the
+  Workflow tool; copying it into the scratchpad worked.
+- **Cycle:** one, flagged by the review (a blocker in the guard a previous
+  blocker fix created). Root cause: the guard covered spellings, not the
+  operation; the table test now enumerates the syntaxes.
+
 ## 1.10.9 — 2026-10-15
 
 - **Went well:** the variable-height list rewrite was owner-tested on an iPhone

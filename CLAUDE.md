@@ -693,7 +693,8 @@ Authoritative: `../tosijs-coding-practices/practices/publishing-via-oidc.md`.
    instead, which took the tarball from 4.51 MB to 2.51 MB and gives consumers a
    readable source. **Consequence worth internalising: a scratch file, fixture
    or credential left in `src/` NOW SHIPS.** It did not before.
-9. Add the release row to the shared scoreboard in `../tosijs-coding-practices`.
+9. On the virta board, so no scoreboard row: showcase a closed task worth seeing
+   (`virta showcase #n …`), per `releasing.md` step 9. A fix with nothing to look at needs none.
 
 > **This list is a SUMMARY.** `../tosijs-coding-practices/practices/releasing.md`
 > is authoritative and carries steps this one has historically dropped —
