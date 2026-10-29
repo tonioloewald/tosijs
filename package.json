@@ -66,6 +66,15 @@
     "attestedLanes": [
       "test",
       "test:browser"
+    ],
+    "securityEntries": [
+      "src/by-path.ts",
+      "src/inbound.ts",
+      "src/share.ts",
+      "src/sync.ts",
+      "src/agent.ts",
+      "src/webmcp.ts",
+      "src/declarative-binding.ts"
     ]
   },
   "author": "Tonio Loewald",
