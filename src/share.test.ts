@@ -268,6 +268,37 @@ describe('share', () => {
     listener.close()
   })
 
+  // tosijs #3544: index paths under an array root were neither broadcast nor
+  // accepted (the root test was startsWith(root + '.'))
+  test('index paths under an array root share both ways', async () => {
+    const { t15a } = tosi({ t15a: [{ name: 'a' }] })
+    await share(t15a)
+    await updates()
+    await tick()
+
+    let received: any = null
+    const channel = new BroadcastChannel(CHANNEL_NAME)
+    channel.onmessage = (e) => {
+      if (e.data.path?.startsWith('t15a')) received = e.data
+    }
+    xin['t15a'][0].name = 'b'
+    await updates()
+    await tick()
+    expect(received?.path).toBe('t15a[0].name')
+    expect(received?.value).toBe('b')
+
+    channel.postMessage({
+      type: 'tosijs-share',
+      path: 't15a[0].name',
+      value: 'c',
+      origin: 'other-tab-id',
+    })
+    await tick()
+    await updates()
+    expect(getByPath(registry, 't15a')).toEqual([{ name: 'c' }])
+    channel.close()
+  })
+
   test('boxed .value= on scalar broadcasts correct value', async () => {
     const { t16 } = tosi({ t16: { a: 1, b: 2 } })
     await share(t16)

@@ -163,11 +163,11 @@ The returned `disconnect()` removes all observers and calls
 
 import { registry } from './registry'
 import { getByPath } from './by-path'
-import { observe, unobserve } from './path-listener'
+import { observe, unobserve, extendsPath } from './path-listener'
 import { tosiPath } from './metadata'
 import { throttle } from './throttle'
 import type { Listener } from './path-listener'
-import { under, findRoot, inboundTracker } from './inbound'
+import { findRoot, inboundTracker } from './inbound'
 
 export interface SyncMessage {
   path: string
@@ -249,7 +249,7 @@ export async function sync(
     syncedPaths.add(path)
 
     const listener = observe(
-      (changedPath: string) => under(changedPath, path),
+      (changedPath: string) => extendsPath(path, changedPath),
       (changedPath: string) => {
         if (tracker.isInbound(changedPath)) return
         if (findRoot(syncedPaths, changedPath) === undefined) return

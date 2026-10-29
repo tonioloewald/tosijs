@@ -10,6 +10,14 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
+- **`share()` and `sync()` ignored writes by index under an array root**
+  (#3544). With an array shared or synced (`tosi({ items: [...] })`),
+  `items[0].name = 'x'` was neither broadcast nor sent, and an inbound delta at
+  `items[0].name` was dropped as "not shared". The change went out only when
+  something later touched the whole array. Both channels tested "is this path
+  under a root" with their own `startsWith(root + '.')`, a copy of
+  `path-listener`'s `extendsPath()` that missed `[`; they use `extendsPath()`
+  now. Found by deduplicating share.ts and sync.ts.
 - **tosijs loaded by a classic `<script>` in `<head>` threw on load** (#3511,
   found by tosijs-product). The script runs before `<body>` is parsed, and the
   module-scope hydration observer called `observe(document.body)` with `body`

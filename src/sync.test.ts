@@ -156,6 +156,30 @@ describe('sync', () => {
     expect(getByPath(registry, 's7')).toEqual({ a: 99, b: 2 })
   })
 
+  // tosijs #3544: the root test was startsWith(root + '.'), so a write by
+  // index under an array root ('s4a[0].name') was never sent, and an inbound
+  // delta at that path was dropped as "not synced"
+  test('index paths under an array root sync both ways', async () => {
+    const { s4a } = tosi({ s4a: [{ name: 'a' }] })
+    await sync(transport, { throttleInterval: 10 }, s4a)
+    await updates()
+    await tick(50)
+    transport.sent.length = 0
+
+    xin['s4a'][0].name = 'b'
+    await updates()
+    await tick(50)
+    expect(transport.sent.flat()).toContainEqual({
+      path: 's4a[0].name',
+      value: 'b',
+    })
+
+    transport.deliver([{ path: 's4a[0].name', value: 'c' }])
+    await tick()
+    await updates()
+    expect(getByPath(registry, 's4a')).toEqual([{ name: 'c' }])
+  })
+
   test('inbound batch applies multiple messages', async () => {
     const { s8 } = tosi({ s8: { x: 0, y: 0 } })
     await sync(transport, {}, s8)

@@ -4,16 +4,15 @@
 // suppress a share broadcast.
 import { setByPath } from './by-path'
 import { registry } from './registry'
-import { touch, updates } from './path-listener'
-
-export const under = (path: string, root: string): boolean =>
-  path === root || path.startsWith(root + '.')
+import { touch, updates, extendsPath } from './path-listener'
 
 export const findRoot = (
   roots: Iterable<string>,
   path: string
 ): string | undefined => {
-  for (const root of roots) if (under(path, root)) return root
+  // extendsPath, not a local startsWith(root + '.'): that copy missed index
+  // paths, so a write to root[0].x was never sent (tosijs #3544)
+  for (const root of roots) if (extendsPath(root, path)) return root
 }
 
 export const inboundTracker = () => {

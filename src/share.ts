@@ -149,10 +149,10 @@ preview.querySelector('.spawn').addEventListener('click', () => {
 
 import { registry } from './registry'
 import { getByPath } from './by-path'
-import { observe } from './path-listener'
+import { observe, extendsPath } from './path-listener'
 import { tosiPath } from './metadata'
 import { debounce } from './throttle'
-import { under, findRoot, inboundTracker } from './inbound'
+import { findRoot, inboundTracker } from './inbound'
 
 const CHANNEL_NAME = 'tosijs-share'
 const DB_NAME = 'tosijs-share'
@@ -346,7 +346,7 @@ export async function share(...proxies: any[]): Promise<{ restored: any[] }> {
 
     // Outbound observer: sync local changes to other tabs
     observe(
-      (changedPath: string) => under(changedPath, path),
+      (changedPath: string) => extendsPath(path, changedPath),
       (changedPath: string) => {
         if (tracker.isInbound(changedPath)) return
 
