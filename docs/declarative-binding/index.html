@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=36c73ff37db5" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=d1727be05e36" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="declarative-binding.ts">
 <h1 id="bindings-in-markup-enabledeclarativebinding">Bindings in Markup (enableDeclarativeBinding)</h1>
 <p>Markup that cannot carry a script — a model&#39;s output, a saved view, a
@@ -139,6 +139,45 @@ A <code>form-action</code> CSP is the control for that.</p>
 <p><code>disable()</code> stops watching. Bindings already made stay, as with <code>bind()</code>.
 <code>hydrate(element)</code> binds a fragment you are about to insert, which avoids a
 moment where the raw attribute is live.</p>
+<p>Verified in each real browser engine:</p>
+<pre><code class="language-test">import { tosi, updates, enableDeclarativeBinding } from &#39;tosijs&#39;
+
+test(&#39;markup binds, writes back, calls, and refuses an ungranted href&#39;, async () =&gt; {
+  const { declTest } = tosi({
+    declTest: { name: &#39;Ada&#39;, link: &#39;https://example.com/&#39;, clicks: 0, hit() {
+      declTest.clicks.value += 1
+    } },
+  })
+  await updates()
+  const host = document.createElement(&#39;div&#39;)
+  preview.append(host)
+  const binding = enableDeclarativeBinding({
+    read: [declTest],
+    write: [declTest.name],
+    actions: [declTest.hit],
+    root: host,
+  })
+  // inserted after enabling: the observer hydrates it
+  host.innerHTML =
+    &#39;&lt;input data-tosi-bind-value=&quot;declTest.name&quot;&gt;&#39; +
+    &#39;&lt;span data-tosi-text=&quot;declTest.name&quot;&gt;&lt;/span&gt;&#39; +
+    &#39;&lt;button data-tosi-on-click=&quot;declTest.hit&quot;&gt;hit&lt;/button&gt;&#39; +
+    &#39;&lt;a data-tosi-attr-href=&quot;declTest.link&quot;&gt;link&lt;/a&gt;&#39;
+  await new Promise((resolve) =&gt; setTimeout(resolve, 0))
+  await updates()
+  const input = host.querySelector(&#39;input&#39;)
+  expect(input.value).toBe(&#39;Ada&#39;)
+  input.value = &#39;Grace&#39;
+  input.dispatchEvent(new Event(&#39;input&#39;, { bubbles: true }))
+  await updates()
+  expect(host.querySelector(&#39;span&#39;).textContent).toBe(&#39;Grace&#39;)
+  host.querySelector(&#39;button&#39;).click()
+  expect(declTest.clicks.value).toBe(1)
+  // href acts on its value: read alone is not enough
+  expect(host.querySelector(&#39;a&#39;).hasAttribute(&#39;href&#39;)).toBe(false)
+  binding.disable()
+})
+</code></pre>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">

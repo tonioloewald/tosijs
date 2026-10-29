@@ -101,6 +101,48 @@ A `form-action` CSP is the control for that.
 `disable()` stops watching. Bindings already made stay, as with `bind()`.
 `hydrate(element)` binds a fragment you are about to insert, which avoids a
 moment where the raw attribute is live.
+
+Verified in each real browser engine:
+
+```test
+import { tosi, updates, enableDeclarativeBinding } from 'tosijs'
+
+test('markup binds, writes back, calls, and refuses an ungranted href', async () => {
+  const { declTest } = tosi({
+    declTest: { name: 'Ada', link: 'https://example.com/', clicks: 0, hit() {
+      declTest.clicks.value += 1
+    } },
+  })
+  await updates()
+  const host = document.createElement('div')
+  preview.append(host)
+  const binding = enableDeclarativeBinding({
+    read: [declTest],
+    write: [declTest.name],
+    actions: [declTest.hit],
+    root: host,
+  })
+  // inserted after enabling: the observer hydrates it
+  host.innerHTML =
+    '<input data-tosi-bind-value="declTest.name">' +
+    '<span data-tosi-text="declTest.name"></span>' +
+    '<button data-tosi-on-click="declTest.hit">hit</button>' +
+    '<a data-tosi-attr-href="declTest.link">link</a>'
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await updates()
+  const input = host.querySelector('input')
+  expect(input.value).toBe('Ada')
+  input.value = 'Grace'
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  await updates()
+  expect(host.querySelector('span').textContent).toBe('Grace')
+  host.querySelector('button').click()
+  expect(declTest.clicks.value).toBe(1)
+  // href acts on its value: read alone is not enough
+  expect(host.querySelector('a').hasAttribute('href')).toBe(false)
+  binding.disable()
+})
+```
 */
 import { bind, on, delegationRoot } from './bind'
 import { bindings } from './bindings'
