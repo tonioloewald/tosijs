@@ -193,8 +193,11 @@ function byIdPath(
     // Descending goes through byKey, which is where the dotted form is guarded.
     if (valueToInsert === _newObject_)
       return byKey(array as TosiObject, idValue, {})
-    if (valueToInsert === undefined) assertSafeKey(idValue)
-    else if (valueToInsert !== _delete_) assertSafeLeafKey(idValue)
+    // a READ is unguarded, like a dotted read: it cannot pollute, and refusing
+    // it made a [=constructor] data key writable but unreadable (so share and
+    // sync silently stopped sending it)
+    if (valueToInsert !== undefined && valueToInsert !== _delete_)
+      assertSafeLeafKey(idValue)
   } else {
     for (const key of idPath.split('.')) assertSafeKey(key)
   }

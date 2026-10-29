@@ -346,7 +346,18 @@ describe('the prototype guard covers EVERY segment syntax', () => {
         expect(Object.getOwnPropertyDescriptor(root.r, name)?.value).toBe(
           'data'
         )
+        // and reads back: share/sync read the value they send
+        expect(getByPath(root, path)).toBe('data')
       }
+  })
+
+  test('[=key] cannot descend into an INHERITED member either', () => {
+    // r[=toString].x wrote onto the shared Object.prototype.toString; like the
+    // dotted form it now creates an own container instead
+    const root = { r: {} } as TosiObject
+    setByPath(root, 'r[=toString].x', 1)
+    expect((root.r as any).toString).toEqual({ x: 1 })
+    expect((Object.prototype.toString as any).x).toBeUndefined()
   })
 
   test('[=key] still reads and writes ordinary keys', () => {
