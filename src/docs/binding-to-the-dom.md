@@ -84,4 +84,5 @@ hand, and it will miss a case that `bind` already handles. See
 - [Custom Bindings and Events](/bind/)
 - [Built-in Bindings](/bindings/)
 - [Array Bindings](/list-binding/)
+- [Bindings in Markup](/declarative-binding/)
 <!-- /toc -->

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    try {
+      var p = JSON.parse(localStorage.getItem('tosi-doc-system-prefs') || '{}')
+      var t = p.theme || 'system'
+      if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+        document.documentElement.classList.add('darkmode')
+      if (p.highContrast) document.documentElement.classList.add('high-contrast')
+    } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../doc-system.css?v=c949646a645b" data-tosi-doc-system />
+  <title>Bindings in Markup — tosijs</title>
+  <meta name="description" content="enableDeclarativeBinding(): opt-in, closed by default — bind HTML with data-tosi-* attributes and no script, against an explicit list of what markup may read, write and call." />
+  <link rel="canonical" href="https://tosijs.net/declarative-binding/" />
+  <link rel="alternate" type="text/markdown" href="index.md" title="Bindings in Markup — tosijs (markdown)" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="tosijs" />
+  <meta property="og:title" content="Bindings in Markup — tosijs" />
+  <meta property="og:description" content="enableDeclarativeBinding(): opt-in, closed by default — bind HTML with data-tosi-* attributes and no script, against an explicit list of what markup may read, write and call." />
+  <meta property="og:url" content="https://tosijs.net/declarative-binding/" />
+  <meta name="twitter:card" content="summary" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Bindings in Markup","description":"enableDeclarativeBinding(): opt-in, closed by default — bind HTML with data-tosi-* attributes and no script, against an explicit list of what markup may read, write and call.","url":"https://tosijs.net/declarative-binding/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"tosijs","url":"https://tosijs.net"}}</script>
+  <link rel="icon" href="../favicon.svg" />
+<script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
+</head>
+<body>
+  <tosi-doc-system docs="../docs.json?v=36c73ff37db5" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <article class="doc-content" data-doc="declarative-binding.ts">
+<h1 id="bindings-in-markup-enabledeclarativebinding">Bindings in Markup (enableDeclarativeBinding)</h1>
+<p>Markup that cannot carry a script — a model&#39;s output, a saved view, a
+server-rendered fragment, a doc page under a strict CSP — can still be live.
+<code>enableDeclarativeBinding()</code> watches a root and turns <code>data-tosi-*</code>
+attributes into ordinary <code>bind()</code> and <code>on()</code> calls. Nothing is evaluated: an
+attribute&#39;s value is a state path, checked against what you granted.</p>
+<p>It is <strong>opt-in and closed by default.</strong> With no grants nothing binds; it is
+not in <code>tosijs/core</code> or the <code>&lt;script&gt;</code> build, and an app that never imports it
+does not carry it.</p>
+<pre><code class="language-html">&lt;label&gt;Name &lt;input data-tosi-bind-value=&quot;markup.name&quot;&gt;&lt;/label&gt;
+&lt;p&gt;Hello, &lt;b data-tosi-text=&quot;markup.name&quot;&gt;&lt;/b&gt;!&lt;/p&gt;
+&lt;button data-tosi-on-click=&quot;markup.shout&quot; data-tosi-attr-aria-label=&quot;markup.name&quot;&gt;
+  Shout
+&lt;/button&gt;
+</code></pre>
+<pre><code class="language-js">import { tosi, enableDeclarativeBinding } from &#39;tosijs&#39;
+
+const { markup } = tosi({
+  markup: {
+    name: &#39;Ada&#39;,
+    shout() {
+      markup.name.value = markup.name.value.toUpperCase()
+    },
+  },
+})
+
+const { disable } = enableDeclarativeBinding({
+  read: [markup],
+  write: [markup.name],
+  actions: [markup.shout],
+  root: preview,
+})
+</code></pre>
+<h2 id="the-attributes">The attributes</h2>
+<table>
+<thead>
+<tr>
+<th>attribute</th>
+<th>binds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data-tosi-text=&quot;path&quot;</code></td>
+<td>the value → text content</td>
+</tr>
+<tr>
+<td><code>data-tosi-value=&quot;path&quot;</code></td>
+<td>the value → <code>value</code>, one way</td>
+</tr>
+<tr>
+<td><code>data-tosi-bind-value=&quot;path&quot;</code></td>
+<td><code>value</code>, two way (needs a <code>write</code> grant)</td>
+</tr>
+<tr>
+<td><code>data-tosi-attr-aria-label=&quot;path&quot;</code></td>
+<td>the value → the attribute (<code>null</code>, <code>undefined</code> and <code>false</code> remove it; <code>true</code> sets it empty)</td>
+</tr>
+<tr>
+<td><code>data-tosi-prop-row-count=&quot;path&quot;</code></td>
+<td>the value → the <code>rowCount</code> property (kebab → camel)</td>
+</tr>
+<tr>
+<td><code>data-tosi-on-click=&quot;path&quot;</code></td>
+<td>the event calls the function at the path</td>
+</tr>
+</tbody></table>
+<p>A handler is called the way <code>on(element, &#39;click&#39;, &#39;app.save&#39;)</code> calls it:
+with the event, resolved when the event fires, so replacing the function in
+state takes effect. It takes no arguments from markup; put what it needs in
+ordinary <code>data-*</code> attributes and read <code>event.target.dataset</code>.</p>
+<p>Bound <code>data-tosi-*</code> attributes are removed once bound, so an element is
+hydrated once. A refused one is left in place and warned about once, with the
+reason.</p>
+<h2 id="grants">Grants</h2>
+<pre><code>enableDeclarativeBinding({
+  read: [&#39;app&#39;],             // paths (or proxies) markup may show
+  write: [&#39;app.form&#39;],       // paths a two-way binding may write
+  actions: [&#39;app.save&#39;],     // functions markup may call
+  root: document.body,       // where to look (the default)
+})
+</code></pre>
+<p>Each grant is a list of paths or proxies, matched by whole segment (<code>app</code>
+allows <code>app.x</code> and <code>app[0]</code>, not <code>appEvil</code>), or a <code>(path) =&gt; boolean</code>. These
+are the agent surface&#39;s three grants (<code>roots</code>, <code>write</code>, <code>actions</code>), so one
+manifest can drive both.</p>
+<p>Paths are plain: names, dots and <code>[n]</code> indices. Id-paths and anything else are
+refused.</p>
+<p><strong>Showing is not acting.</strong> Binding a value into <code>href</code>, <code>src</code>, <code>action</code>,
+a component&#39;s property or anything else that is not known to be inert turns
+the value into behaviour: a link, a request, a document. Those targets need
+the path in <code>read</code> <strong>and</strong> in <code>actions</code>, which reads as &quot;the value at this
+path is trusted to act&quot;. So a path granted only <code>read</code> (user-authored text,
+say) can be shown but cannot be made into a link by injected markup. The
+inert targets are text, <code>value</code>, <code>checked</code>, <code>disabled</code>, <code>hidden</code>, <code>title</code>,
+<code>class</code>, <code>role</code>, <code>alt</code>, <code>placeholder</code>, <code>aria-*</code> and <code>data-*</code>; an unknown
+target fails closed. <code>on*</code> attributes and properties, <code>innerHTML</code>,
+<code>outerHTML</code> and <code>srcdoc</code> are refused whatever the grants.</p>
+<p><strong>Only gesture events.</strong> <code>data-tosi-on-*</code> accepts <code>click</code>, <code>dblclick</code>,
+<code>input</code>, <code>change</code>, <code>submit</code>, <code>reset</code>, <code>keydown</code> and <code>keyup</code>: events a person
+causes. <code>load</code>, <code>error</code>, <code>focus</code> and the like fire with no gesture, so
+markup could call a function just by being inserted.</p>
+<p><strong>Not closable here:</strong> <code>read</code> is disclosure to whoever wrote the markup. A
+bound field inside <code>&lt;form action=&quot;https://elsewhere&quot;&gt;</code> sends its value there.
+A <code>form-action</code> CSP is the control for that.</p>
+<p><code>disable()</code> stops watching. Bindings already made stay, as with <code>bind()</code>.
+<code>hydrate(element)</code> binds a fragment you are about to insert, which avoids a
+moment where the raw attribute is live.</p>
+
+  </article>
+  <nav class="doc-nav" aria-label="Documentation">
+  <ul>
+    <li><a class="doc-link" href="../">tosijs</a></li>
+    <li><a class="doc-link" href="../start-here/">Start Here</a></li>
+    <li><a class="doc-link" href="../Building-Apps/">Building Apps</a></li>
+    <li><details><summary><a class="doc-link" href="../managing-state/">Managing State</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../xin/">The Observer Proxy</a></li>
+      <li><a class="doc-link" href="../path-listener/">Path Listener</a></li>
+      <li><a class="doc-link" href="../metadata/">Metadata</a></li>
+      <li><a class="doc-link" href="../hot-reload/">Hot Reload</a></li>
+      <li><a class="doc-link" href="../share/">Cross-Tab State</a></li>
+      <li><a class="doc-link" href="../sync/">Network Sync</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../building-the-dom/">Building the DOM</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../elements/">Element Creators</a></li>
+      <li><details><summary><a class="doc-link" href="../css/">CSS</a></summary>
+      <ul>
+        <li><a class="doc-link" href="../color/">Color</a></li>
+      </ul>
+      </details></li>
+      <li><details><summary><a class="doc-link" href="../component/">Web Components</a></summary>
+      <ul>
+        <li><a class="doc-link" href="../blueprint-loader/">Blueprints</a></li>
+        <li><a class="doc-link" href="../form-validation/">Form Validation</a></li>
+      </ul>
+      </details></li>
+    </ul>
+    </details></li>
+    <li><details open><summary><a class="doc-link" href="../binding-to-the-dom/">Binding to the DOM</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../bind-vs-observe/">Why bind, and when to use observe</a></li>
+      <li><a class="doc-link" href="../bind/">Custom Bindings and Events</a></li>
+      <li><a class="doc-link" href="../bindings/">Built-in Bindings</a></li>
+      <li><a class="doc-link" href="../list-binding/">Array Bindings</a></li>
+      <li><a class="doc-link current" href="../declarative-binding/" aria-current="page">Bindings in Markup</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../entry-points/">Entry Points</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../index-core/">tosijs/core (slim entry)</a></li>
+      <li><a class="doc-link" href="../index-state/">tosijs/state (DOM-free)</a></li>
+    </ul>
+    </details></li>
+    <li><details><summary><a class="doc-link" href="../utilities/">Utilities</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../more-math/">More Math</a></li>
+      <li><a class="doc-link" href="../throttle/">Throttle &amp; Debounce</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../React/">React and tosijs</a></li>
+    <li><a class="doc-link" href="../Angular/">Angular and tosijs</a></li>
+    <li><details><summary><a class="doc-link" href="../one-user-interface/">One User Interface</a></summary>
+    <ul>
+      <li><a class="doc-link" href="../derived-surface/">The Derived Surface</a></li>
+      <li><a class="doc-link" href="../agent-surface/">The Agent Surface</a></li>
+      <li><a class="doc-link" href="../trust-and-transports/">Trust &amp; Transports</a></li>
+      <li><a class="doc-link" href="../headless-embodiment/">Headless Embodiment</a></li>
+      <li><a class="doc-link" href="../plan-and-prior-art/">Plan &amp; Prior Art</a></li>
+      <li><a class="doc-link" href="../audit/">Accessibility Audit</a></li>
+      <li><a class="doc-link" href="../agent/">Agent API Reference</a></li>
+      <li><a class="doc-link" href="../contract/">Contract Harness</a></li>
+      <li><a class="doc-link" href="../contract-check/">Contract Validation</a></li>
+      <li><a class="doc-link" href="../schematic/">schematic (EXPERIMENTAL)</a></li>
+      <li><a class="doc-link" href="../index-agent/">tosijs/agent</a></li>
+      <li><a class="doc-link" href="../webmcp/">WebMCP</a></li>
+    </ul>
+    </details></li>
+    <li><a class="doc-link" href="../Migration/">Upgrading and Migration</a></li>
+    <li><a class="doc-link" href="../development/">Development</a></li>
+    <li><a class="doc-link" href="../history/">tosijs history</a></li>
+  </ul>
+  </nav>
+  <ul class="doc-navbar">
+    <li><a href="https://ui.tosijs.net" data-icon="tosi">tosijs-ui</a></li>
+    <li><a href="https://discord.com/invite/ramJ9rgky5" data-icon="discord">discord</a></li>
+    <li><a href="https://loewald.com" data-icon="blog">blog</a></li>
+    <li><a href="https://github.com/tonioloewald/tosijs" data-icon="github">github</a></li>
+    <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
+  </ul>
+  </tosi-doc-system>
+  <script src="../iife.js?v=c949646a645b"></script>
+</body>
+</html>

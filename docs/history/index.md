@@ -47,7 +47,11 @@ Its chief changes:
 - **TypeScript-native**, to meet Google's code standards.
 - **Binding declarations left the DOM.** `b8rjs` wrote bindings into DOM
   attributes; `xinjs` kept them off the DOM entirely (in the observer registry),
-  to meet Google's information-security standards.
+  to meet Google's information-security standards. **Partly reversed, opt-in,
+  in 1.10.11:** `enableDeclarativeBinding()` reads `data-tosi-*` attributes so
+  markup with no script can be live. The security point is answered rather than
+  dropped: it is closed by default, binds only paths you grant, and removes
+  each attribute once bound, so the bindings still live off the DOM.
 - **Web-components became a first-class citizen**, not an afterthought — they
   weren't usable at all when `b8rjs` was written.
 - **No hand-written HTML or CSS.** The `elements` and `css` proxies express markup

@@ -33,6 +33,8 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
   List bindings: surgical updates via id-paths, virtualized rendering for million-row lists, sticky headers, filtering, and grids.
 - https://tosijs.net/binding-to-the-dom/ — Binding to the DOM
   How tosijs keeps the page in step with state: implicit bindings (a proxy as a property or child), explicit bindings (bindValue and friends), array bindings, and custom bindings. An overview with links to the detail.
+- https://tosijs.net/declarative-binding/ — Bindings in Markup
+  enableDeclarativeBinding(): opt-in, closed by default — bind HTML with data-tosi-* attributes and no script, against an explicit list of what markup may read, write and call.
 - https://tosijs.net/blueprint-loader/ — Blueprints
   Dynamically load tosijs components as zero-dependency blueprints from CDN URLs, letting consumers choose tag names and avoid name collisions.
 - https://tosijs.net/Building-Apps/ — Building Apps

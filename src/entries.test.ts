@@ -214,7 +214,11 @@ describe('entry points', () => {
   // The test stays because the failure it guards is re-adding an export to
   // index.ts directly: that silently omits it from the CDN artifact — the
   // most-loaded thing this project publishes — and nothing else would say so.
-  test('the browser/CDN entry is exactly the full entry minus the agent surface', async () => {
+  // opt-in surfaces besides the agent's that ride the full entry, not the
+  // browser build (index.ts says why)
+  const OPT_IN = ['enableDeclarativeBinding']
+
+  test('the browser/CDN entry is exactly the full entry minus the opt-in surfaces', async () => {
     const full = await import('./index')
     const browser = await import('./index-browser')
     const agentEntry = await import('./index-agent')
@@ -222,12 +226,11 @@ describe('entry points', () => {
     // nothing in the CDN build is missing from the full build
     expect(Object.keys(browser).filter((n) => !(n in full))).toEqual([])
 
-    // and everything the full build adds is agent-surface, nothing else
+    // and everything the full build adds is an opt-in surface, nothing else
     const extras = Object.keys(full)
       .filter((n) => !(n in browser))
       .sort()
-    const agentNames = Object.keys(agentEntry).sort()
-    expect(extras).toEqual(agentNames)
+    expect(extras).toEqual([...Object.keys(agentEntry), ...OPT_IN].sort())
   })
 
   test('the full entry is a SUPERSET of tosijs/state — the subset claim holds', async () => {
@@ -259,6 +262,7 @@ describe('entry points', () => {
       'tosiBlueprint',
       'tosiLoader',
       ...Object.keys(agentEntry), // the agent surface rides the full entry
+      ...OPT_IN,
     ]
       .filter((name) => !(name in core))
       .sort()

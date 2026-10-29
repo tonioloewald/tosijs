@@ -6,6 +6,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Added
+
+- **`enableDeclarativeBinding()`: bindings declared in markup** (#3254, and
+  GitHub #54 from snowfox). Markup that can't carry a script (a model's
+  output, a saved view, a server-rendered fragment, a doc page under a strict
+  CSP) can be live: `data-tosi-text`, `data-tosi-value`,
+  `data-tosi-bind-value`, `data-tosi-attr-*`, `data-tosi-prop-*` and
+  `data-tosi-on-*` become ordinary `bind()` and `on()` calls. Nothing is
+  evaluated. It is opt-in and closed by default: markup may only read, write
+  and call the paths you grant (`read`, `write`, `actions`: the agent
+  manifest's three grants, so one manifest can drive both). Showing is not
+  acting: binding into `href`, `src`, a component property or any target not
+  known to be inert also needs an `actions` grant; `on*`, `innerHTML`,
+  `outerHTML` and `srcdoc` are never bound; only gesture events
+  (`click`, `input`, `change`, `submit`, keys) may call anything. A handler is
+  a state path, called like `on(el, 'click', 'app.save')`. Not in
+  `tosijs/core` or the `<script>` build; an app that doesn't import it doesn't
+  carry it.
+
+### Size
+
+gz bytes against v1.10.10. The bundles that don't carry the new module are
+unchanged to the byte. The `module.debug.js` and `module.safe.js` budgets rose
+67_000 → 68_000 to keep the 1 kB floor (owner-approved).
+
+| bundle | v1.10.10 | this build | Δ |
+| --- | --- | --- | --- |
+| `index.js` | 30_954 | 30_954 | **+0** |
+| `module.js` | 48_101 | 49_137 | **+1036** |
+| `main.js` | 48_408 | 49_413 | **+1005** |
+| `core.js` | 28_349 | 28_349 | **+0** |
+| `state.js` | 18_647 | 18_647 | **+0** |
+| `module.debug.js` | 65_402 | 66_640 | **+1238** |
+| `module.safe.js` | 65_249 | 66_497 | **+1248** |
+
 ## [1.10.10] - 2026-10-29
 
 ### Security

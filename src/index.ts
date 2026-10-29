@@ -1,6 +1,7 @@
 /*{ "parent": "utilities", "description": "the tosijs entry point — the full library. See `tosijs/core` for the slim entry and `tosijs/state` for the DOM-free state layer." }*/
 /**
- * THE FULL LIBRARY = THE BROWSER ENTRY + THE AGENT SURFACE.
+ * THE FULL LIBRARY = THE BROWSER ENTRY + THE OPT-IN SURFACES (the agent
+ * surface, and bindings declared in markup).
  *
  * That relationship is expressed as composition rather than as two lists,
  * because it used to be two lists: this file and `index-browser.ts` each
@@ -24,3 +25,14 @@ export * from './index-browser'
  * `index-browser.ts`.
  */
 export * from './index-agent'
+
+/**
+ * Bindings declared in markup: opt-in and closed by default, like the agent
+ * surface, and for the same reason it is not in the browser build.
+ */
+export { enableDeclarativeBinding } from './declarative-binding'
+export type {
+  DeclarativeBindingOptions,
+  DeclarativeBinding,
+  DeclarativeGrant,
+} from './declarative-binding'

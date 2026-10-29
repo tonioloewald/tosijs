@@ -1,6 +1,7 @@
 import { TosiEventHandler, TosiTouchableType, TosiBinding, TosiBindingSpec, TakeDescriptor, EventType } from './xin-types';
 export declare const touchElement: (element: Element, changedPath?: string) => void;
 export declare function hydrateInsertedSubtree(node: Element): void;
+export declare const delegationRoot: () => Element;
 interface BindingOptions {
     [key: string]: any;
 }

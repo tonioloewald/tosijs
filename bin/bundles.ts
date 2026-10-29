@@ -294,7 +294,10 @@ export const BUNDLES: BundleSpec[] = [
     // 65_000 -> 67_000, 2026-10-15: the variable-height list rewrite (#3302,
     // ~1.3 kB gz here with __tjs metadata) left module.debug.js with 75 B;
     // ~2 kB slack restored, as for the shipped bundles' raise.
-    budget: 67_000,
+    // 67_000 -> 68_000, 2026-10-29: enableDeclarativeBinding (#3254, ~1 kB gz
+    // in the whole-library builds; shaken from every other bundle) left
+    // module.debug.js with 360 B. Owner approved the raise (2026-10-29).
+    budget: 68_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -311,7 +314,8 @@ export const BUNDLES: BundleSpec[] = [
     // deliberately generous.
     // 63_500 -> 65_000, 2026-10-01, same reason as module.debug.js above.
     // 65_000 -> 67_000, 2026-10-15, same reason as module.debug.js above.
-    budget: 67_000,
+    // 67_000 -> 68_000, 2026-10-29, same reason as module.debug.js above.
+    budget: 68_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

@@ -441,7 +441,8 @@ export function hydrateInsertedSubtree(node: Element): void {
 // <body> where it exists; a classic <script> in <head> runs before <body> is
 // parsed, and document.body is null there (tosijs #3511: observe(null) threw
 // and aborted the whole bundle). <html> exists in <head> and contains <body>.
-const delegationRoot = (): Element => document.body ?? document.documentElement
+export const delegationRoot = (): Element =>
+  document.body ?? document.documentElement
 
 // this is just to allow bind to be testable in node
 if (MutationObserver != null) {
