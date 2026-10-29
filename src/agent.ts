@@ -3422,14 +3422,20 @@ export function enableAgentInterface(
       assertLive('call')
       const actionPath = toPath(actionRef, 'call')
       assertMutable('call', actionPath)
+      // typed like every other refusal (tosijs #53): these two were plain
+      // Errors, so a caller could not tell "not callable" from "the action threw"
       if (manifestMode && !(exposedActions ?? []).includes(actionPath)) {
-        throw new Error(
+        throw refuse(
+          'callable',
           `agent interface: action "${actionPath}" is not exposed (manifest mode)`
         )
       }
       const fn = xin[actionPath]
       if (typeof fn !== 'function') {
-        throw new Error(`agent interface: "${actionPath}" is not an action`)
+        throw refuse(
+          'callable',
+          `agent interface: "${actionPath}" is not an action`
+        )
       }
       // THE INVOCATION IS THE AUDIT EVENT. The ledger records in-scope
       // TOUCHES, so a call-only surface (`roots: []`) mutating state through
@@ -3727,7 +3733,7 @@ export function enableAgentInterface(
     // Disabled means REFUSED, and dead surfaces get to be garbage.
     const live = (): AgentInterface => {
       if (active == null) {
-        throw new Error('agent interface: disabled (no active surface)')
+        throw refuse('revoked', 'agent interface: disabled (no active surface)')
       }
       return active
     }

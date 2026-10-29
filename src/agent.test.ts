@@ -2613,6 +2613,78 @@ describe('paths may be proxies — the proxy already knows its own path', () => 
   })
 })
 
+describe('every refusal is tagged (tosijs #53)', () => {
+  /*
+   * call() threw plain Errors for its two refusals, so isAgentRefusal() was
+   * false and a caller could not tell "the surface refused" from "the action
+   * threw". Enumerated here, one case per refusal site, so a new one that
+   * slips back to a plain Error has a list to be missing from.
+   */
+  test('read, write, call and observe refusals all carry tosiRefusal', async () => {
+    tosi({
+      refusals: { a: 1, go() {}, sneaky() {} },
+      refusalsOutside: { b: 2 },
+    })
+    await updates()
+    const { isAgentRefusal } = await import('./agent')
+    const readOnly = (current = enableAgentInterface({
+      quiet: true,
+      webmcp: false,
+      expose: { roots: ['refusals'], actions: ['refusals.go'] },
+    }))
+    const cases: Array<[string, () => unknown, string]> = [
+      [
+        'call: undeclared action',
+        () => readOnly.call('refusals.sneaky'),
+        'callable',
+      ],
+      ['call: not a function', () => readOnly.call('refusals.a'), 'callable'],
+      [
+        'read: outside the roots',
+        () => readOnly.read('refusalsOutside.b'),
+        'scope',
+      ],
+      ['read: not a path', () => readOnly.read({} as any), 'path'],
+      [
+        'write: read-only manifest',
+        () => readOnly.write('refusals.a', 2),
+        'mutability',
+      ],
+      [
+        'observe: a pattern under a manifest',
+        () => readOnly.observe(/./, () => {}),
+        'scope',
+      ],
+    ]
+    for (const [label, attempt, kind] of cases) {
+      let refusal: unknown
+      try {
+        attempt()
+      } catch (e) {
+        refusal = e
+      }
+      expect([label, isAgentRefusal(refusal)]).toEqual([label, true])
+      expect([label, (refusal as any).tosiRefusal]).toEqual([label, kind])
+    }
+  })
+
+  test('writing to a declared action is a callable refusal', async () => {
+    tosi({ refusalsW: { a: 1, go() {} } })
+    await updates()
+    const writable = (current = enableAgentInterface({
+      quiet: true,
+      webmcp: false,
+      expose: { roots: ['refusalsW'], actions: ['refusalsW.go'], write: true },
+    }))
+    expect(() => writable.write('refusalsW.go', 1)).toThrow(/not writable/)
+    try {
+      writable.write('refusalsW.go', 1)
+    } catch (e) {
+      expect((e as any).tosiRefusal).toBe('callable')
+    }
+  })
+})
+
 describe('observe() patterns: allowed wide open, refused under a manifest', () => {
   /*
    * REGRESSION GUARD. `observe()` was typed `(path: string, …)` but passed

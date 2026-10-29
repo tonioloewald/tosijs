@@ -257,6 +257,12 @@ describe('handle-less hosts (Canary today) — register once, stay live', () => 
     expect(() => readTool.execute({ path: 'mcpDup.x' })).toThrow(
       /no active surface/
     )
+    // typed like the surface's own revocation (tosijs #53)
+    try {
+      readTool.execute({ path: 'mcpDup.x' })
+    } catch (e) {
+      expect((e as any).tosiRefusal).toBe('revoked')
+    }
   })
 })
 

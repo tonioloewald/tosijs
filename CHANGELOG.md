@@ -10,6 +10,13 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
+- **`agent.call()` refused with plain `Error`s** (#53, reported by snowfox).
+  Calling an undeclared action, or a path that isn't a function, threw an
+  error with no `tosiRefusal`, so `isAgentRefusal(e)` was false and a caller
+  couldn't tell "the surface refused" from "the action threw". Both now refuse
+  with kind `'callable'`. The WebMCP tools' "no active surface" error after
+  `disable()` is now a `'revoked'` refusal, matching the surface's own. A test
+  enumerates every refusal site across the verbs.
 - **`share()` and `sync()` ignored writes by index under an array root**
   (#3544). With an array shared or synced (`tosi({ items: [...] })`),
   `items[0].name = 'x'` was neither broadcast nor sent, and an inbound delta at
