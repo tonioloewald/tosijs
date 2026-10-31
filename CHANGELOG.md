@@ -63,6 +63,9 @@ unchanged to the byte. The `module.debug.js` and `module.safe.js` budgets rose
   segment syntax `pathParts` emits against every forbidden name; the agent,
   share and sync sinks each have a test that fails on 1.10.9.
 
+  Every affected published version (1.8.0-rc.1 through 1.10.9) is deprecated
+  on npm, pointing at 1.10.10 (2026-10-31).
+
 ### Fixed
 
 - **`agent.call()` refused with plain `Error`s** (#53, reported by snowfox).
