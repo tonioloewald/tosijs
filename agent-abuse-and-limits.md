@@ -122,33 +122,33 @@ yet (stamp below).
 - **`enableDeclarativeBinding()`**: markup-triggered actions are gesture
   events only (already shipped). `confirm: true` should apply there too.
 
-## Cards to file (after this note is agreed)
+## Cards (filed 2026-11-03, backlog)
 
 **tosijs**
-1. Refusal circuit breaker (`'revoked'` after N refusals/window, page
+1. #3784 Refusal circuit breaker (`'revoked'` after N refusals/window, page
    notified).
-2. Per-surface budgets + `'rate'` refusal kind; registration caps.
-3. Cross-tab shared budget over `BroadcastChannel`.
-4. `confirm: true` actions gated on a trusted gesture.
-5. Existence-oracle property test for out-of-scope refusals.
-6. Dev warning: declared action with no UI affordance.
-7. DOM-free manifest/contract validator in `tosijs/state` for servers.
-8. Agent-origin mark on `sync()` batches.
-9. Untrusted-text marking in `describe()` records.
+2. #3785 Per-surface budgets + `'rate'` refusal kind; registration caps.
+3. #3786 Cross-tab shared budget over `BroadcastChannel`.
+4. #3787 `confirm: true` actions gated on a trusted gesture.
+5. #3788 Existence-oracle property test for out-of-scope refusals.
+6. #3789 Dev warning: declared action with no UI affordance.
+7. #3790 DOM-free manifest/contract validator in `tosijs/state` for servers.
+8. #3791 Agent-origin mark on `sync()` batches.
+9. #3792 Untrusted-text marking in `describe()` records.
 
 **tosijs-ui**
-- A standard confirmation component for `confirm: true` actions (accessible,
+- #3793 A standard confirmation component for `confirm: true` actions (accessible,
   focus-trapped, says which action and with what arguments, requires a
   real click). Every app shouldn't hand-roll the one dialog whose job is to
   be unforgeable.
-- An agent-activity indicator: the surface is live, recent calls, budget
+- #3794 An agent-activity indicator: the surface is live, recent calls, budget
   state, circuit-breaker tripped (with a "re-enable" control). A user
   should be able to see an agent is acting.
 
 **service-compris** (server tier). The npm package is `service-compris`;
 the repo and board project are still `tosijs-platform` (local checkout:
 `../loewald-dot-com`), mid-rename.
-- **The existing limiter cannot hold across instances, and may be bypassable
+- **#3795, #3796: the existing limiter cannot hold across instances, and may be bypassable
   per request** (`functions/src/utilities.ts`, read 2026-11-03):
   - The counter is an in-memory `Map` *per function instance*. Cloud
     Functions scale out under load, so a swarm's effective limit is
@@ -165,9 +165,9 @@ the repo and board project are still `tosijs-platform` (local checkout:
     entry the platform adds, not the first one.
   - Keyed on IP only. Swarms rotate IPs; agent traffic should also be keyed
     by session and account.
-- Enforce a tosijs manifest on inbound sync/action traffic using the
+- #3797 Enforce a tosijs manifest on inbound sync/action traffic using the
   `tosijs/state` validator (card 7).
-- Budgets per session and per account, refusal-rate abuse detection,
+- #3798 Budgets per session and per account, refusal-rate abuse detection,
   cooling-off/challenge.
 - Separate logging/policy for agent-marked traffic.
 
