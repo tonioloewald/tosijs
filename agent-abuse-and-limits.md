@@ -145,7 +145,26 @@ yet (stamp below).
   state, circuit-breaker tripped (with a "re-enable" control). A user
   should be able to see an agent is acting.
 
-**service-compris** (server tier)
+**service-compris** (server tier). The npm package is `service-compris`;
+the repo and board project are still `tosijs-platform` (local checkout:
+`../loewald-dot-com`), mid-rename.
+- **The existing limiter cannot hold across instances, and may be bypassable
+  per request** (`functions/src/utilities.ts`, read 2026-11-03):
+  - The counter is an in-memory `Map` *per function instance*. Cloud
+    Functions scale out under load, so a swarm's effective limit is
+    100/min × the number of instances it causes, which is the case the limit
+    exists for. A shared counter (Firestore, or Redis/Memorystore) is needed
+    for "across instances" to mean anything.
+  - **Likely bypass, to verify:** it keys on the *leftmost*
+    `X-Forwarded-For` entry, on the stated assumption that Google's load
+    balancer overwrites the header. As far as I know, Google's front end
+    *appends* (`<client-supplied…>, <client-ip>, <lb-ip>`), so the leftmost
+    entry is whatever the client sent, and rotating it resets the counter on
+    every request. Verify against a deployed function (send a forged
+    header, log what arrives) before changing it; if confirmed, key on the
+    entry the platform adds, not the first one.
+  - Keyed on IP only. Swarms rotate IPs; agent traffic should also be keyed
+    by session and account.
 - Enforce a tosijs manifest on inbound sync/action traffic using the
   `tosijs/state` validator (card 7).
 - Budgets per session and per account, refusal-rate abuse detection,
@@ -154,8 +173,10 @@ yet (stamp below).
 
 ## Open questions
 
-- **What service-compris is today**, and whether it sits on the sync path
-  or beside it. The server cards above assume it can see sync traffic.
+- Whether service-compris sits on the `sync()` path or beside it. The
+  server cards assume it can see sync traffic; it does not use tosijs's
+  `SyncTransport` today, so the manifest check may have to sit at its own
+  write endpoints instead.
 - Default budget numbers. They need a measurement of honest agent traffic
   (e.g. the `/one-user-interface/` demo driven by a real model) before any
   default is chosen.
