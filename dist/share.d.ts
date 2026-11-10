@@ -8,6 +8,7 @@ export interface ShareStore {
 }
 /** Replace the default IndexedDB store (mainly for testing). */
 export declare function setShareStore(s: ShareStore): void;
+export declare const newOrigin: () => string;
 export declare function share(...proxies: any[]): Promise<{
     restored: any[];
 }>;

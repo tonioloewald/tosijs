@@ -3,7 +3,7 @@ import { xin, updates } from './xin'
 import { tosi } from './xin-proxy'
 import { registry } from './registry'
 import { getByPath } from './by-path'
-import { share, setShareStore, type ShareStore } from './share'
+import { share, setShareStore, newOrigin, type ShareStore } from './share'
 
 const CHANNEL_NAME = 'tosijs-share'
 
@@ -488,4 +488,18 @@ describe('share', () => {
     sender.close()
     setShareStore(memStore) // restore the default harness store
   })
+})
+
+test('the tab id needs no secure context (#3985)', () => {
+  // crypto.randomUUID is undefined over plain http; the id must not need it
+  const randomUUID = crypto.randomUUID
+  ;(crypto as any).randomUUID = undefined
+  try {
+    const a = newOrigin()
+    expect(typeof a).toBe('string')
+    expect(a.length).toBeGreaterThan(8)
+    expect(newOrigin()).not.toBe(a)
+  } finally {
+    ;(crypto as any).randomUUID = randomUUID
+  }
 })

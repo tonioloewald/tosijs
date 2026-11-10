@@ -27,6 +27,14 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   `tosijs/core` or the `<script>` build; an app that doesn't import it doesn't
   carry it.
 
+### Fixed
+
+- **`share()` threw over plain http** (#3985, reported by tosijs-ui from
+  tosijs-pattern). Its per-tab id came from `crypto.randomUUID()`, which
+  exists only in a secure context, so on an http page with a non-localhost
+  name (or a LAN IP) the first `share()` threw and nothing was shared. The id
+  now comes from `crypto.getRandomValues()`, which exists everywhere.
+
 ### Size
 
 gz bytes against v1.10.10. The bundles that don't carry the new module are

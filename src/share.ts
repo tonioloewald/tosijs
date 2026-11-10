@@ -258,10 +258,18 @@ function applyInbound(path: string, value: any): void {
   tracker.apply(path, value)
 }
 
+// a per-tab id, unique enough to tell our own echoes apart. Not
+// crypto.randomUUID(): it exists only in a secure context, so share() threw
+// over plain http (#3985). getRandomValues exists everywhere.
+export const newOrigin = (): string =>
+  Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) =>
+    n.toString(36)
+  ).join('-')
+
 function initChannel(): BroadcastChannel {
   if (channel != null) return channel
 
-  origin = crypto.randomUUID()
+  origin = newOrigin()
   channel = new BroadcastChannel(CHANNEL_NAME)
 
   channel.onmessage = (event: MessageEvent) => {
