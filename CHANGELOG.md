@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [Unreleased]
+## [1.10.11] - 2026-11-11
 
 ### Security
 
@@ -22,6 +22,10 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   Unlike 1.10.10's `[=key]` fix, this is reached only by app code indexing a
   proxy with an untrusted key: `agent.write()`, `share()` and `sync()` take
   string paths, which were already guarded.
+  **Affects every version tested, 1.5.0 through 1.10.10** (the boxed-string
+  spelling since 1.6.0; versions before 1.5.0 were not probed and are
+  presumably affected). Published versions from 1.8.0-rc.1 are deprecated on
+  npm pointing at 1.10.11, replacing 1.10.10's notice.
 
 ### Added
 
@@ -64,19 +68,22 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Size
 
-gz bytes against v1.10.10. The bundles that don't carry the new module are
-unchanged to the byte. The `module.debug.js` and `module.safe.js` budgets rose
-67_000 → 68_000 to keep the 1 kB floor (owner-approved).
+gz bytes against v1.10.10. Most of it is `enableDeclarativeBinding()`, which
+the whole-bundle figures for `module.js`, `main.js` and the debug/safe builds
+include; an ESM app that doesn't import it shakes it away. `index.js`,
+`core.js` and `state.js` don't carry it, so their growth is the three fixes. Budgets:
+`module.debug.js` and `module.safe.js` 67_000 → 68_000, and `main.js`
+50_500 → 51_500, to keep the 1 kB floor (owner-approved).
 
-| bundle | v1.10.10 | this build | Δ |
+| bundle | v1.10.10 | 1.10.11 | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 30_954 | 30_954 | **+0** |
-| `module.js` | 48_101 | 49_137 | **+1036** |
-| `main.js` | 48_408 | 49_413 | **+1005** |
-| `core.js` | 28_349 | 28_349 | **+0** |
-| `state.js` | 18_647 | 18_647 | **+0** |
-| `module.debug.js` | 65_402 | 66_640 | **+1238** |
-| `module.safe.js` | 65_249 | 66_497 | **+1248** |
+| `index.js` | 30_953 | 31_009 | **+56** |
+| `module.js` | 48_100 | 49_327 | **+1227** |
+| `main.js` | 48_407 | 49_606 | **+1199** |
+| `core.js` | 28_348 | 28_368 | **+20** |
+| `state.js` | 18_647 | 18_661 | **+14** |
+| `module.debug.js` | 65_402 | 66_906 | **+1504** |
+| `module.safe.js` | 65_249 | 66_764 | **+1515** |
 
 ## [1.10.10] - 2026-10-29
 
