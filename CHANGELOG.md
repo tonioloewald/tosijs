@@ -8,6 +8,21 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+### Security
+
+- **Indexing a proxy with `'__proto__'` handed out the raw prototype**
+  (GitHub #56, from snowfox). `proxy.map['__proto__'].x = v` wrote
+  `Object.prototype.x`, and a boxed string's `['__proto__']` reached
+  `String.prototype` the same way. The bite was a computed key from data:
+  `settings[storageKey].value = …` with `storage-key="__proto__"` in markup, or
+  a key from parsed JSON (where `__proto__` is an ordinary own key). The proxy's
+  `get` now refuses `'__proto__'` with the same `UnsafePathError` the string-path
+  spelling (`xin['a.__proto__.x']`) already threw. `constructor` and `prototype`
+  were already refused when descending, and remain readable as data keys.
+  Unlike 1.10.10's `[=key]` fix, this is reached only by app code indexing a
+  proxy with an untrusted key: `agent.write()`, `share()` and `sync()` take
+  string paths, which were already guarded.
+
 ### Added
 
 - **`enableDeclarativeBinding()`: bindings declared in markup** (#3254, and

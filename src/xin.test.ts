@@ -2193,3 +2193,33 @@ test('.take() is the deprecated name of .as(): same descriptor, one warning', as
     console.warn = warn
   }
 })
+
+test('indexing a proxy with __proto__ refuses instead of handing out a prototype (GitHub #56)', () => {
+  const { protoTest } = tosi({ protoTest: { map: {}, name: 'Ada' } })
+  const sinks: Array<[string, () => void]> = [
+    ['object proxy', () => ((protoTest.map as any)['__proto__'].polluted = 1)],
+    ['boxed scalar', () => ((protoTest.name as any)['__proto__'].polluted = 1)],
+    ['xin', () => ((xin as any).protoTest.map['__proto__'].polluted = 1)],
+    // a key from markup or JSON, the shape that bit (SNOW-8794)
+    [
+      'computed key',
+      () => {
+        const key = '__proto__'
+        ;(protoTest.map as any)[key].value = 1
+      },
+    ],
+  ]
+  for (const [label, sink] of sinks) {
+    expect(sink).toThrow(/unsafe path segment "__proto__"/)
+    expect([label, ({} as any).polluted, ('' as any).polluted]).toEqual([
+      label,
+      undefined,
+      undefined,
+    ])
+  }
+  // a data key named constructor still reads (dictionaries keyed by data)
+  const { protoDict } = tosi({
+    protoDict: { words: { constructor: 'builder' } },
+  })
+  expect((protoDict.words as any).constructor.value).toBe('builder')
+})

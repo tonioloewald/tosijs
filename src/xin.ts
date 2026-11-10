@@ -925,7 +925,7 @@ import {
   updates,
   OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
-import { getByPath, setByPath } from './by-path'
+import { getByPath, setByPath, UnsafePathError } from './by-path'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1286,6 +1286,13 @@ const regHandler = (
   boxScalars: boolean
 ): ProxyHandler<TosiObject> => ({
   get(target: TosiObject | TosiArray, _prop: string | symbol): TosiValue {
+    // `proxy['__proto__']` reached the raw prototype: `Object.prototype
+    // instanceof Object` is false, so it fell to the scalar branch and came
+    // back unwrapped, and a boxed string's passthrough handed out
+    // String.prototype the same way. Either was then writable directly
+    // (GitHub #56). The string-path spelling already refuses it (by-path).
+    if (_prop === '__proto__') throw new UnsafePathError(_prop)
+
     // .tosi / TOSI_ACCESSOR — collision-free accessor API
     if ((_prop === 'tosi' || _prop === TOSI_ACCESSOR) && boxScalars) {
       return makeTosiAccessor(path, target)
