@@ -606,3 +606,88 @@ describe('AbortSignal unregistration (the shape Chrome actually shipped)', () =>
     expect(live.size).toBe(before)
   })
 })
+
+// Chrome 156: registerTool returns a promise that rejects with AbortError
+// when the signal aborts, and getTools() is async (GitHub #57). Unhandled,
+// every enable logged an AbortError; the probe read the promise as a list,
+// threw, and concluded abort was unsupported, so tools outlived disable().
+describe('a promise-returning host (Chrome 156, GitHub #57)', () => {
+  const chromeHost = (refuse: string[] = []) => {
+    const live = new Map<string, any>()
+    return {
+      live,
+      registerTool(tool: any, options?: { signal?: AbortSignal }) {
+        if (refuse.includes(tool.name))
+          return Promise.reject(new Error(`${tool.name} already registered`))
+        live.set(tool.name, tool)
+        return new Promise<void>((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => {
+            live.delete(tool.name)
+            reject(new DOMException('signal is aborted', 'AbortError'))
+          })
+        })
+      },
+      getTools: async () => Array.from(live.values()),
+    }
+  }
+
+  const unhandled = async (fn: () => void | Promise<void>) => {
+    const seen: unknown[] = []
+    const on = (e: unknown) => seen.push(e)
+    process.on('unhandledRejection', on)
+    try {
+      await fn()
+      await new Promise((r) => setTimeout(r, 10))
+    } finally {
+      process.off('unhandledRejection', on)
+    }
+    return seen
+  }
+
+  test('enable and unregister raise no unhandled rejection, and really withdraw', async () => {
+    tosi({ chromeApp: { n: 1 } })
+    await updates()
+    const host = chromeHost()
+    let reg: ReturnType<typeof webmcpAdapter>
+    const seen = await unhandled(() => {
+      const agent = (current = enableAgentInterface({
+        global: false,
+        expose: 'all',
+        webmcp: false,
+      }))
+      reg = webmcpAdapter(agent, { modelContext: host as any })
+      expect(host.live.size).toBeGreaterThan(0)
+      reg!.unregister()
+    })
+    expect(seen).toEqual([])
+    expect(host.live.size).toBe(0)
+  })
+
+  test('a refusal that arrives later is taken out of the receipt', async () => {
+    tosi({ chromeRefuse: { n: 1 } })
+    await updates()
+    const host = chromeHost(['tosi_read'])
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+      webmcp: false,
+    }))
+    const { result: reg, warnings } = captured(() =>
+      webmcpAdapter(agent, { modelContext: host as any })
+    )
+    expect(reg!.tools).toContain('tosi_read') // claimed synchronously
+    const late: string[] = []
+    const warn = console.warn
+    console.warn = (...args: any[]) => late.push(args.map(String).join(' '))
+    try {
+      await new Promise((r) => setTimeout(r, 0))
+    } finally {
+      console.warn = warn
+    }
+    expect(reg!.tools).not.toContain('tosi_read')
+    expect(
+      [...warnings, ...late].some((w) => /refused "tosi_read"/.test(w))
+    ).toBe(true)
+    reg!.unregister()
+  })
+})

@@ -44,6 +44,18 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
+- **WebMCP on Chrome: an unhandled `AbortError` on every enable, and tools
+  that outlived `disable()`** (GitHub #57, from snowfox). Chrome's
+  `registerTool(tool, { signal })` returns a promise that rejects with
+  `AbortError` when the signal aborts, and its `getTools()` is async. The
+  adapter left the promise unhandled, and its capability probe read the
+  `getTools()` promise as a list, threw, and concluded abort was unsupported,
+  so revocation fell back to stubbing. A promise-returning `registerTool` is now
+  taken as the host honouring the signal (no probe needed); an `AbortError` is
+  expected and ignored; any other rejection is a refusal, warned about and
+  removed from `agent.webmcp.tools`, which used to claim it. The probe
+  awaits an async `getTools()` and caches the answer for the next
+  registration. The workaround of wrapping `modelContext` in a Proxy can go.
 - **`share()` threw over plain http** (#3985, reported by tosijs-ui from
   tosijs-pattern). Its per-tab id came from `crypto.randomUUID()`, which
   exists only in a secure context, so on an http page with a non-localhost

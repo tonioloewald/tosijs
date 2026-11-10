@@ -262,6 +262,28 @@ const hostRegistrations = (mc: object): HostRegistrations => {
  */
 const abortSupport = new WeakMap<object, boolean>()
 
+const isThenable = (x: any): x is PromiseLike<unknown> =>
+  x != null && typeof x.then === 'function'
+
+const isAbort = (error: any): boolean => error?.name === 'AbortError'
+
+/**
+ * Chrome's `registerTool` returns a PROMISE (GitHub #57): it rejects with
+ * `AbortError` when the signal aborts, which is our own revocation and
+ * expected, and with anything else when the host refuses the tool. Unhandled,
+ * every enable logged an `AbortError`, and a refusal arrived after the
+ * receipt had already claimed the tool.
+ */
+const whenRefused = (
+  result: unknown,
+  onRefused: (error: unknown) => void
+): void => {
+  if (isThenable(result))
+    result.then(undefined, (error) => {
+      if (!isAbort(error)) onRefused(error)
+    })
+}
+
 function supportsAbortSignal(mc: any): boolean {
   const known = abortSupport.get(mc)
   if (known !== undefined) return known
@@ -273,18 +295,32 @@ function supportsAbortSignal(mc: any): boolean {
     ) {
       const probeName = 'tosi__abort_probe'
       const controller = new AbortController()
-      mc.registerTool(
-        {
-          name: probeName,
-          description: 'capability probe; ignore',
-          inputSchema: { type: 'object', properties: {} },
-          execute: async () => 'probe',
-        },
-        { signal: controller.signal }
+      whenRefused(
+        mc.registerTool(
+          {
+            name: probeName,
+            description: 'capability probe; ignore',
+            inputSchema: { type: 'object', properties: {} },
+            execute: async () => 'probe',
+          },
+          { signal: controller.signal }
+        ),
+        () => {}
       )
       controller.abort()
-      const names = (mc.getTools() ?? []).map((t: any) => t?.name)
-      supported = !names.includes(probeName)
+      const answer = (tools: any): boolean =>
+        !(tools ?? []).map((t: any) => t?.name).includes(probeName)
+      const tools = mc.getTools()
+      if (isThenable(tools)) {
+        // an async host can't answer now: say no (the conservative
+        // direction) and cache the real answer for the next registration
+        tools.then(
+          (list) => abortSupport.set(mc, answer(list)),
+          () => {}
+        )
+        return false
+      }
+      supported = answer(tools)
     }
   } catch (_e) {
     supported = false
@@ -306,19 +342,8 @@ const revokeOnHost = (
   name: string,
   why: string
 ): void => {
-  try {
-    mc.registerTool({
-      name,
-      description:
-        `REVOKED by tosijs — ${why}. This tool does nothing; it is listed ` +
-        'only because this host provides no way to withdraw a tool.',
-      inputSchema: { type: 'object', properties: {} },
-      execute: () => {
-        throw new Error(`tosijs webmcp: "${name}" was revoked — ${why}`)
-      },
-    })
-    held.ours.delete(name)
-  } catch (error) {
+  const cannot = (error: unknown): void => {
+    held.ours.add(name)
     console.error(
       `tosijs webmcp: CANNOT REVOKE "${name}" — ${why}, but this host has ` +
         'no unregisterTool and refused the overwrite, so the tool stays ' +
@@ -326,6 +351,24 @@ const revokeOnHost = (
         'refuse whatever the current posture disallows.',
       error
     )
+  }
+  try {
+    whenRefused(
+      mc.registerTool({
+        name,
+        description:
+          `REVOKED by tosijs — ${why}. This tool does nothing; it is listed ` +
+          'only because this host provides no way to withdraw a tool.',
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => {
+          throw new Error(`tosijs webmcp: "${name}" was revoked — ${why}`)
+        },
+      }),
+      cannot
+    )
+    held.ours.delete(name)
+  } catch (error) {
+    cannot(error)
   }
 }
 
@@ -371,6 +414,22 @@ export const webmcpAdapter = (
       }
       if (held.foreign.has(tool.name)) continue // lost to another script
       const canUnregister = typeof mc.unregisterTool === 'function'
+      const refused = (error: unknown): void => {
+        // A FAILURE IS NOT A REGISTRATION. This used to mark every failure
+        // as "the host already holds this name", so a rejected schema or a
+        // transient error produced a RECEIPT CLAIMING A TOOL THE HOST NEVER
+        // RECEIVED — and on a host that supports unregistration, one
+        // transient failure blacklisted the name for its lifetime.
+        const duplicate = /already|exist|duplicate|registered/i.test(
+          String((error as Error)?.message ?? '')
+        )
+        if (duplicate && !canUnregister) held.foreign.add(tool.name)
+        console.warn(
+          `tosijs webmcp: the host refused "${tool.name}" — it is NOT in ` +
+            "this surface's tool list.",
+          error
+        )
+      }
       try {
         // ABORTSIGNAL IS THE SHAPE CHROME ACTUALLY SHIPPED, and we were not
         // asking for it. `registerTool(tool, { signal })` + `controller.abort()`
@@ -392,31 +451,28 @@ export const webmcpAdapter = (
         const handle = controller
           ? mc.registerTool(tool, { signal: controller.signal })
           : mc.registerTool(tool)
+        whenRefused(handle, (error) => {
+          // refused after the receipt was written: take the claim back
+          const at = registered.indexOf(tool.name)
+          if (at !== -1) registered.splice(at, 1)
+          refused(error)
+        })
         if (handle != null && typeof handle.unregister === 'function') {
           undo.push(() => handle.unregister())
         } else if (canUnregister) {
           undo.push(() => mc.unregisterTool(tool.name))
-        } else if (controller != null && supportsAbortSignal(mc)) {
+        } else if (
+          controller != null &&
+          // a promise tied to the signal IS the host honouring it; no probe
+          (isThenable(handle) || supportsAbortSignal(mc))
+        ) {
           undo.push(() => controller.abort())
         } else {
           held.ours.add(tool.name) // no way back: remember it's registered
         }
         registered.push(tool.name)
       } catch (error) {
-        // A FAILURE IS NOT A REGISTRATION. This used to mark every failure
-        // as "the host already holds this name", so a rejected schema or a
-        // transient error produced a RECEIPT CLAIMING A TOOL THE HOST NEVER
-        // RECEIVED — and on a host that supports unregistration, one
-        // transient failure blacklisted the name for its lifetime.
-        const duplicate = /already|exist|duplicate|registered/i.test(
-          String((error as Error)?.message ?? '')
-        )
-        if (duplicate && !canUnregister) held.foreign.add(tool.name)
-        console.warn(
-          `tosijs webmcp: the host refused "${tool.name}" — it is NOT in ` +
-            "this surface's tool list.",
-          error
-        )
+        refused(error)
       }
     }
   } else if (typeof mc.provideContext === 'function') {
