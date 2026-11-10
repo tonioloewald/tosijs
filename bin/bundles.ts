@@ -200,7 +200,12 @@ export const BUNDLES: BundleSpec[] = [
     // ~+315 gz on the agent surface, which CJS cannot shake) plus the <head>
     // load fix (#3511, ~+25) left main.js at 996 B spare, under the 1 kB floor.
     // Owner approved the raise (2026-10-27).
-    budget: 50_500,
+    // 50_500 -> 51_500, 2026-11-11: the WebMCP promise handling for Chrome
+    // (GitHub #57, on the agent surface, which CJS cannot shake) plus the
+    // __proto__ guard (#56) and share()'s tab id (#3985), ~+190 gz together,
+    // left main.js at 894 B spare. Owner approved the raise (2026-11-11), and
+    // asked for a periodic slimming pass instead of offsetting each raise.
+    budget: 51_500,
     probe: 'require',
     stage: 'main',
   },

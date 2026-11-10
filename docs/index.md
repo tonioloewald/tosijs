@@ -96,11 +96,11 @@ What the principles buy you:
   DOM-free `tosijs/state`; the full ESM entry is ~48 kB.
   <!-- sizes:end -->
   The agent surface is opt-in and shakes away if you never import it. It costs
-  <!--agentmarginal-->~18.0 kB<!--/agentmarginal--> — the marginal measurement,
+  <!--agentmarginal-->~18.1 kB<!--/agentmarginal--> — the marginal measurement,
   the same ESM bundle built with and without it — including the schematic
   renderer, the accessibility audit and the contract harnesses. (The gap
   between `tosijs` and `tosijs/core` is a larger
-  <!--agentgz-->~20.3 kB<!--/agentgz-->, because `core` also drops blueprints,
+  <!--agentgz-->~20.5 kB<!--/agentgz-->, because `core` also drops blueprints,
   share/sync and hotReload.) Both figures are measured by the build.
   [Entry points](#entry-points) has the detail.
 
