@@ -75,7 +75,8 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   expected and ignored; any other rejection is a refusal, warned about and
   removed from `agent.webmcp.tools`, which used to claim it. The probe
   awaits an async `getTools()` and caches the answer for the next
-  registration. The workaround of wrapping `modelContext` in a Proxy can go.
+  registration. Verified against a mock of Chrome 156's shape, not yet a real
+  Chrome (#4040), so keep a `modelContext` Proxy workaround until that check.
 - **`share()` threw over plain http** (#3985, reported by tosijs-ui from
   tosijs-pattern). Its per-tab id came from `crypto.randomUUID()`, which
   exists only in a secure context, so on an http page with a non-localhost
