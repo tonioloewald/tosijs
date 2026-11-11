@@ -135,8 +135,10 @@ export class UnsafePathError extends Error {
  * All three names are refused here, because descending through any of them
  * lands outside the object graph.
  */
+export const isUnsafeKey = (key: string): boolean => FORBIDDEN_SEGMENTS.has(key)
+
 export function assertSafeKey(key: string): void {
-  if (FORBIDDEN_SEGMENTS.has(key)) throw new UnsafePathError(key)
+  if (isUnsafeKey(key)) throw new UnsafePathError(key)
 }
 
 /**

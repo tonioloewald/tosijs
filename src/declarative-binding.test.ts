@@ -210,4 +210,112 @@ describe('enableDeclarativeBinding', () => {
     expect(host.querySelector('.b')!.textContent).toBe('')
     warn.mockRestore()
   })
+
+  // the 1.10.11 pre-release review: B1, M1, M2, M3
+  test('script and style are never bound: their text is code (B1)', async () => {
+    tosi({ dbJ: { comment: 'window.dbJRan = 1' } })
+    await updates()
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    const host = mount(
+      '<script data-tosi-text="dbJ.comment"></script>' +
+        '<script data-tosi-prop-text-content="dbJ.comment"></script>' +
+        '<style data-tosi-text="dbJ.comment"></style>' +
+        '<svg><script data-tosi-text="dbJ.comment"></script></svg>'
+    )
+    current = enableDeclarativeBinding({ read: ['dbJ'], root: host })
+    await updates()
+    const bound = Array.from(host.querySelectorAll('script, style'))
+    expect(bound.length).toBe(4)
+    for (const element of bound) {
+      expect(element.textContent).toBe('')
+      expect(
+        element.getAttributeNames().some((n) => n.startsWith('data-tosi-'))
+      ).toBe(true)
+    }
+    expect(warn.mock.calls.some(([m]) => /runs its text/.test(m))).toBe(true)
+    warn.mockRestore()
+  })
+
+  test('a two-way binding cannot write on, under or above an action (M1, SEC-9)', async () => {
+    const { dbK } = tosi({
+      dbK: { checkout() {}, cart: { pay() {}, note: 'n' } },
+    })
+    await updates()
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    for (const target of ['dbK.checkout', 'dbK.cart', 'dbK']) {
+      const host = mount(`<input data-tosi-bind-value="${target}">`)
+      current?.disable()
+      current = enableDeclarativeBinding({
+        read: ['dbK'],
+        write: ['dbK'],
+        actions: ['dbK.checkout', 'dbK.cart.pay'],
+        root: host,
+      })
+      const input = host.querySelector('input')!
+      expect([target, input.hasAttribute('data-tosi-bind-value')]).toEqual([
+        target,
+        true,
+      ])
+    }
+    expect(typeof dbK.checkout.value).toBe('function')
+    // a sibling that touches no action still binds
+    const host = mount('<input data-tosi-bind-value="dbK.cart.note">')
+    current?.disable()
+    current = enableDeclarativeBinding({
+      read: ['dbK'],
+      write: ['dbK'],
+      actions: ['dbK.checkout', 'dbK.cart.pay'],
+      root: host,
+    })
+    expect(
+      host.querySelector('input')!.hasAttribute('data-tosi-bind-value')
+    ).toBe(false)
+    warn.mockRestore()
+  })
+
+  test('actions match exactly: inherited methods are not callable (M2)', async () => {
+    const { dbL } = tosi({ dbL: { items: [1, 2, 3], go() {} } })
+    await updates()
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    const host = mount(
+      '<button class="a" data-tosi-on-click="dbL.items.splice"></button>' +
+        '<button class="b" data-tosi-on-click="dbL.items.push"></button>' +
+        '<button class="c" data-tosi-on-click="dbL.toString"></button>' +
+        '<a data-tosi-attr-href="dbL.go.name"></a>'
+    )
+    current = enableDeclarativeBinding({
+      read: ['dbL'],
+      actions: ['dbL'],
+      root: host,
+    })
+    for (const button of Array.from(host.querySelectorAll('button')))
+      (button as HTMLButtonElement).click()
+    expect(dbL.items.value).toEqual([1, 2, 3])
+    expect(host.querySelector('a')!.hasAttribute('href')).toBe(false)
+    warn.mockRestore()
+  })
+
+  test('options are checked at the boundary (M3)', () => {
+    expect(() => enableDeclarativeBinding({ roots: ['app'] } as any)).toThrow(
+      /unknown option "roots".*roots is read here/
+    )
+    expect(() => enableDeclarativeBinding({ write: true } as any)).toThrow(
+      /write must be a list/
+    )
+  })
+
+  test('a prototype segment is not a plain path', async () => {
+    tosi({ dbM: { a: 1 } })
+    await updates()
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    const host = mount(
+      '<span data-tosi-text="dbM.__proto__"></span>' +
+        '<span data-tosi-text="dbM.constructor"></span>'
+    )
+    current = enableDeclarativeBinding({ read: ['dbM'], root: host })
+    expect(
+      warn.mock.calls.filter(([m]) => /not a plain state path/.test(m)).length
+    ).toBe(2)
+    warn.mockRestore()
+  })
 })

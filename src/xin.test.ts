@@ -2196,10 +2196,11 @@ test('.take() is the deprecated name of .as(): same descriptor, one warning', as
 
 test('indexing a proxy with __proto__ refuses instead of handing out a prototype (GitHub #56)', () => {
   const { protoTest } = tosi({ protoTest: { map: {}, name: 'Ada' } })
+  const x = xin as any
   const sinks: Array<[string, () => void]> = [
     ['object proxy', () => ((protoTest.map as any)['__proto__'].polluted = 1)],
     ['boxed scalar', () => ((protoTest.name as any)['__proto__'].polluted = 1)],
-    ['xin', () => ((xin as any).protoTest.map['__proto__'].polluted = 1)],
+    ['xin', () => (x.protoTest.map['__proto__'].polluted = 1)],
     // a key from markup or JSON, the shape that bit (SNOW-8794)
     [
       'computed key',
@@ -2208,14 +2209,32 @@ test('indexing a proxy with __proto__ refuses instead of handing out a prototype
         ;(protoTest.map as any)[key].value = 1
       },
     ],
+    // every spelling the get trap normalises (the 1.10.11 review's B2: a
+    // check of the raw key alone let the bracketed ones through). A scalar
+    // doesn't strip brackets, so '[__proto__]' there is just undefined.
+    ['bracketed', () => ((protoTest.map as any)['[__proto__]'].polluted = 1)],
+    ['compound', () => (x['protoTest.map[__proto__]'].polluted = 1)],
+    [
+      'compound boxed',
+      () => ((boxed as any)['protoTest.map[__proto__]'].polluted = 1),
+    ],
+    ['compound dotted', () => (x.protoTest['map.__proto__'].polluted = 1)],
   ]
   for (const [label, sink] of sinks) {
-    expect(sink).toThrow(/unsafe path segment "__proto__"/)
-    expect([label, ({} as any).polluted, ('' as any).polluted]).toEqual([
+    let threw = ''
+    try {
+      sink()
+    } catch (e: any) {
+      threw = String(e?.message)
+    }
+    const polluted = [({} as any).polluted, ('' as any).polluted]
+    delete (Object.prototype as any).polluted
+    delete (String.prototype as any).polluted
+    expect([
       label,
-      undefined,
-      undefined,
-    ])
+      polluted,
+      /unsafe path segment "__proto__"/.test(threw),
+    ]).toEqual([label, [undefined, undefined], true])
   }
   // a data key named constructor still reads (dictionaries keyed by data)
   const { protoDict } = tosi({

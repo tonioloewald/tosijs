@@ -27,6 +27,12 @@ export declare const listeners: Listener[];
  */
 export declare function synthesizeIdPathTouches(arrayPath: string, index: number, item: any, suffix: string): string[];
 export declare const extendsPath: (prefix: string, path: string) => boolean;
+/**
+ * Does a write at `path` land on, under, or above `action`? Either way it
+ * can replace the function (SEC-9). The agent surface's write gate and
+ * enableDeclarativeBinding's two-way bindings both ask this.
+ */
+export declare const overlapsPath: (a: string, b: string) => boolean;
 export declare class Listener {
     description: string;
     test: PathTestFunction;

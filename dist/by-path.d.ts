@@ -11,6 +11,7 @@ export declare class UnsafePathError extends Error {
  * All three names are refused here, because descending through any of them
  * lands outside the object graph.
  */
+export declare const isUnsafeKey: (key: string) => boolean;
 export declare function assertSafeKey(key: string): void;
 /**
  * The same guard for a TERMINAL assignment — deliberately narrower.

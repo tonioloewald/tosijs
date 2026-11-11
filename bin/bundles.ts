@@ -154,7 +154,11 @@ export const BUNDLES: BundleSpec[] = [
     // ~+315 gz on the agent surface, which CJS cannot shake) plus the <head>
     // load fix (#3511, ~+25) left main.js at 996 B spare, under the 1 kB floor.
     // Owner approved the raise (2026-10-27).
-    budget: 50_500,
+    // 50_500 -> 51_500, 2026-11-11: the 1.10.11 review's security fixes
+    // (declarative binding: script/style refusal, exact actions, SEC-9, option
+    // checks; the normalised __proto__ guard, #56), ~340 gz, left 831 B.
+    // Owner approved the raise (2026-11-11).
+    budget: 51_500,
     probe: 'import',
     stage: 'main',
   },
@@ -302,7 +306,11 @@ export const BUNDLES: BundleSpec[] = [
     // 67_000 -> 68_000, 2026-10-29: enableDeclarativeBinding (#3254, ~1 kB gz
     // in the whole-library builds; shaken from every other bundle) left
     // module.debug.js with 360 B. Owner approved the raise (2026-10-29).
-    budget: 68_000,
+    // 68_000 -> 69_000, 2026-11-11: the 1.10.11 review's security fixes
+    // (declarative binding: script/style refusal, exact actions, SEC-9, option
+    // checks; the normalised __proto__ guard, #56), ~340 gz, left 689 B.
+    // Owner approved the raise (2026-11-11).
+    budget: 69_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
@@ -320,7 +328,8 @@ export const BUNDLES: BundleSpec[] = [
     // 63_500 -> 65_000, 2026-10-01, same reason as module.debug.js above.
     // 65_000 -> 67_000, 2026-10-15, same reason as module.debug.js above.
     // 67_000 -> 68_000, 2026-10-29, same reason as module.debug.js above.
-    budget: 68_000,
+    // 68_000 -> 69_000, 2026-11-11, same reason as module.debug.js above.
+    budget: 69_000,
     probe: 'import',
     stage: 'tjs',
     // map excluded from `files` (1.64 MB for inert bundles) — so don't emit

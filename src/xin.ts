@@ -1291,6 +1291,10 @@ const regHandler = (
     // back unwrapped, and a boxed string's passthrough handed out
     // String.prototype the same way. Either was then writable directly
     // (GitHub #56). The string-path spelling already refuses it (by-path).
+    // Checked here for the scalar branch, and again below on the key as
+    // NORMALISED (brackets stripped): '[__proto__]' and 'a.map[__proto__]'
+    // got past a check of the raw spelling alone. The compound branch
+    // re-enters this trap for each part, so every spelling reaches it.
     if (_prop === '__proto__') throw new UnsafePathError(_prop)
 
     // .tosi / TOSI_ACCESSOR — collision-free accessor API
@@ -1408,6 +1412,7 @@ const regHandler = (
     if (prop.startsWith('[') && prop.endsWith(']')) {
       prop = prop.substring(1, prop.length - 1)
     }
+    if (prop === '__proto__') throw new UnsafePathError(prop)
     if (
       (!Array.isArray(target) && target[prop] !== undefined) ||
       (Array.isArray(target) && prop.includes('='))

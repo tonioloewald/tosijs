@@ -294,6 +294,7 @@ import {
   observe,
   unobserve,
   extendsPath,
+  overlapsPath,
   Listener,
   updates,
   pendingUpdates,
@@ -2569,9 +2570,7 @@ export function enableAgentInterface(
   // wiped every one of them (SEC-9). So a write is refused when it lands ON
   // a declared action, UNDER one, or on an ancestor that CONTAINS one.
   const hitsDeclaredAction = (path: string): boolean =>
-    (exposedActions ?? []).some(
-      (action) => extendsPath(action, path) || extendsPath(path, action)
-    )
+    (exposedActions ?? []).some((action) => overlapsPath(action, path))
   const writable = (path: string): boolean =>
     !hitsDeclaredAction(path) &&
     (!scoped || (roots ?? []).some((root) => extendsPath(root, path)))

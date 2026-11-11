@@ -68,13 +68,23 @@ enableDeclarativeBinding({
 })
 ```
 
-Each grant is a list of paths or proxies, matched by whole segment (`app`
-allows `app.x` and `app[0]`, not `appEvil`), or a `(path) => boolean`. These
-are the agent surface's three grants (`roots`, `write`, `actions`), so one
-manifest can drive both.
+Each grant is a list of paths or proxies, or a `(path) => boolean`. `read`
+and `write` match by whole segment (`app` allows `app.x` and `app[0]`, not
+`appEvil`). `actions` match **exactly**, as the agent surface's do: granting
+`app` does not make `app.items.splice` callable. Any other option, or a grant
+that is neither a list nor a function, throws.
 
-Paths are plain: names, dots and `[n]` indices. Id-paths and anything else are
-refused.
+A two-way binding may never write **on, under or above** a granted action,
+even inside a `write` grant, so markup can't replace a function with a string
+(the agent surface's SEC-9 rule, shared with it). With a function `actions`
+grant only the path and its ancestors can be checked.
+
+Paths are plain: names, dots and `[n]` indices, with no `__proto__`,
+`constructor` or `prototype` segment. Id-paths and anything else are refused.
+
+**`<script>` and `<style>` are never bound.** Their text is code: setting an
+empty parser-inserted script's text runs it, so a value granted only `read`
+would execute.
 
 **Showing is not acting.** Binding a value into `href`, `src`, `action`,
 a component's property or anything else that is not known to be inert turns
@@ -100,7 +110,7 @@ A `form-action` CSP is the control for that.
 `hydrate(element)` binds a fragment you are about to insert, which avoids a
 moment where the raw attribute is live.
 
-Verified in each real browser engine:
+Verified in real browsers (the doc-test lane):
 
 ```test
 import { tosi, updates, enableDeclarativeBinding } from 'tosijs'
@@ -109,7 +119,7 @@ test('markup binds, writes back, calls, and refuses an ungranted href', async ()
   const { declTest } = tosi({
     declTest: { name: 'Ada', link: 'https://example.com/', clicks: 0, hit() {
       declTest.clicks.value += 1
-    } },
+    }, code: 'window.declTestRan = 1' },
   })
   await updates()
   const host = document.createElement('div')
@@ -138,6 +148,16 @@ test('markup binds, writes back, calls, and refuses an ungranted href', async ()
   expect(declTest.clicks.value).toBe(1)
   // href acts on its value: read alone is not enough
   expect(host.querySelector('a').hasAttribute('href')).toBe(false)
+  // an empty script that has not run would run text set into it
+  host.append(
+    document
+      .createRange()
+      .createContextualFragment('<script data-tosi-text="declTest.code"></script>')
+  )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await updates()
+  expect(window.declTestRan).toBe(undefined)
+  expect(host.querySelector('script').textContent).toBe('')
   binding.disable()
 })
 ```

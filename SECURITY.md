@@ -49,6 +49,20 @@ ones most likely to be real, in particular:
   covered**, kept deliberately honest; a shape not on that list is a bug;
 - a write or `call()` reaching a path or action the manifest did not declare.
 
+**Two more places take untrusted input and are in scope:**
+
+- **`enableDeclarativeBinding()`** (opt-in): markup that is not the author's
+  binds against explicit `read`/`write`/`actions` grants. In scope: markup
+  reading, writing or calling anything ungranted; a bound value executing
+  (script, style, an `on*` or HTML sink); a value granted only `read` acting
+  (`href`, `src` and other non-inert targets); a write replacing a granted
+  action. Not in scope: disclosure of what you granted `read` to whoever wrote
+  the markup, including a bound field inside a `<form action>` elsewhere (a
+  `form-action` CSP is the control for that).
+- **The path sink** (`setByPath`, the proxy, `share()`/`sync()` inbound): a
+  path or key from data must never reach the prototype chain, whatever its
+  spelling.
+
 ### Disclosed in 1.10.2
 
 `describe()` published `href`, `placeholder`, `title`-as-`label`,

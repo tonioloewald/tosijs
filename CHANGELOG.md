@@ -17,15 +17,25 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   `settings[storageKey].value = …` with `storage-key="__proto__"` in markup, or
   a key from parsed JSON (where `__proto__` is an ordinary own key). The proxy's
   `get` now refuses `'__proto__'` with the same `UnsafePathError` the string-path
-  spelling (`xin['a.__proto__.x']`) already threw. `constructor` and `prototype`
-  were already refused when descending, and remain readable as data keys.
+  spelling (`xin['a.__proto__.x']`) already threw, checked on the key after the
+  trap normalises it, so the bracketed and compound spellings
+  (`proxy['[__proto__]']`, `xin['app.map[__proto__]']`) are refused too.
+  `constructor` and `prototype` were already refused when descending, and
+  remain readable as data keys.
+  **Behaviour change:** reading `proxy.__proto__` now throws where it returned
+  a value. `Object.getPrototypeOf(proxy)` is unaffected (it is a different
+  trap), and is the spelling to use.
   Unlike 1.10.10's `[=key]` fix, this is reached only by app code indexing a
   proxy with an untrusted key: `agent.write()`, `share()` and `sync()` take
   string paths, which were already guarded.
   **Affects every version tested, 1.5.0 through 1.10.10** (the boxed-string
   spelling since 1.6.0; versions before 1.5.0 were not probed and are
-  presumably affected). Published versions from 1.8.0-rc.1 are deprecated on
-  npm pointing at 1.10.11, replacing 1.10.10's notice.
+  presumably affected). **Deprecation, after 1.10.11 is published:**
+  `>=1.8.0-0 <1.10.11`, pointing at 1.10.11 and replacing 1.10.10's notice
+  (which points at a version this affects). Older lines are not deprecated:
+  this hole needs app code that indexes a proxy with an untrusted key, and
+  deprecating every version since 1.5.0 would bury the notice for 1.10.10's
+  issue, which is reachable from untrusted sync and agent input by default.
 
 ### Added
 
@@ -36,11 +46,17 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   `data-tosi-bind-value`, `data-tosi-attr-*`, `data-tosi-prop-*` and
   `data-tosi-on-*` become ordinary `bind()` and `on()` calls. Nothing is
   evaluated. It is opt-in and closed by default: markup may only read, write
-  and call the paths you grant (`read`, `write`, `actions`: the agent
-  manifest's three grants, so one manifest can drive both). Showing is not
+  and call the paths you grant (`read`, `write`, `actions`). `actions` match
+  exactly, as the agent surface's do, so granting `app` never makes
+  `app.items.splice` callable; a two-way binding may not write on, under or
+  above a granted action (the agent surface's SEC-9 rule, shared with it); an
+  unknown option or a malformed grant throws. Showing is not
   acting: binding into `href`, `src`, a component property or any target not
-  known to be inert also needs an `actions` grant; `on*`, `innerHTML`,
-  `outerHTML` and `srcdoc` are never bound; only gesture events
+  known to be inert also needs an `actions` grant; `<script>` and `<style>`
+  are never bound (an empty parser-inserted script runs text set into it);
+  `on*`, `innerHTML`, `outerHTML` and `srcdoc` are never bound; a
+  `__proto__`, `constructor` or `prototype` segment is not a plain path; and
+  only gesture events
   (`click`, `input`, `change`, `submit`, keys) may call anything. A handler is
   a state path, called like `on(el, 'click', 'app.save')`. Not in
   `tosijs/core` or the `<script>` build; an app that doesn't import it doesn't
@@ -71,19 +87,19 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 gz bytes against v1.10.10. Most of it is `enableDeclarativeBinding()`, which
 the whole-bundle figures for `module.js`, `main.js` and the debug/safe builds
 include; an ESM app that doesn't import it shakes it away. `index.js`,
-`core.js` and `state.js` don't carry it, so their growth is the three fixes. Budgets:
-`module.debug.js` and `module.safe.js` 67_000 → 68_000, and `main.js`
-50_500 → 51_500, to keep the 1 kB floor (owner-approved).
+`core.js` and `state.js` don't carry it, so their growth is the three fixes. Budgets, to
+keep the 1 kB floor (owner-approved): `module.js` and `main.js` 50_500 →
+51_500, `module.debug.js` and `module.safe.js` 67_000 → 69_000.
 
 | bundle | v1.10.10 | 1.10.11 | Δ |
 | --- | --- | --- | --- |
-| `index.js` | 30_953 | 31_009 | **+56** |
-| `module.js` | 48_100 | 49_327 | **+1227** |
-| `main.js` | 48_407 | 49_606 | **+1199** |
-| `core.js` | 28_348 | 28_368 | **+20** |
-| `state.js` | 18_647 | 18_661 | **+14** |
-| `module.debug.js` | 65_402 | 66_906 | **+1504** |
-| `module.safe.js` | 65_249 | 66_764 | **+1515** |
+| `index.js` | 30_953 | 31_026 | **+73** |
+| `module.js` | 48_100 | 49_669 | **+1569** |
+| `main.js` | 48_407 | 49_983 | **+1576** |
+| `core.js` | 28_348 | 28_393 | **+45** |
+| `state.js` | 18_647 | 18_686 | **+39** |
+| `module.debug.js` | 65_402 | 67_310 | **+1908** |
+| `module.safe.js` | 65_249 | 67_173 | **+1924** |
 
 ## [1.10.10] - 2026-10-29
 

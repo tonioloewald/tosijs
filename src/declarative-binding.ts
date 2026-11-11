@@ -70,13 +70,23 @@ enableDeclarativeBinding({
 })
 ```
 
-Each grant is a list of paths or proxies, matched by whole segment (`app`
-allows `app.x` and `app[0]`, not `appEvil`), or a `(path) => boolean`. These
-are the agent surface's three grants (`roots`, `write`, `actions`), so one
-manifest can drive both.
+Each grant is a list of paths or proxies, or a `(path) => boolean`. `read`
+and `write` match by whole segment (`app` allows `app.x` and `app[0]`, not
+`appEvil`). `actions` match **exactly**, as the agent surface's do: granting
+`app` does not make `app.items.splice` callable. Any other option, or a grant
+that is neither a list nor a function, throws.
 
-Paths are plain: names, dots and `[n]` indices. Id-paths and anything else are
-refused.
+A two-way binding may never write **on, under or above** a granted action,
+even inside a `write` grant, so markup can't replace a function with a string
+(the agent surface's SEC-9 rule, shared with it). With a function `actions`
+grant only the path and its ancestors can be checked.
+
+Paths are plain: names, dots and `[n]` indices, with no `__proto__`,
+`constructor` or `prototype` segment. Id-paths and anything else are refused.
+
+**`<script>` and `<style>` are never bound.** Their text is code: setting an
+empty parser-inserted script's text runs it, so a value granted only `read`
+would execute.
 
 **Showing is not acting.** Binding a value into `href`, `src`, `action`,
 a component's property or anything else that is not known to be inert turns
@@ -102,7 +112,7 @@ A `form-action` CSP is the control for that.
 `hydrate(element)` binds a fragment you are about to insert, which avoids a
 moment where the raw attribute is live.
 
-Verified in each real browser engine:
+Verified in real browsers (the doc-test lane):
 
 ```test
 import { tosi, updates, enableDeclarativeBinding } from 'tosijs'
@@ -111,7 +121,7 @@ test('markup binds, writes back, calls, and refuses an ungranted href', async ()
   const { declTest } = tosi({
     declTest: { name: 'Ada', link: 'https://example.com/', clicks: 0, hit() {
       declTest.clicks.value += 1
-    } },
+    }, code: 'window.declTestRan = 1' },
   })
   await updates()
   const host = document.createElement('div')
@@ -140,6 +150,16 @@ test('markup binds, writes back, calls, and refuses an ungranted href', async ()
   expect(declTest.clicks.value).toBe(1)
   // href acts on its value: read alone is not enough
   expect(host.querySelector('a').hasAttribute('href')).toBe(false)
+  // an empty script that has not run would run text set into it
+  host.append(
+    document
+      .createRange()
+      .createContextualFragment('<script data-tosi-text="declTest.code"></script>')
+  )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  await updates()
+  expect(window.declTestRan).toBe(undefined)
+  expect(host.querySelector('script').textContent).toBe('')
   binding.disable()
 })
 ```
@@ -147,7 +167,8 @@ test('markup binds, writes back, calls, and refuses an ungranted href', async ()
 import { bind, on, delegationRoot } from './bind'
 import { bindings } from './bindings'
 import { tosiPath } from './metadata'
-import { extendsPath } from './path-listener'
+import { extendsPath, overlapsPath } from './path-listener'
+import { isUnsafeKey } from './by-path'
 import { settings } from './settings'
 
 export type DeclarativeGrant =
@@ -186,6 +207,9 @@ const INERT_PROPS = new Set([
   'className',
 ])
 const NEVER = /^(on.*|innerhtml|outerhtml|srcdoc)$/i
+// their text is code: an empty parser-inserted <script> runs what you set
+const CODE_ELEMENTS = /^(script|style)$/i
+const OPTIONS = new Set(['read', 'write', 'actions', 'root'])
 const GESTURES = new Set([
   'click',
   'dblclick',
@@ -200,13 +224,29 @@ const GESTURES = new Set([
 const kebabToCamel = (s: string): string =>
   s.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
 
-const grants = (grant?: DeclarativeGrant): ((path: string) => boolean) => {
-  if (typeof grant === 'function') return grant
-  const roots = (grant ?? []).map((g) =>
-    typeof g === 'string' ? g : tosiPath(g)
-  )
-  return (path) => roots.some((root) => root != null && extendsPath(root, path))
+const grantPaths = (name: string, grant?: DeclarativeGrant): string[] => {
+  if (grant !== undefined && !Array.isArray(grant))
+    throw new TypeError(
+      `enableDeclarativeBinding: ${name} must be a list of paths or proxies, ` +
+        'or a (path) => boolean'
+    )
+  return (grant ?? [])
+    .map((g) => (typeof g === 'string' ? g : tosiPath(g)))
+    .filter((path): path is string => path != null)
 }
+
+const grants = (
+  name: string,
+  grant?: DeclarativeGrant
+): ((path: string) => boolean) => {
+  if (typeof grant === 'function') return grant
+  const roots = grantPaths(name, grant)
+  return (path) => roots.some((root) => extendsPath(root, path))
+}
+
+// the ancestors of a path, nearest last: 'a.b[0]' -> 'a', 'a.b'
+const ancestors = (path: string): string[] =>
+  [...path.matchAll(/[.[]/g)].map((m) => path.slice(0, m.index))
 
 const attrBinding = (name: string) => ({
   toDOM(element: Element, value: any) {
@@ -224,9 +264,32 @@ const propBinding = (prop: string) => ({
 export const enableDeclarativeBinding = (
   options: DeclarativeBindingOptions = {}
 ): DeclarativeBinding => {
-  const mayRead = grants(options.read)
-  const mayWrite = grants(options.write)
-  const mayAct = grants(options.actions)
+  for (const key of Object.keys(options))
+    if (!OPTIONS.has(key))
+      throw new TypeError(
+        `enableDeclarativeBinding: unknown option "${key}" (expected read, ` +
+          `write, actions or root${
+            key === 'roots' ? '; roots is read here' : ''
+          })`
+      )
+  const mayRead = grants('read', options.read)
+  const mayWrite = grants('write', options.write)
+  // actions match EXACTLY, as the agent surface's call() does: a prefix
+  // grant made every inherited method under it callable (app.items.splice)
+  const actionGrant = options.actions
+  const actionPaths =
+    typeof actionGrant === 'function'
+      ? undefined
+      : grantPaths('actions', actionGrant)
+  const mayAct =
+    typeof actionGrant === 'function'
+      ? actionGrant
+      : (path: string) => actionPaths!.includes(path)
+  // SEC-9: a write on, under or above an action could replace it
+  const touchesAction = (path: string): boolean =>
+    actionPaths !== undefined
+      ? actionPaths.some((action) => overlapsPath(action, path))
+      : mayAct(path) || ancestors(path).some(mayAct)
   const warned = new Set<string>()
   const hydrated = new WeakSet<Element>()
 
@@ -245,7 +308,8 @@ export const enableDeclarativeBinding = (
     target: string,
     path: string
   ): string | undefined => {
-    if (!PATH.test(path)) return 'not a plain state path'
+    if (!PATH.test(path) || path.split(/[.[\]]/).some(isUnsafeKey))
+      return 'not a plain state path'
     if (!mayRead(path) && kind !== 'on')
       return 'the path is not granted to read'
     switch (kind) {
@@ -253,6 +317,7 @@ export const enableDeclarativeBinding = (
       case 'value':
         return
       case 'bind-value':
+        if (touchesAction(path)) return 'writing it could replace an action'
         return mayWrite(path) ? undefined : 'the path is not granted to write'
       case 'on':
         if (!GESTURES.has(target))
@@ -274,8 +339,13 @@ export const enableDeclarativeBinding = (
 
   const hydrateOne = (element: Element): void => {
     if (hydrated.has(element)) return
+    const code = CODE_ELEMENTS.test(element.localName)
     for (const { name, value: path } of Array.from(element.attributes)) {
       if (!name.startsWith(PREFIX)) continue
+      if (code) {
+        refuse(element, name, `a <${element.localName}> runs its text`)
+        continue
+      }
       const spec = name.slice(PREFIX.length)
       const [, kind, target = ''] =
         /^(text|value|bind-value|attr|prop|on)(?:-(.+))?$/.exec(spec) ?? []

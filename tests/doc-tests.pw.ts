@@ -59,6 +59,7 @@ test('every inline doc test passes (the whole ```test tier)', async ({
     'derived-surface',
     'bind',
     'start-here',
+    'declarative-binding', // a trust boundary; its only real-browser test
   ]
   const pageKeys = Object.keys(results.pages)
   for (const page of REQUIRED_PAGES) {
@@ -69,7 +70,7 @@ test('every inline doc test passes (the whole ```test tier)', async ({
     ).toBe(true)
   }
 
-  const MINIMUM_CORPUS = 19
+  const MINIMUM_CORPUS = 21
   expect(
     ran,
     `the inline doc-test corpus shrank to ${ran} (expected at least ` +

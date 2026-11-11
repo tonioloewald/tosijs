@@ -233,6 +233,14 @@ export const extendsPath = (prefix: string, path: string): boolean => {
   return c === '.' || c === '['
 }
 
+/**
+ * Does a write at `path` land on, under, or above `action`? Either way it
+ * can replace the function (SEC-9). The agent surface's write gate and
+ * enableDeclarativeBinding's two-way bindings both ask this.
+ */
+export const overlapsPath = (a: string, b: string): boolean =>
+  extendsPath(a, b) || extendsPath(b, a)
+
 export class Listener {
   description: string
   test: PathTestFunction
