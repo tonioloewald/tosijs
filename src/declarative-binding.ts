@@ -173,6 +173,7 @@ import { extendsPath, overlapsPath } from './path-listener'
 import { getByPath, isUnsafeKey } from './by-path'
 import { registry } from './registry'
 import { settings } from './settings'
+import type { TosiBinding } from './xin-types'
 
 export type DeclarativeGrant =
   | Array<string | { [key: string]: any }>
@@ -265,9 +266,9 @@ const isContainer = (value: unknown): boolean =>
 // replace an action inside it, which a function `actions` grant can't
 // enumerate (SEC-9 failed open above an action). Checked at every write too,
 // since the value can become a container after hydration.
-const leafValueBinding = (path: string) => ({
+const leafValueBinding = (path: string): TosiBinding => ({
   toDOM: bindings.value.toDOM,
-  fromDOM: (element: HTMLElement) =>
+  fromDOM: (element: Element) =>
     isContainer(getByPath(registry, path))
       ? undefined
       : bindings.value.fromDOM!(element),
