@@ -55,7 +55,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   known to be inert also needs an `actions` grant; `<script>` and `<style>`
   are never bound (an empty parser-inserted script runs text set into it);
   `on*`, `innerHTML`, `outerHTML` and `srcdoc` are never bound; a
-  `__proto__`, `constructor` or `prototype` segment is not a plain path; and
+  `__proto__`, `constructor` or `prototype` segment is not a plain path; a
+  two-way binding writes only over a leaf, never an object or function;
+  `data-*` targets are not inert (htmx reads `data-hx-*` as behaviour); and
   only gesture events
   (`click`, `input`, `change`, `submit`, keys) may call anything. A handler is
   a state path, called like `on(el, 'click', 'app.save')`. Not in

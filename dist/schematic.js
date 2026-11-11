@@ -1,0 +1,905 @@
+/*{ "parent": "One User Interface", "description": "EXPERIMENTAL schematic renderer: draw an agent-surface description as SVG — the app's affordance map at its true geometry, DOM-free." }*/
+/*#
+# schematic (EXPERIMENTAL)
+
+`schematicSVG(description)` renders `agent.describe()` output as an SVG
+string — one rectangle per visible wired element at its **actual position and
+size** (`bounds` rides in the map), captioned from the map, optionally wearing
+the app's computed colors (`describe({ styles: true })`).
+
+    import { enableAgentInterface, schematicSVG } from 'tosijs'
+
+    const agent = enableAgentInterface()
+    const svg = schematicSVG(agent.describe({ styles: true }))
+
+It is a **pure function over plain data** — no DOM, no layout engine, no
+screenshots — so it runs anywhere the description can travel: in the page, in
+a headless embodiment, or on the far side of a wire from an app nobody is
+viewing.
+
+Division of labor per consumer: **JSON for text reasoning**, **rasterized
+PNG for vision encoders** (rasterize the SVG at 2× so labels OCR cleanly —
+canvas in a browser, `@resvg/resvg-js` under bun), **SVG for humans and
+tools** (deterministic, diffable, and each `<g>` carries `data-record="<i>"`
+linking it back to `description.wiring[i]` — the image as index).
+
+> **EXPERIMENTAL.** Ships alongside the agent surface; shapes may change.
+*/
+// VENDORED from tosijs-floorplan@0.6.0 — the upstream package
+// is the source of truth. DO NOT EDIT below this line: edit
+// tosijs-floorplan and rebuild (this section regenerates at build time).
+// tosijs stays ZERO runtime dependencies — the core is inlined, not imported.
+/**
+ * tosijs-floorplan — render an agent-surface map as a floorplan SVG.
+ *
+ * (Formerly tosijs-schematic — renamed to stop near-colliding with
+ * tosijs-schema. Exported API names are unchanged.)
+ *
+ * A PURE FUNCTION over plain data: one record per wired element, drawn at
+ * its true geometry, wearing the affordance grammar. No DOM, no framework,
+ * no dependencies — the map travels as JSON, so this runs in the page, in
+ * a headless embodiment, or on the far side of a wire from an app nobody
+ * is viewing.
+ *
+ * The RECORD FORMAT is the contract (see README): tosijs's describe()
+ * produces it, but anything that emits records gets the renderer — and
+ * every consumer inherits the grammar's hard-won rules (geometry over
+ * glyphs, hints are not content, ground is not figure).
+ */
+/** provenance tokens for bound values: "shown ⟵ path" (display-only) and
+ * "shown ⟷ path" (two-way — user-writable). Part of the record format. */
+export const BOUND_TO_DOM = '⟵';
+export const BOUND_TWO_WAY = '⟷';
+// strip provenance from a bound-value string: "shown ⟷ path" → "shown"
+// (empty when the binding holds no value yet); a plain string (no arrow)
+// is a live-but-unbound value and passes through whole.
+// The STRUCTURAL arrow is the LAST one in the string — the surface appends
+// it, so everything before it is data, and data can carry arrow tokens
+// (forged, or from a producer older than tosijs 1.8.0, which neutralizes
+// them at the source). A renderer consumes maps it did not generate, so it
+// parses defensively: split at the last arrow, and neutralize any arrow
+// left INSIDE the shown value (geometry over glyphs — a rare glyph must
+// never ride a caption run, and a fake arrow must never read as structure).
+const shownValue = (v) => {
+    if (typeof v !== 'string')
+        return undefined;
+    const at = Math.max(v.lastIndexOf(BOUND_TWO_WAY), v.lastIndexOf(BOUND_TO_DOM));
+    return neutralizeArrows(at >= 0 ? v.slice(0, at).trim() : v);
+};
+// arrow tokens inside record data must neither ride a caption run
+// (geometry over glyphs) nor read as structure — neutralized the same way
+// tosijs ≥1.8.0 does at the source
+const neutralizeArrows = (s) => s.replaceAll(BOUND_TWO_WAY, '<->').replaceAll(BOUND_TO_DOM, '<-');
+// is this string a live two-way binding? Only the arrow in STRUCTURAL
+// position (last) counts — a ⟷ buried inside the data must not confer an
+// affordance (a drawing that lies about what the page can do is worse than
+// no drawing).
+const boundTwoWay = (v) => {
+    if (typeof v !== 'string')
+        return false;
+    const at = v.lastIndexOf(BOUND_TWO_WAY);
+    return at >= 0 && at > v.lastIndexOf(BOUND_TO_DOM);
+};
+// fields the surface NEVER appends a binding arrow to: identity, naming,
+// hints, destinations. In these, any arrow is data (or forgery) — the
+// last-occurrence rule only protects fields that actually receive an
+// appended binding, so these are excluded from the binding scan entirely
+// (0.4.0 review B1: a lone forged arrow in a never-bindable field is
+// always in "last = structural" position).
+const NEVER_BOUND = new Set([
+    'tag', 'id', 'part', 'role', 'label', 'placeholder', 'type',
+    'description', 'href', 'ref', 'image',
+]);
+const hasTwoWayBinding = (w) => Object.entries(w).some(([key, v]) => !NEVER_BOUND.has(key) && boundTwoWay(v));
+// the two kinds of affordance evidence, split once and shared by the
+// renderer AND the exported predicate — three independently edited copies
+// of this logic is how the renderer and tosijs's audit drifted into
+// contradicting each other (issue #4); parity is now by construction
+const hasActEvidence = (w) => w.on != null ||
+    w.interactive === true ||
+    (typeof w.href === 'string' && w.href !== '');
+const hasEditEvidence = (w) => w.editable === true || w.contentEditable === true || hasTwoWayBinding(w);
+// can this producer SEE wiring at all? Any handler, any assertion, any
+// provenance arrow — including a display-only ⟵ — proves it can (#10: a
+// read-only dashboard from a binding framework is not a blind map, it's a
+// sighted map of a page with nothing actionable on it)
+const hasCapabilityEvidence = (w) => w.on != null ||
+    w.interactive === true ||
+    w.editable === true ||
+    // arrows count only in bindable fields — an arrow in a never-bindable
+    // identity/name field is page content (possibly forged), and must not
+    // fabricate capability any more than it fabricates a binding
+    Object.entries(w).some(([key, v]) => !NEVER_BOUND.has(key) &&
+        typeof v === 'string' &&
+        (v.includes(BOUND_TWO_WAY) || v.includes(BOUND_TO_DOM)));
+/**
+ * An element's page-coordinate bounds (the same space describe() records) —
+ * the natural `within` argument for a region-scoped schematic.
+ */
+export const boundsOf = (element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+        x: Math.round(rect.x + (globalThis.scrollX ?? 0)),
+        y: Math.round(rect.y + (globalThis.scrollY ?? 0)),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+    };
+};
+// structure behind affordances — a LIST CONTAINER is ground too: it's
+// wired (the collection binds here), but its items are the affordances.
+// EVIDENCE BEATS CONTAINER ROLE (#7): an element that is both container
+// and control (a list-bound <select> carrying its own two-way value, a
+// list div with handlers) is an affordance wearing a list, not ground —
+// classifying it structural silenced error-severity audit findings.
+const isGround = (w) => w.structural === true ||
+    (w.list != null && !hasActEvidence(w) && !hasEditEvidence(w));
+/**
+ * "Can I act here?" — the single implementation of the interactivity
+ * predicate, exported so audits (tosijs's auditAccessibility) consume THIS
+ * rather than keeping a drifting copy (issue #4: the two had already
+ * reached contradictory verdicts on the same element). Evidence, any of:
+ * handlers (`on`), a link destination (`href` — a link IS an affordance),
+ * `contentEditable`, a two-way binding in structural position, or the
+ * producer's own `interactive`/`editable` assertion (issue #3). Ground
+ * (structure, list containers) is never interactive.
+ */
+export const isInteractive = (w) => !isGround(w) && (hasActEvidence(w) || hasEditEvidence(w));
+/** the WCAG 2.5.8 audit floor (24×24, the AA minimum) — one constant so
+ * the option default and the exported rule cannot drift */
+export const TARGET_SIZE_DEFAULT = 24;
+/**
+ * The WCAG 2.5.8 target-size rule, exported for the same reason as
+ * `isInteractive` (issue #4): one implementation, geometry judged where the
+ * geometry lives. Returns the measured finding string (the legend fact) or
+ * null. Embodies the settled exemptions: toggles (user-agent-sized); links
+ * plausibly sized by VISIBLE text — the WCAG inline exception as far as
+ * pure geometry can honour it, which is: has text, and the box is WIDER
+ * than tall, the shape text layout produces (issue #2 caught the earlier
+ * text-only rule exempting 16×16 icon links that happened to carry a
+ * label; an accessible name alone never sizes a box, and a square box was
+ * not sized by its text); and supersession by any producer-supplied flag
+ * whose kind mentions `target` — a producer with DOM access (computed
+ * display, parent text nodes) computes the real exception and ships the
+ * finding via `flags`; that is the INTENDED path for DOM producers, and
+ * the built-in never double-marks over it.
+ */
+/** flag kinds that claim to BE a target-size finding, and therefore
+ * supersede the built-in audit when the renderer honours producer flags.
+ * An explicit set, not a substring match: `includes('target')` let
+ * 'target-ok' — or any kind merely mentioning the word — silently stand
+ * the audit down (#8). Covers both producers' kinds in the wild
+ * (haltija: 'target', 'smallTarget'; tosijs auditFlags: 'target-size'). */
+export const TARGET_FLAG_KINDS = new Set([
+    'target',
+    'target-size',
+    'targetsize',
+    'target_size',
+    'smalltarget',
+]);
+export const targetSizeFinding = (w, targetSize = TARGET_SIZE_DEFAULT, options = {}) => {
+    // a disabled audit never touches the record (0.5.1's order)
+    if (targetSize <= 0)
+        return null;
+    const bounds = w.bounds;
+    return bounds == null
+        ? null
+        : sizeFinding(w, bounds.width, bounds.height, targetSize, options);
+};
+// the rule over given dimensions: the renderer passes the geometry it
+// snapshotted (read once), never a rebuilt record — spreading one drops
+// inherited fields and lost class-backed records their verdict (0.5.2 M1)
+const sizeFinding = (w, width, height, targetSize = TARGET_SIZE_DEFAULT, { honorProducerFlags = false } = {}) => {
+    if (targetSize <= 0 || !isInteractive(w))
+        return null;
+    // hidden is not small (#9): a 0×0 (or unlaid-out) element is not a
+    // target too small to hit — the guard lives here so callers passing raw
+    // wiring don't each grow their own copy
+    if (width <= 0 || height <= 0)
+        return null;
+    if (w.type === 'checkbox' || w.type === 'radio')
+        return null;
+    if (w.tag === 'a' &&
+        typeof w.text === 'string' &&
+        w.text !== '' &&
+        width > height) {
+        return null;
+    }
+    // supersession is a DRAWING concern — no double bars for one finding —
+    // so it is opt-in (#8): schematic() passes true; an audit consuming this
+    // rule wants the geometry verdict regardless of what the producer drew
+    if (honorProducerFlags &&
+        Array.isArray(w.flags) &&
+        w.flags.some((f) => typeof f?.kind === 'string' && TARGET_FLAG_KINDS.has(f.kind.toLowerCase()))) {
+        return null;
+    }
+    return width < targetSize || height < targetSize
+        ? `${width}×${height} — below ${targetSize}×${targetSize} (WCAG 2.5.8)`
+        : null;
+};
+// geometry fails closed: coordinates are interpolated into SVG attributes,
+// so a value of the WRONG TYPE (a string, an object — anything whose text
+// isn't a number's) must never reach one (#2739: a string x on a
+// viewportFixed record landed in x="…" verbatim — attribute injection).
+// RECORDS are untrusted producer data: bounds that aren't finite numbers
+// are not drawn. OPTIONS that PRINT (pad, fontSize, within) take only a
+// number in their range, else the default (within: else nothing, with a
+// note); since 0.6.0 that range excludes the numbers that never drew
+// anything sensible (#2747). maxCaption, minLabelHeight and targetSize feed
+// comparisons and slice() alone and keep their meaningful domain.
+// tools/byte-stability.ts pins every other value against the release.
+const finiteBounds = (b) => Number.isFinite(b.x) &&
+    Number.isFinite(b.y) &&
+    Number.isFinite(b.width) &&
+    Number.isFinite(b.height);
+const intersects = (a, b) => a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+const contains = (outer, inner) => inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height;
+// string args (not regexes) — tjs convert's lexer mis-reads a quote inside a
+// regex literal (/"/g) as a string opener; see tjs-lang issue
+// a sink that trusts its input's type can be handed an object with its
+// own replaceAll: anything but a string escapes to '' (0.5.2 review)
+const esc = (s) => typeof s !== 'string'
+    ? ''
+    : s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+// a producer's computed colour, or the fallback: records are untrusted data,
+// and a non-string here (a number, an object, a missing key) used to reach
+// esc() and throw, so one malformed record denied the whole map (#2748).
+// Read once, so the value checked is the value drawn.
+const styleColor = (style, key, fallback) => {
+    const value = style != null && typeof style === 'object'
+        ? style[key]
+        : undefined;
+    return typeof value === 'string' ? value : fallback;
+};
+const FLAG_COLORS = {
+    error: '#d32f2f',
+    warn: '#e6a700',
+    info: '#888888',
+};
+// severity comes from producer JSON, so it can be anything — including
+// 'constructor', which a bare index would resolve up the prototype chain
+// into a function serialized straight into a fill attribute
+const flagColor = (severity) => typeof severity === 'string' && Object.hasOwn(FLAG_COLORS, severity)
+    ? FLAG_COLORS[severity]
+    : FLAG_COLORS.warn;
+// greedy word-wrap: captions should USE vertical room, not truncate with
+// space to spare (a <p> that wraps on the real page has the same height
+// here). Returns at most maxLines lines, each at most maxChars long;
+// appends … when the caption is cut.
+const wrapCaption = (caption, maxChars, maxLines) => {
+    if (maxLines <= 1 || caption.length <= maxChars) {
+        return [caption.slice(0, maxChars + 2)];
+    }
+    const words = caption.split(' ');
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+        const candidate = line === '' ? word : `${line} ${word}`;
+        if (candidate.length <= maxChars) {
+            line = candidate;
+        }
+        else {
+            if (line !== '')
+                lines.push(line);
+            line = word.length > maxChars ? word.slice(0, maxChars) : word;
+            if (lines.length === maxLines)
+                break;
+        }
+    }
+    if (lines.length < maxLines && line !== '')
+        lines.push(line);
+    if (lines.length > maxLines || (lines.length === maxLines && line !== '' && !lines.includes(line))) {
+        lines.length = maxLines;
+        lines[maxLines - 1] = lines[maxLines - 1].slice(0, maxChars - 1) + '…';
+    }
+    return lines;
+};
+export const schematic = (description, options = {}) => {
+    const { minLabelHeight: minLabelHeightIn = 14, maxCaption: maxCaptionIn = 36, within: withinIn, index: showIndex = false, targetSize = TARGET_SIZE_DEFAULT, legendNote = true, decorate, } = options;
+    // the options that print: the wrong type falls back to the default, and
+    // so does a number outside the option's range (#2747) — a negative pad
+    // clips the drawing, a zero font hides every caption. null keeps 0.5.x's
+    // meaning (its arithmetic reads it as 0).
+    // each value READ ONCE (#2753): the value checked is the value printed,
+    // so a getter or Proxy can't pass the check and inject on a second read
+    const padIn = options.pad;
+    const pad = (padIn === null ||
+        (typeof padIn === 'number' && Number.isFinite(padIn) && padIn >= 0)
+        ? padIn
+        : 8);
+    const fontSizeIn = options.fontSize;
+    const fontSize = (fontSizeIn === null ||
+        (typeof fontSizeIn === 'number' && Number.isFinite(fontSizeIn) && fontSizeIn > 0)
+        ? fontSizeIn
+        : 11);
+    // the options that never print keep their whole meaningful domain
+    // (Infinity: legend only / never truncate); only the meaningless numbers
+    // mean the default (#2747)
+    const minLabelHeight = Number.isNaN(minLabelHeightIn) ? 14 : minLabelHeightIn;
+    const maxCaption = typeof maxCaptionIn === 'number' && (Number.isNaN(maxCaptionIn) || maxCaptionIn < 1)
+        ? 36
+        : maxCaptionIn;
+    const refStyle = options.refStyle === 'pill' ? 'pill' : 'stamp';
+    const legend = [];
+    const within = withinIn == null
+        ? undefined
+        : {
+            x: withinIn.x,
+            y: withinIn.y,
+            width: withinIn.width,
+            height: withinIn.height,
+        };
+    // a region that isn't one draws nothing (never the whole map): it must
+    // be four finite numbers. A NaN, Infinity, null or missing field says so
+    // in a note, so it can't pass for an empty region (#2744)
+    const withinOk = within == null || finiteBounds(within);
+    // record geometry, snapshotted once into plain numbers: everything below
+    // reads geometry.get(w), never w.bounds again
+    // a record object listed twice reuses its first snapshot, so a getter
+    // can't make one occurrence filtered and the other drawn (0.5.2 M4);
+    // null = read once, unusable
+    const geometry = new Map();
+    const snapshotOf = (w) => {
+        if (geometry.has(w))
+            return geometry.get(w);
+        const b = w.bounds;
+        const g = b == null ? null : { x: b.x, y: b.y, width: b.width, height: b.height };
+        const usable = g != null && finiteBounds(g) ? g : null;
+        geometry.set(w, usable);
+        return usable;
+    };
+    const boxes = description.wiring.filter((w) => {
+        if (!withinOk)
+            return false;
+        const g = snapshotOf(w);
+        if (g == null)
+            return false;
+        return (g.width > 0 &&
+            g.height > 0 &&
+            // fully negative coordinates = hidden by off-page positioning (the
+            // spatial analog of zero-size): invisible to humans, invisible here
+            (w.viewportFixed === true ||
+                (g.x + g.width > 0 && g.y + g.height > 0)) &&
+            (within == null ||
+                w.viewportFixed === true ||
+                intersects(g, within)));
+    });
+    // viewport furniture (fixed/sticky) has viewport coordinates: it neither
+    // stretches the viewBox nor sits at a page position — it gets PINNED as an
+    // overlay at the map's origin, which is where it lives on screen
+    const flow = boxes.filter((w) => w.viewportFixed !== true);
+    // an empty map; with a note when the emptiness is NOT "nothing is here":
+    // a caller must be able to tell a bad region or an overflow from an
+    // empty one (#2744, #2746)
+    const emptyMap = (why) => why == null
+        ? {
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"></svg>',
+            legend,
+        }
+        : {
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0">' +
+                `<desc>${esc(why)}</desc></svg>`,
+            legend,
+            note: why,
+        };
+    if (!withinOk) {
+        return emptyMap('nothing drawn: `within` is not a usable region (a field is not a ' +
+            'finite number) — this is not an empty region');
+    }
+    if (boxes.length === 0)
+        return emptyMap();
+    // scoped: the viewBox IS the region; unscoped: fit the FLOW boxes (pinned
+    // furniture must not stretch the map)
+    const fitBoxes = flow.length > 0 ? flow : boxes;
+    const minXRaw = within != null
+        ? within.x - pad
+        : Math.min(...fitBoxes.map((w) => geometry.get(w).x)) - pad;
+    const minYRaw = within != null
+        ? within.y - pad
+        : Math.min(...fitBoxes.map((w) => geometry.get(w).y)) - pad;
+    const maxXRaw = within != null
+        ? within.x + within.width + pad
+        : Math.max(...fitBoxes.map((w) => geometry.get(w).x + geometry.get(w).width)) + pad;
+    const maxYRaw = within != null
+        ? within.y + within.height + pad
+        : Math.max(...fitBoxes.map((w) => geometry.get(w).y + geometry.get(w).height)) + pad;
+    // finite inputs can still sum past Number.MAX_VALUE (a pad of 1e308, a
+    // box at 1.7e308): a viewBox of Infinity/NaN draws nothing anywhere, so
+    // the map says so instead of emitting it (#2746). The LEGEND doesn't
+    // depend on the extents, so it is still built: one far-off record must
+    // not erase every other record's verdicts (0.6.0 review). The drawing is
+    // laid out against a zero origin and discarded.
+    const overflow = ![
+        minXRaw,
+        minYRaw,
+        maxXRaw,
+        maxYRaw,
+        maxXRaw - minXRaw,
+        maxYRaw - minYRaw,
+    ].every(Number.isFinite);
+    const [minX, minY, maxX, maxY] = overflow
+        ? [0, 0, 0, 0]
+        : [minXRaw, minYRaw, maxXRaw, maxYRaw];
+    // explicit width/height (not just viewBox): gives the svg an intrinsic
+    // size as a document/img, and Firefox refuses to draw an svg image onto a
+    // canvas without them — which rasterizeSVG depends on
+    const parts = [
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" width="${maxX - minX}" height="${maxY - minY}">`,
+    ];
+    // structure behind affordances: dotted outlines the eye (and the raster)
+    // reads as grouping, not controls (isGround, module level — the exported
+    // predicates share it).
+    const drawOrder = [...boxes].sort((a, b) => Number(isGround(b)) - Number(isGround(a)));
+    // NO AFFORDANCE EVIDENCE ANYWHERE: for a producer that cannot introspect
+    // handlers (issue #3), every record answers "can I act here?" with no —
+    // silently, which is the confident-wrong-answer failure. "Nothing here is
+    // actionable" and "I couldn't tell" are different statements; when the
+    // map draws non-ground boxes but not one record carries any evidence, the
+    // result says so instead of letting silence claim the first.
+    // evidence is judged over the WHOLE wiring, not the drawn subset: a
+    // `within` crop of a map whose evidence lies outside the region is not a
+    // blind map, it's a blind REGION of a sighted one (review follow-up).
+    // And CAPABILITY evidence counts (#10): a producer that emits handlers
+    // or provenance arrows anywhere demonstrably can see wiring — absence of
+    // affordance is then a fact about the page, not the producer's eyes.
+    const blind = description.introspected !== true &&
+        boxes.some((w) => !isGround(w)) &&
+        !description.wiring.some(isInteractive) &&
+        !description.wiring.some(hasCapabilityEvidence);
+    const note = blind
+        ? 'no record carries affordance evidence (on, href, contentEditable, ' +
+            'a two-way binding, or an interactive/editable assertion), and none ' +
+            'shows the producer can see wiring at all (no handler, assertion, ' +
+            'or provenance arrow anywhere) — "nothing here is actionable" is ' +
+            'NOT established; a producer that cannot introspect handlers ' +
+            'should assert `interactive`/`editable` per record (see README)'
+        : undefined;
+    // the container scan is O(N²): look each box's snapshot up once (0.5.2 M2)
+    const boxGeometry = boxes.map((b) => geometry.get(b));
+    for (const w of drawOrder) {
+        const index = description.wiring.indexOf(w);
+        const pinOffsetX = w.viewportFixed === true ? minX + pad : 0;
+        const pinOffsetY = w.viewportFixed === true ? minY + pad : 0;
+        const own = geometry.get(w);
+        const x = own.x + pinOffsetX;
+        const y = own.y + pinOffsetY;
+        const { width, height } = own;
+        // a box that CONTAINS other drawn boxes is a container: its textContent
+        // is its children's text concatenated, so a text-derived caption would
+        // overprint the children's own captions — the children speak for
+        // themselves. Only an explicit label earns a container a caption.
+        let isContainer = false;
+        if (w.viewportFixed !== true)
+            for (let j = 0; j < boxes.length && !isContainer; j++)
+                isContainer =
+                    boxes[j] !== w &&
+                        boxes[j].viewportFixed !== true &&
+                        contains(own, boxGeometry[j]);
+        // caption truth, per control kind:
+        // - checkbox/radio: the state is GEOMETRY (✕ in the box, dot in the
+        //   circle — drawn below, legible at any raster scale); the caption is
+        //   just the label, set to the RIGHT of the control
+        // - other form controls: the live VALUE wins; an empty control falls
+        //   back to its placeholder in italics (a hint must not read as content)
+        // - everything else: label, then text, then value
+        const toggle = w.type === 'checkbox' || w.type === 'radio';
+        // fail-closed means malformed errs toward WITHHOLDING (review F1): a
+        // truthy non-boolean secret (secret: 1 from mangled producer JSON)
+        // must scrub, not leak — every redaction gate shares this coercion
+        const secret = Boolean(w.secret);
+        // read ONCE: the data:-only gate below must judge the value that is
+        // drawn, or a getter answering 'data:' to the check gets an external
+        // URL fetched by the <image> (0.5.2 review B1)
+        const image = w.image;
+        let caption;
+        let hint = false;
+        if (secret) {
+            // FAIL-CLOSED redaction (0.5.0 review G1 + round-2 B1): a secret
+            // record's withholdable facts — label, text, value, placeholder,
+            // href, and image (the captured pixels are the highest-bandwidth
+            // fact of all) — never reach the drawing, even when a producer bug
+            // left them in
+            // the record. `redacted` must never co-occur with the facts it
+            // claims were withheld; the marker is all a secret record says.
+            // (Assigned BEFORE the choke point so a forged arrow in `tag`
+            // still neutralizes — review R1.)
+            caption = `<${w.tag}> [withheld]`;
+        }
+        else if (isContainer) {
+            caption = String(w.label ?? '');
+        }
+        else if (toggle) {
+            caption = String(w.label ?? '');
+        }
+        else if (w.tag === 'input' ||
+            w.tag === 'textarea' ||
+            w.tag === 'select' ||
+            w.contentEditable === true) {
+            const value = shownValue(w.value);
+            if (value) {
+                // both name and value known: say both — "qty: 3"
+                caption = w.label != null ? `${w.label}: ${value}` : value;
+            }
+            else if (w.placeholder != null && w.placeholder !== '') {
+                caption = String(w.placeholder);
+                hint = true;
+            }
+            else {
+                caption = String(w.label ?? w.text ?? `<${w.tag}>`);
+            }
+        }
+        else {
+            // href is last resort before the bare tag: a link with no name at all
+            // (haltija's icon-less sidebar case) is still distinguished by where
+            // it goes — but a name, when present, wins; the destination's real
+            // home is the legend
+            caption = String(w.label ??
+                shownValue(w.text) ??
+                shownValue(w.value) ??
+                w.href ??
+                `<${w.tag}>`);
+        }
+        // EVERY caption source (label, placeholder, href, tag fallback — not
+        // just the text/value paths shownValue serves) is neutralized here, at
+        // one choke point: the 0.4.0 review's B1 found the arrow defense
+        // bypassed by exactly the sources this line now covers
+        caption = neutralizeArrows(caption);
+        const structural = isGround(w);
+        // the affordance grammar, explicit: BOLD outline = wired to act —
+        // handlers, a link destination (href: a link IS an affordance, 0.4.0),
+        // or the producer's `interactive` word. The ↔ badge = editable here.
+        // Solid = affordance, dotted = structure.
+        const actable = !structural && hasActEvidence(w);
+        const editable = !structural && hasEditEvidence(w);
+        const fill = structural
+            ? 'none'
+            : styleColor(w.style, 'background', 'transparent');
+        const border = styleColor(w.style, 'borderColor', 'currentColor');
+        const stroke = !structural && border !== TRANSPARENT ? border : 'currentColor';
+        const color = styleColor(w.style, 'color', 'currentColor');
+        // embedded media first: pixels the producer captured, drawn in place —
+        // everything else (state geometry, captions, badges) reads over it
+        const drawImage = !structural &&
+            !secret && // B1: withheld pixels never draw
+            typeof image === 'string' &&
+            image.startsWith('data:');
+        // CRAMPED: the box can't legibly carry its dress — draw it bare (shape,
+        // state geometry, emphasis, focus) with an auto stamp pointing into the
+        // legend, where the metadata actually lives. Toggles are exempt from
+        // caption suppression (their label draws OUTSIDE the box).
+        const cramped = !structural && (height < minLabelHeight || width < fontSize * 3);
+        // UNDERSIZED: an interactive element below the target-size floor is a
+        // usability defect in its own right (WCAG 2.5.8: 24×24 AA; 44/48 is the
+        // platform touch bar). The whole rule — the interactivity predicate,
+        // the toggle and inline-link exemptions, producer-flag supersession —
+        // lives in the exported targetSizeFinding (issue #4: one
+        // implementation, shared with tosijs's audit).
+        // the snapshot, so the legend's size text is the geometry drawn
+        const undersized = sizeFinding(w, width, height, targetSize, {
+            honorProducerFlags: true,
+        });
+        const emphasis = structural
+            ? ' stroke-dasharray="1 3" stroke-linecap="round" opacity="0.45"'
+            : w.disabled === true
+                ? ' opacity="0.4"'
+                : actable
+                    ? ' stroke-width="2"'
+                    : '';
+        parts.push(`<g data-record="${index}"${w.ref != null ? ` data-ref="${esc(String(w.ref))}"` : ''}>`);
+        if (w.type === 'radio') {
+            // a radio IS a circle — and its state is a filled dot, legible at any
+            // raster scale (text glyphs are mush at 13px; geometry is not)
+            const r = Math.min(width, height) / 2;
+            const cx = x + width / 2;
+            const cy = y + height / 2;
+            parts.push(`<circle cx="${cx}" cy="${cy}" r="${r - 0.5}" fill="${esc(fill)}" ` +
+                `stroke="${esc(stroke)}"${emphasis}/>`);
+            if (w.checked === true) {
+                parts.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(2, r * 0.45)}" ` +
+                    `fill="${esc(color)}"/>`);
+            }
+        }
+        else {
+            parts.push(`<rect x="${x}" y="${y}" width="${width}" height="${height}" ` +
+                `fill="${esc(fill)}" stroke="${esc(stroke)}"${emphasis}/>`);
+            if (drawImage) {
+                parts.push(`<image x="${x + 1}" y="${y + 1}" width="${width - 2}" ` +
+                    `height="${height - 2}" href="${esc(image)}" ` +
+                    `preserveAspectRatio="xMidYMid meet"/>`);
+            }
+            if (w.type === 'checkbox' && w.checked === true) {
+                // checked = an ✕ drawn corner to corner, inset a hair
+                const inset = 3;
+                parts.push(`<line x1="${x + inset}" y1="${y + inset}" x2="${x + width - inset}" ` +
+                    `y2="${y + height - inset}" stroke="${esc(color)}" stroke-width="1.5"/>`, `<line x1="${x + inset}" y1="${y + height - inset}" ` +
+                    `x2="${x + width - inset}" y2="${y + inset}" ` +
+                    `stroke="${esc(color)}" stroke-width="1.5"/>`);
+            }
+        }
+        // computed verdicts (contrast failures etc.): severity-colored bars on
+        // the LEFT edge — the unclaimed slot — plus the first flag's label
+        if (!cramped && !structural && Array.isArray(w.flags) && w.flags.length > 0) {
+            w.flags.forEach((flag, at) => {
+                // kind is producer JSON too (#12) — same defence severity gets
+                parts.push(`<rect x="${x + at * 3}" y="${y}" width="3" height="${height}" ` +
+                    `fill="${flagColor(flag?.severity)}" ` +
+                    `data-flag="${esc(typeof flag?.kind === 'string' ? flag.kind : '')}"/>`);
+            });
+            const first = w.flags[0];
+            // producer JSON to the last line (R2): flags:[null] and non-string
+            // labels must not take down the render — same defence the forEach got
+            if (typeof first?.label === 'string' && first.label !== '' && height >= minLabelHeight) {
+                parts.push(`<rect x="${x + w.flags.length * 3 + 1}" y="${y + height - 9}" ` +
+                    `width="${first.label.length * 4.5 + 2}" height="8" ` +
+                    `fill="white" opacity="0.85"/>`, `<text x="${x + w.flags.length * 3 + 2}" y="${y + height - 2}" ` +
+                    `font-size="7" font-family="monospace" ` +
+                    `fill="${flagColor(first.severity)}">` +
+                    // the drawn label is a text RUN (neutralize: rare glyphs tofu);
+                    // the legend's copy of flags stays verbatim, per the spec
+                    `${esc(neutralizeArrows(first.label))}</text>`);
+            }
+        }
+        // undersized interactive element: one amber bar on the left edge —
+        // legible at any size; the measurement itself rides the legend
+        if (undersized != null) {
+            parts.push(`<rect x="${x}" y="${y}" width="3" height="${height}" ` +
+                `fill="${FLAG_COLORS.warn}" data-flag="target-size"/>`);
+        }
+        // invalid = the spreadsheet error-corner: a red flag at top-left
+        // (index owns top-right, ↔ owns bottom-right) — geometry, so it's
+        // legible at any raster scale and in any font
+        if (w.invalid === true && !structural) {
+            const flagSize = Math.min(7, Math.floor(Math.min(width, height) / 2));
+            parts.push(`<path d="M${x} ${y} l${flagSize} 0 l-${flagSize} ${flagSize} z" ` +
+                `fill="#d32f2f"/>`);
+        }
+        // focus ring: a second outline just outside the box — where the user IS
+        if (w.focused === true && !structural) {
+            parts.push(`<rect x="${x - 2.5}" y="${y - 2.5}" width="${width + 5}" ` +
+                `height="${height + 5}" fill="none" stroke="${esc(stroke)}" ` +
+                `stroke-width="1.5"/>`);
+        }
+        // editable = an ↔ badge at the box's right edge — SEPARATE from the
+        // caption text: rasterizers resolve fonts per text run, and one exotic
+        // glyph (⟷ is rare in monospace fonts) can tofu the whole caption.
+        // ↔ (U+2194) is near-universal; isolated, it can only cost itself.
+        if (editable && !toggle && !cramped) {
+            parts.push(`<text x="${x + width - 3}" y="${y + height - 4}" ` +
+                `font-size="${fontSize}" text-anchor="end" ` +
+                `font-family="monospace" fill="${esc(color)}">↔</text>`);
+        }
+        let drawnCaption = null; // null = caption block never ran
+        // required wears the universal asterisk on its caption — ASCII-safe
+        const shownCaption = w.required === true && !structural && caption !== ''
+            ? `${caption} *`
+            : caption;
+        if (toggle) {
+            // the toggle's label sits to the RIGHT of the control, like the real
+            // layout — the control itself already says everything else
+            if (shownCaption !== '') {
+                parts.push(`<text x="${x + width + 4}" ` +
+                    `y="${y + height / 2 + fontSize / 2 - 1}" ` +
+                    `font-size="${fontSize}" font-family="monospace" ` +
+                    `fill="${esc(color)}">` +
+                    `${esc(shownCaption.slice(0, maxCaption + 2))}</text>`);
+            }
+        }
+        else if (!cramped && height >= minLabelHeight && shownCaption !== '') {
+            // wrap when the box affords more than one line — a paragraph that
+            // wraps on the real page has the same vertical room here; truncating
+            // at maxCaption with space to spare threw that text away
+            const lineHeight = fontSize + 2;
+            const maxLines = Math.max(1, Math.floor((height - 6) / lineHeight));
+            const perLine = Math.min(maxCaption, Math.max(8, Math.floor((width - 8) / (fontSize * 0.6))));
+            const lines = wrapCaption(shownCaption, perLine, maxLines);
+            // rejoining with single spaces reconstructs a fully-wrapped caption
+            // exactly (wrapping only consumes break spaces) — a caption-count
+            // comparison would mark EVERY wrapped caption truncated
+            drawnCaption = lines.join(' ');
+            const styleAttrs = `font-size="${fontSize}" font-family="monospace" fill="${esc(color)}"` +
+                `${hint ? ' font-style="italic" opacity="0.6"' : ''}`;
+            if (lines.length === 1) {
+                parts.push(`<text x="${x + 4}" y="${y + Math.min(height - 4, fontSize + 2)}" ` +
+                    `${styleAttrs}>${esc(lines[0])}</text>`);
+            }
+            else {
+                parts.push(`<text x="${x + 4}" y="${y + fontSize + 2}" ${styleAttrs}>` +
+                    lines
+                        .map((line, at) => `<tspan x="${x + 4}"${at > 0 ? ` dy="${lineHeight}"` : ''}>` +
+                        `${esc(line)}</tspan>`)
+                        .join('') +
+                    '</text>');
+            }
+        }
+        // build the legend entry: everything the drawing could not carry
+        const truncated = drawnCaption != null &&
+            drawnCaption.length <
+                shownCaption.split(' ').filter(Boolean).join(' ').length;
+        const elided = { index, tag: w.tag };
+        if (w.ref != null)
+            elided.ref = String(w.ref);
+        // a destination is always legend-worthy: it never fits a caption
+        // legibly, and it's the fact an agent acts on ("goes to Y", not
+        // "says X")
+        if (typeof w.href === 'string' &&
+            w.href !== '' &&
+            !structural &&
+            !secret // G1: a withheld destination never reaches the legend
+        ) {
+            elided.href = w.href;
+        }
+        if (cramped || truncated) {
+            if (shownCaption !== '' && !toggle)
+                elided.caption = caption;
+            const heldValue = secret ? undefined : shownValue(w.value);
+            if (heldValue)
+                elided.value = heldValue;
+            if (cramped) {
+                if (editable)
+                    elided.editable = true;
+                if (w.required === true)
+                    elided.required = true;
+                if (Array.isArray(w.flags) && w.flags.length > 0) {
+                    elided.flags = w.flags;
+                }
+            }
+        }
+        if (w.invalid === true && cramped)
+            elided.invalid = true;
+        if (w.disabled === true && cramped)
+            elided.disabled = true;
+        if (undersized != null)
+            elided.undersized = undersized;
+        // redaction ALWAYS rides the legend, structural included: redacted is
+        // a fact about the record, not a drawing concern — the consumer
+        // reading "no href" must be able to tell withheld from absent (#15)
+        if (secret)
+            elided.redacted = true;
+        const inLegend = elided.redacted != null ||
+            elided.caption != null ||
+            elided.href != null ||
+            elided.value != null ||
+            elided.editable != null ||
+            elided.required != null ||
+            elided.flags != null ||
+            elided.invalid != null ||
+            elided.disabled != null ||
+            elided.undersized != null;
+        if (inLegend)
+            legend.push(elided);
+        // the stamp is the POINTER into the legend — cramped and legend-bearing
+        // records always wear one, whatever showIndex says
+        if (showIndex || w.ref != null || inLegend) {
+            // the raster's actionable handle: the producer's DURABLE ref when it
+            // has one (it survives re-renders; an agent can act on it), else the
+            // wiring index (look up description.wiring[n]). Toggles are too small
+            // to wear it inside — theirs sits just left of the control. A mostly
+            // opaque white backdrop keeps it legible over ANY artwork.
+            const shown = w.ref != null ? String(w.ref) : String(index);
+            const indexX = toggle ? x - 3 : x + width - 2;
+            if (refStyle === 'pill') {
+                // the handle an agent retypes: white bold on dark, opaque (#3376;
+                // haltija's design, which it drew over the stamp as a plugin)
+                parts.push(`<rect x="${indexX - shown.length * 5 - 2}" y="${y + 1}" ` +
+                    `width="${shown.length * 5 + 3}" height="9" rx="2" ` +
+                    `fill="#0f172a" data-index-backdrop="true"/>`, `<text x="${indexX - 1}" y="${y + 8}" font-size="8" ` +
+                    `text-anchor="end" font-family="monospace" font-weight="bold" ` +
+                    `fill="white">${esc(shown)}</text>`);
+            }
+            else {
+                parts.push(`<rect x="${indexX - shown.length * 5 - 1}" y="${y + 1}" ` +
+                    `width="${shown.length * 5 + 2}" height="8" fill="white" ` +
+                    `opacity="0.85" data-index-backdrop="true"/>`, `<text x="${indexX}" y="${y + 8}" font-size="8" ` +
+                    `text-anchor="end" font-family="monospace" fill="black" ` +
+                    `opacity="0.8">${esc(shown)}</text>`);
+            }
+        }
+        if (decorate != null && !overflow) {
+            decorate({
+                record: w,
+                index,
+                x,
+                y,
+                width,
+                height,
+                structural,
+                emit: (svg) => parts.push(svg),
+            });
+        }
+        parts.push('</g>');
+    }
+    if (overflow) {
+        return emptyMap('nothing drawn: the map\'s extent overflows a finite number (a ' +
+            'coordinate, size or pad near Number.MAX_VALUE); the legend still ' +
+            'carries every record\'s facts');
+    }
+    // the image confesses what it couldn't carry: a machine-readable <desc>
+    // plus a visible footer strip — the raster's pointer to its legend JSON
+    const footerExtra = legendNote && legend.length > 0 ? 14 : 0;
+    if (footerExtra > 0) {
+        parts.push(`<text x="${minX + pad}" y="${maxY + 10}" font-size="8" ` +
+            `font-family="monospace" fill="currentColor" opacity="0.75">` +
+            `${legend.length} element${legend.length === 1 ? '' : 's'} with ` +
+            `details in legend — match by stamped number</text>`);
+    }
+    const descBits = [];
+    if (legend.length > 0) {
+        descBits.push(`${description.wiring.length} records; ${legend.length} ` +
+            'legend entries carry metadata the drawing could not — pair this ' +
+            'image with its legend JSON (schematic().legend), matched by the ' +
+            'stamped number / data-record index.');
+    }
+    if (note != null)
+        descBits.push(note);
+    parts[0] =
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY + footerExtra}" width="${maxX - minX}" height="${maxY - minY + footerExtra}">` +
+            (descBits.length > 0 ? `<desc>${esc(descBits.join(' '))}</desc>` : '');
+    parts.push('</svg>');
+    const result = { svg: parts.join(''), legend };
+    if (note != null)
+        result.note = note;
+    return result;
+};
+/** the string-only form — schematic().svg, kept for drop-in compatibility */
+export const schematicSVG = (description, options = {}) => schematic(description, options).svg;
+/**
+ * Rasterize an SVG string to a PNG Blob — the vision-encoder form of the map
+ * (rasterize at 2× so labels land large enough to OCR near-losslessly).
+ *
+ * Browser-only by design: it uses Image + canvas, which keeps tosijs at zero
+ * dependencies. Under bun/node, use `@resvg/resvg-js` directly instead:
+ *
+ *     const { Resvg } = await import('@resvg/resvg-js')
+ *     const png = new Resvg(svg, { fitTo: { mode: 'zoom', value: 2 } })
+ *       .render().asPng()
+ */
+export const rasterizeSVG = (svg, options = {}) => {
+    const { scale = 2 } = options;
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+        return Promise.reject(new Error('rasterizeSVG needs a browser (Image + canvas); under bun/node use @resvg/resvg-js — see the doc comment'));
+    }
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const img = new Image();
+    return new Promise((resolve, reject) => {
+        img.onload = () => {
+            try {
+                const width = (img.naturalWidth || 800) * scale;
+                const height = (img.naturalHeight || 600) * scale;
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx == null)
+                    throw new Error('no 2d context');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (blob != null)
+                        resolve(blob);
+                    else
+                        reject(new Error('canvas.toBlob produced no data'));
+                }, 'image/png');
+            }
+            catch (e) {
+                reject(e);
+            }
+            finally {
+                URL.revokeObjectURL(url);
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('SVG failed to load as an image'));
+        };
+        img.src = url;
+    });
+};

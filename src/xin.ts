@@ -925,7 +925,7 @@ import {
   updates,
   OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
-import { getByPath, setByPath, UnsafePathError } from './by-path'
+import { getByPath, setByPath, assertSafeLeafKey } from './by-path'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1295,7 +1295,7 @@ const regHandler = (
     // NORMALISED (brackets stripped): '[__proto__]' and 'a.map[__proto__]'
     // got past a check of the raw spelling alone. The compound branch
     // re-enters this trap for each part, so every spelling reaches it.
-    if (_prop === '__proto__') throw new UnsafePathError(_prop)
+    if (typeof _prop === 'string') assertSafeLeafKey(_prop)
 
     // .tosi / TOSI_ACCESSOR — collision-free accessor API
     if ((_prop === 'tosi' || _prop === TOSI_ACCESSOR) && boxScalars) {
@@ -1412,7 +1412,7 @@ const regHandler = (
     if (prop.startsWith('[') && prop.endsWith(']')) {
       prop = prop.substring(1, prop.length - 1)
     }
-    if (prop === '__proto__') throw new UnsafePathError(prop)
+    assertSafeLeafKey(prop)
     if (
       (!Array.isArray(target) && target[prop] !== undefined) ||
       (Array.isArray(target) && prop.includes('='))

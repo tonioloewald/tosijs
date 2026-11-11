@@ -78,8 +78,9 @@ that is neither a list nor a function, throws.
 
 A two-way binding may never write **on, under or above** a granted action,
 even inside a `write` grant, so markup can't replace a function with a string
-(the agent surface's SEC-9 rule, shared with it). With a function `actions`
-grant only the path and its ancestors can be checked.
+(the agent surface's SEC-9 rule, shared with it). It also writes only over a
+leaf: a path holding an object or function is refused when bound and skipped
+at every write, which covers what a function `actions` grant can't enumerate.
 
 Paths are plain: names, dots and `[n]` indices, with no `__proto__`,
 `constructor` or `prototype` segment. Id-paths and anything else are refused.
@@ -95,8 +96,9 @@ the path in `read` **and** in `actions`, which reads as "the value at this
 path is trusted to act". So a path granted only `read` (user-authored text,
 say) can be shown but cannot be made into a link by injected markup. The
 inert targets are text, `value`, `checked`, `disabled`, `hidden`, `title`,
-`class`, `role`, `alt`, `placeholder`, `aria-*` and `data-*`; an unknown
-target fails closed. `on*` attributes and properties, `innerHTML`,
+`class`, `role`, `alt`, `placeholder` and `aria-*`; an unknown target fails
+closed. `data-*` is not inert: libraries such as htmx read `data-hx-*` as
+behaviour. `on*` attributes and properties, `innerHTML`,
 `outerHTML` and `srcdoc` are refused whatever the grants.
 
 **Only gesture events.** `data-tosi-on-*` accepts `click`, `dblclick`,
@@ -168,7 +170,8 @@ import { bind, on, delegationRoot } from './bind'
 import { bindings } from './bindings'
 import { tosiPath } from './metadata'
 import { extendsPath, overlapsPath } from './path-listener'
-import { isUnsafeKey } from './by-path'
+import { getByPath, isUnsafeKey } from './by-path'
+import { registry } from './registry'
 import { settings } from './settings'
 
 export type DeclarativeGrant =
@@ -196,7 +199,7 @@ export interface DeclarativeBinding {
 const PREFIX = 'data-tosi-'
 const PATH = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*|\[\d+\])*$/
 const INERT_ATTRS =
-  /^(class|title|hidden|disabled|checked|value|role|alt|placeholder|aria-.+|data-(?!tosi-).+)$/
+  /^(class|title|hidden|disabled|checked|value|role|alt|placeholder|aria-.+)$/
 const INERT_PROPS = new Set([
   'textContent',
   'value',
@@ -253,6 +256,21 @@ const attrBinding = (name: string) => ({
     if (value == null || value === false) element.removeAttribute(name)
     else element.setAttribute(name, value === true ? '' : String(value))
   },
+})
+
+const isContainer = (value: unknown): boolean =>
+  value !== null && (typeof value === 'object' || typeof value === 'function')
+
+// A two-way binding writes only over a leaf: overwriting a container could
+// replace an action inside it, which a function `actions` grant can't
+// enumerate (SEC-9 failed open above an action). Checked at every write too,
+// since the value can become a container after hydration.
+const leafValueBinding = (path: string) => ({
+  toDOM: bindings.value.toDOM,
+  fromDOM: (element: HTMLElement) =>
+    isContainer(getByPath(registry, path))
+      ? undefined
+      : bindings.value.fromDOM!(element),
 })
 
 const propBinding = (prop: string) => ({
@@ -317,7 +335,8 @@ export const enableDeclarativeBinding = (
       case 'value':
         return
       case 'bind-value':
-        if (touchesAction(path)) return 'writing it could replace an action'
+        if (touchesAction(path) || isContainer(getByPath(registry, path)))
+          return 'writing it could replace an action'
         return mayWrite(path) ? undefined : 'the path is not granted to write'
       case 'on':
         if (!GESTURES.has(target))
@@ -364,7 +383,8 @@ export const enableDeclarativeBinding = (
       if (kind === 'text') bind(element, path, bindings.text)
       else if (kind === 'value')
         bind(element, path, { toDOM: bindings.value.toDOM })
-      else if (kind === 'bind-value') bind(element, path, bindings.value)
+      else if (kind === 'bind-value')
+        bind(element, path, leafValueBinding(path))
       else if (kind === 'attr') bind(element, path, attrBinding(target))
       else if (kind === 'prop') bind(element, path, propBinding(prop))
       else on(element as HTMLElement, target as any, path as any)

@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=d18a2c2e0234" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=12b533835295" data-tosi-doc-system />
   <title>Bindings in Markup — tosijs</title>
   <meta name="description" content="enableDeclarativeBinding(): opt-in, closed by default — bind HTML with data-tosi-* attributes and no script, against an explicit list of what markup may read, write and call." />
   <link rel="canonical" href="https://tosijs.net/declarative-binding/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=6746daed88e6" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=6e9420a04b24" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="declarative-binding.ts">
 <h1 id="bindings-in-markup-enabledeclarativebinding">Bindings in Markup (enableDeclarativeBinding)</h1>
 <p>Markup that cannot carry a script — a model&#39;s output, a saved view, a
@@ -120,8 +120,9 @@ and <code>write</code> match by whole segment (<code>app</code> allows <code>app
 that is neither a list nor a function, throws.</p>
 <p>A two-way binding may never write <strong>on, under or above</strong> a granted action,
 even inside a <code>write</code> grant, so markup can&#39;t replace a function with a string
-(the agent surface&#39;s SEC-9 rule, shared with it). With a function <code>actions</code>
-grant only the path and its ancestors can be checked.</p>
+(the agent surface&#39;s SEC-9 rule, shared with it). It also writes only over a
+leaf: a path holding an object or function is refused when bound and skipped
+at every write, which covers what a function <code>actions</code> grant can&#39;t enumerate.</p>
 <p>Paths are plain: names, dots and <code>[n]</code> indices, with no <code>__proto__</code>,
 <code>constructor</code> or <code>prototype</code> segment. Id-paths and anything else are refused.</p>
 <p><strong><code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> are never bound.</strong> Their text is code: setting an
@@ -134,8 +135,9 @@ the path in <code>read</code> <strong>and</strong> in <code>actions</code>, whic
 path is trusted to act&quot;. So a path granted only <code>read</code> (user-authored text,
 say) can be shown but cannot be made into a link by injected markup. The
 inert targets are text, <code>value</code>, <code>checked</code>, <code>disabled</code>, <code>hidden</code>, <code>title</code>,
-<code>class</code>, <code>role</code>, <code>alt</code>, <code>placeholder</code>, <code>aria-*</code> and <code>data-*</code>; an unknown
-target fails closed. <code>on*</code> attributes and properties, <code>innerHTML</code>,
+<code>class</code>, <code>role</code>, <code>alt</code>, <code>placeholder</code> and <code>aria-*</code>; an unknown target fails
+closed. <code>data-*</code> is not inert: libraries such as htmx read <code>data-hx-*</code> as
+behaviour. <code>on*</code> attributes and properties, <code>innerHTML</code>,
 <code>outerHTML</code> and <code>srcdoc</code> are refused whatever the grants.</p>
 <p><strong>Only gesture events.</strong> <code>data-tosi-on-*</code> accepts <code>click</code>, <code>dblclick</code>,
 <code>input</code>, <code>change</code>, <code>submit</code>, <code>reset</code>, <code>keydown</code> and <code>keyup</code>: events a person
@@ -281,6 +283,6 @@ test(&#39;markup binds, writes back, calls, and refuses an ungranted href&#39;, 
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=d18a2c2e0234"></script>
+  <script src="../iife.js?v=12b533835295"></script>
 </body>
 </html>

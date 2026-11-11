@@ -124,6 +124,11 @@ describe('enableDeclarativeBinding', () => {
       ],
       ['<img data-tosi-on-error="dbE.go">', /not an event a person causes/],
       ['<a data-tosi-attr-href="dbE.link"></a>', /can act on its value/],
+      // data-* is read as behaviour by libraries such as htmx
+      [
+        '<div data-tosi-attr-data-hx-get="dbE.link"></div>',
+        /can act on its value/,
+      ],
       ['<div data-tosi-prop-inner-h-t-m-l="dbE.name"></div>', /never bound/],
       ['<div data-tosi-attr-onclick="dbE.name"></div>', /never bound/],
       ['<iframe data-tosi-attr-srcdoc="dbE.name"></iframe>', /never bound/],
@@ -316,6 +321,40 @@ describe('enableDeclarativeBinding', () => {
     expect(
       warn.mock.calls.filter(([m]) => /not a plain state path/.test(m)).length
     ).toBe(2)
+    warn.mockRestore()
+  })
+
+  test('a two-way binding writes only over a leaf, whatever the action grant', async () => {
+    const { dbN } = tosi({
+      dbN: { checkout() {}, note: 'n', later: 'x' },
+    })
+    await updates()
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    const host = mount(
+      '<input class="root" data-tosi-bind-value="dbN">' +
+        '<input class="later" data-tosi-bind-value="dbN.later">'
+    )
+    // a function grant can't enumerate the actions under dbN
+    current = enableDeclarativeBinding({
+      read: ['dbN'],
+      write: ['dbN'],
+      actions: (path) => path === 'dbN.checkout',
+      root: host,
+    })
+    await updates()
+    expect(
+      host.querySelector('.root')!.hasAttribute('data-tosi-bind-value')
+    ).toBe(true)
+    // a leaf that becomes a container after hydration is not overwritten
+    const later = host.querySelector('.later') as HTMLInputElement
+    expect(later.hasAttribute('data-tosi-bind-value')).toBe(false)
+    dbN.later = { pay() {} } as any
+    await updates()
+    later.value = 'pwned'
+    later.dispatchEvent(new Event('input', { bubbles: true }))
+    await updates()
+    expect(typeof (dbN.later as any).pay.value).toBe('function')
+    expect(typeof dbN.checkout.value).toBe('function')
     warn.mockRestore()
   })
 })

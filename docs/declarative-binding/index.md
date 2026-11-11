@@ -76,8 +76,9 @@ that is neither a list nor a function, throws.
 
 A two-way binding may never write **on, under or above** a granted action,
 even inside a `write` grant, so markup can't replace a function with a string
-(the agent surface's SEC-9 rule, shared with it). With a function `actions`
-grant only the path and its ancestors can be checked.
+(the agent surface's SEC-9 rule, shared with it). It also writes only over a
+leaf: a path holding an object or function is refused when bound and skipped
+at every write, which covers what a function `actions` grant can't enumerate.
 
 Paths are plain: names, dots and `[n]` indices, with no `__proto__`,
 `constructor` or `prototype` segment. Id-paths and anything else are refused.
@@ -93,8 +94,9 @@ the path in `read` **and** in `actions`, which reads as "the value at this
 path is trusted to act". So a path granted only `read` (user-authored text,
 say) can be shown but cannot be made into a link by injected markup. The
 inert targets are text, `value`, `checked`, `disabled`, `hidden`, `title`,
-`class`, `role`, `alt`, `placeholder`, `aria-*` and `data-*`; an unknown
-target fails closed. `on*` attributes and properties, `innerHTML`,
+`class`, `role`, `alt`, `placeholder` and `aria-*`; an unknown target fails
+closed. `data-*` is not inert: libraries such as htmx read `data-hx-*` as
+behaviour. `on*` attributes and properties, `innerHTML`,
 `outerHTML` and `srcdoc` are refused whatever the grants.
 
 **Only gesture events.** `data-tosi-on-*` accepts `click`, `dblclick`,
