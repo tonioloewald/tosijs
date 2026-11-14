@@ -4,6 +4,24 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.11 — 2026-11-14
+
+- **Went well:** the pre-minor review BLOCKed on two real holes in new code:
+  an empty `<script>` bound by markup runs the text set into it later (B1),
+  and the #56 fix guarded the raw key, not the one the trap normalises (B2).
+  Both fixed with mutation-checked tests; B1 confirmed in Chromium and Firefox.
+- **Went well:** the scoped re-review found a fail-open the remediation left
+  (a function `actions` grant let a binding above an action overwrite it);
+  fixed before the tag with leaf-only writes.
+- **Didn't:** I committed and pushed `1bc52432` after a failed build: a `tsc`
+  error left per-module `.js` in `dist/` and deleted the bundles. Repaired in
+  `9e691159` before attest; never staged. Build bug filed (tosijs-ui #4045).
+- **Didn't:** twice the commit ran after a red step (`;` instead of `&&`);
+  once it was the headroom test, resolved by an approved budget raise.
+- **Surprised:** approval landed inside the 60-minute window this time; the
+  verify job ran green on its own.
+- **Cycle:** one (BLOCK → remediation → re-review GO_WITH_FOLLOWUPS).
+
 ## 1.10.10 — 2026-10-29
 
 - **Went well:** the always-on review found a real prototype-pollution hole
