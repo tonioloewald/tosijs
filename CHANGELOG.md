@@ -30,9 +30,9 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   string paths, which were already guarded.
   **Affects every version tested, 1.5.0 through 1.10.10** (the boxed-string
   spelling since 1.6.0; versions before 1.5.0 were not probed and are
-  presumably affected). **Deprecation, after 1.10.11 is published:**
+  presumably affected). **Deprecated on npm (2026-11-18):**
   `>=1.8.0-0 <1.10.11`, pointing at 1.10.11 and replacing 1.10.10's notice
-  (which points at a version this affects). Older lines are not deprecated:
+  (which pointed at a version this affects). Older lines are not deprecated:
   this hole needs app code that indexes a proxy with an untrusted key, and
   deprecating every version since 1.5.0 would bury the notice for 1.10.10's
   issue, which is reachable from untrusted sync and agent input by default.
@@ -125,7 +125,8 @@ keep the 1 kB floor (owner-approved): `module.js` and `main.js` 50_500 →
   share and sync sinks each have a test that fails on 1.10.9.
 
   Every affected published version (1.8.0-rc.1 through 1.10.9) is deprecated
-  on npm, pointing at 1.10.10 (2026-10-31).
+  on npm, pointing at 1.10.10 (2026-10-31); superseded on 2026-11-18 by the
+  1.10.11 notice, which covers this range too.
 
 ### Fixed
 
