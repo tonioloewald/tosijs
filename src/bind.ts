@@ -221,7 +221,16 @@ works).
 shadow boundaries, and the dispatcher resolves the true origin via
 `composedPath()` (retargeting would otherwise hide it) and continues delegation
 up through shadow hosts to light-DOM ancestors. Closed shadow roots stay
-closed. (Note that *data* bindings deliberately do not operate inside shadow
+closed.
+
+Events that are **not** composed — `change`, and most events a component
+dispatches itself — stop at their shadow root, and never reach the listener on
+`<body>`. Inside a `Component`'s shadow root `on()` handlers still see them
+(each shadow root a Component attaches gets the same delegated listeners), and
+delegation stops at the root, exactly where the event does. A shadow root
+tosijs did not attach sees composed events only.
+
+(Note that *data* bindings deliberately do not operate inside shadow
 DOM — a component, with or without a shadow DOM, is bound like an `<input>`,
 via its `value`; see the Component docs.)
 
@@ -230,8 +239,8 @@ This behavior needs a real browser to observe (a composed event is only
 in-browser here:
 
 ```test
-import { elements, on } from 'tosijs'
-const { button } = elements
+import { elements, on, Component } from 'tosijs'
+const { button, input } = elements
 
 test('on() fires for a click originating inside an open shadow root', () => {
   const host = document.createElement('div')
@@ -256,6 +265,23 @@ test('delegation crosses the shadow boundary to a light-DOM ancestor', () => {
   on(outer, 'click', () => { heard++ })
   inner.click()
   expect(heard).toBe(1)
+})
+
+test('a non-composed change inside a Component shadow root reaches on()', () => {
+  class ShadowChangeDemo extends Component {
+    static preferredTagName = 'shadow-change-demo'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    changes = 0
+    content = () => input({ onChange: () => { this.changes++ } })
+  }
+  const demo = ShadowChangeDemo.elementCreator()()
+  preview.append(demo)
+  let outside = 0
+  on(preview, 'change', () => { outside++ })
+  const field = demo.shadowRoot.querySelector('input')
+  field.dispatchEvent(new Event('change', { bubbles: true }))
+  expect(demo.changes).toBe(1)
+  expect(outside).toBe(0)
 })
 ```
 
@@ -550,9 +576,12 @@ const parentAcrossShadow = (el: Element): Element | null => {
 // closest(); the elementToHandlers WeakMap already IS that record, so we consult
 // it directly and never stamp a class onto the consumer's DOM. cloneNode copies
 // nothing into the map, so clones are simply not visited — no zombie markers.
-const closestHandlerElement = (el: Element | null): Element | null => {
+const closestHandlerElement = (
+  el: Element | null,
+  climb: (el: Element) => Element | null = parentAcrossShadow
+): Element | null => {
   while (el != null && !elementToHandlers.has(el)) {
-    el = parentAcrossShadow(el)
+    el = climb(el)
   }
   return el
 }
@@ -798,7 +827,12 @@ export function bind<T extends Element = Element>(
 const handledEventTypes: Set<string> = new Set()
 
 const handleBoundEvent = (event: Event): void => {
-  let target = closestHandlerElement(eventOrigin(event))
+  // a composed event is seen at <body> and climbs out of shadow roots with it;
+  // one that is not stops at its root (#4160), so delegation does too
+  const climb = event.composed
+    ? parentAcrossShadow
+    : (el: Element) => el.parentElement
+  let target = closestHandlerElement(eventOrigin(event), climb)
   let propagationStopped = false
 
   const wrappedEvent = new Proxy(event, {
@@ -834,7 +868,41 @@ const handleBoundEvent = (event: Event): void => {
         continue
       }
     }
-    target = closestHandlerElement(parentAcrossShadow(target))
+    target = closestHandlerElement(climb(target), climb)
+  }
+}
+
+// Events that are not composed (`change`, and most synthetic events) stop at
+// their shadow root, so the <body> listener never sees one from inside a
+// component's shadow DOM (#4160). Component registers each shadow root it
+// attaches; it gets the same listeners, for non-composed events only, since
+// <body> already handles composed ones. WeakRefs, so a root can be collected.
+let shadowRoots: WeakRef<ShadowRoot>[] = []
+// collected roots are dropped whenever the list doubles, so a page that makes
+// and discards shadow components (list rows) does not grow it without bound
+let pruneAt = 64
+
+const pruneShadowRoots = (): void => {
+  shadowRoots = shadowRoots.filter((ref) => ref.deref() != null)
+  pruneAt = Math.max(64, shadowRoots.length * 2)
+}
+
+const handleShadowEvent = (event: Event): void => {
+  if (!event.composed) handleBoundEvent(event)
+}
+
+export const delegateShadowRoot = (root: ShadowRoot): void => {
+  if (shadowRoots.length >= pruneAt) pruneShadowRoots()
+  shadowRoots.push(new WeakRef(root))
+  for (const eventType of handledEventTypes) {
+    root.addEventListener(eventType, handleShadowEvent, true)
+  }
+}
+
+const listenOnShadowRoots = (eventType: string): void => {
+  pruneShadowRoots()
+  for (const ref of shadowRoots) {
+    ref.deref()?.addEventListener(eventType, handleShadowEvent, true)
   }
 }
 
@@ -865,6 +933,7 @@ export function on<E extends HTMLElement, K extends EventType>(
   if (!handledEventTypes.has(eventType)) {
     handledEventTypes.add(eventType)
     delegationRoot().addEventListener(eventType, handleBoundEvent, true)
+    listenOnShadowRoots(eventType)
   }
   return () => {
     eventBindings[eventType].delete(eventHandler as TosiEventHandler)

@@ -122,4 +122,15 @@ export default defineSiteConfig({
   // with a `bun start` you have open on 8018
   port: Number(process.env.PORT) || 8018,
   epub: { author: 'Tonio Loewald' },
+  // Owner accepted 2026-11-18. Remove the entry once picomatch ships a fix.
+  audit: {
+    allow: [
+      {
+        advisory: 'GHSA-fc5q-39xc-vjpf',
+        reason:
+          'picomatch ReDoS, DoS-only; no patched release exists (affects <=4.0.7, the latest). Reached only via typescript-eslint (dev lint tooling, not shipped), matching glob patterns we write.',
+        expires: '2026-12-18',
+      },
+    ],
+  },
 })

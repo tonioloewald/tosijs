@@ -40,6 +40,17 @@ test('vars works', () => {
   expect(vars.h2FontSize_50).toBe('calc(var(--h2-font-size) * -0.5)')
 })
 
+test('a hyphen before trailing digits keeps them in the name (#4159)', () => {
+  // the documented rule, unchanged: trailing digits scale
+  expect(vars.elevation2).toBe('calc(var(--elevation) * 0.02)')
+  // the spelling for a variable whose name ends in digits
+  expect(vars['elevation-2']).toBe('var(--elevation-2)')
+  expect(vars['tosiElevation-2']).toBe('var(--tosi-elevation-2)')
+  expect(vars['h1-2']).toBe('var(--h1-2)')
+  // a negative scale is still a scale
+  expect(vars.elevation_2).toBe('calc(var(--elevation) * -0.02)')
+})
+
 test('initVars works', () => {
   expect(
     initVars({
@@ -286,6 +297,27 @@ test('StyleSheet with proxy is observant', async () => {
   // Stylesheet should have been updated
   expect(el?.textContent).toContain('color: green')
   el?.remove()
+})
+
+test('StyleSheet with an existing id updates it in place (#4161)', () => {
+  const first = StyleSheet('reuse-sheet-4161', { body: { color: 'red' } })
+  const second = StyleSheet('reuse-sheet-4161', { body: { color: 'blue' } })
+  expect(second).toBe(first)
+  expect(document.querySelectorAll('#reuse-sheet-4161').length).toBe(1)
+  expect(second.textContent).toContain('color: blue')
+  expect(second.textContent).not.toContain('color: red')
+  second.remove()
+})
+
+test('a replaced observant spec stops driving the sheet (#4161)', async () => {
+  const { oldTheme4161 } = tosi({ oldTheme4161: { body: { color: 'red' } } })
+  const sheet = StyleSheet('replaced-sheet-4161', oldTheme4161)
+  StyleSheet('replaced-sheet-4161', { body: { color: 'blue' } })
+  oldTheme4161.body.color = 'green'
+  await updates()
+  expect(sheet.textContent).toContain('color: blue')
+  expect(sheet.textContent).not.toContain('green')
+  sheet.remove()
 })
 
 test('onStylesheetChange notifies when observant stylesheet updates', async () => {

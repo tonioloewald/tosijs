@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=c24ebeabb089" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=1d31149d97cb" data-tosi-doc-system />
   <title>Custom Bindings and Events — tosijs</title>
   <meta name="description" content="bind() syncs application state to DOM elements via path-based observers. Plus on() for event handlers and touchElement() for forced updates." />
   <link rel="canonical" href="https://tosijs.net/bind/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=6e9420a04b24" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=f3796100dd07" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="bind.ts">
 <h1 id="custom-bindings-and-events-bind-on">Custom Bindings and Events (bind, on)</h1>
 <p><code>bind()</code> lets you synchronize data / application state to the user-interface reliably,
@@ -218,14 +218,21 @@ works).</p>
 shadow boundaries, and the dispatcher resolves the true origin via
 <code>composedPath()</code> (retargeting would otherwise hide it) and continues delegation
 up through shadow hosts to light-DOM ancestors. Closed shadow roots stay
-closed. (Note that <em>data</em> bindings deliberately do not operate inside shadow
+closed.</p>
+<p>Events that are <strong>not</strong> composed — <code>change</code>, and most events a component
+dispatches itself — stop at their shadow root, and never reach the listener on
+<code>&lt;body&gt;</code>. Inside a <code>Component</code>&#39;s shadow root <code>on()</code> handlers still see them
+(each shadow root a Component attaches gets the same delegated listeners), and
+delegation stops at the root, exactly where the event does. A shadow root
+tosijs did not attach sees composed events only.</p>
+<p>(Note that <em>data</em> bindings deliberately do not operate inside shadow
 DOM — a component, with or without a shadow DOM, is bound like an <code>&lt;input&gt;</code>,
 via its <code>value</code>; see the Component docs.)</p>
 <p>This behavior needs a real browser to observe (a composed event is only
 <em>retargeted</em> to its shadow host outside jsdom/happy-dom), so it is verified
 in-browser here:</p>
-<pre><code class="language-test">import { elements, on } from &#39;tosijs&#39;
-const { button } = elements
+<pre><code class="language-test">import { elements, on, Component } from &#39;tosijs&#39;
+const { button, input } = elements
 
 test(&#39;on() fires for a click originating inside an open shadow root&#39;, () =&gt; {
   const host = document.createElement(&#39;div&#39;)
@@ -250,6 +257,23 @@ test(&#39;delegation crosses the shadow boundary to a light-DOM ancestor&#39;, (
   on(outer, &#39;click&#39;, () =&gt; { heard++ })
   inner.click()
   expect(heard).toBe(1)
+})
+
+test(&#39;a non-composed change inside a Component shadow root reaches on()&#39;, () =&gt; {
+  class ShadowChangeDemo extends Component {
+    static preferredTagName = &#39;shadow-change-demo&#39;
+    static shadowStyleSpec = { &#39;:host&#39;: { display: &#39;block&#39; } }
+    changes = 0
+    content = () =&gt; input({ onChange: () =&gt; { this.changes++ } })
+  }
+  const demo = ShadowChangeDemo.elementCreator()()
+  preview.append(demo)
+  let outside = 0
+  on(preview, &#39;change&#39;, () =&gt; { outside++ })
+  const field = demo.shadowRoot.querySelector(&#39;input&#39;)
+  field.dispatchEvent(new Event(&#39;change&#39;, { bubbles: true }))
+  expect(demo.changes).toBe(1)
+  expect(outside).toBe(0)
 })
 </code></pre>
 <h2 id="touchelement"><code>touchElement()</code></h2>
@@ -370,6 +394,6 @@ test(&#39;an element bound while detached hydrates when it is inserted&#39;, asy
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=c24ebeabb089"></script>
+  <script src="../iife.js?v=1d31149d97cb"></script>
 </body>
 </html>

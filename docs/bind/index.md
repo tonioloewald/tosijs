@@ -219,7 +219,16 @@ works).
 shadow boundaries, and the dispatcher resolves the true origin via
 `composedPath()` (retargeting would otherwise hide it) and continues delegation
 up through shadow hosts to light-DOM ancestors. Closed shadow roots stay
-closed. (Note that *data* bindings deliberately do not operate inside shadow
+closed.
+
+Events that are **not** composed — `change`, and most events a component
+dispatches itself — stop at their shadow root, and never reach the listener on
+`<body>`. Inside a `Component`'s shadow root `on()` handlers still see them
+(each shadow root a Component attaches gets the same delegated listeners), and
+delegation stops at the root, exactly where the event does. A shadow root
+tosijs did not attach sees composed events only.
+
+(Note that *data* bindings deliberately do not operate inside shadow
 DOM — a component, with or without a shadow DOM, is bound like an `<input>`,
 via its `value`; see the Component docs.)
 
@@ -228,8 +237,8 @@ This behavior needs a real browser to observe (a composed event is only
 in-browser here:
 
 ```test
-import { elements, on } from 'tosijs'
-const { button } = elements
+import { elements, on, Component } from 'tosijs'
+const { button, input } = elements
 
 test('on() fires for a click originating inside an open shadow root', () => {
   const host = document.createElement('div')
@@ -254,6 +263,23 @@ test('delegation crosses the shadow boundary to a light-DOM ancestor', () => {
   on(outer, 'click', () => { heard++ })
   inner.click()
   expect(heard).toBe(1)
+})
+
+test('a non-composed change inside a Component shadow root reaches on()', () => {
+  class ShadowChangeDemo extends Component {
+    static preferredTagName = 'shadow-change-demo'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    changes = 0
+    content = () => input({ onChange: () => { this.changes++ } })
+  }
+  const demo = ShadowChangeDemo.elementCreator()()
+  preview.append(demo)
+  let outside = 0
+  on(preview, 'change', () => { outside++ })
+  const field = demo.shadowRoot.querySelector('input')
+  field.dispatchEvent(new Event('change', { bubbles: true }))
+  expect(demo.changes).toBe(1)
+  expect(outside).toBe(0)
 })
 ```
 

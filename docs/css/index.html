@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=c24ebeabb089" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=1d31149d97cb" data-tosi-doc-system />
   <title>CSS — tosijs</title>
   <meta name="description" content="Utilities for writing CSS as JS objects, generating stylesheets, and working with CSS variables and themes via css(), vars, and varDefault()." />
   <link rel="canonical" href="https://tosijs.net/css/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=6e9420a04b24" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=f3796100dd07" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="css.ts">
 <h1 id="css">CSS</h1>
 <p><code>tosijs</code> provides a collection of utilities for working with CSS rules that
@@ -193,6 +193,17 @@ a camelCase property, e.g.</p>
 <blockquote>
 <p><strong>it isn&#39;t called <code>var</code></strong> because that&#39;s a reserved word!</p>
 </blockquote>
+<blockquote>
+<p><strong>A name ending in digits is read as a scale.</strong> <code>vars.elevation2</code> is
+<code>calc(var(--elevation) * 0.02)</code>, not <code>var(--elevation-2)</code>, and the color
+suffixes work the same way (<code>vars.brand50b</code>; see below). Nothing warns: the
+result is valid CSS until the browser finds <code>--elevation</code> is not a number.
+To name a variable that ends in digits, put a hyphen before them:</p>
+<pre><code>vars[&#39;elevation-2&#39;] // &#39;var(--elevation-2)&#39;
+vars[&#39;h1-2&#39;]        // &#39;var(--h1-2)&#39;
+</code></pre>
+<p>Digits inside a name are fine (<code>vars.h1Size</code> is <code>var(--h1-size)</code>).</p>
+</blockquote>
 <h3 id="vardefault">varDefault</h3>
 <p><code>varDefault</code> is a proxy object just like <code>vars</code> except that it returns a
 <code>function</code> that takes a property and renders it as a css variable reference
@@ -316,6 +327,9 @@ the javascript payload.</p>
 <h2 id="stylesheetid-string-stylespec-tosistylesheet-htmlstyleelement">StyleSheet(id: string, styleSpec: TosiStyleSheet): HTMLStyleElement</h2>
 <p>Creates a <code>&lt;style&gt;</code> element (with the given <code>id</code>) in <code>document.head</code> and returns
 it, so you can remove or otherwise manage it later.</p>
+<p><strong>Calling it again with the same <code>id</code> updates that element in place</strong> and
+returns it, so it is safe to call on every theme change. The new spec replaces
+the old one: if the old one was a proxy, it stops driving the sheet.</p>
 <p><strong>If you pass a <code>tosi</code> proxy, the stylesheet is <em>observant</em>:</strong> change the proxy and
 the stylesheet regenerates <strong>in place</strong> — no re-rendering, no re-mounting, no
 manual plumbing. This is the intended way to build themes.</p>
@@ -536,6 +550,6 @@ unsub()
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=c24ebeabb089"></script>
+  <script src="../iife.js?v=1d31149d97cb"></script>
 </body>
 </html>

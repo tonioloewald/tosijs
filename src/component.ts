@@ -990,7 +990,7 @@ import { validateAgainstConstraints } from './form-validation'
 import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR } from './metadata'
-import { SHADOW_ADVICE } from './bind'
+import { SHADOW_ADVICE, delegateShadowRoot } from './bind'
 import {
   contractViolation,
   setContractValidator,
@@ -2875,6 +2875,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       }
       if (styleNode) {
         const shadow = this.attachShadow({ mode: 'open' })
+        delegateShadowRoot(shadow)
         shadow.appendChild(styleNode.cloneNode(true))
         // classified above — everything here is a Node or a string
         appendContentToElement(

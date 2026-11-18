@@ -6,6 +6,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.12] - 2026-11-18
+
+Three fixes reported by tosijs-ui 1.18.0.
+
+### Fixed
+
+- **`on()` handlers inside a Component's shadow root now see events that are
+  not composed** (#4160). `change`, and most events a component dispatches
+  itself, stop at their shadow root, so the delegated listener on `<body>`
+  never saw them: `onChange` on a field in a shadow-DOM component silently
+  never fired. Each shadow root a Component attaches now gets the same
+  delegated listeners, for non-composed events only (composed ones are still
+  handled once, at `<body>`). Delegation of a non-composed event stops at the
+  root, where the event itself stops, so a light-DOM ancestor's handler does
+  not fire for it. Shadow roots tosijs did not attach still see composed
+  events only. Verified in-browser by a doc test (*bind* page).
+  **Blast radius:** a component that worked around this with its own
+  listeners (tosijs-ui's `<tosi-theme-editor>`) will now see each such event
+  twice, once from each, until the workaround is removed.
+- **`StyleSheet(id, spec)` with an id that is already a `<style>` updates that
+  element in place** and returns it (#4161). Calling it on every theme change
+  used to add a `<style>` to `<head>` each time. If the earlier spec was a
+  proxy, it stops driving the sheet, so a stale theme cannot overwrite the new
+  one. tosijs-ui's `replaceStyleSheet()` is no longer needed.
+- **`vars`: a hyphen before trailing digits keeps them in the name** (#4159).
+  `vars['elevation-2']` is `var(--elevation-2)`; it used to be
+  `calc(var(--elevation-) * 0.02)`, so a variable whose name ends in digits
+  had no spelling. `vars.elevation2` is unchanged (trailing digits scale), and
+  the rule is now stated where `vars` is introduced. No warning is added: the
+  value of the variable is only known to the browser, after the fact.
+
 ## [1.10.11] - 2026-11-11
 
 ### Security

@@ -186,6 +186,17 @@ a camelCase property, e.g.
 
 > **it isn't called `var`** because that's a reserved word!
 
+> **A name ending in digits is read as a scale.** `vars.elevation2` is
+> `calc(var(--elevation) * 0.02)`, not `var(--elevation-2)`, and the color
+> suffixes work the same way (`vars.brand50b`; see below). Nothing warns: the
+> result is valid CSS until the browser finds `--elevation` is not a number.
+> To name a variable that ends in digits, put a hyphen before them:
+>
+>     vars['elevation-2'] // 'var(--elevation-2)'
+>     vars['h1-2']        // 'var(--h1-2)'
+>
+> Digits inside a name are fine (`vars.h1Size` is `var(--h1-size)`).
+
 ### varDefault
 
 `varDefault` is a proxy object just like `vars` except that it returns a
@@ -345,6 +356,10 @@ the javascript payload.
 Creates a `<style>` element (with the given `id`) in `document.head` and returns
 it, so you can remove or otherwise manage it later.
 
+**Calling it again with the same `id` updates that element in place** and
+returns it, so it is safe to call on every theme change. The new spec replaces
+the old one: if the old one was a proxy, it stops driving the sheet.
+
 **If you pass a `tosi` proxy, the stylesheet is *observant*:** change the proxy and
 the stylesheet regenerates **in place** — no re-rendering, no re-mounting, no
 manual plumbing. This is the intended way to build themes.
@@ -498,7 +513,8 @@ import { elements } from './elements'
 import { camelToKabob } from './string-case'
 import { TosiStyleSheet, TosiStyleRule } from './css-types'
 import { warnDeprecated, tosiPath, tosiValue } from './metadata'
-import { observe } from './xin'
+import { observe, unobserve } from './xin'
+import type { Listener } from './path-listener'
 
 // Callbacks to notify when any observant stylesheet regenerates
 const stylesheetChangeCallbacks: Set<() => void> = new Set()
@@ -526,24 +542,45 @@ function notifyStylesheetChange(): void {
 
 // Returns the <style> element so callers can remove or further manipulate the
 // sheet they created (it used to return nothing, leaving no handle at all).
+// the observer each observant sheet holds, so a later call with the same id
+// can drop it rather than let a stale spec overwrite the new one
+const sheetObservers = new WeakMap<HTMLStyleElement, Listener>()
+
 export function StyleSheet(
   id: string,
   styleSpec: TosiStyleSheet
 ): HTMLStyleElement {
   const spec = tosiValue(styleSpec) as TosiStyleSheet
-  const element = elements.style(css(spec))
-  element.id = id
-  document.head.append(element)
+  // the same id updates the sheet in place (#4161): calling this on every
+  // theme change used to fill <head> with one <style> per call
+  const existing = document.getElementById(id)
+  let element: HTMLStyleElement
+  if (existing instanceof HTMLStyleElement) {
+    element = existing
+    element.textContent = css(spec)
+    const previous = sheetObservers.get(element)
+    if (previous != null) {
+      unobserve(previous)
+      sheetObservers.delete(element)
+    }
+  } else {
+    element = elements.style(css(spec)) as HTMLStyleElement
+    element.id = id
+    document.head.append(element)
+  }
 
   // If styleSpec is a proxy, observe it for changes
   const path = tosiPath(styleSpec)
   if (path !== undefined) {
-    observe(path, () => {
-      element.textContent = css(tosiValue(styleSpec) as TosiStyleSheet)
-      notifyStylesheetChange()
-    })
+    sheetObservers.set(
+      element,
+      observe(path, () => {
+        element.textContent = css(tosiValue(styleSpec) as TosiStyleSheet)
+        notifyStylesheetChange()
+      })
+    )
   }
-  return element as HTMLStyleElement
+  return element
 }
 
 // CSS properties that accept unitless numbers (no px suffix), split by whether
@@ -707,7 +744,11 @@ export const vars = new Proxy<VarsType>({} as VarsType, {
         /^([-\w]*?)((_)?(\d+)(\w?))?$/
       ) || ['', prop]
       const varName = `--${_varName}`
-      if (scaleText != null) {
+      // a hyphen before the digits makes them part of the name (#4159):
+      // vars['elevation-2'] is var(--elevation-2), not a scaled `--elevation-`
+      if (scaleText != null && isNegative == null && _varName.endsWith('-')) {
+        target[prop] = `var(--${prop})`
+      } else if (scaleText != null) {
         const scale =
           isNegative == null
             ? Number(scaleText) / 100

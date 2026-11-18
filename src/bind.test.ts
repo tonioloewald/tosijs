@@ -10,6 +10,7 @@ import {
   _resetShadowWarning,
 } from './bind'
 import { bindings } from './bindings'
+import { Component } from './component'
 
 test('element binding works', async () => {
   const { div, input } = elements
@@ -454,6 +455,61 @@ test('delegation crosses the shadow boundary to light-DOM ancestors', () => {
   inner.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
   expect(outerHeard).toBe(1)
   outer.remove()
+})
+
+describe('non-composed events inside a Component shadow root (#4160)', () => {
+  class ZzShadowField extends Component {
+    static preferredTagName = 'zz-shadow-field-4160'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    heard: string[] = []
+    content = () =>
+      elements.input({
+        onChange: () => this.heard.push('change'),
+        onInput: () => this.heard.push('input'),
+      })
+  }
+  const shadowField = ZzShadowField.elementCreator()
+  const mount = () => {
+    const outer = elements.div()
+    const field = shadowField() as ZzShadowField
+    outer.append(field)
+    document.body.append(outer)
+    const input = field.shadowRoot!.querySelector('input')!
+    return { outer, field, input }
+  }
+
+  test('a non-composed change reaches the handler, once', () => {
+    const { outer, field, input } = mount()
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(field.heard).toEqual(['change'])
+    outer.remove()
+  })
+
+  test('a composed event is still handled once, not twice', () => {
+    const { outer, field, input } = mount()
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+    expect(field.heard).toEqual(['input'])
+    outer.remove()
+  })
+
+  test('delegation stops at the root, where the event does', () => {
+    const { outer, input } = mount()
+    let outerHeard = 0
+    on(outer as HTMLElement, 'change', () => outerHeard++)
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(outerHeard).toBe(0)
+    outer.remove()
+  })
+
+  test('an event type first registered after the root exists', () => {
+    const { outer, field, input } = mount()
+    let heard = 0
+    on(input, 'zz-late-4160' as any, () => heard++)
+    input.dispatchEvent(new Event('zz-late-4160', { bubbles: true }))
+    expect(heard).toBe(1)
+    expect(field.heard).toEqual([])
+    outer.remove()
+  })
 })
 
 test('bound elements do not re-render for name-prefix sibling paths (H-1)', async () => {

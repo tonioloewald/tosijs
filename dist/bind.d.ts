@@ -16,6 +16,7 @@ export declare const SHADOW_ADVICE: string;
 export declare function _resetShadowWarning(): void;
 export declare const warnIfShadowed: (element: Element, what: string) => void;
 export declare function bind<T extends Element = Element>(element: T, what: TosiTouchableType | TosiBindingSpec | TakeDescriptor, binding: TosiBinding<T>, options?: BindingOptions): T;
+export declare const delegateShadowRoot: (root: ShadowRoot) => void;
 type RemoveListener = VoidFunction;
 export declare function on<E extends HTMLElement, K extends EventType>(element: E, eventType: K, eventHandler: TosiEventHandler<HTMLElementEventMap[K], E>): RemoveListener;
 export {};

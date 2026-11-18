@@ -184,6 +184,17 @@ a camelCase property, e.g.
 
 > **it isn't called `var`** because that's a reserved word!
 
+> **A name ending in digits is read as a scale.** `vars.elevation2` is
+> `calc(var(--elevation) * 0.02)`, not `var(--elevation-2)`, and the color
+> suffixes work the same way (`vars.brand50b`; see below). Nothing warns: the
+> result is valid CSS until the browser finds `--elevation` is not a number.
+> To name a variable that ends in digits, put a hyphen before them:
+>
+>     vars['elevation-2'] // 'var(--elevation-2)'
+>     vars['h1-2']        // 'var(--h1-2)'
+>
+> Digits inside a name are fine (`vars.h1Size` is `var(--h1-size)`).
+
 ### varDefault
 
 `varDefault` is a proxy object just like `vars` except that it returns a
@@ -342,6 +353,10 @@ the javascript payload.
 
 Creates a `<style>` element (with the given `id`) in `document.head` and returns
 it, so you can remove or otherwise manage it later.
+
+**Calling it again with the same `id` updates that element in place** and
+returns it, so it is safe to call on every theme change. The new spec replaces
+the old one: if the old one was a proxy, it stops driving the sheet.
 
 **If you pass a `tosi` proxy, the stylesheet is *observant*:** change the proxy and
 the stylesheet regenerates **in place** — no re-rendering, no re-mounting, no
