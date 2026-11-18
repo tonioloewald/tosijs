@@ -35,6 +35,10 @@ test('every inline doc test passes (the whole ```test tier)', async ({
   test.setTimeout(180_000)
 
   await page.goto('/')
+  // the runner publishes its promise after the page's modules load, which can
+  // be after goto() resolves: reading it at once failed a release-doctor run
+  // in 648ms with nothing run (1.10.12)
+  await page.waitForFunction(() => (window as any).__docTestResults != null)
   const results = (await page.evaluate(
     () => (window as any).__docTestResults as Promise<DocTestResults>
   )) as DocTestResults
