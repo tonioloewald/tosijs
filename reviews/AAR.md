@@ -4,6 +4,23 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.12 — 2026-11-18
+
+- **Went well:** three tosijs-ui reports fixed in one patch, each pinned by a
+  test that fails with the fix reverted; the always-on review earned its cost
+  by finding a regression in the first fix before the tag.
+- **Didn't:** the #4160 fix ran handlers twice for slotted light-DOM content
+  (B1). Its tests were written in Happy DOM, which does not route slotted
+  events through the shadow root, so the suite was green over the bug. Fixed
+  with a browser doc test; the trap is now in CLAUDE.md and testing.md.
+- **Surprised:** a new HIGH advisory (picomatch, no patched release) blocked
+  the build; owner gated it for 30 days. Two tools kept separate exemption
+  lists; now one, in `package.json`.
+- **Friction:** a Tier 0 browser run failed in 648ms with nothing run: our
+  doc-tests spec, a hand copy of tosijs-ui's, had drifted and read the results
+  before the runner set them (tosijs-ui #4178).
+- **Cycle:** one (BLOCK → remediation → re-review GO_WITH_FOLLOWUPS).
+
 ## 1.10.11 — 2026-11-14
 
 - **Went well:** the pre-minor review BLOCKed on two real holes in new code:
