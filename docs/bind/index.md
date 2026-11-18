@@ -281,6 +281,24 @@ test('a non-composed change inside a Component shadow root reaches on()', () => 
   expect(demo.changes).toBe(1)
   expect(outside).toBe(0)
 })
+
+test('a slotted light-DOM field is handled once, even through nested slots', () => {
+  class SlotWrapDemo extends Component {
+    static preferredTagName = 'slot-wrap-demo'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    content = () => elements.slot()
+  }
+  const wrap = SlotWrapDemo.elementCreator()
+  let fieldHeard = 0
+  let ancestorHeard = 0
+  const field = input({ onChange: () => { fieldHeard++ } })
+  const outer = wrap(wrap(field))
+  on(outer, 'change', () => { ancestorHeard++ })
+  preview.append(outer)
+  field.dispatchEvent(new Event('change', { bubbles: true }))
+  expect(fieldHeard).toBe(1)
+  expect(ancestorHeard).toBe(1)
+})
 ```
 
 ## `touchElement()`

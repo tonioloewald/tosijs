@@ -283,6 +283,24 @@ test('a non-composed change inside a Component shadow root reaches on()', () => 
   expect(demo.changes).toBe(1)
   expect(outside).toBe(0)
 })
+
+test('a slotted light-DOM field is handled once, even through nested slots', () => {
+  class SlotWrapDemo extends Component {
+    static preferredTagName = 'slot-wrap-demo'
+    static shadowStyleSpec = { ':host': { display: 'block' } }
+    content = () => elements.slot()
+  }
+  const wrap = SlotWrapDemo.elementCreator()
+  let fieldHeard = 0
+  let ancestorHeard = 0
+  const field = input({ onChange: () => { fieldHeard++ } })
+  const outer = wrap(wrap(field))
+  on(outer, 'change', () => { ancestorHeard++ })
+  preview.append(outer)
+  field.dispatchEvent(new Event('change', { bubbles: true }))
+  expect(fieldHeard).toBe(1)
+  expect(ancestorHeard).toBe(1)
+})
 ```
 
 ## `touchElement()`
@@ -887,8 +905,16 @@ const pruneShadowRoots = (): void => {
   pruneAt = Math.max(64, shadowRoots.length * 2)
 }
 
+// only events that START in this root: a slotted light-DOM node's event also
+// passes through the root it is slotted into, but its own root is the
+// document, so <body> handles it (and handled it twice before this check)
 const handleShadowEvent = (event: Event): void => {
-  if (!event.composed) handleBoundEvent(event)
+  if (
+    !event.composed &&
+    (event.target as Node).getRootNode() === event.currentTarget
+  ) {
+    handleBoundEvent(event)
+  }
 }
 
 export const delegateShadowRoot = (root: ShadowRoot): void => {
