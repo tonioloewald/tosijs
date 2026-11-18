@@ -18,7 +18,8 @@ Three fixes reported by tosijs-ui 1.18.0.
   never saw them: `onChange` on a field in a shadow-DOM component silently
   never fired. Each shadow root a Component attaches now gets the same
   delegated listeners, for non-composed events only (composed ones are still
-  handled once, at `<body>`). Delegation of a non-composed event stops at the
+  handled once, at `<body>`), and only for events that start inside that
+  root: content slotted into it is still handled once, at `<body>`. Delegation of a non-composed event stops at the
   root, where the event itself stops, so a light-DOM ancestor's handler does
   not fire for it. Shadow roots tosijs did not attach still see composed
   events only. Verified in-browser by a doc test (*bind* page).
@@ -29,7 +30,7 @@ Three fixes reported by tosijs-ui 1.18.0.
   element in place** and returns it (#4161). Calling it on every theme change
   used to add a `<style>` to `<head>` each time. If the earlier spec was a
   proxy, it stops driving the sheet, so a stale theme cannot overwrite the new
-  one. tosijs-ui's `replaceStyleSheet()` is no longer needed.
+  one (also when the old sheet was removed from `<head>` in between). tosijs-ui's `replaceStyleSheet()` is no longer needed.
 - **`vars`: a hyphen before trailing digits keeps them in the name** (#4159).
   `vars['elevation-2']` is `var(--elevation-2)`; it used to be
   `calc(var(--elevation-) * 0.02)`, so a variable whose name ends in digits

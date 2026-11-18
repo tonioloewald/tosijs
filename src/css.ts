@@ -542,9 +542,10 @@ function notifyStylesheetChange(): void {
 
 // Returns the <style> element so callers can remove or further manipulate the
 // sheet they created (it used to return nothing, leaving no handle at all).
-// the observer each observant sheet holds, so a later call with the same id
-// can drop it rather than let a stale spec overwrite the new one
-const sheetObservers = new WeakMap<HTMLStyleElement, Listener>()
+// the observer each id's observant sheet holds, so a later call with the same
+// id drops it rather than let a stale spec overwrite the new one. Keyed by id,
+// not element: a sheet removed from <head> is no longer found by id
+const sheetObservers = new Map<string, Listener>()
 
 export function StyleSheet(
   id: string,
@@ -553,16 +554,16 @@ export function StyleSheet(
   const spec = tosiValue(styleSpec) as TosiStyleSheet
   // the same id updates the sheet in place (#4161): calling this on every
   // theme change used to fill <head> with one <style> per call
+  const previous = sheetObservers.get(id)
+  if (previous != null) {
+    unobserve(previous)
+    sheetObservers.delete(id)
+  }
   const existing = document.getElementById(id)
   let element: HTMLStyleElement
   if (existing instanceof HTMLStyleElement) {
     element = existing
     element.textContent = css(spec)
-    const previous = sheetObservers.get(element)
-    if (previous != null) {
-      unobserve(previous)
-      sheetObservers.delete(element)
-    }
   } else {
     element = elements.style(css(spec)) as HTMLStyleElement
     element.id = id
@@ -573,7 +574,7 @@ export function StyleSheet(
   const path = tosiPath(styleSpec)
   if (path !== undefined) {
     sheetObservers.set(
-      element,
+      id,
       observe(path, () => {
         element.textContent = css(tosiValue(styleSpec) as TosiStyleSheet)
         notifyStylesheetChange()

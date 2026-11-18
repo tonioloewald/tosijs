@@ -320,6 +320,20 @@ test('a replaced observant spec stops driving the sheet (#4161)', async () => {
   sheet.remove()
 })
 
+test('a removed sheet stops following its old proxy once the id is reused (#4161)', async () => {
+  const { detachedTheme4161 } = tosi({
+    detachedTheme4161: { body: { color: 'red' } },
+  })
+  const old = StyleSheet('detached-sheet-4161', detachedTheme4161)
+  old.remove()
+  const fresh = StyleSheet('detached-sheet-4161', { body: { color: 'blue' } })
+  expect(fresh).not.toBe(old)
+  detachedTheme4161.body.color = 'green'
+  await updates()
+  expect(old.textContent).not.toContain('green')
+  fresh.remove()
+})
+
 test('onStylesheetChange notifies when observant stylesheet updates', async () => {
   const { notifyTheme } = tosi({
     notifyTheme: {

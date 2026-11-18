@@ -377,6 +377,12 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   Generally: **an environment-suppressed assertion is a passing test that
   proves nothing** — if a guard depends on geometry, layout or timing, make the
   environment supply it rather than trusting a green tick.
+- **Slotted events do not pass through the shadow root.** In a browser a
+  light-DOM node slotted into a shadow root has that root on its event path;
+  in Happy DOM it does not. So a unit test of shadow-root delegation passes for
+  slotted content while the browser runs the handler twice (1.10.12 review
+  B1). Test event paths through slots in the browser lane (a ```` ```test ````
+  fence on the *bind* page).
 - **`bindText` sets `textContent`, which DESTROYS appended children.** A
   fixture like `div({ bindText: x }, input({ type: 'hidden' }))` contains
   nothing by the time anything inspects it, so a containment test written this
