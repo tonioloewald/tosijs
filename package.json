@@ -63,6 +63,12 @@
     "format:check": "bun prettier --check ."
   },
   "releaseDoctor": {
+    "auditExemptions": {
+      "GHSA-fc5q-39xc-vjpf": {
+        "reason": "picomatch ReDoS, DoS-only; no patched release exists (affects <=4.0.7, the latest). Reached only via typescript-eslint (dev lint tooling, not shipped), matching glob patterns we write. Owner accepted 2026-11-18.",
+        "expires": "2026-12-18"
+      }
+    },
     "attestedLanes": [
       "test",
       "test:browser"
