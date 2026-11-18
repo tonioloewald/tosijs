@@ -114,6 +114,34 @@ its value on the 110 files where the value is, and can no longer be held
 permanently red by a printer bug. Re-check idempotency before ever
 re-enabling it.
 
+## happy-dom
+
+### OPEN: happy-dom#2623 — events on slotted nodes skip the slot and the shadow root
+
+<https://github.com/capricorn86/happy-dom/issues/2623>, filed 2026-11-18
+against **21.0.4** (the latest, and our pin).
+
+In a browser a light-DOM node assigned to a `<slot>` has that slot and its
+shadow root on its event path. In happy-dom `Event.composedPath()` climbs by
+`parentNode` only, so the event goes from the node straight to the host:
+listeners on the slot and on the shadow root never run. Both `composed: false`
+and `composed: true`. `Element.assignedSlot` is also unimplemented.
+
+```
+happy-dom:  fired [host]                     path INPUT, DIV, BODY, …
+browsers:   fired [slot, shadow-root, host]  path INPUT, SLOT, #document-fragment, DIV, BODY, …
+```
+
+Browser side measured in Chromium 151, Firefox 153 and WebKit 26.5; the
+self-contained repro is in the issue.
+
+**What it cost:** it hid 1.10.12's B1. A unit test of shadow-root delegation
+passed for slotted content while browsers ran the handler twice.
+
+**What we did:** slotted event paths are tested in the browser lane (the
+```` ```test ```` fence on the *bind* page). When this is fixed and adopted,
+the `bind.test.ts` cases can cover slots too.
+
 ## tosijs-floorplan
 
 ### 🐛 floorplan#16 — vendored doc comment cites a tosijs version that never shipped

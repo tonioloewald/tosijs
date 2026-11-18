@@ -382,7 +382,7 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   in Happy DOM it does not. So a unit test of shadow-root delegation passes for
   slotted content while the browser runs the handler twice (1.10.12 review
   B1). Test event paths through slots in the browser lane (a ```` ```test ````
-  fence on the *bind* page).
+  fence on the *bind* page). Filed as happy-dom#2623; see `UPSTREAM.md`.
 - **`bindText` sets `textContent`, which DESTROYS appended children.** A
   fixture like `div({ bindText: x }, input({ type: 'hidden' }))` contains
   nothing by the time anything inspects it, so a containment test written this

@@ -63,12 +63,7 @@
     "format:check": "bun prettier --check ."
   },
   "releaseDoctor": {
-    "auditExemptions": {
-      "GHSA-fc5q-39xc-vjpf": {
-        "reason": "picomatch ReDoS, DoS-only; no patched release exists (affects <=4.0.7, the latest). Reached only via typescript-eslint (dev lint tooling, not shipped), matching glob patterns we write. Owner accepted 2026-11-18.",
-        "expires": "2026-12-18"
-      }
-    },
+    "auditExemptions": {},
     "attestedLanes": [
       "test",
       "test:browser"
@@ -95,7 +90,7 @@
     "@types/react": "^19.2.17",
     "bun-types": "^1.3.14",
     "chokidar": "^4.0.3",
-    "eslint": "^10.8.0",
+    "eslint": "^10.15.0",
     "globals": "^17.8.0",
     "haltija": "^1.11.2",
     "marked": "^16.4.2",
@@ -106,7 +101,7 @@
     "tosijs-schema": "^1.6.0",
     "tosijs-ui": "1.16.38",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.65.0"
+    "typescript-eslint": "^8.73.0"
   },
   "files": [
     "/dist",
@@ -141,9 +136,6 @@
       "**/*.mjs",
       "**/*.d.ts"
     ]
-  },
-  "overrides": {
-    "brace-expansion": ">=5.0.12"
   },
   "bin": {
     "tosijs": "dist/cli.mjs"
