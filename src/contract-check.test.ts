@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'bun:test'
+import { validate } from 'tosijs-schema'
 
 // The validator plug is process-global BY DESIGN (one gate, every
 // declaration site), and { final: true } is permanent BY DESIGN — there is
@@ -133,6 +134,68 @@ describe('setContractValidator — the plug is a security boundary (SEC-13)', ()
       'expected type number'
     )
     expect(contractViolation(3, { type: 'number', minimum: 10 })).toBe(null)
+  })
+})
+
+// 1.10.13 (#4250). `contractViolation` returned `verdict.message`, which is
+// undefined for `false`, and both callers read "no reason" as "no violation".
+// tosijs-schema's `validate` returns a boolean, and the fail-open warning tells
+// the reader to pass it in directly: doing so enforced nothing AND silenced
+// that warning. Present from 1.8.0.
+describe('the verdict protocol: anything but `true` is a violation', () => {
+  test("tosijs-schema's validate, passed in directly, enforces", async () => {
+    const { contractViolation, setContractValidator } = await freshModule()
+    setContractValidator(validate)
+    const schema = { type: 'number', minimum: 5 }
+    expect(contractViolation(1, schema)).toBe('schema violation')
+    expect(contractViolation(7, schema)).toBeNull()
+    // a keyword the built-in subset has never heard of, on another type
+    expect(contractViolation('zebra', { type: 'string', pattern: '^a' })).toBe(
+      'schema violation'
+    )
+    expect(
+      contractViolation('aardvark', { type: 'string', pattern: '^a' })
+    ).toBeNull()
+  })
+
+  // Off-protocol returns fail CLOSED. A truthy non-true value is not "valid":
+  // the result object of an ajv-style engine ({ valid: false, errors }) is
+  // truthy, and a Promise from an async validator is too.
+  const notTrue: Array<[string, unknown]> = [
+    ['false', false],
+    ['undefined (a validator with no return)', undefined],
+    ['null', null],
+    ['0', 0],
+    ['1', 1],
+    ['a string', 'looks fine'],
+    ['a result object', { valid: true }],
+    ['a Promise', Promise.resolve(true)],
+  ]
+  for (const [label, verdict] of notTrue) {
+    test(`a validator returning ${label} refuses the value`, async () => {
+      const { contractViolation, setContractValidator } = await freshModule()
+      setContractValidator((() => verdict) as any)
+      expect(contractViolation(5, { type: 'number' })).toBe('schema violation')
+    })
+  }
+
+  test('an Error says why; an Error with no message still refuses', async () => {
+    const { contractViolation, setContractValidator } = await freshModule()
+    setContractValidator(() => new Error('below the minimum of 5'))
+    expect(contractViolation(1, { type: 'number' })).toBe(
+      'below the minimum of 5'
+    )
+    const second = await freshModule()
+    second.setContractValidator(() => new Error(''))
+    expect(second.contractViolation(1, { type: 'number' })).toBe(
+      'schema violation'
+    )
+  })
+
+  test('`true` is still the one way to say valid', async () => {
+    const { contractViolation, setContractValidator } = await freshModule()
+    setContractValidator(() => true)
+    expect(contractViolation(1, { type: 'number', minimum: 5 })).toBeNull()
   })
 })
 

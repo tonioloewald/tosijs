@@ -390,6 +390,18 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   "no leak" reading twice, in two different sessions. Bind a *child* span, or
   use a binding that does not own `textContent`.
 
+**The proxy and the path engine are compared, not trusted**
+(`src/proxy-vs-path.test.ts`, 1.10.13). They each answer "what is at this
+path", they were written separately, and every defect that file was written for
+was found by lining them up, not by a failing test. It generates state trees
+from a fixed seed, generates every path into them, and asks the walk,
+`getByPath`, `xin[path]` and `boxed[path]` the same question. **A new container
+shape or path syntax goes into its generator.** What the two still disagree on
+is at the bottom as `test.failing`: each states the RIGHT answer, so the suite
+is green while it is wrong and goes red when someone fixes it, which is the
+prompt to delete the marker (board #4261). Do not "fix" one of those by
+editing its expectation.
+
 ### Two rules about redaction, both paid for in 1.10.2
 
 - **Never decide an element's fate by reading a record you just redacted — ask

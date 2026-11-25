@@ -48,12 +48,12 @@ const myStyleMap = {
 document.head.append(style(css(myStyleMap)))
 ```
 
-There's a convenient `Stylesheet()` function that does all this and adds an id to the
+There's a convenient `StyleSheet()` function that does all this and adds an id to the
 resulting `<style>` element to make it easier to figure out where a given stylesheet
 came from.
 
 ```
-Stylesheet('my-styles', {
+StyleSheet('my-styles', {
   body: {
     color: 'red'
   },
@@ -92,7 +92,7 @@ name, while two creates a default that can be overridden.
 
 ```
 StyleSheet('my-theme', {
-  ':root', {
+  ':root': {
     _fooBar: 'red',
     __bazBar: '10px'
   }
@@ -266,16 +266,16 @@ const styleSpec = {
 
 Because `--background` isn't defined on `document.body` yet, so vars.background_5b
 won't be able to tell what `--background` is going to be yet. So either you need to
-do this in two stags (create a StyleNode that defines the base color `--background`
+do this in two stages (create a StyleNode that defines the base color `--background`
 then define the computed colors and add this) OR use a `Color` instance:
 
 ```
 const background = Color.fromCss('#fafafa')
 
-initVars({
-  background: background.toHTML,
-  blockColor: background.brighten(-0.05).toHTML
-})
+const styleSpec = {
+  _background: background.html,
+  _blockColor: background.brighten(-0.05).html
+}
 ```
 
 Until browsers support color calculations the way they support dimension arithmetic with `calc()`

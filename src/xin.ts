@@ -925,7 +925,7 @@ import {
   updates,
   OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
-import { getByPath, setByPath, assertSafeLeafKey } from './by-path'
+import { getByPath, setByPath, assertSafeLeafKey, isContainer } from './by-path'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1003,7 +1003,7 @@ const boxedScalarTarget = {}
 
 function box<T>(x: T, path: string): T {
   // Objects and functions don't need boxing - they get proxied directly
-  if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
+  if (isContainer(x)) {
     return x
   }
   // For scalars, use the shared target - path is captured in the handler closure
@@ -1419,20 +1419,22 @@ const regHandler = (
     ) {
       let value: TosiValue
       if (prop.includes('=')) {
-        const [idPath, needle] = prop.split('=')
-        value = (target as TosiObject[]).find(
-          (candidate: TosiObject) =>
-            `${getByPath(candidate, idPath) as string}` === needle
-        )
+        // ASK THE PATH ENGINE which item an id segment names. This split the
+        // segment on every '=' and searched the array itself, so an id that
+        // contains one matched another row: `[id=YWJj=]` (base64 padding)
+        // returned the item whose id is `YWJj`, while the same path with a
+        // property after it (which already went through by-path) found the
+        // right one. Two lookups for one question, and they differed.
+        value = getByPath(target, `[${prop}]`)
       } else {
         // we're working around Typescript's incorrect understanding of arrays
         value = (target as TosiArray)[prop as unknown as number]
       }
-      if (value instanceof Object) {
+      if (isContainer(value)) {
         value = tosiValue(value)
         const currentPath = extendPath(path, prop)
         return new Proxy<TosiObject, TosiProxyObject>(
-          value instanceof Function ? value.bind(target) : value,
+          typeof value === 'function' ? value.bind(target) : value,
           regHandler(currentPath, boxScalars)
         ) as TosiValue
       } else {
@@ -1463,7 +1465,7 @@ const regHandler = (
             }
             return result
           }
-        : typeof value === 'object'
+        : isContainer(value)
         ? new Proxy<TosiProxyTarget, TosiObject>(
             tosiValue(value),
             regHandler(extendPath(path, prop), boxScalars)

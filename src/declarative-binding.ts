@@ -170,9 +170,10 @@ import { bind, on, delegationRoot } from './bind'
 import { bindings } from './bindings'
 import { tosiPath } from './metadata'
 import { extendsPath, overlapsPath } from './path-listener'
-import { getByPath, isUnsafeKey } from './by-path'
+import { getByPath, isUnsafeKey, isContainer } from './by-path'
 import { registry } from './registry'
 import { settings } from './settings'
+import { kabobToCamel } from './string-case'
 import type { TosiBinding } from './xin-types'
 
 export type DeclarativeGrant =
@@ -225,9 +226,6 @@ const GESTURES = new Set([
   'keyup',
 ])
 
-const kebabToCamel = (s: string): string =>
-  s.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
-
 const grantPaths = (name: string, grant?: DeclarativeGrant): string[] => {
   if (grant !== undefined && !Array.isArray(grant))
     throw new TypeError(
@@ -258,9 +256,6 @@ const attrBinding = (name: string) => ({
     else element.setAttribute(name, value === true ? '' : String(value))
   },
 })
-
-const isContainer = (value: unknown): boolean =>
-  value !== null && (typeof value === 'object' || typeof value === 'function')
 
 // A two-way binding writes only over a leaf: overwriting a container could
 // replace an action inside it, which a function `actions` grant can't
@@ -369,7 +364,7 @@ export const enableDeclarativeBinding = (
       const spec = name.slice(PREFIX.length)
       const [, kind, target = ''] =
         /^(text|value|bind-value|attr|prop|on)(?:-(.+))?$/.exec(spec) ?? []
-      const prop = kind === 'prop' ? kebabToCamel(target) : target
+      const prop = kind === 'prop' ? kabobToCamel(target) : target
       const reason =
         kind == null ||
         (kind === 'attr' || kind === 'prop' || kind === 'on') !==

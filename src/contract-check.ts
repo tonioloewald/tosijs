@@ -16,12 +16,26 @@ layers:
     import { setContractValidator, getContractValidator } from 'tosijs'
     import { validate } from 'tosijs-schema'
 
-    setContractValidator((value, schema) =>
-      validate(value, schema) ? true : new Error('schema violation')
-    )
+    setContractValidator(validate)
 
-A validator returns `true` or an `Error` whose `message` becomes the
-violation reason.
+A validator returns `true` for a valid value, and **anything else is a
+violation**. A plain `false`, which is what a boolean validator like the one
+above returns, is reported as "schema violation". Return an `Error` to say
+why, and its `message` becomes the reason:
+
+    setContractValidator((value, schema) => {
+      const reasons = []
+      const ok = validate(value, schema, {
+        onError: (at, message) => reasons.push(`${at}: ${message}`),
+      })
+      return ok || new Error(reasons.join('; '))
+    })
+
+> **Before 1.10.13 only an `Error` counted.** A validator that returned
+> `false` was read as "valid", so a boolean validator passed in directly, the
+> way the unenforced-keyword warning told you to, enforced nothing, and
+> installing it silenced that warning too. Affects 1.8.0 to 1.10.12; if you
+> registered a validator that returns a boolean, upgrade.
 
 ## The plug is a security boundary
 
@@ -65,10 +79,14 @@ export const ownContract = (cls: any): any =>
     ? cls.contract
     : undefined
 
+/**
+ * `true` means valid. Anything else is a violation: an `Error` gives the
+ * reason, `false` (a boolean validator) gives none.
+ */
 export type ContractValidator = (
   value: any,
   schema: Record<string, any>
-) => true | Error
+) => boolean | Error
 
 export interface SetContractValidatorOptions {
   /** later replacement (or removal) throws instead of warning */
@@ -222,8 +240,18 @@ export const contractViolation = (value: any, schema: any): string | null => {
     }
   }
   if (contractValidator != null) {
-    const verdict = contractValidator(value, schema)
-    if (verdict !== true) return verdict.message
+    // ANYTHING BUT `true` IS A VIOLATION. This returned `verdict.message`,
+    // which is undefined for `false`, and both callers read "no reason" as
+    // "no violation". So a boolean validator (tosijs-schema's `validate`, the
+    // one the warning above names) enforced nothing, on the plug this page
+    // calls a security boundary, while also silencing that warning.
+    const verdict: unknown = contractValidator(value, schema)
+    if (verdict !== true) {
+      const reason = (verdict as { message?: unknown } | null)?.message
+      return typeof reason === 'string' && reason !== ''
+        ? reason
+        : 'schema violation'
+    }
   }
   return null
 }

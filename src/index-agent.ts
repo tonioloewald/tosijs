@@ -37,11 +37,11 @@ Everything that describes an app to a *non-human* user, behind one door:
 > private `auditView` that no longer exists. If you are working from a cached
 > copy of this page: the exports and the audit agree.)*
 
-**Why a subpath and not the main entry.** The agent surface costs roughly
-**15 kB gzipped**, measured *marginally* — the same ESM bundle built from
-`index.ts` and from `index-browser.ts`, which is this library minus the agent
-surface by construction. An app that never describes itself should not carry
-it. Bundler users would shake it out — but the IIFE (CDN, `<script>`, our own
+**Why a subpath and not the main entry.** The agent surface is the largest
+opt-in piece of the library. Its cost is measured *marginally* — the same ESM
+bundle built from `index.ts` and from `index-browser.ts`, which is this library
+minus the agent surface by construction. An app that never describes itself
+should not carry it. Bundler users would shake it out — but the IIFE (CDN, `<script>`, our own
 doc pages) cannot, and that is the most-loaded artifact we publish. Keeping it
 here means the cost falls only on consumers who opt in, and the default bundle
 stays roughly where 1.7.x left it.

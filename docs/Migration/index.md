@@ -61,9 +61,17 @@ Secrecy is discovered by finding a secret control and locating the binding that
 feeds it. Three shapes are not yet discovered — a custom element carrying
 `data-tosi-secret` inside a bound `<form>`, a shadow component holding a
 password inside a bound `<form>`, and a light-DOM container two or more levels
-up with no `<form>` between. **Marking the control itself, or its immediate
-wrapper, works in all of them** and is the reliable form. Tracked as
+up with no `<form>` between. In each of them the value reads back in cleartext.
+**Mark the element that carries the binding, or any ancestor of it.** That is
+the reliable form, because it leaves nothing to discover. Tracked as
 [tosijs#41](https://github.com/tonioloewald/tosijs/issues/41).
+
+> **Corrected in 1.10.13.** Until then this section said that marking the
+> control itself, or its immediate wrapper, works in all three shapes. It does
+> not: with only the control marked, `read()` returns the value in cleartext in
+> every one of them (re-checked against 1.10.13). If you marked a control on
+> the strength of that advice, re-check it. The detail is under
+> [Secrets](/agent/#secrets) on the agent surface page.
 
 # Upgrading to 1.10.0
 
@@ -289,16 +297,19 @@ the only thing actually removed:
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `data-ref="thing"`                       | `part="thing"` (bare CSS-selector refs still work)                                                                                     |
 | `<xin-blueprint>`, `<xin-loader>` markup | `<tosi-blueprint>`, `<tosi-loader>`. The old tags are **tombstones**: still registered, render nothing, and log exactly what to rename |
-| `<xin-slot>` element                     | `<tosi-slot>` (the rewrite produces it automatically)                                                                                  |
 
 **Deprecated but still working** (their 1.7 warnings named no version, so
 they survive 1.x and now warn naming **2.0**):
 
-| still works         | prefer            |
-| ------------------- | ----------------- |
-| `xinSlot()`         | `tosiSlot()`      |
-| `blueprint()`       | `tosiBlueprint()` |
-| `blueprintLoader()` | `tosiLoader()`    |
+| still works         | prefer                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `xinSlot()`         | `tosiSlot()`                                                                                        |
+| `<xin-slot>` markup | `<tosi-slot>` (same attributes, same composition; a light-DOM `<slot>` is rewritten to it for you) |
+| `blueprint()`       | `tosiBlueprint()`                                                                                   |
+| `blueprintLoader()` | `tosiLoader()`                                                                                      |
+
+> This page listed `<xin-slot>` under **Removed** until 1.10.13. It was not
+> removed: the element is still registered, composes as before, and warns once.
 
 **Behaviour changes worth checking even if you use no removed names** —
 neither had a prior deprecation warning:

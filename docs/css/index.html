@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=13e132f5265e" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ffc21574d962" data-tosi-doc-system />
   <title>CSS — tosijs</title>
   <meta name="description" content="Utilities for writing CSS as JS objects, generating stylesheets, and working with CSS variables and themes via css(), vars, and varDefault()." />
   <link rel="canonical" href="https://tosijs.net/css/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=1854f500120c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=56feedd30121" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="css.ts">
 <h1 id="css">CSS</h1>
 <p><code>tosijs</code> provides a collection of utilities for working with CSS rules that
@@ -74,10 +74,10 @@ const myStyleMap = {
 
 document.head.append(style(css(myStyleMap)))
 </code></pre>
-<p>There&#39;s a convenient <code>Stylesheet()</code> function that does all this and adds an id to the
+<p>There&#39;s a convenient <code>StyleSheet()</code> function that does all this and adds an id to the
 resulting <code>&lt;style&gt;</code> element to make it easier to figure out where a given stylesheet
 came from.</p>
-<pre><code>Stylesheet(&#39;my-styles&#39;, {
+<pre><code>StyleSheet(&#39;my-styles&#39;, {
   body: {
     color: &#39;red&#39;
   },
@@ -106,7 +106,7 @@ least surprising option.</p>
 One bar, turns the camelCase property-name into a --snake-case CSS variable
 name, while two creates a default that can be overridden.</p>
 <pre><code>StyleSheet(&#39;my-theme&#39;, {
-  &#39;:root&#39;, {
+  &#39;:root&#39;: {
     _fooBar: &#39;red&#39;,
     __bazBar: &#39;10px&#39;
   }
@@ -256,14 +256,14 @@ from <code>#3366cc</code> to <code>#cc3366</code> moves <code>--brand_20b</code>
 </code></pre>
 <p>Because <code>--background</code> isn&#39;t defined on <code>document.body</code> yet, so vars.background_5b
 won&#39;t be able to tell what <code>--background</code> is going to be yet. So either you need to
-do this in two stags (create a StyleNode that defines the base color <code>--background</code>
+do this in two stages (create a StyleNode that defines the base color <code>--background</code>
 then define the computed colors and add this) OR use a <code>Color</code> instance:</p>
 <pre><code>const background = Color.fromCss(&#39;#fafafa&#39;)
 
-initVars({
-  background: background.toHTML,
-  blockColor: background.brighten(-0.05).toHTML
-})
+const styleSpec = {
+  _background: background.html,
+  _blockColor: background.brighten(-0.05).html
+}
 </code></pre>
 <p>Until browsers support color calculations the way they support dimension arithmetic with <code>calc()</code>
 this is the miserable existence we all lead. That, or defining huge arrays of color
@@ -550,6 +550,6 @@ unsub()
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=13e132f5265e"></script>
+  <script src="../iife.js?v=ffc21574d962"></script>
 </body>
 </html>

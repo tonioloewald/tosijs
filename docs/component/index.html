@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=13e132f5265e" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ffc21574d962" data-tosi-doc-system />
   <title>Web Components — tosijs</title>
   <meta name="description" content="The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, form association. Declare attributes with withAttributes() so they are typed on this — since 1.10.0 Component has no index signature, so an undeclared this.foo is a type error. static initAttributes is not deprecated (withAttributes sets it, and it adds attributes to an existing class); see Migration." />
   <link rel="canonical" href="https://tosijs.net/component/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=1854f500120c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=56feedd30121" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="component.ts">
 <h1 id="web-components-component">Web Components (Component)</h1>
 <p><strong>tosijs</strong> provides the abstract <code>Component</code> class to make defining
@@ -180,7 +180,7 @@ below, in the same order.</p>
 </tr>
 <tr>
 <td><code>styleNode</code></td>
-<td>The <code>&lt;style&gt;</code> element placed in the shadow root, for a component that has one.</td>
+<td>Deprecated: a <code>&lt;style&gt;</code> element of your own to use in the shadow root. Use <code>static shadowStyleSpec</code>.</td>
 </tr>
 </tbody></table>
 <h3 id="content">content</h3>
@@ -341,7 +341,8 @@ you want to give a <code>&lt;tosi-slot&gt;</code> attributes (such as <code>clas
 explicitly (e.g. using <code>elements.tosiSlot()</code>) rather than using <code>&lt;slot&gt;</code> elements
 and letting them be switched out (because they&#39;ll lose any attributes you give them).</p>
 <blockquote>
-<p>The legacy name <code>&lt;xin-slot&gt;</code> was removed in 1.8.0.</p>
+<p>The legacy name <code>&lt;xin-slot&gt;</code> still composes, and warns once: it is
+deprecated and goes away in 2.0.</p>
 </blockquote>
 <p>Here&#39;s a very simple example:</p>
 <pre><code class="language-js">import { Component, elements } from &#39;tosijs&#39;
@@ -457,15 +458,19 @@ Use them before reading <code>parts</code> on an element that may not have been 
 <a href="https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals"><code>ElementInternals</code></a>,
 used for form values, validation, ARIA and custom states. See
 <a href="#static-formassociated-boolean"><code>static formAssociated</code></a> below.</p>
-<h3 id="stylenode">styleNode</h3>
-<pre><code>styleNode: HTMLStyleElement
+<h3 id="stylenode-deprecated">styleNode (deprecated)</h3>
+<pre><code>styleNode?: HTMLStyleElement
 </code></pre>
-<p><code>styleNode</code> is the <code>&lt;style&gt;</code> element that will be inserted into the element&#39;s
-<code>shadowRoot</code>.</p>
-<p>If a <code>Component</code> subclass has no <code>styleNode</code>, no <code>shadowRoot</code> will be
-created. This reduces the memory and performance cost of the element.</p>
-<p>This is to avoid the performance/memory costs associated with the <code>shadowDOM</code>
-for custom-elements with no styling.</p>
+<p><strong>Deprecated: give the class a <code>static shadowStyleSpec</code> instead</strong> (below).
+Setting <code>styleNode</code> on an instance still works, and warns: that <code>&lt;style&gt;</code>
+element is cloned into a shadow root in place of one built from
+<code>shadowStyleSpec</code>. It is not set for you, so on a component styled with
+<code>shadowStyleSpec</code> it is <code>undefined</code>; the style element is the first child of
+<code>this.shadowRoot</code>.</p>
+<p>A component gets a shadow root only if it has a <code>shadowStyleSpec</code> (or this
+deprecated <code>styleNode</code>). Without one its content is ordinary DOM, which avoids
+the memory and performance cost of a shadow root for an element that needs no
+style isolation.</p>
 <h4 id="notes">Notes</h4>
 <p>Styling custom-elements can be tricky, and it&#39;s worth learning about
 how the <code>:host</code> and <code>:slotted()</code> selectors work.</p>
@@ -777,7 +782,7 @@ called with <code>true</code> it will also trigger a <code>change</code> event.<
 <p><strong>Don&#39;t call this!</strong> Sets up expected behavior for an <code>HTMLElement</code> with
 a value (i.e. triggering a <code>change</code> events and <code>render</code> when the <code>value</code> changes).</p>
 <h3 id="private-hydrate-void">private hydrate(): void</h3>
-<p><strong>Don&#39;t call this</strong> Appends <code>content</code> to the element (or its <code>shadowRoot</code> if it has a <code>styleNode</code>)</p>
+<p><strong>Don&#39;t call this</strong> Appends <code>content</code> to the element (or to its <code>shadowRoot</code>, which it gets if the class has a <code>shadowStyleSpec</code>)</p>
 <h3 id="connectedcallback-void">connectedCallback(): void</h3>
 <p>If the class has a <code>handleResize</code> handler then a ResizeObserver will trigger
 <code>resize</code> events on the element when its size changes and <code>handleResize</code> will be
@@ -1024,6 +1029,6 @@ in your application using <a href="https://babylonjs.com/">babylonjs</a></li>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=13e132f5265e"></script>
+  <script src="../iife.js?v=ffc21574d962"></script>
 </body>
 </html>

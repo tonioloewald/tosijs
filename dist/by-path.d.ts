@@ -3,6 +3,18 @@ export declare const id: () => string;
 type Part = string | string[];
 type PartArray = Part[];
 declare function pathParts(path: string | PartArray): PartArray;
+/**
+ * The one answer to "can this value hold properties", which is also "does it
+ * get a proxy of its own" (xin.ts) and "may a write descend into it" (below).
+ *
+ * It was asked five ways, each wrong for a different input. `instanceof
+ * Object` is false for a null-prototype object (`Object.groupBy` returns one,
+ * so does a regex match's `groups`) and for an object from another realm, so
+ * those came back from the proxy unproxied, with no path and silent writes,
+ * and a write into one held in an array threw "expected Object". `typeof x
+ * === 'object'` alone is true for null, and `new Proxy(null)` throws.
+ */
+export declare const isContainer: (value: unknown) => boolean;
 export declare class UnsafePathError extends Error {
     constructor(key: string);
 }

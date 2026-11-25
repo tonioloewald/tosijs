@@ -137,7 +137,7 @@ below, in the same order.
 | `parts` | Finds elements in your content by name: `this.parts.caption` is the element with `part="caption"`. |
 | `hydrated`, `whenHydrated` | Whether the content has been built yet, and a promise that resolves once it has. |
 | `internals` | The `ElementInternals` of a form-associated component. |
-| `styleNode` | The `<style>` element placed in the shadow root, for a component that has one. |
+| `styleNode` | Deprecated: a `<style>` element of your own to use in the shadow root. Use `static shadowStyleSpec`. |
 
 ### content
 
@@ -301,7 +301,8 @@ you want to give a `<tosi-slot>` attributes (such as `class` or `style`), create
 explicitly (e.g. using `elements.tosiSlot()`) rather than using `<slot>` elements
 and letting them be switched out (because they'll lose any attributes you give them).
 
-> The legacy name `<xin-slot>` was removed in 1.8.0.
+> The legacy name `<xin-slot>` still composes, and warns once: it is
+> deprecated and goes away in 2.0.
 
 Here's a very simple example:
 
@@ -432,18 +433,21 @@ Present when the class sets `static formAssociated = true`: the element's
 used for form values, validation, ARIA and custom states. See
 [`static formAssociated`](#static-formassociated-boolean) below.
 
-### styleNode
+### styleNode (deprecated)
 
-    styleNode: HTMLStyleElement
+    styleNode?: HTMLStyleElement
 
-`styleNode` is the `<style>` element that will be inserted into the element's
-`shadowRoot`.
+**Deprecated: give the class a `static shadowStyleSpec` instead** (below).
+Setting `styleNode` on an instance still works, and warns: that `<style>`
+element is cloned into a shadow root in place of one built from
+`shadowStyleSpec`. It is not set for you, so on a component styled with
+`shadowStyleSpec` it is `undefined`; the style element is the first child of
+`this.shadowRoot`.
 
-If a `Component` subclass has no `styleNode`, no `shadowRoot` will be
-created. This reduces the memory and performance cost of the element.
-
-This is to avoid the performance/memory costs associated with the `shadowDOM`
-for custom-elements with no styling.
+A component gets a shadow root only if it has a `shadowStyleSpec` (or this
+deprecated `styleNode`). Without one its content is ordinary DOM, which avoids
+the memory and performance cost of a shadow root for an element that needs no
+style isolation.
 
 #### Notes
 
@@ -769,7 +773,7 @@ a value (i.e. triggering a `change` events and `render` when the `value` changes
 
 ### private hydrate(): void
 
-**Don't call this** Appends `content` to the element (or its `shadowRoot` if it has a `styleNode`)
+**Don't call this** Appends `content` to the element (or to its `shadowRoot`, which it gets if the class has a `shadowStyleSpec`)
 
 ### connectedCallback(): void
 

@@ -14,12 +14,26 @@ layers:
     import { setContractValidator, getContractValidator } from 'tosijs'
     import { validate } from 'tosijs-schema'
 
-    setContractValidator((value, schema) =>
-      validate(value, schema) ? true : new Error('schema violation')
-    )
+    setContractValidator(validate)
 
-A validator returns `true` or an `Error` whose `message` becomes the
-violation reason.
+A validator returns `true` for a valid value, and **anything else is a
+violation**. A plain `false`, which is what a boolean validator like the one
+above returns, is reported as "schema violation". Return an `Error` to say
+why, and its `message` becomes the reason:
+
+    setContractValidator((value, schema) => {
+      const reasons = []
+      const ok = validate(value, schema, {
+        onError: (at, message) => reasons.push(`${at}: ${message}`),
+      })
+      return ok || new Error(reasons.join('; '))
+    })
+
+> **Before 1.10.13 only an `Error` counted.** A validator that returned
+> `false` was read as "valid", so a boolean validator passed in directly, the
+> way the unenforced-keyword warning told you to, enforced nothing, and
+> installing it silenced that warning too. Affects 1.8.0 to 1.10.12; if you
+> registered a validator that returns a boolean, upgrade.
 
 ## The plug is a security boundary
 

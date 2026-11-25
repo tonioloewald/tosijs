@@ -969,7 +969,7 @@ export const elements = new Proxy(
   { fragment },
   {
     get(target, tagName: string) {
-      tagName = tagName.replace(/[A-Z]/g, (c) => `-${c.toLocaleLowerCase()}`)
+      tagName = camelToKabob(tagName)
       if ((target as StringMap)[tagName] === undefined) {
         ;(target as StringMap)[tagName] = (...contents: ElementPart[]) =>
           create(tagName, ...contents)

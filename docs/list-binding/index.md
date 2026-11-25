@@ -861,7 +861,7 @@ is used to `touch` the object and trigger updates.
 ```js
 // note that this example is styled by the earlier example
 
-import { elements, tosi } from 'tosijs'
+import { elements, tosi, touch } from 'tosijs'
 const request = await fetch(
   'https://raw.githubusercontent.com/tonioloewald/emoji-metadata/master/emoji-metadata.json'
 )

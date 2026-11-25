@@ -97,18 +97,16 @@ for each item in the source array.
 
 The `list` binding accepts as options:
 - `idPath: string`
-- `initInstance: (element, item: any) => void`
-- `updateInstance: (element, item: any) => void`
 - `virtual: { height: number, … }` (see [virtualized lists](/list-binding/#virtualized-lists) for all of its options)
 - `nonVirtualReason: string` — why a long list deliberately renders every item
+- `filter: (items, needle) => items` and `needle` (a proxy or a path) — see
+  [`filter` and `needle`](/list-binding/#filter-and-needle), the way to filter or sort a bound list
 - `hiddenProp: symbol | string`
 - `visibleProp: symbol | string`
 
-`initInstance` is called once for each element created, and is passed
-that element and the array value that it represents.
-
-Meanwhile, `updateInstance` is called once on creation and then any time the
-array value is updated.
+There is nothing to pass for setting a row up or updating it: bind the
+template's elements to the item with relative paths (`^.name`) and each row is
+filled in, and kept current, by its bindings.
 
 ### Long lists: virtualize, or say why
 

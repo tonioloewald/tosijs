@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=13e132f5265e" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ffc21574d962" data-tosi-doc-system />
   <title>tosijs/agent</title>
   <meta name="description" content="tosijs/agent — the agent surface, the schematic renderer, the contract harnesses and the accessibility audit, in one opt-in subpath." />
   <link rel="canonical" href="https://tosijs.net/index-agent/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=1854f500120c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=56feedd30121" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="index-agent.ts">
 <h1 id="tosijsagent">tosijs/agent</h1>
 <p>Everything that describes an app to a <em>non-human</em> user, behind one door:</p>
@@ -92,11 +92,11 @@ is the one that adjusts.</p>
 private <code>auditView</code> that no longer exists. If you are working from a cached
 copy of this page: the exports and the audit agree.)</em></p>
 </blockquote>
-<p><strong>Why a subpath and not the main entry.</strong> The agent surface costs roughly
-<strong>15 kB gzipped</strong>, measured <em>marginally</em> — the same ESM bundle built from
-<code>index.ts</code> and from <code>index-browser.ts</code>, which is this library minus the agent
-surface by construction. An app that never describes itself should not carry
-it. Bundler users would shake it out — but the IIFE (CDN, <code>&lt;script&gt;</code>, our own
+<p><strong>Why a subpath and not the main entry.</strong> The agent surface is the largest
+opt-in piece of the library. Its cost is measured <em>marginally</em> — the same ESM
+bundle built from <code>index.ts</code> and from <code>index-browser.ts</code>, which is this library
+minus the agent surface by construction. An app that never describes itself
+should not carry it. Bundler users would shake it out — but the IIFE (CDN, <code>&lt;script&gt;</code>, our own
 doc pages) cannot, and that is the most-loaded artifact we publish. Keeping it
 here means the cost falls only on consumers who opt in, and the default bundle
 stays roughly where 1.7.x left it.</p>
@@ -200,6 +200,6 @@ nothing either way.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=13e132f5265e"></script>
+  <script src="../iife.js?v=ffc21574d962"></script>
 </body>
 </html>

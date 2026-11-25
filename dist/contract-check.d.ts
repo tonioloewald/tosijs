@@ -15,7 +15,11 @@
  * this, deliberately and visibly.
  */
 export declare const ownContract: (cls: any) => any;
-export type ContractValidator = (value: any, schema: Record<string, any>) => true | Error;
+/**
+ * `true` means valid. Anything else is a violation: an `Error` gives the
+ * reason, `false` (a boolean validator) gives none.
+ */
+export type ContractValidator = (value: any, schema: Record<string, any>) => boolean | Error;
 export interface SetContractValidatorOptions {
     /** later replacement (or removal) throws instead of warning */
     final?: boolean;

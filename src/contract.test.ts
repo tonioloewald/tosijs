@@ -497,6 +497,67 @@ describe('value-setter enforcement — a contract is an opt-in to being held to 
   })
 })
 
+// 1.10.13 (#4250): the two callers of the validator plug, with tosijs-schema's
+// `validate` installed the way the fail-open warning says to install it. Both
+// read a boolean `false` as "valid" from 1.8.0 to 1.10.12.
+describe('a boolean validator passed in directly is enforced', () => {
+  test('a component value contract refuses what the schema refuses', async () => {
+    const { setContractValidator } = await import('./contract-check')
+    const floor = {
+      value: { type: 'number', minimum: 5 },
+    } as const satisfies ComponentMap
+    class FloorValue extends Component<typeof floor> {
+      static preferredTagName = 'floor-value'
+      static contract = floor
+      value = 9
+    }
+    const el = FloorValue.elementCreator()() as FloorValue
+    document.body.append(el)
+    await updates()
+    setContractValidator(validate)
+    try {
+      expect(() => {
+        el.value = 1
+      }).toThrow('schema violation')
+      expect(el.value).toBe(9) // the refused write changed nothing
+      el.value = 7
+      expect(el.value).toBe(7)
+    } finally {
+      setContractValidator(null)
+      el.remove()
+    }
+  })
+
+  test('agent.write() refuses through an inline contract', async () => {
+    const { setContractValidator } = await import('./contract-check')
+    const { elements } = await import('./elements')
+    tosi({ floorGate: { level: 9 } })
+    const el = elements.input({
+      bindValue: 'floorGate.level',
+      contract: { type: 'number', minimum: 5 },
+    })
+    document.body.append(el)
+    await updates()
+    const agent = (current = enableAgentInterface({
+      global: false,
+      expose: 'all',
+    }))
+    setContractValidator(validate)
+    try {
+      expect(() => agent.write('floorGate.level', 1)).toThrow(
+        /inline contract violation.*schema violation/
+      )
+      expect(agent.read('floorGate.level')).toBe(9)
+      agent.write('floorGate.level', 7)
+      expect(agent.read('floorGate.level')).toBe(7)
+    } finally {
+      setContractValidator(null)
+      // or a failure here leaves a contracted input for later tests to find
+      el.remove()
+    }
+  })
+})
+
 describe('sub-path schema routing — a write is judged as the root it would produce', () => {
   const docsSchema = {
     type: 'array',

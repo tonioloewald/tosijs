@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=13e132f5265e" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ffc21574d962" data-tosi-doc-system />
   <title>Built-in Bindings — tosijs</title>
   <meta name="description" content="The built-in collection of common bindings: value (two-way), text, enabled, disabled, list — plus how to write your own." />
   <link rel="canonical" href="https://tosijs.net/bindings/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=1854f500120c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=56feedd30121" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="bindings.ts">
 <h1 id="built-in-bindings-bindings">Built-in Bindings (bindings)</h1>
 <p><code>bindings</code> is simply a collection of common bindings.</p>
@@ -109,17 +109,16 @@ for each item in the source array.</p>
 <p>The <code>list</code> binding accepts as options:</p>
 <ul>
 <li><code>idPath: string</code></li>
-<li><code>initInstance: (element, item: any) =&gt; void</code></li>
-<li><code>updateInstance: (element, item: any) =&gt; void</code></li>
 <li><code>virtual: { height: number, … }</code> (see <a href="/list-binding/#virtualized-lists">virtualized lists</a> for all of its options)</li>
 <li><code>nonVirtualReason: string</code> — why a long list deliberately renders every item</li>
+<li><code>filter: (items, needle) =&gt; items</code> and <code>needle</code> (a proxy or a path) — see
+<a href="/list-binding/#filter-and-needle"><code>filter</code> and <code>needle</code></a>, the way to filter or sort a bound list</li>
 <li><code>hiddenProp: symbol | string</code></li>
 <li><code>visibleProp: symbol | string</code></li>
 </ul>
-<p><code>initInstance</code> is called once for each element created, and is passed
-that element and the array value that it represents.</p>
-<p>Meanwhile, <code>updateInstance</code> is called once on creation and then any time the
-array value is updated.</p>
+<p>There is nothing to pass for setting a row up or updating it: bind the
+template&#39;s elements to the item with relative paths (<code>^.name</code>) and each row is
+filled in, and kept current, by its bindings.</p>
 <h3 id="long-lists-virtualize-or-say-why">Long lists: virtualize, or say why</h3>
 <p>A list of <strong>more than 10 items</strong> with neither <code>virtual</code> nor <code>nonVirtualReason</code>
 logs a warning, once per list. An unvirtualized list keeps one live, bound DOM
@@ -252,6 +251,6 @@ the old name is deprecated and goes away in 2.0.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=13e132f5265e"></script>
+  <script src="../iife.js?v=ffc21574d962"></script>
 </body>
 </html>

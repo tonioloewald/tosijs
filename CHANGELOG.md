@@ -6,6 +6,112 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [1.10.13] - 2026-11-25
+
+Four defects found by lining up duplicate code for the lean plan
+(`reviews/lean-plan-2026-11.md`), and the documentation that was wrong. None
+is new in 1.10.12.
+
+### Security
+
+- **A contract validator that returns `false` was read as "valid"** (#4250).
+  `setContractValidator()` documented its verdict as `true` or an `Error`, and
+  the check read `verdict.message`, which is `undefined` for `false`; both
+  callers took "no reason" as "no violation". tosijs-schema's `validate`
+  returns a boolean, and the unenforced-keyword warning says to register it
+  directly (`setContractValidator(validate)`), as did the `{ final: true }`
+  example. Doing that enforced nothing beyond the built-in `type` / `enum` /
+  `const` subset, on component `value` contracts and on `agent.write()`
+  through an inline contract, and silenced the warning that would have said
+  so. **Anything but `true` is now a violation**: `false`, `undefined`, a
+  result object, a Promise. An `Error` still gives the reason; without one it
+  is "schema violation".
+  **Affected: 1.8.0 to 1.10.12**, if you registered a validator that returns a
+  boolean. A validator that returns `true` or an `Error` was always enforced.
+  The `ContractValidator` type is now `=> boolean | Error`, so the documented
+  call compiles.
+  **Behaviour change:** a validator that returned some other truthy value to
+  mean "valid" now refuses everything. Return `true`.
+
+### Fixed
+
+- **Case conversion followed the browser's language** (#4239). `camelToKabob`
+  and `kabobToCamel` used the `toLocale*` string methods. In a Turkish or
+  Azerbaijani locale `I` lower-cases to dotless `ı` and `i` upper-cases to
+  dotted `İ`, so `css({ '.x': { alignItems: 'center', zIndex: 2 } })` emitted
+  `align-ıtems: center; z-ındex: 2px;`, `elements.myInput()` made
+  `<my-ınput>`, a component named from its class (`TosiInfoIcon`) failed the
+  tag check and became `custom-elt0`, and an `initAttributes` key such as
+  `maxItems` was observed as `max-ıtems`, so `max-items="7"` in markup never
+  arrived. Reproduced with the published 1.10.12 bundle in Firefox and WebKit
+  with a Turkish locale; WebKit is every browser on iOS. Chromium did not
+  reproduce under locale emulation, so Chrome on a Turkish operating system is
+  unverified. **Every earlier version is affected.** The conversions now use
+  the locale-independent methods, in one implementation (two copies are
+  gone). `tests/locale-case.pw.ts` runs under `tr-TR` in Firefox and WebKit.
+- **`null` inside an array threw when read through a proxy** (#4240).
+  `xin.list[0]`, `xin['list[0]']`, `boxed.list[0]` and `for…of` all threw "A
+  Proxy's 'target' should be an Object", and so did `agent.read('list[0]')`.
+  It now reads as `null`. With it:
+  - an id lookup over an array that holds a `null` (`xin['list[id=x]']`, and
+    `agent.read()` or `agent.write()` by id) threw "null is not an object" from
+    the path engine, and now finds its row;
+  - the path engine answers `null` for a path that runs through `null`, as the
+    proxy always has, where it threw a `TypeError`.
+
+  A list binding over such an array still reports that a binding threw: it
+  expects its items to be objects (#4261).
+- **An object with no prototype came back from the proxy unproxied** (#4240),
+  with no `.path` or `.value`, and a write through it notified nobody.
+  `Object.groupBy()` returns such objects, and so does a regex match's
+  `groups`. They are proxied like any other object now, and writing a property
+  of one held in an array no longer throws "expected Object". The same goes
+  for an object from another realm (an iframe).
+  **Behaviour change:** reading such an object from state gives a proxy where
+  it gave the raw object. `tosiValue()` or `.value` gives the object.
+- **An id containing `=` named another row through the proxy** (#4241). With
+  ids `YWJj` and `YWJj=` (base64 padding), `xin['list[id=YWJj=]']` returned
+  the unpadded row, and its `.path` named a row it was not holding. The same
+  path with a property after it (`list[id=YWJj=].name`) was already correct.
+  The proxy now asks the path engine, like every other id-path read.
+  **Behaviour change:** if two rows share an id, `xin['list[id=1]']` names the
+  last of them, as `xin['list[id=1].name']` and `getByPath` always have. It
+  used to name the first.
+
+### Added
+
+- **`src/proxy-vs-path.test.ts`** generates state trees and every path into
+  them, and asks the walk, `getByPath`, `xin[path]` and `boxed[path]` the same
+  question. The proxy and the path engine were written separately and nothing
+  compared them. Six disagreements it found are **not fixed here**; each is
+  pinned as a test that fails on purpose (#4261): adjacent brackets
+  (`grid[0][1]` reads `undefined` through the proxy), a final `[=key]` segment
+  through `xin`, object keys that contain `=` or `.`, a path that runs past a
+  scalar, and `[=key]` on an object that has `length: 0`.
+
+### Documentation
+
+- **The README's component example threw when run** (`css()` around a
+  `shadowStyleSpec`). Corrected, and run.
+- **`Migration.md` repeated secrecy advice the agent page had retracted.** It
+  said that marking the control itself works in the three shapes of tosijs#41.
+  It does not (re-checked against this release): mark the element that
+  carries the binding, or an ancestor of it.
+- The list binding documented `initInstance` and `updateInstance` options,
+  which do not exist, and left out `filter` and `needle`.
+- `<xin-slot>` was listed as removed in 1.8.0. It is still registered,
+  composes, and warns until 2.0.
+- `styleNode` was described as what gives a component a shadow root
+  (`shadowStyleSpec` does; `styleNode` is deprecated). The metadata page
+  documented the deprecated `xinValue()` / `xinPath()` in place of
+  `tosiValue()` / `tosiPath()`. The CSS page taught `initVars()` with a
+  `toHTML` that `Color` does not have.
+- Smaller ones: `Stylesheet()` for `StyleSheet()`, `Color.fromCSS()` for
+  `fromCss()`, a throttle example that called `debounce` twice, a `:root`
+  example with a comma for a colon, a live list example that called `touch`
+  without importing it, and two hand-typed "15 kB" figures for the agent
+  surface (README's figure is generated).
+
 ## [1.10.12] - 2026-11-18
 
 Three fixes reported by tosijs-ui 1.18.0.

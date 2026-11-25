@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=13e132f5265e" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ffc21574d962" data-tosi-doc-system />
   <title>Metadata — tosijs</title>
   <meta name="description" content="Proxy accessor helpers: tosiAccessor(), the TOSI_ACCESSOR symbol, and tosiPath()/tosiValue() for inspecting boxed proxies safely." />
   <link rel="canonical" href="https://tosijs.net/metadata/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=1854f500120c" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=56feedd30121" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="metadata.ts">
 <h1 id="metadata">Metadata</h1>
 <h2 id="tosiaccessorx-any-tosiaccessor--undefined"><code>tosiAccessor(x: any): TosiAccessor | undefined</code></h2>
@@ -57,26 +57,38 @@ app[TOSI_ACCESSOR].path === &#39;app&#39;
 tosiAccessor(&#39;hello&#39;) === undefined
 tosiAccessor({ foo: 1 }) === undefined
 </code></pre>
-<h2 id="xinvaluex-any-any-deprecated"><code>xinValue(x: any): any</code> (deprecated)</h2>
-<p><code>xinValue</code> strips the <code>xin</code> or <code>boxed</code> proxy off of a value.
-Passes through non-proxy values unchanged. Prefer <code>.value</code> or <code>.tosi.value</code>.</p>
-<pre><code>import { boxed } from &#39;tosijs&#39;
+<h2 id="tosivaluex-any-any"><code>tosiValue(x: any): any</code></h2>
+<p><code>tosiValue</code> gives you the value behind a proxy, and passes anything else through
+unchanged. That is the difference from <code>.value</code>: it is safe to call on
+something that might or might not be a proxy.</p>
+<pre><code>import { tosi, tosiValue } from &#39;tosijs&#39;
 
-const foo = { bar: &#39;hello&#39;, baz: 17 }
-boxed.foo = foo
+const raw = { bar: &#39;hello&#39;, baz: 17 }
+const { foo } = tosi({ foo: raw })
 
-boxed.foo.bar === foo.bar               // false, boxed.foo.bar is a proxy
-boxed.foo === foo                       // false, boxed.foo is a proxy
-boxed.foo.baz === 17                    // false, boxed.foo.baz is a proxy
-boxed.foo.bar.value === &#39;hello&#39;         // true (preferred)
-xinValue(boxed.foo.bar) === &#39;hello&#39;     // true
-boxed.foo.baz.value === 17              // true
-xinValue(boxed.foo) === xinValue(foo)   // true
-foo.xinValue                            // undefined! foo isn&#39;t a proxy
+foo.bar === raw.bar             // false: foo.bar is a proxy
+foo.bar.value === &#39;hello&#39;       // true
+tosiValue(foo.bar) === &#39;hello&#39;  // true
+tosiValue(foo) === raw          // true: the object itself, not a copy
+tosiValue(raw) === raw          // true: not a proxy, so passed through
+tosiValue(&#39;plain&#39;) === &#39;plain&#39;  // true
+raw.value                       // undefined: raw is not a proxy
 </code></pre>
-<h2 id="xinpathx-any-string--undefined-deprecated"><code>xinPath(x: any): string | undefined</code> (deprecated)</h2>
-<p><code>xinPath</code> returns the path of a <code>xin</code> or <code>boxed</code> proxy. Returns <code>undefined</code>
-for non-proxy values. Prefer <code>.path</code> or <code>.tosi.path</code>.</p>
+<h2 id="tosipathx-any-string--undefined"><code>tosiPath(x: any): string | undefined</code></h2>
+<p><code>tosiPath</code> returns the path a proxy stands for, and <code>undefined</code> for anything
+that is not a proxy (a path <em>string</em> included: it is a string, not a proxy).</p>
+<pre><code>import { tosi, tosiPath } from &#39;tosijs&#39;
+
+const raw = { bar: &#39;hello&#39;, baz: 17 }
+const { foo } = tosi({ foo: raw })
+
+tosiPath(foo.bar) === &#39;foo.bar&#39;    // true
+tosiPath(foo) === &#39;foo&#39;            // true
+tosiPath(raw) === undefined        // true
+tosiPath(&#39;foo.bar&#39;) === undefined  // true
+</code></pre>
+<p><code>xinValue()</code> and <code>xinPath()</code> are the deprecated names of these two functions.
+They still work, warn once, and go away in 2.0.</p>
 
   </article>
   <nav class="doc-nav" aria-label="Documentation">
@@ -162,6 +174,6 @@ for non-proxy values. Prefer <code>.path</code> or <code>.tosi.path</code>.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=13e132f5265e"></script>
+  <script src="../iife.js?v=ffc21574d962"></script>
 </body>
 </html>

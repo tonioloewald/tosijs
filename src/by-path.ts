@@ -53,6 +53,20 @@ function pathParts(path: string | PartArray): PartArray {
   }
 }
 
+/**
+ * The one answer to "can this value hold properties", which is also "does it
+ * get a proxy of its own" (xin.ts) and "may a write descend into it" (below).
+ *
+ * It was asked five ways, each wrong for a different input. `instanceof
+ * Object` is false for a null-prototype object (`Object.groupBy` returns one,
+ * so does a regex match's `groups`) and for an object from another realm, so
+ * those came back from the proxy unproxied, with no path and silent writes,
+ * and a write into one held in an array threw "expected Object". `typeof x
+ * === 'object'` alone is true for null, and `new Proxy(null)` throws.
+ */
+export const isContainer = (value: unknown): boolean =>
+  value !== null && (typeof value === 'object' || typeof value === 'function')
+
 const idPathMaps = new WeakMap()
 
 interface IdPathMap {
@@ -238,7 +252,7 @@ function expectArray(obj: any): void {
 }
 
 function expectObject(obj: any): void {
-  if (obj == null || !(obj instanceof Object)) {
+  if (!isContainer(obj)) {
     throw makeError('setByPath failed: expected Object, found', obj)
   }
 }
@@ -247,10 +261,15 @@ function getByPath(obj: TosiObject | TosiArray, path: string): any {
   const parts = pathParts(path)
   let found: TosiObject | TosiArray | TosiScalar = obj
   let i, iMax, j, jMax
-  for (i = 0, iMax = parts.length; found !== undefined && i < iMax; i++) {
+  // `found != null`: a path THROUGH null stops there and answers null, which
+  // is what the proxy has always answered. These guards tested undefined only,
+  // so descending through a null (a `user: null` placeholder, a null array
+  // element, and so any id lookup over an array that holds one) threw a
+  // TypeError from inside the engine.
+  for (i = 0, iMax = parts.length; found != null && i < iMax; i++) {
     const part = parts[i]
     if (Array.isArray(part)) {
-      for (j = 0, jMax = part.length; found !== undefined && j < jMax; j++) {
+      for (j = 0, jMax = part.length; found != null && j < jMax; j++) {
         const key = part[j]
         found = (found as TosiObject)[key]
       }

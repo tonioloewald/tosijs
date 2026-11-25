@@ -4,7 +4,7 @@ Usage:
 
 ```
 const debouncedFunc = debounce(func, 250)
-const throttledFunc = debounce(func, 250)
+const throttledFunc = throttle(func, 250)
 ```
 
 `throttle(voidFunc, interval)` and `debounce(voidFunc, interval)` are utility functions for

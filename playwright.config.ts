@@ -34,10 +34,12 @@ export default defineConfig({
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // iOS scrolls with WebKit: the variable-height virtual list specs (#3302)
     // run there too. Its 200-card motion cases take about two minutes.
+    // So does the locale spec (#4239): WebKit is every browser on iOS, and
+    // it is one of the two engines where a Turkish locale showed the defect.
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      testMatch: /virtual-list-.*\.pw\.ts/,
+      testMatch: /(virtual-list-.*|locale-case)\.pw\.ts/,
     },
   ],
   webServer: {
