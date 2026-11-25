@@ -77,6 +77,11 @@ is new in 1.10.12.
   **Behaviour change:** if two rows share an id, `xin['list[id=1]']` names the
   last of them, as `xin['list[id=1].name']` and `getByPath` always have. It
   used to name the first.
+  A by-id read that ends at the row is now a map lookup where it scanned the
+  array: on a 10,000-row list, about 0.2 ms became about 0.001 ms (Bun,
+  measured). One that finds nothing rebuilds the map, and costs about twice
+  what the scan did (0.2 ms to 0.47 ms), as the path with a property after it
+  already did.
 
 ### Added
 

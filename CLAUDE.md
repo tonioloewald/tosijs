@@ -179,22 +179,35 @@ recorded the deletion, because a later build had left untracked copies on
 disk. **On disk is not in the commit.** The last one is the only ordering-proof
 guard.
 
-**⚠️ THE BROWSER LANE READS `dist/`, AND THE DEV SERVER RESTORES THE COMMITTED
-COPIES — so `bun run test:browser` tests WHAT YOU COMMITTED, not what you just
-built.** Playwright's `webServer` starts a dev server; `buildSite()` wipes
-`dist/`, and `buildLibrary()` restores the **committed** artifacts for anything
-a dev run does not rebuild. A `.pw.ts` that `readFileSync`s `dist/module.js` and
-serves it to the page therefore reads that restored copy.
+**The browser lane tests your WORKING TREE** (measured 2026-11-25, at 1.10.13;
+this section said the opposite until then). Playwright's `webServer` is
+`bun start` with `DEV_NO_WATCH=1`. `buildSite()` wipes `dist/`, then
+`buildLibrary(false)` bundles `index.js`, `module.js`, `main.js`, `core.js` and
+`state.js` **from the source on disk**, and `restoreCommittedDist()` puts back
+only the tracked files that run did not build: `module.debug.js` and
+`module.safe.js`, from the commit. A `.pw.ts` that `readFileSync`s
+`dist/module.js` therefore reads a bundle of whatever is in `src/` right now.
 
-Measured: a tripwire test written to FAIL once a new export landed **passed**,
-because the working `dist/module.js` had the export (1 occurrence) and the
-committed one had 0. The lane was green against a bundle that predated the fix.
+Measured two ways. With a fix uncommitted, `dist/module.js` after a lane run
+held the fix and the committed one did not. And `tests/locale-case.pw.ts` went
+red, then green, as the fix was stashed and restored, with no commit between.
 
-**So: commit `dist/` before running the browser lane on anything that changes
-the published surface** — and remember the existing ordering rule still applies
-in the other direction (the lane deletes `module.debug.js`/`module.safe.js`, so
-re-run `bun run build` *after* it, before committing). The two together mean:
-build → commit → browser lane → build again.
+What follows from it:
+
+- **A green lane on a dirty tree says nothing about the commit.** Commit, then
+  run the lane, as the release steps say. A lane run on a clean tree leaves it
+  clean: the dev build of those five bundles is byte-identical to the committed
+  one.
+- **A browser spec can be mutation-checked by stashing the fix**, with no
+  commit. That is the cheap way to record its red run.
+- After a lane run on a tree that differs from the commit, `module.debug.js`
+  and `module.safe.js` are the COMMITTED copies, older than your source:
+  re-run `bun run build` before committing.
+
+The earlier note (2026-09-17, `5ad71853`) recorded a tripwire spec passing
+against a committed bundle that lacked a new export. The build code was already
+the same in every respect above (checked at that commit), so that measurement
+is unexplained. It does not reproduce.
 
 **Dev-server watch caveat:** `buildSite()` starts by `rm -rf docs`, which wipes the separately-built `docs/iife.js`. The watch rebuild re-runs `buildSite` + `buildDocsBundle` (but skips the slower `buildLibrary` tests/tjs step); if `iife.js` is missing the page 404s into the SPA fallback and "loads as HTML."
 
@@ -383,6 +396,13 @@ rounds of narrowing, because every probe reproduces it. Verified 2026-09-01.
   slotted content while the browser runs the handler twice (1.10.12 review
   B1). Test event paths through slots in the browser lane (a ```` ```test ````
   fence on the *bind* page). Filed as happy-dom#2623; see `UPSTREAM.md`.
+- **No unit environment has a locale.** A defect that depends on the browser's
+  language (case mapping, #4239) is emulated in the unit suite by overriding
+  the `toLocale*` string methods (`src/string-case.test.ts`) and asked of real
+  engines in `tests/locale-case.pw.ts`, which sets `locale: 'tr-TR'`.
+  Playwright's locale changes case mapping in Firefox and WebKit and NOT in
+  Chromium (nor does launching it with `--lang`), so that spec skips on
+  Chromium rather than pass over nothing.
 - **`bindText` sets `textContent`, which DESTROYS appended children.** A
   fixture like `div({ bindText: x }, input({ type: 'hidden' }))` contains
   nothing by the time anything inspects it, so a containment test written this
@@ -682,7 +702,8 @@ Authoritative: `../tosijs-coding-practices/practices/publishing-via-oidc.md`.
    history. (Deliberately NOT a `bun run build` gate: a stale doc is not a broken build,
    and failing the build over it would train everyone to bypass it.)
 5. Commit everything with a `vX.Y.Z: <summary>` message and push. **Commit before any
-   browser lane runs**: it reads the COMMITTED `dist/` (see the browser-lane caveat above).
+   browser lane runs**: the lane tests the working tree, so only a clean tree makes its
+   result a statement about the commit (see the browser-lane note above).
 6. **Dry-run the workflow before tagging**: `gh workflow run publish.yml -f tag=main -f
    dry_run=true`. Every check up to staging, no tag to move if it fails. Without an
    attestation the lanes run in CI and `test:browser` fails there (no TLS certs or
