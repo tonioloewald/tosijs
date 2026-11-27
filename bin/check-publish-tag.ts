@@ -32,9 +32,10 @@ const tag = process.env.npm_config_tag
  * This is the ordering-proof backstop for a defect that no source-order fix
  * inside `bin/site.ts` can close. `buildSite()`'s prebuild runs
  * `rm -rf dist` (tosijs-ui `orchestrator.js`), so EVERY `bun start` wipes the
- * library output and a dev run rebuilds only the non-tjs bundles — leaving
- * `dist/module.debug.js` and `dist/module.safe.js` gone while package.json
- * still exports `./debug` and `./safe`.
+ * library output, and a dev run once rebuilt only some of the bundles,
+ * leaving `dist/module.debug.js` and `dist/module.safe.js` gone while
+ * package.json still exported `./debug` and `./safe`. (Those two bundles are
+ * retired; the gate is general and stays.)
  *
  * The release checklist walks straight into it: step 3 `bun run build`
  * creates them, step 4 `bun run test:browser` launches a dev server that

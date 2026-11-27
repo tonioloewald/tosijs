@@ -279,10 +279,33 @@ describe('entry points', () => {
     // manifest is now a side-effect-free module, so the test can assert on the
     // real thing. (bin/site.ts itself cannot be imported — it executes, and
     // starts the dev server.)
-    const { BUNDLES } = await import('../bin/bundles')
+    const { BUNDLES, RETIRED_ENTRY, RETIRED_SUBPATHS, RETIRED_SOURCE } =
+      await import('../bin/bundles')
     const pkg = JSON.parse(await Bun.file('package.json').text())
 
-    const declared = new Set(BUNDLES.map((b: any) => b.naming))
+    // The retired alias (`tosijs/debug`, `tosijs/safe`) is published and is
+    // not a bundle: it has no budget because it has no code. Hold it to that
+    // here, and the build executes it (bin/site.ts, "THE RETIRED SUBPATHS").
+    expect(RETIRED_SOURCE.length).toBeLessThan(400)
+    expect(RETIRED_SOURCE.trim().endsWith("export * from './module.js'")).toBe(
+      true
+    )
+    // one statement that loads anything, and it is the re-export
+    expect(RETIRED_SOURCE.match(/^(import|export)\b/gm)).toEqual(['export'])
+    const pointingAtIt = Object.entries(pkg.exports as Record<string, any>)
+      .filter(([, entry]) =>
+        Object.values(entry as Record<string, string>).some(
+          (target) =>
+            typeof target === 'string' && target.endsWith(`/${RETIRED_ENTRY}`)
+        )
+      )
+      .map(([subpath]) => subpath)
+    expect(pointingAtIt.sort()).toEqual([...RETIRED_SUBPATHS].sort())
+
+    const declared = new Set([
+      ...BUNDLES.map((b: any) => b.naming),
+      RETIRED_ENTRY,
+    ])
     // every file reachable through the exports map must be a declared
     // artifact — otherwise it ships with no size ceiling and no execution gate
     const published = new Set<string>()
@@ -330,8 +353,7 @@ describe('entry points', () => {
    * rule down is not the same as enforcing it.
    *
    * 1 kB is the slack `bin/bundles.ts` already specifies for the shipped
-   * bundles; the tjs pair carries more because it polices toolchain
-   * regressions rather than a promise to consumers.
+   * bundles.
    */
   test.skipIf(!existsSync('dist/module.js'))(
     'no budget passes by a hair — every bundle keeps real headroom',

@@ -56,7 +56,7 @@ export default defineConfig({
     url: E2E_BASE_URL,
     reuseExistingServer: false,
     ignoreHTTPSErrors: true,
-    timeout: 180_000, // first start does the full doc build (tjs convert)
+    timeout: 180_000, // first start does the full doc build
     stdout: 'pipe',
     stderr: 'pipe',
   },

@@ -1,7 +1,7 @@
 /*
 tosijs build entry — wraps the reusable doc-site system from tosijs-ui/site.
-Project config lives in tosijs-site.config.ts; the library bundling (esm/cjs/iife
-+ tjs-converted debug/safe variants) for the npm package is wired here.
+Project config lives in tosijs-site.config.ts; the library bundling (esm/cjs/iife)
+for the npm package is wired here.
 
   bun bin/site.ts                  # build, then dev server
   bun bin/site.ts --build          # build and exit (0/1)
@@ -13,6 +13,8 @@ import { $ } from 'bun'
 import {
   BUNDLES,
   BundleSpec,
+  RETIRED_ENTRY,
+  RETIRED_SOURCE,
   sourceFingerprint,
   FINGERPRINT_PATH,
 } from './bundles'
@@ -176,16 +178,13 @@ async function buildCli() {
 /**
  * `full` = the PUBLISHING gates. Dev serving does not need them.
  *
- * `bun start` ran all of this before it would serve a page: the whole unit
- * suite, a 53-file `tjs convert`, two extra bundle builds and their smoke
- * imports — 24,575 lines and ~1 MB of output, of which the actual test result
- * was ONE line at 23,941. The watch rebuild already skipped it "for speed"
- * (see the note above `checkInternalLinks`); the same reasoning simply was
- * never applied to the first run.
- *
- * The debug/safe bundles are the tjs half, and they are EXPERIMENTAL and
- * currently inert — the dev server never serves them, and `tjs convert` emits
- * 527 unknown-type warnings producing them.
+ * `bun start` used to run all of this before it would serve a page: the
+ * whole unit suite, a 53-file `tjs convert`, two extra bundle builds and their
+ * smoke imports. The watch rebuild already skipped it "for speed" (see the
+ * note above `checkInternalLinks`); the same reasoning simply was never
+ * applied to the first run. The convert step and its two bundles are gone
+ * (retired, see RETIRED_ENTRY in bin/bundles.ts); the unit suite and the
+ * packaging gates are what `full` buys now.
  */
 /**
  * PUT BACK EVERY TRACKED dist/ ARTIFACT THIS RUN DID NOT BUILD.
@@ -291,7 +290,7 @@ async function buildLibrary(full = true) {
       format: bundle.format,
       outdir: DIST,
       target: 'browser',
-      sourcemap: bundle.sourcemap === false ? 'none' : 'linked',
+      sourcemap: 'linked',
       minify: MINIFY,
       naming: bundle.naming,
     })
@@ -328,7 +327,6 @@ async function buildLibrary(full = true) {
    * the only edit that keeps the map honest.
    */
   const dropInlinedSources = async (bundle: BundleSpec): Promise<void> => {
-    if (bundle.sourcemap === false) return
     const mapPath = `${DIST}/${bundle.naming}.map`
     const file = Bun.file(mapPath)
     if (!(await file.exists())) return
@@ -338,22 +336,12 @@ async function buildLibrary(full = true) {
     await Bun.write(mapPath, JSON.stringify(map))
   }
 
-  for (const bundle of BUNDLES.filter((b) => b.stage !== 'tjs')) {
+  for (const bundle of BUNDLES) {
     await buildBundle(bundle)
   }
-
-  if (full) {
-    const TJS_OUT = path.resolve(PROJECT_ROOT, 'tjs-out')
-    await $`rm -rf ${TJS_OUT}`
-    await $`mkdir -p ${TJS_OUT}`
-    await $`bun tjs convert src/ -o ${TJS_OUT}/`
-    await $`bun tjs convert src/index-debug.ts -o ${TJS_OUT}/index-debug.js`
-    await $`bun tjs convert src/index-safe.ts -o ${TJS_OUT}/index-safe.js`
-
-    for (const bundle of BUNDLES.filter((b) => b.stage === 'tjs')) {
-      await buildBundle(bundle)
-    }
-  }
+  // `tosijs/debug` and `tosijs/safe` are retired; both resolve to this alias
+  // (see RETIRED_ENTRY in bin/bundles.ts)
+  await Bun.write(path.join(DIST, RETIRED_ENTRY), RETIRED_SOURCE)
 
   // Strip the per-file tsc-emitted .js (kept only so generate-css could
   // resolve `tosijs` mid-buildSite) — the published library is only the
@@ -361,27 +349,21 @@ async function buildLibrary(full = true) {
   // (cli.mjs isn't matched by the *.js strip below — .mjs so node runs it as
   // ESM without a package-level "type": "module", which would break main.js's
   // CJS consumers.)
-  // only the bundles this run actually produced — a dev run skips the tjs
-  // pair, and smoking a file that was never built fails for the wrong reason
+  // A dev run builds every bundle now (the tjs pair it used to skip is
+  // retired), so this restores nothing in the ordinary case. It stays as the
+  // net for any tracked dist/ file a run fails to produce.
   if (!full) await restoreCommittedDist()
 
-  const BUILT = full ? BUNDLES : BUNDLES.filter((b) => b.stage !== 'tjs')
-  // NEVER DELETE A PUBLISHED BUNDLE THIS RUN DID NOT BUILD.
+  const BUILT = BUNDLES
+  // NEVER DELETE A PUBLISHED FILE THIS RUN DID NOT BUILD.
   //
-  // The strip loop exists to remove tsc's per-file emissions, and it keyed
-  // off BUILT — which is the *filtered* list. So every `bun start` unlinked
-  // dist/module.debug.js and dist/module.safe.js, the two bundles a dev run
-  // deliberately skips, while package.json still exported ./debug and
-  // ./safe. It had already fired: 5229813 committed their deletion as
-  // collateral. And the release checklist guarantees the bad state — step 3
-  // `bun run build` creates them, step 4 `bun run test:browser` launches a
-  // dev server that deletes them, step 8 publishes. No gate could see it:
-  // the smoke and budget loops both iterate BUILT too.
-  //
-  // BUILT is right for smoking and for budgets. It is wrong for deletion:
-  // what may be REMOVED is "not a published bundle at all", which is the
-  // full set.
-  const keepJs = new Set(BUNDLES.map((b) => b.naming))
+  // The strip loop exists to remove tsc's per-file emissions, and it once
+  // keyed off a FILTERED list of bundles: every `bun start` unlinked the two
+  // bundles a dev run skipped while package.json still exported them, and
+  // 5229813 committed their deletion as collateral. What may be REMOVED is
+  // "not a published file at all", which is the full set below, the retired
+  // alias included.
+  const keepJs = new Set([...BUNDLES.map((b) => b.naming), RETIRED_ENTRY])
   const fs = await import('fs/promises')
   for (const name of await fs.readdir(DIST)) {
     if (name.endsWith('.js') && !keepJs.has(name)) {
@@ -429,8 +411,38 @@ async function buildLibrary(full = true) {
       throw new Error(`dist/${naming} does not ${probe} cleanly`)
     }
   }
+  // THE RETIRED SUBPATHS, executed like every other published file.
+  // `tosijs/debug` and `tosijs/safe` resolve to an alias that must be the
+  // SAME module instance as `tosijs` (one state registry, where the bundles
+  // it replaces were a second copy) and must say it is retired.
+  {
+    const body = `const warnings = []
+       const warn = console.warn
+       console.warn = (...args) => warnings.push(args.join(' '))
+       const retired = await import('${DIST}/${RETIRED_ENTRY}')
+       console.warn = warn
+       const m = await import('${DIST}/module.js')
+       if (!warnings.some((w) => w.includes('tosijs/debug') && w.includes('retired')))
+         throw new Error('no retirement warning')
+       if (Object.keys(retired).length !== Object.keys(m).length)
+         throw new Error('export lists differ')
+       for (const name of Object.keys(m)) {
+         if (retired[name] !== m[name]) throw new Error(name + ' is a second copy')
+       }`
+    const result = Bun.spawnSync(['bun', '-e', `${DOM_SHIM}\n       ${body}`], {
+      stderr: 'pipe',
+      stdout: 'pipe',
+    })
+    if (result.exitCode !== 0) {
+      console.error(`smoke FAILED for dist/${RETIRED_ENTRY}:`)
+      console.error(result.stderr.toString().slice(0, 800))
+      throw new Error(`dist/${RETIRED_ENTRY} is not an alias of module.js`)
+    }
+  }
   console.log(
-    `smoke: ${BUILT.map((b) => `${b.naming} (${b.probe})`).join(', ')}`
+    `smoke: ${BUILT.map((b) => `${b.naming} (${b.probe})`).join(
+      ', '
+    )}, ${RETIRED_ENTRY} (alias of module.js)`
   )
 
   // THE DOM-FREE GATE (tosijs#18). The smoke probe above injects happy-dom
@@ -722,9 +734,8 @@ async function buildLibrary(full = true) {
 
   // PACKAGE PAYLOAD BUDGET. The gzip budgets above police what a consumer
   // EXECUTES; nothing policed what they DOWNLOAD. The tarball had reached
-  // 5.48 MB unpacked, 4.3 MB of it source maps — 1.64 MB for the two
-  // EXPERIMENTAL, admittedly-inert tjs bundles, whose maps are excluded from
-  // `files` for exactly that reason. Measured by packing, because summing
+  // 5.48 MB unpacked, 4.3 MB of it source maps (1.64 MB of that for two
+  // experimental bundles since retired). Measured by packing, because summing
   // dist/ would quietly disagree with whatever npm actually ships.
   // BUDGET WHAT WE PUBLISH, ONLY WHEN WE ARE PUBLISHING. A tarball budget has
   // no business running inside `bun start` — and it did, which is how it took
@@ -797,7 +808,12 @@ async function buildLibrary(full = true) {
   //
   // Worth remembering when a budget next trips: the first move was to raise
   // it, and the right move was to ask what was inside.
-  const PAYLOAD_BUDGET_MB = 3.0
+  //
+  // 3.0 -> 2.6 when the debug/safe bundles were retired (owner, 2026-11-25):
+  // they were 0.51 MB of a tarball that had crept back to 2.85 MB, and the
+  // measurement fell to 2.34. Ratcheted down with it, keeping about a quarter
+  // of a megabyte of room.
+  const PAYLOAD_BUDGET_MB = 2.6
   console.log(`package payload: ${unpackedMb.toFixed(2)} MB unpacked`)
   if (unpackedMb > PAYLOAD_BUDGET_MB) {
     throw new Error(
@@ -968,8 +984,8 @@ const config = {
 // The dev-server watcher re-runs this on every change. buildSite() starts with
 // `rm -rf docs`, which deletes the separately-built docs/iife.js — so the watch
 // rebuild must regenerate it, or the page's /iife.js 404s into the SPA fallback
-// ("loads as html"). buildLibrary() (tests + tjs variants) is only needed for
-// publishing, so the watch build skips it for speed.
+// ("loads as html"). buildLibrary() (tests, bundles and their gates) is only
+// needed for publishing, so the watch build skips it for speed.
 
 /**
  * INTERNAL LINK CHECK, against the slugs the site actually generated.
@@ -1068,9 +1084,9 @@ if (!ok) process.exit(1)
 
 await checkInternalLinks()
 
-// DEV SERVES FAST. The publishing gates — the unit suite and the tjs
-// debug/safe pair — run for --build and --test only. The watch rebuild has
-// always skipped them "for speed"; the first run simply never did.
+// DEV SERVES FAST. The publishing gates (the unit suite, the tarball
+// checks) run for --build and --test only. The watch rebuild has always
+// skipped them "for speed"; the first run simply never did.
 await buildLibrary(
   process.argv.includes('--build') || process.argv.includes('--test')
 )

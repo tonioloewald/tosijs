@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
+## [Unreleased]
+
+### Deprecated
+
+- **`tosijs/debug` and `tosijs/safe` are retired.** They were two experimental
+  bundles built by running a converter over the source, to carry runtime type
+  checks. No check ever fired in them, so they behaved exactly as `tosijs`
+  does, at 259 kB each. **Both subpaths still resolve.** They are now the
+  ordinary library, the same module instance as `tosijs` (importing both used
+  to give an app two state registries), and they warn once. Import `tosijs`
+  instead; the subpaths are removed in 2.0.
+  The npm package is 2.34 MB unpacked, down from 2.85 MB.
+
 ## [1.10.13] - 2026-11-27
 
 Four defects found by lining up duplicate code for the lean plan

@@ -19,7 +19,7 @@
  * against a measurement that does not reproduce. Compare like with like.
  */
 export type BundleProbe = 'load' | 'import' | 'require'
-export type BundleStage = 'main' | 'alt' | 'tjs'
+export type BundleStage = 'main' | 'alt'
 
 export interface BundleSpec {
   /** output filename in dist/ */
@@ -30,18 +30,8 @@ export interface BundleSpec {
   budget: number
   /** how the artifact is EXECUTED by the smoke gate */
   probe: BundleProbe
-  /** build ordering: tjs entries need `tjs convert` to have run first */
+  /** which entry family it belongs to: the root entry, or a subpath */
   stage: BundleStage
-  /**
-   * Emit a source map? Default true.
-   *
-   * `false` for a bundle whose map is excluded from `files`: building the map
-   * and then not shipping it leaves a `//# sourceMappingURL=` pointing at a
-   * 404 in the published artifact, which is worse than having no map — a
-   * devtools that finds the comment goes looking. The two are one decision and
-   * belong in one place.
-   */
-  sourcemap?: boolean
 }
 
 /*
@@ -242,101 +232,38 @@ export const BUNDLES: BundleSpec[] = [
     probe: 'import',
     stage: 'alt',
   },
-  // EXPERIMENTAL tjs-built entries (tosijs/debug, tosijs/safe). They ship
-  // complete per-function __tjs metadata, hence the ~12 kB over module.js —
-  // that overhead is the POINT, so the budget is generous; it exists to
-  // catch it doubling. They were published with no gate at all until the
-  // 1.8.0 security pass (SEC-15): the two bundles built by the least-trusted
-  // toolchain were the two nobody executed.
-  //
-  // RAISED 56_000 -> 58_000 on 2026-08-26, deliberately, in the commit that
-  // caused the growth. tjs-lang 0.13.6 restores `new` on locally-declared
-  // classes (tjs-lang#37) and moves the transform to the graduation step;
-  // that put module.debug.js at 55_993 against the old 56_000 — a pass with
-  // SEVEN BYTES of headroom, which is a gate that will fail on the next
-  // unrelated edit and teach whoever hits it to raise the number without
-  // reading. The growth buys output that does not throw on import, so it is
-  // worth it. Unlike the shipped-to-consumers bundles, these two are
-  // EXPERIMENTAL and inert, so the number polices toolchain regressions, not
-  // a promise to anyone: ~2 kB of room is the right slack for that job.
-  //
-  // RAISED 58_000 -> 59_500 in 1.9.0, deliberately and in the same commit the
-  // growth landed, exactly as the gate's message asks. The growth is the
-  // agent surface's content guard, the subtree binding walk and the tagged
-  // refusals — security code, on the opt-in surface, which these two bundles
-  // carry in full because they are whole-library builds. It went over by 30
-  // BYTES, and only under Bun's gzip; Node's measures the same artifact
-  // under. The slack is restored rather than shaved to the new number, so the
-  // gate keeps policing regressions instead of tripping on noise.
-  // RAISED 61_500 -> 62_500 in 1.10.2, deliberately and in the commit that
-  // caused the growth. Re-exporting the shared affordance rules
-  // (isInteractive, targetSizeFinding, TARGET_SIZE_DEFAULT, schematic) so a
-  // CONSUMER can reach the same verdict the audit reaches costs +59 gz here
-  // and +56 on module.safe.js — the export names survive in the bundle, so
-  // "~0 bytes" (what I predicted) was optimistic by about fifty. That left
-  // module.debug.js with 993 B, THIRTY-ONE BYTES under the 1 kB minimum this
-  // file specifies, which the headroom gate caught. Restored to the ~2 kB
-  // slack that is right for a gate policing TOOLCHAIN regressions on two
-  // EXPERIMENTAL, inert bundles. The shipped bundles absorbed the same growth
-  // inside their existing ceilings at that round and were NOT raised. (Sizes
-  // deliberately not quoted here — see the budget ledger note on module.js.)
-  //
-  // RAISED 59_500 -> 61_500 in 1.10.1, deliberately and in that commit. The
-  // element-creator dispatch adds ~730 gz to each of these (they are whole-
-  // library builds carrying full __tjs metadata), which put module.debug.js
-  // 18 BYTES OVER and left module.safe.js with 36 — precisely the hair-trigger
-  // this file forbids twice, and which a pre-release review flagged. Restored
-  // to the ~2 kB slack that is right for a gate policing TOOLCHAIN
-  // regressions on two EXPERIMENTAL, inert bundles, rather than shaved to the
-  // new measurement.
-  {
-    naming: 'module.debug.js',
-    format: 'esm',
-    entry: './tjs-out/index-debug.js',
-    // 62_500 -> 63_500 in 1.10.2 round 12, same remediation, same reason:
-    // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
-    // regressions on two EXPERIMENTAL, inert bundles, so the slack is
-    // deliberately generous.
-    // 63_500 -> 65_000, 2026-10-01: agent.settled() and record keys (~1 kB gz
-    // in these whole-library builds) left module.debug.js with 764 B; restored
-    // to the ~2 kB slack for these EXPERIMENTAL, inert bundles.
-    // 65_000 -> 67_000, 2026-10-15: the variable-height list rewrite (#3302,
-    // ~1.3 kB gz here with __tjs metadata) left module.debug.js with 75 B;
-    // ~2 kB slack restored, as for the shipped bundles' raise.
-    // 67_000 -> 68_000, 2026-10-29: enableDeclarativeBinding (#3254, ~1 kB gz
-    // in the whole-library builds; shaken from every other bundle) left
-    // module.debug.js with 360 B. Owner approved the raise (2026-10-29).
-    // 68_000 -> 69_000, 2026-11-11: the 1.10.11 review's security fixes
-    // (declarative binding: script/style refusal, exact actions, SEC-9, option
-    // checks; the normalised __proto__ guard, #56), ~340 gz, left 689 B.
-    // Owner approved the raise (2026-11-11).
-    budget: 69_000,
-    probe: 'import',
-    stage: 'tjs',
-    // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
-    // one, or the shipped artifact ends with a sourceMappingURL that 404s
-    sourcemap: false,
-  },
-  {
-    naming: 'module.safe.js',
-    format: 'esm',
-    entry: './tjs-out/index-safe.js',
-    // 62_500 -> 63_500 in 1.10.2 round 12, same remediation, same reason:
-    // module.debug.js fell under the 1 kB floor. These police TOOLCHAIN
-    // regressions on two EXPERIMENTAL, inert bundles, so the slack is
-    // deliberately generous.
-    // 63_500 -> 65_000, 2026-10-01, same reason as module.debug.js above.
-    // 65_000 -> 67_000, 2026-10-15, same reason as module.debug.js above.
-    // 67_000 -> 68_000, 2026-10-29, same reason as module.debug.js above.
-    // 68_000 -> 69_000, 2026-11-11, same reason as module.debug.js above.
-    budget: 69_000,
-    probe: 'import',
-    stage: 'tjs',
-    // map excluded from `files` (1.64 MB for inert bundles) — so don't emit
-    // one, or the shipped artifact ends with a sourceMappingURL that 404s
-    sourcemap: false,
-  },
 ]
+
+/**
+ * `tosijs/debug` AND `tosijs/safe` ARE RETIRED (owner, 2026-11-25: "They'd be
+ * easy enough to revive if we find a real use case").
+ *
+ * They were two whole-library bundles built by running `tjs convert` over
+ * `src/`. They were experimental and inert (the converter marks every function
+ * converted from TypeScript `unsafe`, so no runtime type check ever fired),
+ * nothing in the ecosystem imported them, they were 0.52 MB of a 2.85 MB
+ * package, and the convert step printed thirteen spurious failures into every
+ * build log.
+ *
+ * Both subpaths still RESOLVE in 1.x, because `DECISIONS.md` says breaking
+ * changes wait for 2.0: `package.json` points them at RETIRED_ENTRY, which the
+ * build writes from RETIRED_SOURCE. It warns once and re-exports
+ * `./module.js`, the SAME module instance, so an app that imports both
+ * `tosijs` and `tosijs/debug` now has one state registry where it had two.
+ * Delete the subpaths, the entry and this block in 2.0.
+ *
+ * To revive: the specs, the `tjs` build stage and the entry modules
+ * (`src/index-debug.ts`, `src/configure-tjs*.ts`) are in git at v1.10.13.
+ */
+export const RETIRED_ENTRY = 'retired.js'
+export const RETIRED_SUBPATHS = ['./debug', './safe']
+export const RETIRED_SOURCE = `console.warn(
+  'tosijs: "tosijs/debug" and "tosijs/safe" are retired. They were experimental ' +
+    'and performed no runtime checks, so this is the ordinary library: import ' +
+    '"tosijs" instead. These subpaths are removed in 2.0.'
+)
+export * from './module.js'
+`
 
 /**
  * What a consumer pays who imports everything EXCEPT the agent surface from

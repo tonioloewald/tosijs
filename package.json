@@ -14,13 +14,13 @@
     },
     "./debug": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/module.debug.js",
-      "default": "./dist/module.debug.js"
+      "import": "./dist/retired.js",
+      "default": "./dist/retired.js"
     },
     "./safe": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/module.safe.js",
-      "default": "./dist/module.safe.js"
+      "import": "./dist/retired.js",
+      "default": "./dist/retired.js"
     },
     "./core": {
       "types": "./dist/index-core.d.ts",
@@ -109,8 +109,6 @@
     "!/dist/.build-fingerprint",
     "!/dist/**/*.tsbuildinfo",
     "!/dist/bun-plugin",
-    "!/dist/module.safe.js.map",
-    "!/dist/module.debug.js.map",
     "/src",
     "!/src/**/*.test.ts",
     "!/src/**/.*",
