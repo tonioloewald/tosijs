@@ -4,6 +4,41 @@ Newest first. **Facts, not analysis** — 3–6 bullets, five minutes. The whys 
 asked periodically, by the Tier 3 quarterly audit reading these across projects
 (`practices/releasing.md` step 10). Do not root-cause here.
 
+## 1.10.13 — 2026-11-27
+
+- **Went well:** four defects from the lean plan fixed with tests that fail on
+  the unfixed source (30 at first count), a Turkish-locale spec that went red
+  and green in Firefox and WebKit as the fix was stashed, and a differential
+  test (proxy against path engine) that found six more disagreements (#4261).
+- **Went well:** the review BLOCKed on a real hole: a `__proto__` segment in
+  the middle of a path still returned the prototype, and under `expose: 'all'`
+  `agent.call()` could run `push` on `Array.prototype`. It also found that the
+  validator wiring I had just documented was a sampled one.
+- **Didn't:** my id-lookup fix sent `[=key]` on arrays to the path engine and
+  made `list[=__proto__]` a proxy over `Array.prototype`. I found it probing my
+  own change; my first remediation guarded one more spelling at the trap, and
+  the review found the next. The fix that held is in `getByPath`.
+- **Didn't:** I miscounted two figures I then published in a commit message
+  (57 and 463 for 56 and 462: lines of a diff, not entries), and the first
+  corpus detected by identity, so removing the trap's guard left it green.
+- **Surprised:** CLAUDE.md and the shared testing practice both said the
+  browser lane tests the committed bundle. It tests the working tree.
+- **Surprised:** one build is not a fixed point when a README size figure
+  crosses a rounding boundary (#4310).
+- **Friction:** the first review run died on the model usage limit after 25
+  minutes with nothing reported; the release waited two days. The rerun was
+  scoped to source: the unscoped diff is 8.8 MB, 96 times the source.
+- **Friction:** reviewers read the working tree, so a fix found mid-review has
+  to be built in a scratch copy and applied afterwards.
+- **Friction:** the attestation's first browser run failed once in Firefox on
+  a virtual-list spec that passed before and after (#4325).
+- **Cycle:** one, flagged by the review with a STOP (BLOCK → remediation →
+  re-review GO_WITH_FOLLOWUPS). The blocker was in the guard two earlier
+  blockers had patched; the remediation moved it from the spelling to the
+  operation and generated the spelling table.
+- **Not done:** release step 4 (`stamps`) is red for the fourth release
+  (#3567).
+
 ## 1.10.12 — 2026-11-18
 
 - **Went well:** three tosijs-ui reports fixed in one patch, each pinned by a
