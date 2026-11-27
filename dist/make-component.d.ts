@@ -64,9 +64,6 @@ export interface TosiPackagedComponent<T = PartsMap> {
     type: ComponentClass<T>;
     creator: ElementCreator;
 }
-export declare const madeComponents: {
-    [key: string]: TosiPackagedComponent<any>;
-};
 export type TosiBlueprint<T = PartsMap> = (tag: string, module: TosiFactory) => TosiComponentSpec<T> | Promise<TosiComponentSpec<T>>;
 /** @deprecated Use `TosiFactory` */
 export type XinFactory = TosiFactory;

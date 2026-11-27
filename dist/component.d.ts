@@ -2,9 +2,7 @@ import { TosiStyleSheet } from './css-types';
 import { ElementsProxy } from './elements-types';
 import { elements } from './elements';
 import { ElementCreator, ContentType, PartsMap } from './xin-types';
-import { setContractValidator } from './contract-check';
 import type { ComponentMap } from './agent';
-export { setContractValidator };
 /**
  * The marker `Component.computed()` returns, and the guard against wrapping a
  * setter twice (a subclass would otherwise double-queue every render).
@@ -359,3 +357,4 @@ export declare const tosiSlot: ElementCreator<TosiSlot>;
  * matters solely if you wrote CSS against `xin-slot`). Removed in 2.0.
  */
 export declare const xinSlot: typeof tosiSlot;
+export {};

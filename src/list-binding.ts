@@ -1136,7 +1136,6 @@ import {
   resolveTakePaths,
 } from './metadata'
 import { TosiObject, ListBindingOptions } from './xin-types'
-import { Listener } from './path-listener'
 
 const SLICE_INTERVAL_MS = 16 // 60fps
 const FILTER_INTERVAL_MS = 100 // 10fps
@@ -1286,7 +1285,6 @@ export class ListBinding {
   private _measuredWidth = -1
   private _measuredLength = -1 // items changed in number: rows above may have
   private _relayoutDepth = 0
-  static filterBoundObservers = new WeakMap<Element, Listener>()
 
   constructor(
     boundElement: Element,

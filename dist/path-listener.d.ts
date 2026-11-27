@@ -22,10 +22,10 @@ import { PathTestFunction, ObserverCallbackFunction, TosiTouchableType } from '.
 export declare const OBSERVER_SHOULD_BE_REMOVED: unique symbol;
 export declare const listeners: Listener[];
 /**
- * Synthesize id-path touches for a given array path, item index, and property suffix.
+ * Synthesize id-path touches for a given array path, item, and property suffix.
  * Called when we know we're touching something inside an array item.
  */
-export declare function synthesizeIdPathTouches(arrayPath: string, index: number, item: any, suffix: string): string[];
+export declare function synthesizeIdPathTouches(arrayPath: string, item: any, suffix: string): string[];
 export declare const extendsPath: (prefix: string, path: string) => boolean;
 /**
  * Does a write at `path` land on, under, or above `action`? Either way it
@@ -37,7 +37,7 @@ export declare class Listener {
     description: string;
     test: PathTestFunction;
     callback: ObserverCallbackFunction;
-    constructor(test: string | RegExp | PathTestFunction, callback: string | ObserverCallbackFunction);
+    constructor(test: string | RegExp | PathTestFunction, callback: ObserverCallbackFunction);
 }
 /**
  * Whether a notification drain is queued right now: a touch has been made and

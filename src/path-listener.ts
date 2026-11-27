@@ -199,12 +199,11 @@ let updatePromise: Promise<undefined>
 let resolveUpdate: AnyFunction | undefined
 
 /**
- * Synthesize id-path touches for a given array path, item index, and property suffix.
+ * Synthesize id-path touches for a given array path, item, and property suffix.
  * Called when we know we're touching something inside an array item.
  */
 export function synthesizeIdPathTouches(
   arrayPath: string,
-  index: number,
   item: any,
   suffix: string
 ): string[] {
@@ -248,12 +247,8 @@ export class Listener {
 
   constructor(
     test: string | RegExp | PathTestFunction,
-    callback: string | ObserverCallbackFunction
+    callback: ObserverCallbackFunction
   ) {
-    const callbackDescription =
-      typeof callback === 'string'
-        ? `"${callback}"`
-        : `function ${callback.name}`
     let testDescription
     if (typeof test === 'string') {
       this.test = (t) =>
@@ -272,12 +267,14 @@ export class Listener {
         'expect listener test to be a string, RegExp, or test function'
       )
     }
-    this.description = `${testDescription}, ${callbackDescription}`
-    if (typeof callback === 'function') {
-      this.callback = callback
-    } else {
+    // a path to a function is resolved by the public observe() (xin.ts)
+    // before it gets here; this is for a JavaScript caller that passes
+    // something else
+    if (typeof callback !== 'function') {
       throw new Error('expect callback to be a path or function')
     }
+    this.description = `${testDescription}, function ${callback.name}`
+    this.callback = callback
     listeners.push(this)
   }
 }
@@ -392,12 +389,7 @@ export const touch = (touchable: TosiTouchableType): void => {
     const index = parseInt(indexStr, 10)
     const item = getByPath(registry, `${arrayPath}[${index}]`)
     if (item != null) {
-      const idPathTouches = synthesizeIdPathTouches(
-        arrayPath,
-        index,
-        item,
-        suffix
-      )
+      const idPathTouches = synthesizeIdPathTouches(arrayPath, item, suffix)
       for (const idTouch of idPathTouches) {
         if (
           touchedPaths.find((touchedPath) =>

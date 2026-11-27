@@ -74,8 +74,6 @@ export interface TosiPackagedComponent<T = PartsMap> {
   creator: ElementCreator
 }
 
-export const madeComponents: { [key: string]: TosiPackagedComponent<any> } = {}
-
 export type TosiBlueprint<T = PartsMap> = (
   tag: string,
   module: TosiFactory
@@ -132,6 +130,5 @@ export async function makeComponent<T = PartsMap>(
     creator: type.elementCreator(),
   }
 
-  madeComponents[tag] = packagedComponent
   return packagedComponent
 }

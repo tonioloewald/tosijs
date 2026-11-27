@@ -42,6 +42,14 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   The budgets for the first four came down by 250 with it. `state.js` grew
   by the `https://` on the long-list link.
 
+### Removed
+
+- **Dead code** (#4274). Fifteen things nothing used: a module nothing
+  imported (`object-property-list`), a binding counter nothing read, a
+  registry of made components nothing consulted, three unreachable branches
+  and their like. **Nothing you can import changed:** `tosijs`,
+  `tosijs/core` and `tosijs/state` export the same 90, 59 and 24 names.
+
 ### Deprecated
 
 - **`tosijs/debug` and `tosijs/safe` are retired.** They were two experimental

@@ -33,10 +33,6 @@ export declare function getArrayIdPaths(arrayPath: string): Set<string> | undefi
  */
 export declare function unregisterArrayIdPath(arrayPath: string, idPath: string): void;
 /**
- * Get all registered array paths (for debugging/testing).
- */
-export declare function _getArrayIdPathRegistry(): Map<string, Set<string>>;
-/**
  * Where a deprecation warning sends its reader: the rename table in
  * Migration.md. The warning names what is deprecated and what to write
  * instead; the reasons are on the page, so they are not shipped in every
@@ -117,8 +113,6 @@ export interface TosiEventBindings {
 export declare const elementToHandlers: WeakMap<Element, TosiEventBindings>;
 export declare const elementToBindings: WeakMap<Element, DataBindings>;
 export declare const anyInlineContracts: () => boolean;
-export declare const bindingGeneration: () => number;
-export declare const noteBindingChange: () => void;
 export declare const setElementContract: (element: Element, schema: Record<string, any>) => void;
 export declare const elementContract: (element: Element) => Record<string, any> | undefined;
 interface ElementMetadata {
@@ -127,6 +121,4 @@ interface ElementMetadata {
 }
 export declare const getElementBindings: (element: Element) => ElementMetadata;
 export declare const cloneWithBindings: (element: Node) => Node;
-/** @deprecated Use `TosiEventBindings` */
-export type XinEventBindings = TosiEventBindings;
 export {};

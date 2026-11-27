@@ -73,7 +73,8 @@ export const BUNDLES: BundleSpec[] = [
     // 32_500 -> 32_250, 2026-11-27: shortening the advisory messages
     // (#4285) took about 290 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
-    budget: 32_250,
+    // 32_250 -> 32_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
+    budget: 32_150,
     probe: 'load',
     stage: 'main',
   },
@@ -154,7 +155,8 @@ export const BUNDLES: BundleSpec[] = [
     // 51_500 -> 51_250, 2026-11-27: shortening the advisory messages
     // (#4285) took about 310 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
-    budget: 51_250,
+    // 51_250 -> 51_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
+    budget: 51_150,
     probe: 'import',
     stage: 'main',
   },
@@ -208,7 +210,8 @@ export const BUNDLES: BundleSpec[] = [
     // 51_500 -> 51_250, 2026-11-27: shortening the advisory messages
     // (#4285) took about 310 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
-    budget: 51_250,
+    // 51_250 -> 51_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
+    budget: 51_150,
     probe: 'require',
     stage: 'main',
   },
@@ -227,7 +230,8 @@ export const BUNDLES: BundleSpec[] = [
     // 30_000 -> 29_750, 2026-11-27: shortening the advisory messages
     // (#4285) took about 300 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
-    budget: 29_750,
+    // 29_750 -> 29_650, 2026-11-27: dead code deleted (#4274), about 100 gz.
+    budget: 29_650,
     probe: 'import',
     stage: 'alt',
   },
@@ -295,7 +299,8 @@ export const NO_AGENT_CONSUMER = {
   // 32_500 -> 32_250, 2026-11-27: shortening the advisory messages
   // (#4285) took about 290 gz out of this one. The budget follows the
   // saving down, so it cannot be spent by accident (#4022).
-  budget: 32_250,
+  // 32_250 -> 32_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
+  budget: 32_150,
 }
 
 /**

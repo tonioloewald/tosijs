@@ -1,6 +1,5 @@
 import { LIST_BINDING_REF } from './metadata';
 import { TosiObject, ListBindingOptions } from './xin-types';
-import { Listener } from './path-listener';
 export declare const NON_VIRTUAL_WARN_THRESHOLD = 10;
 export declare class ListBinding {
     boundElement: Element;
@@ -22,7 +21,6 @@ export declare class ListBinding {
     private _measuredWidth;
     private _measuredLength;
     private _relayoutDepth;
-    static filterBoundObservers: WeakMap<Element, Listener>;
     constructor(boundElement: Element, value: any[], options?: ListBindingOptions);
     filteredArray(): any[];
     private visibleSlice;

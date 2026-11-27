@@ -1020,11 +1020,7 @@ import { camelToKabob, kabobToCamel } from './string-case'
 import { ElementCreator, ContentType, PartsMap } from './xin-types'
 import { warnDeprecated, BOUND_SELECTOR, RENAMES_DOCS } from './metadata'
 import { SHADOW_ADVICE, delegateShadowRoot } from './bind'
-import {
-  contractViolation,
-  setContractValidator,
-  ownContract,
-} from './contract-check'
+import { contractViolation, ownContract } from './contract-check'
 import type { ComponentMap } from './agent'
 
 let anonymousElementCount = 0
@@ -1035,7 +1031,6 @@ let anonymousElementCount = 0
 // (structural subset + pluggable full-schema engine) lives in
 // contract-check.ts, shared with inline element contracts on the agent
 // surface — one gate, every declaration site.
-export { setContractValidator }
 
 // warned once per tag+reason about a contract violation arriving via a binding
 const bindingViolationWarned = new Set<string>()
@@ -2889,8 +2884,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       }
       let { styleNode } = ctor
       if (shadowStyle) {
-        styleNode = ctor.styleNode = elements.style(css(shadowStyle))
-        delete ctor.styleNode
+        styleNode = elements.style(css(shadowStyle))
       }
       if (this.styleNode) {
         console.warn(

@@ -1515,6 +1515,9 @@ const SECRET_CONTROL_SELECTOR = [
  * MutationObserver on `type`/`autocomplete`/`data-tosi-secret` plus bumps at
  * every binding mutation — at which point the 24% is gone anyway.
  *
+ * The counter and its three bumps outlived the revert, read by nothing, until
+ * they were deleted too (board #4274). Nothing here consults a generation.
+ *
  * The selector is deliberately narrow (only controls that CAN be secret), so
  * the uncached scan matches almost nothing.
  *
@@ -2439,8 +2442,7 @@ export function enableAgentInterface(
    * WILL NOT ENFORCE, and `write()`, which skips inline checking under a
    * curated root. They were two copies of one expression sitting either side
    * of a comment calling their disagreement "the worst possible defect" — so
-   * now there is one expression, and `curationHonoured()` below proves the
-   * two uses still line up.
+   * now there is one expression.
    */
   const supersededByCuration = (path: string): boolean =>
     contract != null && contractRoots.some((root) => extendsPath(root, path))
@@ -2746,9 +2748,6 @@ export function enableAgentInterface(
           if (ariaHidden(el)) return undefined // hidden from AT = hidden here
           const { dataBindings, eventBindings } = getElementBindings(el)
           const record = describeElement(el, contentWithheld)
-          // every state path this element is bound to, so the live-DOM
-          // harvests below can ask whether any of them is secret
-          const boundPaths: string[] = []
           // inline contract: declared at the element, aggregated (below) into
           // describe().contract under the element's bound path — declaration
           // is distributed, curation is central
@@ -2760,9 +2759,9 @@ export function enableAgentInterface(
            * EVERY bound path, in scope or not — the GUARDS need the ones the
            * publishing loop skips.
            *
-           * `boundPaths` is built inside the loop below, AFTER its
-           * `if (!inScope) continue`, so an element bound only to undeclared
-           * paths reached `suppressHarvest` with an empty list. The guard then
+           * The list the guards read used to be built inside the loop below,
+           * AFTER its `if (!inScope) continue`, so an element bound only to
+           * undeclared paths reached `suppressHarvest` with an empty list. The guard then
            * saw no secret and no scope violation, and the DOM arm found
            * nothing because the element is not a secret *control* — so a
            * contenteditable bound to an undeclared token published it as text.
@@ -2799,7 +2798,6 @@ export function enableAgentInterface(
               // map publishes this path, so withholding only the DOM value
               // would just be telling the agent what to ask for
               if (record.secret === true) addSecretPath(b.path)
-              boundPaths.push(b.path)
               if (name != null && record[name] === undefined) {
                 record[name] = boundValue(
                   b.path,
@@ -2872,8 +2870,9 @@ export function enableAgentInterface(
           // NOT when harvesting it would publish a secret (round-4 B-1), and
           // NOT when the element is bound to something out of scope: its text
           // is then the rendered form of a value `read()` refuses.
-          // `allBoundPaths`, not `boundPaths` — the latter is scope-filtered,
-          // so the guard was blind to exactly the bindings that matter here.
+          // `allBoundPaths`: every bound path, not only the in-scope ones the
+          // publishing loop keeps. A scope-filtered list left the guard blind
+          // to exactly the bindings that matter here.
           /*
            * ASK ONCE, UNCONDITIONALLY — "may this record carry content?" is a
            * different question from "does it already have text?", and
@@ -2996,8 +2995,8 @@ export function enableAgentInterface(
           if (record.contentEditable === true) {
             // a contenteditable region carrying `data-tosi-secret` is the
             // author's own opt-in, and it was being ignored here.
-            // `allBoundPaths`, not `boundPaths`: the guard must see the
-            // bindings the publishing loop skipped as out of scope.
+            // `allBoundPaths`: the guard must see the bindings the publishing
+            // loop skipped as out of scope.
             if (
               record.value === undefined &&
               !mayNotCarryContent &&
@@ -3221,8 +3220,8 @@ export function enableAgentInterface(
             // whose text scope refused was indistinguishable from an empty one
             if (textBlocked) record.textWithheld = true
             if (heading && record.text === undefined && !textBlocked) {
-              // stripArrows like the other three text harvests (2234, 2255,
-              // 2296). This was the one exception, under a docstring saying
+              // stripArrows like the other three text harvests. This was the
+              // one exception, under a docstring saying
               // there is none — inert, because a structural record is ground
               // and never interactive, but an agent reading the description
               // JSON directly saw a heading that appeared to carry a live

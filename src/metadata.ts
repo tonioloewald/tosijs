@@ -161,13 +161,6 @@ export function unregisterArrayIdPath(arrayPath: string, idPath: string): void {
 }
 
 /**
- * Get all registered array paths (for debugging/testing).
- */
-export function _getArrayIdPathRegistry(): Map<string, Set<string>> {
-  return arrayIdPathRegistry
-}
-
-/**
  * Where a deprecation warning sends its reader: the rename table in
  * Migration.md. The warning names what is deprecated and what to write
  * instead; the reasons are on the page, so they are not shipped in every
@@ -367,28 +360,6 @@ let inlineContractCount = 0
 
 export const anyInlineContracts = (): boolean => inlineContractCount > 0
 
-/**
- * Bumped whenever something could have made a NEW (element, binding) pair
- * visible in the document — a data binding being registered, or a subtree
- * being inserted. Consumers that derive a fact from "walk the bound elements"
- * cache against this instead of re-deriving on every call.
- *
- * SECURITY-RELEVANT, so the signal is deliberately generous. The agent
- * surface's secret-path scan reads it, and a missed bump there is an
- * under-redaction — a leak — while a spurious bump costs one extra
- * `querySelectorAll` over a selector that matches almost nothing. Bump
- * eagerly; the asymmetry is not close.
- *
- * Removals deliberately do NOT bump: the secret-path set only ever grows, so
- * losing an element can never require a rescan.
- */
-let domBindingGeneration = 0
-
-export const bindingGeneration = (): number => domBindingGeneration
-export const noteBindingChange = (): void => {
-  domBindingGeneration++
-}
-
 export const setElementContract = (
   element: Element,
   schema: Record<string, any>
@@ -480,5 +451,3 @@ export const cloneWithBindings = (element: Node): Node => {
  * 1.7.6 and the remaining 22 were simply missed, untracked, for four
  * releases — so this block states its own end, rather than drifting again.
  * -------------------------------------------------------------------------- */
-/** @deprecated Use `TosiEventBindings` */
-export type XinEventBindings = TosiEventBindings

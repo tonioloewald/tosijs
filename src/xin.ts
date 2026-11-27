@@ -976,8 +976,6 @@ const ARRAY_MUTATIONS = [
 
 import { registry, setXinProxy } from './registry'
 
-const debugPaths = true
-
 // in essence this very liberally matches foo ( .bar | [17] | [id=123] ) *
 const validPath =
   /^\.?([^.[\](),])+(\.[^.[\](),]+|\[\d+\]|\[[^=[\](),]*=[^[\]()]+\])*$/
@@ -1274,14 +1272,11 @@ const LEGACY_MAP = new Map<string | symbol, string>([
   [XIN_VALUE, 'value'],
   ['xinValue', 'value'],
   ['tosiValue', 'value'],
-  [XIN_OBSERVE, 'observe'],
-  ['xinObserve', 'observe'],
+  [XIN_OBSERVE, 'observe'], // the string 'xinObserve'
   ['tosiObserve', 'observe'],
-  [XIN_ON, 'on'],
-  ['xinOn', 'on'],
+  [XIN_ON, 'on'], // 'xinOn'
   ['tosiOn', 'on'],
-  [XIN_BIND, 'bind'],
-  ['xinBind', 'bind'],
+  [XIN_BIND, 'bind'], // 'xinBind'
   ['tosiBind', 'bind'],
   ['tosiBinding', 'binding'],
   ['tosiListBinding', 'listBinding'],
@@ -1504,11 +1499,9 @@ const regHandler = (
         ? box(value, extendPath(path, prop))
         : value
     } else {
-      let val = target[prop]
-      if (val !== null && typeof val === 'object') {
-        val = tosiValue(val) // unwrap if already proxied (defensive)
-      }
-      return boxScalars ? box(val, extendPath(path, prop)) : val
+      // not an array, and `target[prop]` is undefined (the first branch
+      // took every other case)
+      return boxScalars ? box(undefined, extendPath(path, prop)) : undefined
     }
   },
   set(target, prop: string | symbol, value: any) {
@@ -1559,7 +1552,7 @@ const regHandler = (
       (prop === 'value' &&
         (isBoxedScalar(target) || (boxScalars && !('value' in target))))
     const fullPath = isValueProp ? path : extendPath(path, prop as string)
-    if (debugPaths && !isValidPath(fullPath)) {
+    if (!isValidPath(fullPath)) {
       throw new Error(`setting invalid path ${fullPath}`)
     }
     const existing = tosiValue(xin[fullPath])

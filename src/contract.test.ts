@@ -456,7 +456,7 @@ describe('value-setter enforcement — a contract is an opt-in to being held to 
   })
 
   test('a registered full validator extends enforcement beyond the native subset', async () => {
-    const { setContractValidator } = await import('./component')
+    const { setContractValidator } = await import('./contract-check')
     const strict = {
       value: {
         type: 'object',
@@ -806,7 +806,7 @@ describe('seam guarantee — contracted writes always carry a whole-root proposa
 describe('inline contracts + plugged full validator', () => {
   test('setContractValidator(validate) makes inline minimum/required real', async () => {
     const { elements } = await import('./elements')
-    const { setContractValidator } = await import('./component')
+    const { setContractValidator } = await import('./contract-check')
     tosi({ inlineFull: { qty: 5 } })
     const el = elements.input({
       bindValue: 'inlineFull.qty',
@@ -1282,7 +1282,7 @@ describe('the contractviolation channel (round-3 follow-up)', () => {
     // the built-in subset only enforces type/enum/const, so `required` needs
     // the real validator plugged — which is also the realistic configuration
     // for anyone who declares an object-valued contract at all
-    const { setContractValidator } = await import('./component')
+    const { setContractValidator } = await import('./contract-check')
     setContractValidator((value, schema) => {
       const reasons: string[] = []
       const ok = validate(value, schema, {
