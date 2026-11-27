@@ -167,6 +167,16 @@ export function _getArrayIdPathRegistry(): Map<string, Set<string>> {
   return arrayIdPathRegistry
 }
 
+/**
+ * Where a deprecation warning sends its reader: the rename table in
+ * Migration.md. The warning names what is deprecated and what to write
+ * instead; the reasons are on the page, so they are not shipped in every
+ * bundle (#4285). `bun run build` fails if this page or anchor stops existing
+ * (`checkInternalLinks` in bin/site.ts).
+ */
+export const RENAMES_DOCS =
+  'https://tosijs.net/Migration/#deprecated-but-still-working'
+
 // Track which deprecation warnings have been shown
 const deprecationWarnings = new Set<string>()
 

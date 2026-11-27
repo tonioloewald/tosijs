@@ -662,6 +662,20 @@ Deprecated APIs emit a single `console.warn` per feature (tracked in a `Set` in 
 
 **The `Xin*` TYPE names are deprecated aliases of `Tosi*`** — all 27 of them, as of 1.8.2. The blueprint five (`XinBlueprint`, `XinFactory`, `XinComponentSpec`, `XinPackagedComponent`, `XinSlot`) were renamed in 1.7.6; the other 22 (`XinStyleRule`, `XinStyleSheet`, `XinObject`, `XinBinding`, `XinProxy`, `XinProps`, …) were missed and untracked for four releases, and are done now. Aliases are type-only (zero runtime, zero bundle) and **go away in 2.0**. Use `Tosi*` in new code. Note `src/index-core-exports.ts` and `src/index-state.ts` use EXPLICIT export lists, not `export *` — an alias not named there does not reach a consumer. `<xin-slot>` remains a runtime tombstone class (deliberately, so misplaced content still composes) and is separate from the type rename. `static styleSpec` is a deprecated alias for `static shadowStyleSpec`. Passing `{ tag, styleSpec }` to `elementCreator()` is deprecated — use `static preferredTagName` and `static lightStyleSpec` instead.
 
+**Advice is one sentence and a link; a defect report stays whole** (#4285,
+2026-11-27). A message about a CHOICE (a deprecation, the `on<Event>` naming
+advice, the long-list advice) says what it found and what to write instead,
+then ends in `https://tosijs.net/<page>/#<anchor>`, and the reasons go on that
+page. A message that reports something WRONG keeps everything in the string.
+`settings.ts` draws the same line for `quiet`. `checkInternalLinks()` in
+`bin/site.ts` fails the build when such a link, or a `](/page/#anchor)` or
+`](#anchor)` link in the docs, names a page or an id the site did not
+generate, so renaming a heading a message links to breaks the build and not
+the link. **Do not expect bytes from this rule:** advice was five long
+messages, about 0.3 kB gz. Of the 17 kB of message prose in `src/`, the rest
+is defect reports, thrown errors, agent refusals, audit findings, WebMCP tool
+descriptions and the vendored schematic.
+
 ## Code Style
 
 - ESLint with TypeScript parser; `any` is allowed (`@typescript-eslint/no-explicit-any: 0`)

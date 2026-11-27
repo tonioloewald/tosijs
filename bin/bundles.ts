@@ -70,7 +70,10 @@ export const BUNDLES: BundleSpec[] = [
     // anchor rows and track the scroll 1:1 (#3302, #3230) cost over a kilobyte gz in
     // every bundle that carries list binding. Owner approved the raise
     // (2026-10-15: "a price worth paying"), after a trimming pass.
-    budget: 32_500,
+    // 32_500 -> 32_250, 2026-11-27: shortening the advisory messages
+    // (#4285) took about 290 gz out of this one. The budget follows the
+    // saving down, so it cannot be spent by accident (#4022).
+    budget: 32_250,
     probe: 'load',
     stage: 'main',
   },
@@ -148,7 +151,10 @@ export const BUNDLES: BundleSpec[] = [
     // (declarative binding: script/style refusal, exact actions, SEC-9, option
     // checks; the normalised __proto__ guard, #56), ~340 gz, left 831 B.
     // Owner approved the raise (2026-11-11).
-    budget: 51_500,
+    // 51_500 -> 51_250, 2026-11-27: shortening the advisory messages
+    // (#4285) took about 310 gz out of this one. The budget follows the
+    // saving down, so it cannot be spent by accident (#4022).
+    budget: 51_250,
     probe: 'import',
     stage: 'main',
   },
@@ -199,7 +205,10 @@ export const BUNDLES: BundleSpec[] = [
     // __proto__ guard (#56) and share()'s tab id (#3985), ~+190 gz together,
     // left main.js at 894 B spare. Owner approved the raise (2026-11-11), and
     // asked for a periodic slimming pass instead of offsetting each raise.
-    budget: 51_500,
+    // 51_500 -> 51_250, 2026-11-27: shortening the advisory messages
+    // (#4285) took about 310 gz out of this one. The budget follows the
+    // saving down, so it cannot be spent by accident (#4022).
+    budget: 51_250,
     probe: 'require',
     stage: 'main',
   },
@@ -215,7 +224,10 @@ export const BUNDLES: BundleSpec[] = [
     // anchor rows and track the scroll 1:1 (#3302, #3230) cost over a kilobyte gz in
     // every bundle that carries list binding. Owner approved the raise
     // (2026-10-15: "a price worth paying"), after a trimming pass.
-    budget: 30_000,
+    // 30_000 -> 29_750, 2026-11-27: shortening the advisory messages
+    // (#4285) took about 300 gz out of this one. The budget follows the
+    // saving down, so it cannot be spent by accident (#4022).
+    budget: 29_750,
     probe: 'import',
     stage: 'alt',
   },
@@ -280,7 +292,10 @@ export const NO_AGENT_CONSUMER = {
   // anchor rows and track the scroll 1:1 (#3302, #3230) cost over a kilobyte gz in
   // every bundle that carries list binding. Owner approved the raise
   // (2026-10-15: "a price worth paying"), after a trimming pass.
-  budget: 32_500,
+  // 32_500 -> 32_250, 2026-11-27: shortening the advisory messages
+  // (#4285) took about 290 gz out of this one. The budget follows the
+  // saving down, so it cannot be spent by accident (#4022).
+  budget: 32_250,
 }
 
 /**

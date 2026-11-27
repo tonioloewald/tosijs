@@ -487,6 +487,15 @@ describe('xinSlot (deprecated, removed in 2.0)', () => {
     expect(slot.getAttribute('name')).toBe('top')
     slot.remove()
     expect(warnings.some((w) => w.includes('REMOVED IN 2.0'))).toBe(true)
+    // #4285: the warning names the rename and links to the table that has
+    // the rest (Migration.md, "Deprecated but still working")
+    const { RENAMES_DOCS } = await import('./metadata')
+    const warning = warnings.find((w) => w.includes('xinSlot()'))
+    expect(warning).toContain('use tosiSlot()')
+    expect(warning).toContain(RENAMES_DOCS)
+    expect(RENAMES_DOCS).toBe(
+      'https://tosijs.net/Migration/#deprecated-but-still-working'
+    )
     // the legacy TAG is registered as a TOMBSTONE. Leaving it unregistered
     // while hydrate still queried for it was the worst of both worlds: an
     // unupgraded <xin-slot> had no `.name`, filed under slotMap[undefined],
@@ -1222,6 +1231,11 @@ describe('on<Event> member collision warning', () => {
     // suggests both conventions, by intent: handler function vs listener-adder
     expect(w).toContain('handle<Event>')
     expect(w).toContain('add<Event>Listener')
+    // #4285: advice is one sentence and a link. What happens in each case
+    // (which side wins, and when) is on the page, not in every bundle; the
+    // build's link check proves the anchor exists.
+    expect(w).toContain('https://tosijs.net/component/#naming-handlers')
+    expect(w!.length).toBeLessThan(330)
   })
 
   test('does not warn for handleResize (current resize hook), and wires it', async () => {
@@ -1258,6 +1272,7 @@ describe('on<Event> member collision warning', () => {
     expect(w).toBeDefined()
     expect(w).toContain("'onResize'")
     expect(w).toContain('handleResize')
+    expect(w).toContain('https://tosijs.net/component/#naming-handlers')
     // legacy hook still works
     const el = create()
     document.body.appendChild(el)

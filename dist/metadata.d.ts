@@ -37,6 +37,14 @@ export declare function unregisterArrayIdPath(arrayPath: string, idPath: string)
  */
 export declare function _getArrayIdPathRegistry(): Map<string, Set<string>>;
 /**
+ * Where a deprecation warning sends its reader: the rename table in
+ * Migration.md. The warning names what is deprecated and what to write
+ * instead; the reasons are on the page, so they are not shipped in every
+ * bundle (#4285). `bun run build` fails if this page or anchor stops existing
+ * (`checkInternalLinks` in bin/site.ts).
+ */
+export declare const RENAMES_DOCS = "https://tosijs.net/Migration/#deprecated-but-still-working";
+/**
  * Emit a deprecation warning once per unique key.
  */
 export declare function warnDeprecated(key: string, message: string): void;

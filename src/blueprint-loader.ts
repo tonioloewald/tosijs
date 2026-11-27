@@ -287,7 +287,7 @@ The blueprint function can be `async`, so you can use async import inside it to 
 */
 
 import { Component } from './component'
-import { warnDeprecated } from './metadata'
+import { warnDeprecated, RENAMES_DOCS } from './metadata'
 import { settings } from './settings'
 import {
   makeComponent,
@@ -508,9 +508,8 @@ RemovedLoader.elementCreator()
 export const blueprint: typeof tosiBlueprint = (...args) => {
   warnDeprecated(
     'blueprint',
-    'blueprint() is deprecated and will be REMOVED IN 2.0 — use ' +
-      'tosiBlueprint(). It now creates a <tosi-blueprint>, the element that ' +
-      'hydrates; <xin-blueprint> is an inert tombstone.'
+    'blueprint() is deprecated and will be REMOVED IN 2.0: use ' +
+      `tosiBlueprint(). ${RENAMES_DOCS}`
   )
   return tosiBlueprint(...args)
 }

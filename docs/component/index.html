@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=8854aada4616" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=ceba8f5bcfc2" data-tosi-doc-system />
   <title>Web Components — tosijs</title>
   <meta name="description" content="The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, form association. Declare attributes with withAttributes() so they are typed on this — since 1.10.0 Component has no index signature, so an undeclared this.foo is a type error. static initAttributes is not deprecated (withAttributes sets it, and it adds attributes to an existing class); see Migration." />
   <link rel="canonical" href="https://tosijs.net/component/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=b40e3460a1a2" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=01304ef55384" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="component.ts">
 <h1 id="web-components-component">Web Components (Component)</h1>
 <p><strong>tosijs</strong> provides the abstract <code>Component</code> class to make defining
@@ -787,12 +787,7 @@ a value (i.e. triggering a <code>change</code> events and <code>render</code> wh
 <p>If the class has a <code>handleResize</code> handler then a ResizeObserver will trigger
 <code>resize</code> events on the element when its size changes and <code>handleResize</code> will be
 set up to respond to them. (The legacy name <code>onResize</code> still works but is
-deprecated — the <code>on&lt;Event&gt;</code> prefix is reserved for event-handler sugar in the
-<a href="/elements/">elements</a> factory, so component members must not use it.) Name by
-intent: <code>handle&lt;Event&gt;</code> for a handler function the component invokes (e.g.
-<code>handleResize</code>, <code>handleClick</code>), or <code>add&lt;Event&gt;Listener</code> for a method that
-registers listeners for a synthetic event the component dispatches (e.g.
-<code>addClickListener</code>).</p>
+deprecated: see <em>Naming handlers</em> below.)</p>
 <p>Also, if the subclass has defined <code>value</code>, calls <code>initValue()</code>.</p>
 <p><code>connectedCallback</code> is a great place to attach <strong>event-handlers</strong> to elements in your component.</p>
 <p>Be sure to call <code>super.connectedCallback()</code> if you implement <code>connectedCallback</code> in the subclass.</p>
@@ -807,6 +802,31 @@ structure has genuinely changed: replacing elements throws away focus, caret
 position and scroll state, and is slower. See
 <a href="/Building-Apps/#content-vs-render">Building Apps</a>.</p>
 <p>Be sure to call <code>super.render()</code> if you implement <code>render</code> in the subclass.</p>
+<h3 id="naming-handlers">Naming handlers</h3>
+<p>Do not give a component a member named <code>on&lt;Event&gt;</code> (<code>onClick</code>, <code>onClose</code>, …).
+That prefix is reserved for event-handler sugar in the <a href="/elements/">elements</a>
+factory, where <code>creator({ onClick: fn })</code> attaches a <code>click</code> listener, so a
+member with such a name collides with it. A component warns once per class
+when it finds one, naming the members.</p>
+<p>What happens when the two collide depends on initialisation. Since 1.8.0, if
+the member holds a function when the creator runs, the member wins:
+<code>creator({ onClose: fn })</code> assigns it rather than attaching a <code>close</code> listener
+(tosijs#22), and then that name can no longer carry event sugar. A member
+declared but left <code>undefined</code> or <code>null</code> still gets event sugar.</p>
+<p>So give the member a function default, or, better, rename it by intent:</p>
+<ul>
+<li><code>handle&lt;Event&gt;</code> for a handler function the component invokes (e.g.
+<code>handleResize</code>, <code>handleClick</code>)</li>
+<li><code>add&lt;Event&gt;Listener</code> for a method that registers listeners for a synthetic
+event the component dispatches (e.g. <code>addClickListener</code>)</li>
+</ul>
+<p><code>onResize</code> is the one such name the base class still honours, as the legacy
+resize hook. It works and warns that it is deprecated: rename it to
+<code>handleResize</code>. The <code>on&lt;Event&gt;</code> prefix is being retired for component
+callbacks in favor of the <code>handle&lt;Event&gt;</code> convention, because
+<code>creator({ onResize })</code> would attach a <code>resize</code> listener.</p>
+<p>The collision warning is advice about a naming choice, so <code>settings.quiet</code>
+silences it.</p>
 <h3 id="adoptedcallback">adoptedCallback</h3>
 <p>The <code>adoptedCallback</code> lifecycle method is called when a component is moved to a different
 document, such as into or out of an iframe. Subclasses can implement this directly.</p>
@@ -1029,6 +1049,6 @@ in your application using <a href="https://babylonjs.com/">babylonjs</a></li>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=8854aada4616"></script>
+  <script src="../iife.js?v=ceba8f5bcfc2"></script>
 </body>
 </html>

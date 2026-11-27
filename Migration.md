@@ -326,15 +326,17 @@ the only thing actually removed:
 | `data-ref="thing"`                       | `part="thing"` (bare CSS-selector refs still work)                                                                                     |
 | `<xin-blueprint>`, `<xin-loader>` markup | `<tosi-blueprint>`, `<tosi-loader>`. The old tags are **tombstones**: still registered, render nothing, and log exactly what to rename |
 
-**Deprecated but still working** (their 1.7 warnings named no version, so
-they survive 1.x and now warn naming **2.0**):
+## Deprecated but still working
 
-| still works         | prefer                                                                                              |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| `xinSlot()`         | `tosiSlot()`                                                                                        |
-| `<xin-slot>` markup | `<tosi-slot>` (same attributes, same composition; a light-DOM `<slot>` is rewritten to it for you) |
-| `blueprint()`       | `tosiBlueprint()`                                                                                   |
-| `blueprintLoader()` | `tosiLoader()`                                                                                      |
+Their 1.7 warnings named no version, so they survive 1.x and now warn naming
+**2.0**. Each warns once, with the rename and a link to this table.
+
+| still works         | prefer |
+| ------------------- | ------ |
+| `xinSlot()`         | `tosiSlot()`. `xinSlot()` now creates a `<tosi-slot>`: identical composition, and the tag name differs, which only matters if you styled `xin-slot` |
+| `<xin-slot>` markup | `<tosi-slot>` (same attributes, same composition; a light-DOM `<slot>` is rewritten to it for you). `<xin-slot>` is registered only so your content keeps landing in the right place until you rename it |
+| `blueprint()`       | `tosiBlueprint()`. `blueprint()` now creates a `<tosi-blueprint>`, the element that hydrates; `<xin-blueprint>` is an inert tombstone |
+| `blueprintLoader()` | `tosiLoader()`. `blueprintLoader()` now creates a `<tosi-loader>` |
 
 > This page listed `<xin-slot>` under **Removed** until 1.10.13. It was not
 > removed: the element is still registered, composes as before, and warns once.
@@ -347,7 +349,8 @@ neither had a prior deprecation warning:
   `creator({ onClose: fn })` now **assigns the member** instead of attaching
   a `close` listener; previously the sugar won and your member was shadowed.
   Rename to `handle<Event>` if you want the event channel. (A member left
-  `undefined`/`null` still gets event sugar.)
+  `undefined`/`null` still gets event sugar.) The component page has the
+  whole rule: [Naming handlers](/component/#naming-handlers).
 - **A type-contradicting attribute write is applied and reported, not
   silently discarded.** Writing `false` to an attribute declared
   `'on' | 'off'` used to _remove_ the attribute — so the default read back

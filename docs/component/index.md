@@ -780,12 +780,7 @@ a value (i.e. triggering a `change` events and `render` when the `value` changes
 If the class has a `handleResize` handler then a ResizeObserver will trigger
 `resize` events on the element when its size changes and `handleResize` will be
 set up to respond to them. (The legacy name `onResize` still works but is
-deprecated — the `on<Event>` prefix is reserved for event-handler sugar in the
-[elements](/elements/) factory, so component members must not use it.) Name by
-intent: `handle<Event>` for a handler function the component invokes (e.g.
-`handleResize`, `handleClick`), or `add<Event>Listener` for a method that
-registers listeners for a synthetic event the component dispatches (e.g.
-`addClickListener`).
+deprecated: see *Naming handlers* below.)
 
 Also, if the subclass has defined `value`, calls `initValue()`.
 
@@ -808,6 +803,36 @@ position and scroll state, and is slower. See
 [Building Apps](/Building-Apps/#content-vs-render).
 
 Be sure to call `super.render()` if you implement `render` in the subclass.
+
+### Naming handlers
+
+Do not give a component a member named `on<Event>` (`onClick`, `onClose`, …).
+That prefix is reserved for event-handler sugar in the [elements](/elements/)
+factory, where `creator({ onClick: fn })` attaches a `click` listener, so a
+member with such a name collides with it. A component warns once per class
+when it finds one, naming the members.
+
+What happens when the two collide depends on initialisation. Since 1.8.0, if
+the member holds a function when the creator runs, the member wins:
+`creator({ onClose: fn })` assigns it rather than attaching a `close` listener
+(tosijs#22), and then that name can no longer carry event sugar. A member
+declared but left `undefined` or `null` still gets event sugar.
+
+So give the member a function default, or, better, rename it by intent:
+
+- `handle<Event>` for a handler function the component invokes (e.g.
+  `handleResize`, `handleClick`)
+- `add<Event>Listener` for a method that registers listeners for a synthetic
+  event the component dispatches (e.g. `addClickListener`)
+
+`onResize` is the one such name the base class still honours, as the legacy
+resize hook. It works and warns that it is deprecated: rename it to
+`handleResize`. The `on<Event>` prefix is being retired for component
+callbacks in favor of the `handle<Event>` convention, because
+`creator({ onResize })` would attach a `resize` listener.
+
+The collision warning is advice about a naming choice, so `settings.quiet`
+silences it.
 
 ### adoptedCallback
 

@@ -8,6 +8,40 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+### Changed
+
+- **Five advisory messages are shorter and end in a link** (#4285). A message
+  that gives advice now says what it found and what to write instead, then
+  links to the docs section that explains why. The explanation used to ship in
+  every bundle. The five:
+  - the `on<Event>` member-name warning (566 characters to about 250) and the
+    `onResize` deprecation link to
+    [Naming handlers](https://tosijs.net/component/#naming-handlers), a new
+    section of the component page;
+  - the `xinSlot()`, `<xin-slot>` and `blueprint()` deprecations link to
+    [the rename table](https://tosijs.net/Migration/#deprecated-but-still-working)
+    in Migration.md.
+
+  Every sentence taken out of a message is on the page it links to. The
+  long-list warning's link is now a full URL, so a console makes it
+  clickable. **If a test of yours matches on warning text,** these six
+  strings changed.
+  Nothing that reports a fault changed: a contract that is not enforced, a
+  binding that threw, a refused blueprint source and the agent surface's
+  refusals read as before. That is the rule `settings.quiet` already draws
+  between advice and a defect report, and it is why the saving is small.
+
+  | bundle | 1.10.13 | this build | Δ gz |
+  | --- | --- | --- | --- |
+  | `index.js` | 31_271 | 30_977 | **-294** |
+  | `module.js` | 49_914 | 49_600 | **-314** |
+  | `main.js` | 50_221 | 49_911 | **-310** |
+  | `core.js` | 28_648 | 28_351 | **-297** |
+  | `state.js` | 18_799 | 18_804 | **+5** |
+
+  The budgets for the first four came down by 250 with it. `state.js` grew
+  by the `https://` on the long-list link.
+
 ### Deprecated
 
 - **`tosijs/debug` and `tosijs/safe` are retired.** They were two experimental

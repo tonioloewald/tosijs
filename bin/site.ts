@@ -998,6 +998,18 @@ const config = {
  *
  * The slug set is whatever `buildSite` just wrote, so this cannot drift from
  * the real site the way a hand-kept list would.
+ *
+ * ANCHORS TOO, AND LINKS IN MESSAGES (#4285). The first version matched only
+ * `](/slug/)`, so a link with an anchor (`](/component/#value)`, `](#vars)`)
+ * was not looked at, not even for its slug. And a console message may now end
+ * in a link to the docs section that carries its teaching
+ * (`https://tosijs.net/component/#naming-handlers`): rename that heading and
+ * the message points nowhere, which no test would notice. So this checks
+ * three spellings, against the ids in the page `buildSite` just wrote:
+ *
+ *   ](/slug/)  ](/slug/#anchor)      a page, and an id on it
+ *   ](#anchor)                        an id on the source's own page
+ *   https://tosijs.net/slug/#anchor   the same, written in library code
  */
 async function checkInternalLinks(): Promise<void> {
   const fs = await import('fs/promises')
@@ -1046,7 +1058,46 @@ async function checkInternalLinks(): Promise<void> {
     else await addTree(entry) // a bare directory: sweep it recursively
   }
 
+  // the ids on a built page; '' is the home page (README)
+  const idCache = new Map<string, Set<string> | undefined>()
+  const idsOn = async (slug: string): Promise<Set<string> | undefined> => {
+    if (!idCache.has(slug)) {
+      let ids: Set<string> | undefined
+      if (slug === '' || slugs.has(slug)) {
+        try {
+          const html = await Bun.file(
+            path.join(docsDir, slug, 'index.html')
+          ).text()
+          ids = new Set(
+            Array.from(html.matchAll(/\sid="([^"]+)"/g), (m) => m[1])
+          )
+        } catch {
+          ids = undefined
+        }
+      }
+      idCache.set(slug, ids)
+    }
+    return idCache.get(slug)
+  }
+
   const broken: string[] = []
+  let anchors = 0
+  const check = async (
+    rel: string,
+    shown: string,
+    slug: string,
+    anchor: string | undefined
+  ): Promise<void> => {
+    const ids = await idsOn(slug)
+    if (ids === undefined) {
+      broken.push(`${rel} → ${shown} (no page /${slug}/)`)
+    } else if (anchor !== undefined) {
+      anchors += 1
+      if (!ids.has(anchor)) {
+        broken.push(`${rel} → ${shown} (no id "${anchor}" on that page)`)
+      }
+    }
+  }
   for (const rel of sources) {
     let text: string
     try {
@@ -1054,9 +1105,23 @@ async function checkInternalLinks(): Promise<void> {
     } catch {
       continue
     }
-    for (const match of text.matchAll(/\]\(\/([A-Za-z0-9._-]+)\/\)/g)) {
-      const slug = match[1]
-      if (!slugs.has(slug)) broken.push(`${rel} → /${slug}/`)
+    // the page this source becomes: README is the home page, anything else
+    // is its file name without the extension (docs.json's `filename`)
+    const own =
+      rel === 'README.md' ? '' : path.basename(rel).replace(/\.(md|ts)$/, '')
+    for (const match of text.matchAll(
+      /\]\((?:\/([A-Za-z0-9._-]+)\/)?(?:#([^)\s]+))?\)/g
+    )) {
+      if (match[1] === undefined && match[2] === undefined) continue // `]()`
+      await check(rel, match[0].slice(2, -1), match[1] ?? own, match[2])
+    }
+    // in library code and in prose: an absolute link to a page of this site.
+    // The lookahead keeps `https://tosijs.net/favicon.svg` (a file, not a
+    // page) from being read as the page `favicon`.
+    for (const match of text.matchAll(
+      /https:\/\/tosijs\.net\/([A-Za-z0-9_-]+)(?![A-Za-z0-9_.-])\/?(?:#([A-Za-z0-9_-]+))?/g
+    )) {
+      await check(rel, match[0], match[1], match[2])
     }
   }
   if (broken.length > 0) {
@@ -1069,7 +1134,9 @@ async function checkInternalLinks(): Promise<void> {
     )
     throw new Error(`${broken.length} broken internal link(s)`)
   }
-  console.log(`internal links: ${slugs.size} slugs, no 404s`)
+  console.log(
+    `internal links: ${slugs.size} slugs, ${anchors} anchored links, no 404s`
+  )
 }
 
 const rebuild = async () => {

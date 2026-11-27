@@ -1261,7 +1261,7 @@ const nonVirtualWarning = (
       ? 'SVG cannot virtualize; '
       : 'Virtualize it: { virtual: { height: 32 } } (row px), or ') +
     "if rendering all is deliberate, say why: { nonVirtualReason: '…' }. " +
-    'tosijs.net/bindings'
+    'https://tosijs.net/bindings/'
   )
 }
 
