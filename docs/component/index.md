@@ -377,6 +377,14 @@ that can be *initialized* from an attribute. Here's what you need to know:
 **Do NOT put `value` in `static initAttributes`** - it will be rejected with a warning.
 The Component class handles `value` specially to provide form-like behavior automatically.
 
+**If you write `value` as your own getter and setter**, the component is in
+charge of it: where it is kept, what it accepts, and when to render or emit
+`change`. The base class does one thing for it. If the element has a `value`
+attribute when it is first connected, that string is handed to your setter,
+once, after `content` has been built. Keep the value wherever you like
+(`private _value` is the usual place); the base class does not read or write
+your store. A component with a getter and no setter is not handed anything.
+
 ### parts
 
     parts: {[key:string]: Element | undefined}

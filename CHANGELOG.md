@@ -8,6 +8,31 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ## [Unreleased]
 
+<!-- When this is cut: Migration.md gets a section for the version, with the
+     tosijs/debug and tosijs/safe retirement (#4286) and the value-attribute
+     change (#4254). Neither is on that page yet, because the page is live. -->
+
+### Fixed
+
+- **`Component` no longer writes your component's private `_value`** (#4254).
+  The base class wrote a property called `_value` on every instance:
+  `undefined` in the constructor, and the `value` attribute every time the
+  element was connected. Nothing in tosijs read it. But a component that
+  implements `value` as its own getter and setter usually keeps its store in
+  `private _value`, so the attribute string landed in that store without the
+  setter being asked, and landed again on every re-attach, undoing any change
+  made since. Now such a component is handed the attribute through its own
+  setter, once, on first connect, after its content is built.
+  **What changes for a component with its own `value` accessor:**
+  - its setter runs once on first connect if the element has a `value`
+    attribute (it did not run before), so it can normalise, parse or refuse;
+  - moving the element in the document no longer resets its value;
+  - a store that starts `null` is seeded too (the old write skipped it);
+  - a getter with no setter is not seeded: add a setter.
+
+  A component with an ordinary `value = …` field behaves as before. No
+  instance carries an own `_value` property any more.
+
 ### Changed
 
 - **Five advisory messages are shorter and end in a link** (#4285). A message

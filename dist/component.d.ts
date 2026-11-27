@@ -227,6 +227,7 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
     _legacyTrackedAttrs?: Set<string>;
     private _attrValues?;
     private _valueChanged;
+    private _valueInstalled;
     private _pendingAttrOps?;
     static StyleNode(styleSpec: TosiStyleSheet): HTMLStyleElement;
     static elementCreator<C = Component>(this: new () => C, options?: ElementCreatorOptions): ElementCreator<C>;
@@ -237,6 +238,21 @@ export declare abstract class Component<T = PartsMap> extends HTMLElement {
      */
     initAttributes(...attributeNames: string[]): void;
     private initValue;
+    /**
+     * `value="…"` in markup, for a component that implements `value` ITSELF
+     * (its own getter and setter). `initValue()` installs nothing for such a
+     * component, so this is how the attribute reaches it: through its public
+     * setter, once, on first connect, after its content exists.
+     *
+     * It replaces two writes to an undeclared `_value` property (#4254): one in
+     * the constructor and one on every connect. Nothing in tosijs read
+     * `_value`, but `private _value` behind a hand-written accessor is how such
+     * a component is written, so the base class was planting the attribute
+     * string in a subclass's private store, past whatever its setter enforces,
+     * and planting it again each time the element was re-attached. The base
+     * class no longer touches `_value`. It is yours.
+     */
+    private _seedOwnValue;
     private _parts?;
     private _partsCache;
     get parts(): PartsOf<T>;

@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=f4f6b80c2e06" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=63734c537afe" data-tosi-doc-system />
   <title>Web Components — tosijs</title>
   <meta name="description" content="The Component base class for building custom elements with tosijs: light-DOM by default, automatic slot composition, form association. Declare attributes with withAttributes() so they are typed on this — since 1.10.0 Component has no index signature, so an undeclared this.foo is a type error. static initAttributes is not deprecated (withAttributes sets it, and it adds attributes to an existing class); see Migration." />
   <link rel="canonical" href="https://tosijs.net/component/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=01304ef55384" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=96729f7af657" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="component.ts">
 <h1 id="web-components-component">Web Components (Component)</h1>
 <p><strong>tosijs</strong> provides the abstract <code>Component</code> class to make defining
@@ -411,6 +411,13 @@ that can be <em>initialized</em> from an attribute. Here&#39;s what you need to 
 </ol>
 <p><strong>Do NOT put <code>value</code> in <code>static initAttributes</code></strong> - it will be rejected with a warning.
 The Component class handles <code>value</code> specially to provide form-like behavior automatically.</p>
+<p><strong>If you write <code>value</code> as your own getter and setter</strong>, the component is in
+charge of it: where it is kept, what it accepts, and when to render or emit
+<code>change</code>. The base class does one thing for it. If the element has a <code>value</code>
+attribute when it is first connected, that string is handed to your setter,
+once, after <code>content</code> has been built. Keep the value wherever you like
+(<code>private _value</code> is the usual place); the base class does not read or write
+your store. A component with a getter and no setter is not handed anything.</p>
 <h3 id="parts">parts</h3>
 <pre><code>parts: {[key:string]: Element | undefined}
 </code></pre>
@@ -1049,6 +1056,6 @@ in your application using <a href="https://babylonjs.com/">babylonjs</a></li>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=f4f6b80c2e06"></script>
+  <script src="../iife.js?v=63734c537afe"></script>
 </body>
 </html>

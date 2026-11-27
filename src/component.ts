@@ -379,6 +379,14 @@ that can be *initialized* from an attribute. Here's what you need to know:
 **Do NOT put `value` in `static initAttributes`** - it will be rejected with a warning.
 The Component class handles `value` specially to provide form-like behavior automatically.
 
+**If you write `value` as your own getter and setter**, the component is in
+charge of it: where it is kept, what it accepts, and when to render or emit
+`change`. The base class does one thing for it. If the element has a `value`
+attribute when it is first connected, that string is handed to your setter,
+once, after `content` has been built. Keep the value wherever you like
+(`private _value` is the usual place); the base class does not read or write
+your store. A component with a getter and no setter is not handed anything.
+
 ### parts
 
     parts: {[key:string]: Element | undefined}
@@ -1701,7 +1709,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
    * instead of the whole class paying for them.
    */
   /*
-   * `value`, `_value`, `defaultValue`, `handleResize`, `onResize` and
+   * `value`, `defaultValue`, `handleResize`, `onResize` and
    * `_onResize` are DELIBERATELY NOT DECLARED HERE, and a comment that once
    * claimed they were declared "by interface merging below" was describing a
    * merge that does not exist — it was abandoned when `tjs convert` rejected
@@ -1728,6 +1736,8 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
   private _attrValues?: Map<string, any>
   // Tracks whether value changed (for form sync in render)
   private _valueChanged = false
+  // true once initValue() has installed the base class's own `value` accessor
+  private _valueInstalled = false
   // Queue of attribute mutations deferred from the constructor (see
   // _installAttributeQueue / _drainPendingAttrOps).
   private _pendingAttrOps?: Array<['set', string, string] | ['remove', string]>
@@ -1980,6 +1990,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       ? this.getAttribute('value')
       : deepClone(dynamic(this).value)
     delete dynamic(this).value
+    this._valueInstalled = true
     Object.defineProperty(this, 'value', {
       enumerable: false,
       get() {
@@ -1996,6 +2007,40 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
         }
       },
     })
+  }
+
+  /**
+   * `value="…"` in markup, for a component that implements `value` ITSELF
+   * (its own getter and setter). `initValue()` installs nothing for such a
+   * component, so this is how the attribute reaches it: through its public
+   * setter, once, on first connect, after its content exists.
+   *
+   * It replaces two writes to an undeclared `_value` property (#4254): one in
+   * the constructor and one on every connect. Nothing in tosijs read
+   * `_value`, but `private _value` behind a hand-written accessor is how such
+   * a component is written, so the base class was planting the attribute
+   * string in a subclass's private store, past whatever its setter enforces,
+   * and planting it again each time the element was re-attached. The base
+   * class no longer touches `_value`. It is yours.
+   */
+  private _seedOwnValue(): void {
+    // the accessor initValue() installed already took the attribute as its seed
+    if (this._valueInstalled) return
+    const fromMarkup = this.getAttribute('value')
+    if (fromMarkup === null) return
+    // the nearest `value` on the instance or its class chain
+    let descriptor = Object.getOwnPropertyDescriptor(this, 'value')
+    for (
+      let proto = Object.getPrototypeOf(this);
+      descriptor === undefined &&
+      proto != null &&
+      proto !== Component.prototype;
+      proto = Object.getPrototypeOf(proto)
+    ) {
+      descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
+    }
+    // no setter (a read-only value, or no value at all): nothing to hand it to
+    if (descriptor?.set !== undefined) dynamic(this).value = fromMarkup
   }
 
   private _parts?: PartsOf<T>
@@ -2144,7 +2189,6 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     }
 
     this.instanceId = `${this.tagName.toLowerCase()}-${instanceCount}`
-    dynamic(this)._value = deepClone(dynamic(this).defaultValue)
 
     this._warnOnHandlerCollisions()
   }
@@ -2661,6 +2705,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
     // is a no-op.
     this._drainPendingAttrOps()
     insertGlobalStyles((this.constructor as unknown as Component).tagName)
+    const firstConnect = !this._hydrated
     this.hydrate()
     if (this.role != null) this.setAttribute('role', this.role)
     // Curation materializes as accessibility — but into the MATCHING slot.
@@ -2721,9 +2766,7 @@ export abstract class Component<T = PartsMap> extends HTMLElement {
       }
       this.addEventListener('resize', dynamic(this)._onResize)
     }
-    if (dynamic(this).value != null && this.getAttribute('value') != null) {
-      dynamic(this)._value = this.getAttribute('value')
-    }
+    if (firstConnect) this._seedOwnValue()
     // Sync initial form value and validate for formAssociated components
     if (this.internals && dynamic(this).value !== undefined) {
       this.internals.setFormValue(dynamic(this).value)

@@ -2773,3 +2773,140 @@ describe('SINGLE (non-array) content is classified too', () => {
     el.remove()
   })
 })
+
+/*
+ * #4254. The base class used to write a property called `_value` on every
+ * component: `undefined` in the constructor, and the `value` attribute on
+ * every connect. Nothing in tosijs read it. But `private _value` behind a
+ * hand-written `get value()` / `set value()` is how a component with its own
+ * value accessor is written (eight in the ecosystem), so the base was planting
+ * a string in a subclass's private store, past whatever its setter enforces.
+ *
+ * Now the base never touches `_value`. A component that implements `value`
+ * itself gets the attribute through its own setter, once, on first connect.
+ */
+describe('the value attribute and a component with its own value accessor (#4254)', () => {
+  const fromMarkup = (tag: string, value: string): any => {
+    const el = document.createElement(tag) as any
+    el.setAttribute('value', value)
+    document.body.append(el)
+    return el
+  }
+
+  test('a typed store is not overwritten: the setter decides', () => {
+    const seen: unknown[] = []
+    class TypedStore extends (Component as any) {
+      static preferredTagName = 'v4254-typed-store'
+      private _value: { title: string } | null = { title: 'default' }
+      get value() {
+        return this._value
+      }
+      set value(next: any) {
+        seen.push(next)
+        if (next && typeof next === 'object') this._value = next
+      }
+    }
+    ;(TypedStore as any).elementCreator()
+    const el = fromMarkup('v4254-typed-store', 'from-markup')
+    expect(seen).toEqual(['from-markup'])
+    expect(el.value).toEqual({ title: 'default' })
+    el.remove()
+  })
+
+  test('a string store is seeded through the setter, which may normalise', () => {
+    let calls = 0
+    class StringStore extends (Component as any) {
+      static preferredTagName = 'v4254-string-store'
+      private _value = ''
+      get value() {
+        return this._value
+      }
+      set value(next: string) {
+        calls += 1
+        this._value = String(next ?? '').trim()
+      }
+    }
+    ;(StringStore as any).elementCreator()
+    const el = fromMarkup('v4254-string-store', '  padded  ')
+    expect(calls).toBe(1)
+    expect(el.value).toBe('padded')
+    el.remove()
+  })
+
+  test('the attribute seeds once: reconnecting does not undo a later change', () => {
+    let calls = 0
+    class Reconnected extends (Component as any) {
+      static preferredTagName = 'v4254-reconnected'
+      private _value = ''
+      get value() {
+        return this._value
+      }
+      set value(next: string) {
+        calls += 1
+        this._value = next
+      }
+    }
+    ;(Reconnected as any).elementCreator()
+    const el = fromMarkup('v4254-reconnected', 'initial')
+    el.value = 'edited'
+    el.remove()
+    document.body.append(el)
+    expect(el.value).toBe('edited')
+    expect(calls).toBe(2) // the seed, and the edit
+    el.remove()
+  })
+
+  test('a store that starts null is seeded too', () => {
+    class NullStore extends (Component as any) {
+      static preferredTagName = 'v4254-null-store'
+      private _value: string | null = null
+      get value() {
+        return this._value
+      }
+      set value(next: string | null) {
+        this._value = next
+      }
+    }
+    ;(NullStore as any).elementCreator()
+    const el = fromMarkup('v4254-null-store', 'from-markup')
+    expect(el.value).toBe('from-markup')
+    el.remove()
+  })
+
+  test('a read-only value is left alone, and nothing throws', () => {
+    class ReadOnly extends (Component as any) {
+      static preferredTagName = 'v4254-read-only'
+      get value() {
+        return 'fixed'
+      }
+    }
+    ;(ReadOnly as any).elementCreator()
+    const el = fromMarkup('v4254-read-only', 'from-markup')
+    expect(el.value).toBe('fixed')
+    expect('_value' in el).toBe(false)
+    el.remove()
+  })
+
+  test('an ordinary value field is still seeded by the base, with no _value', () => {
+    class Ordinary extends (Component as any) {
+      static preferredTagName = 'v4254-ordinary'
+      value = 'default'
+    }
+    ;(Ordinary as any).elementCreator()
+    const el = fromMarkup('v4254-ordinary', 'from-markup')
+    expect(el.value).toBe('from-markup')
+    expect('_value' in el).toBe(false)
+    el.remove()
+  })
+
+  test('a component with no value carries no _value property', () => {
+    class NoValue extends (Component as any) {
+      static preferredTagName = 'v4254-no-value'
+    }
+    const el = (NoValue as any).elementCreator()() as any
+    document.body.append(el)
+    expect('_value' in el).toBe(false)
+    expect(Object.keys(el)).not.toContain('_value')
+    el.remove()
+  })
+})
