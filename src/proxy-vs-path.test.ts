@@ -297,6 +297,24 @@ describe('an id that contains "=" (#4241)', () => {
     expect((xin as any)['eqIds.list[id=nope]']).toBe(undefined)
   })
 
+  test('an id containing "]" still resolves when it ends the path', async () => {
+    // by accident rather than design: the path engine cannot parse such a
+    // path, so this works only where the proxy is handed the whole segment.
+    // Pinned because routing the lookup through a path string broke it.
+    tosi({
+      bracketIds: {
+        list: [
+          { id: 'a', v: 'plain' },
+          { id: 'a]b', v: 'bracket' },
+        ],
+      },
+    })
+    await updates()
+    expect((xin as any)['bracketIds.list[id=a]b]'].v).toBe('bracket')
+    expect((xin as any).bracketIds.list['id=a]b'].v).toBe('bracket')
+    expect((xin as any)['bracketIds.list[id=a]'].v).toBe('plain')
+  })
+
   test('a write through such a row lands on that row', async () => {
     ;(boxed as any)['eqIds.list[id=YWJj=]'].v = 'written'
     await updates()

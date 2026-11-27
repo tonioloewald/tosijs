@@ -2195,7 +2195,9 @@ test('.take() is the deprecated name of .as(): same descriptor, one warning', as
 })
 
 test('indexing a proxy with __proto__ refuses instead of handing out a prototype (GitHub #56)', () => {
-  const { protoTest } = tosi({ protoTest: { map: {}, name: 'Ada' } })
+  const { protoTest } = tosi({
+    protoTest: { map: {}, name: 'Ada', rows: [{ id: 1 }, 'text'] },
+  })
   const x = xin as any
   const sinks: Array<[string, () => void]> = [
     ['object proxy', () => ((protoTest.map as any)['__proto__'].polluted = 1)],
@@ -2219,6 +2221,40 @@ test('indexing a proxy with __proto__ refuses instead of handing out a prototype
       () => ((boxed as any)['protoTest.map[__proto__]'].polluted = 1),
     ],
     ['compound dotted', () => (x.protoTest['map.__proto__'].polluted = 1)],
+    // `[=key]` is a key spelled as an id segment, and it was the one spelling
+    // that check did not normalise (found in 1.10.13). The trap passed it as
+    // '=__proto__' and answered with a boxed scalar whose `.value`, read by
+    // path, was the RAW prototype: nothing here writes through a proxy, the
+    // app mutates what `.value` handed it.
+    [
+      '[=key] then .value',
+      () => ((protoTest.map as any)['[=__proto__]'].value.polluted = 1),
+    ],
+    [
+      '[=key] bare',
+      () => ((protoTest.map as any)['=__proto__'].value.polluted = 1),
+    ],
+    [
+      '[=key] by path',
+      () => ((boxed as any)['protoTest.map[=__proto__]'].value.polluted = 1),
+    ],
+    [
+      '[=key] tosiValue',
+      () => (tosiValue((protoTest.map as any)['[=__proto__]']).polluted = 1),
+    ],
+    [
+      '[=key] valueOf',
+      () => ((protoTest.map as any)['[=__proto__]'].valueOf().polluted = 1),
+    ],
+    ['[=key] xin', () => (x['protoTest.map[=__proto__]'].polluted = 1)],
+    [
+      '[=key] on an array',
+      () => (tosiValue(x['protoTest.rows[=__proto__]']).polluted = 1),
+    ],
+    [
+      '[=key] on an array, boxed',
+      () => ((protoTest.rows as any)['[=__proto__]'].value.polluted = 1),
+    ],
   ]
   for (const [label, sink] of sinks) {
     let threw = ''
@@ -2227,15 +2263,26 @@ test('indexing a proxy with __proto__ refuses instead of handing out a prototype
     } catch (e: any) {
       threw = String(e?.message)
     }
-    const polluted = [({} as any).polluted, ('' as any).polluted]
+    const polluted = [
+      ({} as any).polluted,
+      ('' as any).polluted,
+      ([] as any).polluted,
+    ]
     delete (Object.prototype as any).polluted
     delete (String.prototype as any).polluted
+    delete (Array.prototype as any).polluted
     expect([
       label,
       polluted,
       /unsafe path segment "__proto__"/.test(threw),
-    ]).toEqual([label, [undefined, undefined], true])
+    ]).toEqual([label, [undefined, undefined, undefined], true])
   }
+  // `[=text]` on an array is still the item with that text, and reaches
+  // nothing inherited: sending it to the path engine (a property read of the
+  // array) briefly made `rows[=constructor]` a function
+  expect(x['protoTest.rows[=text]']).toBe('text')
+  expect(x['protoTest.rows[=constructor]']).toBe(undefined)
+  expect(x['protoTest.rows[=push]']).toBe(undefined)
   // a data key named constructor still reads (dictionaries keyed by data)
   const { protoDict } = tosi({
     protoDict: { words: { constructor: 'builder' } },

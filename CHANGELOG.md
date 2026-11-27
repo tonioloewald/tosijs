@@ -32,6 +32,24 @@ is new in 1.10.12.
   call compiles.
   **Behaviour change:** a validator that returned some other truthy value to
   mean "valid" now refuses everything. Return `true`.
+- **`[=__proto__]`, read through a boxed proxy, handed out the raw prototype**
+  (found while fixing #4241). 1.10.11 made the proxy refuse `__proto__`,
+  checked on the key as the trap normalises it. `[=key]` is a key spelled as
+  an id segment, and that spelling was not normalised: `proxy['[=__proto__]']`
+  passed the check as `=__proto__` and came back as a boxed scalar, whose
+  `.value` (and `tosiValue()`, and `valueOf()`) was `Object.prototype` itself,
+  or `Array.prototype` on an array. Nothing wrote through the proxy, so no
+  guard ran: app code that changed the value it had read changed every
+  object. The proxy now refuses the key of a `[=key]` segment like any other
+  key, with the same `UnsafePathError`.
+  **Affects every version tested, 1.6.0 to 1.10.12.** It is reached only by
+  app code that indexes a proxy with an untrusted key or path and then
+  mutates what it read. `agent.read()` returned `undefined` for such a path,
+  and writes through the proxy, `agent.write()`, `share()` and `sync()` were
+  already refused.
+  **Not closed here:** a path that goes through an inherited `constructor`
+  still reads the built-in constructor (board #4271). Do not mutate a value
+  you read with an untrusted key.
 
 ### Fixed
 
@@ -73,7 +91,9 @@ is new in 1.10.12.
   ids `YWJj` and `YWJj=` (base64 padding), `xin['list[id=YWJj=]']` returned
   the unpadded row, and its `.path` named a row it was not holding. The same
   path with a property after it (`list[id=YWJj=].name`) was already correct.
-  The proxy now asks the path engine, like every other id-path read.
+  The proxy now asks the path engine, like every other id-path read. (Only
+  for a real id segment: `[=text]` on an array is still the item whose text
+  is `text`.)
   **Behaviour change:** if two rows share an id, `xin['list[id=1]']` names the
   last of them, as `xin['list[id=1].name']` and `getByPath` always have. It
   used to name the first.

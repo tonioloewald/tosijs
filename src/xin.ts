@@ -925,7 +925,13 @@ import {
   updates,
   OBSERVER_SHOULD_BE_REMOVED,
 } from './path-listener'
-import { getByPath, setByPath, assertSafeLeafKey, isContainer } from './by-path'
+import {
+  getByPath,
+  setByPath,
+  assertSafeLeafKey,
+  isContainer,
+  byIdSegment,
+} from './by-path'
 import { getBind, getOn } from './registry'
 import { ElementsProxy } from './elements-types'
 import { elements } from './elements'
@@ -1413,19 +1419,36 @@ const regHandler = (
       prop = prop.substring(1, prop.length - 1)
     }
     assertSafeLeafKey(prop)
+    // `[=key]` is a KEY spelled as an id segment, so its key is what follows
+    // the '=' and it takes the same rule. It was the one spelling the 1.10.11
+    // guard did not normalise: `proxy['[=__proto__]']` passed the check as
+    // '=__proto__', came back as a boxed scalar, and its `.value` (read by
+    // path, and reads in by-path are unguarded) was the raw prototype.
+    if (prop.charCodeAt(0) === 61 /* = */) assertSafeLeafKey(prop.slice(1))
     if (
       (!Array.isArray(target) && target[prop] !== undefined) ||
       (Array.isArray(target) && prop.includes('='))
     ) {
       let value: TosiValue
       if (prop.includes('=')) {
-        // ASK THE PATH ENGINE which item an id segment names. This split the
+        // ASK THE PATH ENGINE which row an id segment names. This split the
         // segment on every '=' and searched the array itself, so an id that
         // contains one matched another row: `[id=YWJj=]` (base64 padding)
         // returned the item whose id is `YWJj`, while the same path with a
         // property after it (which already went through by-path) found the
         // right one. Two lookups for one question, and they differed.
-        value = getByPath(target, `[${prop}]`)
+        //
+        // Only a REAL id segment goes to the engine. `[=text]` on an array
+        // stays what it was here (the item whose text is `text`): in the
+        // engine it is a property read of the array, inherited members
+        // included, and sending it there made `list[=__proto__]` hand out
+        // Array.prototype. The two still differ on it (board #4261).
+        value =
+          prop.charCodeAt(0) === 61 /* = */
+            ? (target as TosiArray).find(
+                (candidate: any) => `${candidate}` === prop.slice(1)
+              )
+            : byIdSegment(target, prop)
       } else {
         // we're working around Typescript's incorrect understanding of arrays
         value = (target as TosiArray)[prop as unknown as number]

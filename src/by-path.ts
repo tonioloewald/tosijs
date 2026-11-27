@@ -245,6 +245,19 @@ function byIdPath(
   return array[idx as number]
 }
 
+/**
+ * The row an id segment (`idPath=value`) names, for a READ. The one reading of
+ * such a segment, shared by `getByPath` and the proxy's get trap so the two
+ * cannot disagree about which row an id means. The value is everything after
+ * the FIRST `=`, so an id that contains one (base64 padding) stays whole. The
+ * proxy split on every `=` and searched the array itself, and `[id=YWJj=]`
+ * named the row whose id is `YWJj`.
+ */
+export function byIdSegment(array: any[] | TosiObject, segment: string): any {
+  const at = segment.indexOf('=')
+  return byIdPath(array, segment.slice(0, at), segment.slice(at + 1))
+}
+
 function expectArray(obj: any): void {
   if (!Array.isArray(obj)) {
     throw makeError('setByPath failed: expected array, found', obj)
@@ -280,8 +293,7 @@ function getByPath(obj: TosiObject | TosiArray, path: string): any {
           return undefined
         }
       } else if (part.includes('=')) {
-        const [idPath, ...tail] = part.split('=')
-        found = byIdPath(found as any[], idPath, tail.join('='))
+        found = byIdSegment(found as any[], part)
       } else {
         j = parseInt(part, 10)
         found = (found as TosiArray)[j]

@@ -108,7 +108,7 @@ don't clobber each other; the `iframe` attribute isolates DOM/CSS, not state.
 - https://tosijs.net/trust-and-transports/ — Trust & Transports
   The honest section — constraint bypass, capability scoping, secrets, prompt injection, audit — and the three transport distances.
 - https://tosijs.net/Migration/ — Upgrading and Migration
-  Upgrading tosijs: the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.10.0 typed-attributes change (Component lost its index signature: declare attributes with withAttributes()), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.
+  Upgrading tosijs: the 1.10.13 fixes that change what a read or a contract validator returns, the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.10.0 typed-attributes change (Component lost its index signature: declare attributes with withAttributes()), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename.
 - https://tosijs.net/utilities/ — Utilities
   Lightweight helper libraries used internally by tosijs and exposed for general use: more-math, throttle and debounce.
 - https://tosijs.net/component/ — Web Components

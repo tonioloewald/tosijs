@@ -1,6 +1,6 @@
 # Upgrading and Migration
 
-<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.10.0 typed-attributes change (Component lost its index signature: declare attributes with withAttributes()), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
+<!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.10.13 fixes that change what a read or a contract validator returns, the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.10.0 typed-attributes change (Component lost its index signature: declare attributes with withAttributes()), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
 
 In a nutshell:
 
@@ -12,6 +12,27 @@ In a nutshell:
 should be the module names.
 
 > Please [let me know](https://discord.gg/ramJ9rgky5) if there are any issues.
+
+# Upgrading to 1.10.13
+
+Bug fixes, and five of them change what you get back. The
+[changelog](https://github.com/tonioloewald/tosijs/blob/main/CHANGELOG.md) has
+the detail.
+
+- **A contract validator must return `true` to accept a value.** Anything else
+  is a violation now, `false` included. If you call `setContractValidator()`,
+  check what your validator returns. A boolean one (tosijs-schema's `validate`,
+  passed in directly) used to enforce nothing and now enforces. One that
+  returned some other truthy value to mean "valid" now refuses every value.
+- **An object with no prototype is a proxy when you read it from state**, like
+  any other object. `Object.groupBy()` results and a regex match's `groups` are
+  the usual ones. If you compared what you read with the raw object using
+  `===`, unwrap it first with `tosiValue()`.
+- **`null` inside an array reads as `null`** through a proxy. It used to throw.
+- **When two rows share an id, `list[id=x]` is the last of them**, as
+  `list[id=x].name` always was. It used to be the first.
+- **`proxy['[=__proto__]']` throws `UnsafePathError`**, as `proxy['__proto__']`
+  has since 1.10.11.
 
 # Upgrading to 1.10.2
 

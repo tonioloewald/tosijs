@@ -38,6 +38,15 @@ export declare function assertSafeKey(key: string): void;
  * own-property check).
  */
 export declare function assertSafeLeafKey(key: string): void;
+/**
+ * The row an id segment (`idPath=value`) names, for a READ. The one reading of
+ * such a segment, shared by `getByPath` and the proxy's get trap so the two
+ * cannot disagree about which row an id means. The value is everything after
+ * the FIRST `=`, so an id that contains one (base64 padding) stays whole. The
+ * proxy split on every `=` and searched the array itself, and `[id=YWJj=]`
+ * named the row whose id is `YWJj`.
+ */
+export declare function byIdSegment(array: any[] | TosiObject, segment: string): any;
 declare function getByPath(obj: TosiObject | TosiArray, path: string): any;
 declare function setByPath(orig: TosiObject | TosiArray, path: string, val: any): boolean;
 declare function deleteByPath(orig: TosiObject, path: string): void;
