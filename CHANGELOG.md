@@ -198,7 +198,7 @@ is new in 1.10.12.
 ### Sizes
 
 Gzipped, against 1.10.12, from the build's ledger: `index.js` +28 B, `core.js`
-+32, `state.js` +3, `module.js` -24, `main.js` -24, `module.debug.js` -28,
++32, `state.js` +3, `module.js` -24, `main.js` -24, `module.debug.js` -31,
 `module.safe.js` -42. No budget moved.
 
 ## [1.10.12] - 2026-11-18
