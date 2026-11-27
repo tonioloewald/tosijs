@@ -292,6 +292,8 @@ function getByPath(obj: TosiObject | TosiArray, path: string): any {
         // releases of spellings (1.10.10, 1.10.11, 1.10.13); this is the
         // operation. `constructor` and `prototype` are not refused here:
         // they are data keys in real apps, and an inherited one is #4271.
+        // (assertSafeLeafKey's rule, written inline: this is the hottest
+        // loop in the library. byIdPath's `[=key]` read calls the function.)
         if (key === '__proto__') throw new UnsafePathError(key)
         found = (found as TosiObject)[key]
       }

@@ -433,9 +433,10 @@ editing its expectation.
 Three releases in a row guarded prototype access by SPELLING, at the place
 the spelling arrived, and each next review found another spelling: `[=key]`
 writes (1.10.10), `[__proto__]` (1.10.11), `[=__proto__]` and then
-`a.__proto__.value` (1.10.13). The 1.10.13 fix that held is one comparison in
-`getByPath`, because that is the function a compound path's base, a boxed
-scalar's `.value` and an accessor's `.value` all resolve through. Three rules
+`a.__proto__.value` (1.10.13). The 1.10.13 fix that held is two read guards in
+`by-path.ts` (the dotted loop in `getByPath` and the `[=key]` read in
+`byIdPath`), because that is where a compound path's base, a boxed scalar's
+`.value` and an accessor's `.value` all resolve. Three rules
 came out of it:
 
 - **Put the guard where the operation happens.** Ask "which function resolves
@@ -446,8 +447,13 @@ came out of it:
   `Object.prototype` itself in every version tested, from 1.6.0.
 - **Generate the spelling table.** `src/proto-corpus.test.ts` builds every
   spelling at every position under every kind of parent, asked every way a
-  value leaves a proxy (3,990 probes). The hand-listed table it joins held
+  value leaves a proxy (5,187 probes). The hand-listed table it joins held
   the spellings someone had thought of, which is why it was green each time.
+  Two things its first version got wrong, both found by the re-review:
+  **detect by shape, not identity** (a proxy OVER `Object.prototype` is not
+  `===` to it, and `tosiValue()` reads by path, so removing the trap's guard
+  left it green), and **cover each branch on purpose** (`getByPath` takes
+  another branch for a zero-length parent, which the fixture reached by luck).
   When a generated corpus reports a hand-out, check first that the probe is
   still talking to the library: `xin` returns raw strings, and
   `'Ada'['__proto__']` is JavaScript, not tosijs.
@@ -633,8 +639,9 @@ identical in a grep while being opposites:
   than `String()`-ing it into an unmatchable path.
 
 The measured shape, which the codebase already had before anyone wrote it down:
-`regHandler` is **about 280 lines, and its only throws are the `__proto__`
-guards**, and it runs on *every property access*; `touch`, a public entry point, validates. **Take the performance win
+`regHandler` is **about 280 lines whose only throws are the `__proto__`
+guards and one invalid-path check on write**, and it runs on *every property
+access*; `touch`, a public entry point, validates. **Take the performance win
 of not checking** unless skipping the check would blow something up — which is
 exactly what tjs's `safety inputs` at the public API and `safety none` for hot
 internals encodes, and why 2.0 puts the touch queue, DOM updates and proxy

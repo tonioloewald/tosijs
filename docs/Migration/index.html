@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=0241794db3c6" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=b40e3460a1a2" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="Migration.md">
 <h1 id="upgrading-and-migration">Upgrading and Migration</h1>
 <!--{ "pin": "bottom", "description": "Upgrading tosijs: the 1.10.13 fixes that change what a read or a contract validator returns, the 1.10.2 agent-surface disclosure fix (rotate link tokens), the 1.10.0 typed-attributes change (Component lost its index signature: declare attributes with withAttributes()), the 1.9.0 agent-surface default change, the 1.8.0 removals and behaviour changes, the 1.7.0 correctness release, and the original xinjs to tosijs rename." }-->
@@ -68,9 +68,10 @@ the usual ones. If you compared what you read with the raw object using
 <li><strong><code>null</code> inside an array reads as <code>null</code></strong> through a proxy. It used to throw.</li>
 <li><strong>When two rows share an id, <code>list[id=x]</code> and <code>list[id=x].name</code> are the same
 row.</strong> Which of the two is not specified; they used to be able to differ.</li>
-<li><strong>A path read with <code>__proto__</code> anywhere in it throws <code>UnsafePathError</code></strong>,
-whatever its spelling (<code>a.__proto__.b</code>, <code>a[=__proto__]</code>). Since 1.10.11 only
-a final <code>__proto__</code> key did.</li>
+<li><strong>Most paths with <code>__proto__</code> in them now throw</strong> (<code>a.__proto__.b</code>,
+<code>a[=__proto__]</code>), where since 1.10.11 only a final <code>__proto__</code> key did. A
+few spellings read <code>undefined</code> instead; none returns a prototype. Recognise
+the refusal by <code>error.name === &#39;UnsafePathError&#39;</code>.</li>
 </ul>
 <h1 id="upgrading-to-1102">Upgrading to 1.10.2</h1>
 <p><strong>Nothing you wrote needs to change.</strong> No API is removed or renamed. Two

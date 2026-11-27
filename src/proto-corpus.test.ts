@@ -34,6 +34,35 @@ const BUILT_INS = new Map<unknown, string>([
   [Boolean.prototype, 'Boolean.prototype'],
 ])
 
+// "Is this a built-in prototype?" has to see through a proxy. A proxy over
+// Object.prototype is not identical to it and is as bad to hand out, and
+// tosiValue() does not help: it reads by path, not from the target. A proxy
+// with default traps answers reflection from its target, so compare shape:
+// the same own property names, on the same prototype.
+const builtInNamed = (value: unknown): string | undefined => {
+  if (
+    value === null ||
+    (typeof value !== 'object' && typeof value !== 'function')
+  )
+    return undefined
+  for (const [proto, name] of BUILT_INS) {
+    if (value === proto) return name
+    try {
+      const mine = Object.getOwnPropertyNames(value)
+      const theirs = Object.getOwnPropertyNames(proto as object)
+      if (
+        Object.getPrototypeOf(value) === Object.getPrototypeOf(proto) &&
+        mine.length === theirs.length &&
+        theirs.every((key) => mine.includes(key))
+      )
+        return `a proxy over ${name}`
+    } catch {
+      // reflection refused: not a hand-out
+    }
+  }
+  return undefined
+}
+
 const ROOT = 'protoCorpus'
 const PARENTS = [
   ROOT,
@@ -46,6 +75,10 @@ const PARENTS = [
   `${ROOT}.count`,
   `${ROOT}.bare`,
   `${ROOT}.act`,
+  // getByPath takes another branch for anything whose `length` is 0
+  `${ROOT}.empty`,
+  `${ROOT}.zeroLength`,
+  `${ROOT}.blank`,
 ]
 const PROTO_SEGMENTS = ['.__proto__', '[__proto__]', '[=__proto__]']
 const TAILS = [
@@ -131,7 +164,7 @@ describe('no read returns a built-in prototype', () => {
   let refused = 0
 
   const record = (how: string, value: unknown) => {
-    const name = BUILT_INS.get(value)
+    const name = builtInNamed(value)
     if (name !== undefined) handedOut.push(`${how} is ${name}`)
   }
 
@@ -149,6 +182,9 @@ describe('no read returns a built-in prototype', () => {
         act() {
           return 'called'
         },
+        empty: [],
+        zeroLength: { length: 0 },
+        blank: '',
       },
     })
     await updates()
@@ -187,32 +223,44 @@ describe('no read returns a built-in prototype', () => {
     }
 
     expect(handedOut).toEqual([])
-    // or the loop above proved nothing: 3,990 asked and 2,411 refused when
-    // this was written, and 463 hand-outs with the getByPath guard removed
-    expect(asked).toBeGreaterThan(3000)
-    expect(refused).toBeGreaterThan(2000)
+    // or the loop above proved nothing. When this was written: 5,187 asked,
+    // 2,956 refused. Hand-outs found with a guard removed: 390 without
+    // getByPath's dotted check, 189 without the `[=key]` read check, 583
+    // without either, and 324 without the proxy trap's own checks.
+    expect(asked).toBeGreaterThan(4500)
+    expect(refused).toBeGreaterThan(2500)
   })
 
-  test('agent.call() cannot reach a prototype method through one', () => {
-    // under expose: 'all' this returned 1 and left [][0] === 'x' page-wide
+  test('agent.call() cannot reach a prototype method through one', async () => {
+    // under expose: 'all' this returned 1 and left [][0] === 'x' page-wide.
+    // Its own state, so it means the same run alone.
+    tosi({ protoCall: { rows: ['a'] } })
+    await updates()
     const agent = enableAgentInterface({
       quiet: true,
       expose: 'all',
       global: false,
     })
-    const attempts = [
-      `${ROOT}.rows[=__proto__].push`,
-      `${ROOT}.rows.__proto__.push`,
-      `${ROOT}.rows[__proto__].push`,
+    // [path, must the refusal be the prototype guard's?]. `[__proto__]` is
+    // an index segment to the path engine, reads undefined, and is refused
+    // as "not callable": no prototype is reached, by another route.
+    const attempts: Array<[string, boolean]> = [
+      ['protoCall.rows[=__proto__].push', true],
+      ['protoCall.rows.__proto__.push', true],
+      ['protoCall.rows[__proto__].push', false],
     ]
     const outcomes: string[] = []
     try {
-      for (const path of attempts) {
+      for (const [path, byGuard] of attempts) {
         try {
           agent.call(path, 'x')
-          outcomes.push(`${path}: called`)
-        } catch {
-          outcomes.push(`${path}: refused`)
+          outcomes.push(`${path}: CALLED`)
+        } catch (e: any) {
+          outcomes.push(
+            !byGuard || e instanceof UnsafePathError
+              ? `${path}: refused`
+              : `${path}: threw ${e?.name}, not the guard`
+          )
         }
       }
     } finally {
@@ -221,15 +269,24 @@ describe('no read returns a built-in prototype', () => {
       Array.prototype.length = 0
       expect(polluted).toBe(0)
     }
-    expect(outcomes).toEqual(attempts.map((path) => `${path}: refused`))
+    expect(outcomes).toEqual(attempts.map(([path]) => `${path}: refused`))
   })
 
   test('the detector sees a hand-out when there is one', () => {
-    // not through a proxy: this is what the corpus must never find
-    const found: string[] = []
-    const name = BUILT_INS.get(Object.getPrototypeOf({}))
-    if (name !== undefined) found.push(name)
-    expect(found).toEqual(['Object.prototype'])
+    // what the corpus must never find: the prototype, or a proxy over it
+    expect(builtInNamed(Object.getPrototypeOf({}))).toBe('Object.prototype')
+    expect(builtInNamed(new Proxy(Object.prototype, {}))).toBe(
+      'a proxy over Object.prototype'
+    )
+    expect(builtInNamed(new Proxy(Array.prototype, {}))).toBe(
+      'a proxy over Array.prototype'
+    )
+    // and what it must not mistake for one
+    expect(builtInNamed({})).toBe(undefined)
+    expect(builtInNamed(Object.create(null))).toBe(undefined)
+    expect(builtInNamed([])).toBe(undefined)
+    expect(builtInNamed('Ada')).toBe(undefined)
+    expect(builtInNamed(() => 1)).toBe(undefined)
   })
 
   // STILL OPEN (board #4271): an inherited `constructor` is readable, and
@@ -252,7 +309,7 @@ describe('no read returns a built-in prototype', () => {
       ],
     ] as Array<[string, () => unknown]>) {
       const got = ask()
-      if (BUILT_INS.has(got) || got === Object) found.push(how)
+      if (builtInNamed(got) !== undefined || got === Object) found.push(how)
     }
     expect(found).toEqual([])
   })

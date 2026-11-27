@@ -19,10 +19,11 @@ layers:
     )
 
 **`{ strict: true }` is not optional here.** By default tosijs-schema's
-`validate` checks a SAMPLE of a large array or object and does not enforce
-`maxProperties`. That is a fair trade for checking your own data and the wrong
-one at a boundary: the sample is predictable, so a writer can put the bad item
-where it is not looked at. Do not pass `validate` in bare.
+`validate` checks a SAMPLE of a large array or object (and, in versions before
+1.9, did not enforce `maxProperties`). That is a fair trade for checking your
+own data and the wrong one at a boundary: the sample is predictable, so a
+writer can put the bad item where it is not looked at. Do not pass `validate`
+in bare.
 
 A validator returns `true` for a valid value, and **anything else is a
 violation**. A plain `false`, which is what the call above returns, is

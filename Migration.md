@@ -36,9 +36,10 @@ the detail.
 - **`null` inside an array reads as `null`** through a proxy. It used to throw.
 - **When two rows share an id, `list[id=x]` and `list[id=x].name` are the same
   row.** Which of the two is not specified; they used to be able to differ.
-- **A path read with `__proto__` anywhere in it throws `UnsafePathError`**,
-  whatever its spelling (`a.__proto__.b`, `a[=__proto__]`). Since 1.10.11 only
-  a final `__proto__` key did.
+- **Most paths with `__proto__` in them now throw** (`a.__proto__.b`,
+  `a[=__proto__]`), where since 1.10.11 only a final `__proto__` key did. A
+  few spellings read `undefined` instead; none returns a prototype. Recognise
+  the refusal by `error.name === 'UnsafePathError'`.
 
 # Upgrading to 1.10.2
 

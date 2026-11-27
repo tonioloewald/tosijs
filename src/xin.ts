@@ -1430,7 +1430,7 @@ const regHandler = (
     // the '=' and it takes the same rule. It was the one spelling the 1.10.11
     // guard did not normalise: `proxy['[=__proto__]']` passed the check as
     // '=__proto__', came back as a boxed scalar, and its `.value` (read by
-    // path, and reads in by-path are unguarded) was the raw prototype.
+    // path, and by-path's reads were unguarded then) was the raw prototype.
     if (prop.charCodeAt(0) === 61 /* = */) assertSafeLeafKey(prop.slice(1))
     if (
       (!Array.isArray(target) && target[prop] !== undefined) ||

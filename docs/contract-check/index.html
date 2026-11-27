@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=0241794db3c6" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=b40e3460a1a2" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="contract-check.ts">
 <h1 id="contract-validation">Contract Validation</h1>
 <p>Contracts (a component&#39;s <code>static contract</code>, an element&#39;s inline <code>contract</code>)
@@ -52,10 +52,11 @@ contract never quietly means less than it says.</p>
 </li>
 </ol>
 <p><strong><code>{ strict: true }</code> is not optional here.</strong> By default tosijs-schema&#39;s
-<code>validate</code> checks a SAMPLE of a large array or object and does not enforce
-<code>maxProperties</code>. That is a fair trade for checking your own data and the wrong
-one at a boundary: the sample is predictable, so a writer can put the bad item
-where it is not looked at. Do not pass <code>validate</code> in bare.</p>
+<code>validate</code> checks a SAMPLE of a large array or object (and, in versions before
+1.9, did not enforce <code>maxProperties</code>). That is a fair trade for checking your
+own data and the wrong one at a boundary: the sample is predictable, so a
+writer can put the bad item where it is not looked at. Do not pass <code>validate</code>
+in bare.</p>
 <p>A validator returns <code>true</code> for a valid value, and <strong>anything else is a
 violation</strong>. A plain <code>false</code>, which is what the call above returns, is
 reported as &quot;schema violation&quot;. Return an <code>Error</code> to say why, and its

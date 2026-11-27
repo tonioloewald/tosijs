@@ -29,10 +29,11 @@ is new in 1.10.12.
   boolean. A validator that returns `true` or an `Error` was always enforced.
   **Register it strict.** The docs and the warning now teach
   `setContractValidator((value, schema) => validate(value, schema, { strict: true }))`.
-  Bare `validate` checks a sample of a large array or object and skips
-  `maxProperties`: with tosijs-schema 1.6.0, one bad item in a 1,000-item
-  array was accepted at 900 of the 1,000 positions, and the positions are
-  predictable. The wrapped example in earlier releases sampled the same way.
+  Bare `validate` checks a sample of a large array or object: one bad item
+  in a 1,000-item array was accepted at 900 of the 1,000 positions (the same
+  on tosijs-schema 1.6.0 and 1.14.0), and the positions are predictable. On
+  1.6.0 it also skipped `maxProperties`. The wrapped example in earlier
+  releases sampled the same way.
   **What an inline contract covers on `agent.write()`:** the path as the
   binding spells it. A respelling, or a write to a parent path, is not
   checked (the last entry here, and board #4288).
@@ -59,16 +60,24 @@ is new in 1.10.12.
   for a read, as it always has for a write: every compound path and every
   `.value` resolves through it. The proxy also refuses the key of a `[=key]`
   segment. `src/proto-corpus.test.ts` generates the spellings that earlier
-  releases listed by hand: 3,990 probes, none returns a built-in prototype,
-  and 463 do with the guard removed.
+  releases listed by hand: 5,187 probes, none returns a built-in prototype
+  or a proxy over one, and 583 do with the two read guards removed.
   **Affects every version tested, 1.6.0 to 1.10.12.** It is reached by app
   code that indexes a proxy with an untrusted key or path and then mutates
   what it read, or by a caller-chosen path into `agent.call()` under
   `expose: 'all'` (reproduced on 1.10.12; a manifest refuses it, and so do
   the WebMCP tools, which are generated per declared action). Writes through
   the proxy, `agent.write()`, `share()` and `sync()` were already refused.
-  **Behaviour change:** a path read with `__proto__` anywhere in it throws
-  `UnsafePathError`. Before, only a final `__proto__` key did.
+  **Behaviour change:** most paths with `__proto__` in them now throw, where
+  only a final `__proto__` key did. A few spellings read `undefined` or stop
+  at a scalar instead (`map[__proto__].x`, a path that runs past a string;
+  board #4261); none returns a prototype. Recognise the refusal by
+  `error.name === 'UnsafePathError'`: the class is not exported.
+  **Not fixed here:** the agent surface reads bound paths without catching
+  that refusal. An element bound to such a path makes `agent.describe()`
+  throw until it leaves the DOM (one bound to a final `__proto__` already
+  did), `agent.when()` on such a path throws where it should reject, and one
+  such path in the ledger stops `agent.changes()` (board #4321).
   **Not closed here:** a path that goes through an inherited `constructor`
   still reads the built-in constructor (board #4271; the same test pins it as
   an expected failure). Do not mutate a value you read with an untrusted key.
@@ -90,10 +99,9 @@ is new in 1.10.12.
   is fixed, treat redaction as defence in depth beneath the manifest's scope,
   and do not count on an inline contract or a declared action to stop a
   writer you gave `write: true`.
-- **npm notice, pending:** the notice on `>=1.8.0-0 <1.10.11` tells users to
-  upgrade to 1.10.11, which the entries above affect. It moves to
-  `<1.10.13`, pointing here, once this is published; this line is rewritten
-  when it has.
+- **npm notice:** the notice on `>=1.8.0-0 <1.10.11` tells users to upgrade
+  to 1.10.11, which the entries above affect. It moves to `<1.10.13`,
+  pointing here, when this version is published.
 
 ### Fixed
 
@@ -149,10 +157,9 @@ is new in 1.10.12.
   (0.2 ms to 0.4 ms).
 - **A row whose id is a name every object inherits** (`__proto__`,
   `constructor`, `valueOf`) is an id like any other. The path engine's id map
-  was a plain object, so `list[id=__proto__].name` read `undefined`, an
+  was a plain object, so `list[id=__proto__].name` read `undefined`, and an
   upsert at `list[id=valueOf]` stored its row under the function's source
-  text and reported success, and deleting `list[id=constructor]` when no row
-  had that id removed the first row. Found by this release's review.
+  text and reported success. Found by this release's review.
 
 ### Added
 

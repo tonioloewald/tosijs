@@ -200,11 +200,13 @@ describe('the verdict protocol: anything but `true` is a violation', () => {
   const documentedWiring = (value: any, schema: any) =>
     validate(value, schema, { strict: true })
   const large = Array.from({ length: 1000 }, () => 1)
-  const sampledCases: Array<[string, any, any]> = [
+  // [label, schema, value, does the bare call still let it through?]
+  const sampledCases: Array<[string, any, any, boolean]> = [
     [
       'a 1000-item array with one bad item',
       { type: 'array', items: { type: 'number', minimum: 0 } },
       large.map((n, i) => (i === 2 ? -1 : n)),
+      true,
     ],
     [
       'a 1000-key map with one bad value',
@@ -212,26 +214,40 @@ describe('the verdict protocol: anything but `true` is a violation', () => {
       Object.fromEntries(
         large.map((n, i) => [`k${i}`, i === 2 ? 'not a number' : n])
       ),
+      true,
     ],
     [
+      // bare `validate` skipped this on the locked 1.6.0 and enforces it
+      // from 1.9, so only the strict leg is asserted
       'maxProperties: 1 on three keys',
       { type: 'object', maxProperties: 1 },
       { a: 1, b: 2, c: 3 },
+      false,
     ],
   ]
-  for (const [label, schema, value] of sampledCases) {
+  for (const [label, schema, value, bareAccepts] of sampledCases) {
     test(`the documented strict wiring refuses ${label}`, async () => {
       const { contractViolation, setContractValidator } = await freshModule()
       setContractValidator(documentedWiring)
       expect(contractViolation(value, schema)).toBe('schema violation')
+      if (!bareAccepts) return
       // and the bare call lets it through, which is why the docs say strict.
-      // If this starts failing, tosijs-schema changed its default and the
-      // warning in the docs above can go.
+      // If this starts failing, tosijs-schema stopped sampling by default and
+      // the warning in the docs can go.
       const bare = await freshModule()
       bare.setContractValidator(validate)
       expect(bare.contractViolation(value, schema)).toBeNull()
     })
   }
+
+  test('the runtime warning teaches the strict wiring too', async () => {
+    const { contractViolation } = await freshModule()
+    const warnings = await captureWarnings(() => {
+      contractViolation(5, { type: 'number', minimum: 1 })
+    })
+    expect(warnings[0]).toContain('{ strict: true }')
+    expect(warnings[0]).not.toContain('setContractValidator(validate)')
+  })
 
   test('`true` is still the one way to say valid', async () => {
     const { contractViolation, setContractValidator } = await freshModule()
