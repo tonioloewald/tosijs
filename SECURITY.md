@@ -61,7 +61,38 @@ ones most likely to be real, in particular:
   `form-action` CSP is the control for that).
 - **The path sink** (`setByPath`, the proxy, `share()`/`sync()` inbound): a
   path or key from data must never reach the prototype chain, whatever its
-  spelling.
+  spelling. (One known residual, for READS: a path through an inherited
+  `constructor`. See below.)
+
+### Disclosed in 1.10.13
+
+Fixed in 1.10.13, with the detail in `CHANGELOG.md`:
+
+- **A read could hand out a built-in prototype** through a `__proto__`
+  segment: the `[=__proto__]` spelling, or `__proto__` anywhere but the end
+  of a path. Every version tested from 1.6.0. App code that then changed
+  what it had read changed every object; under `expose: 'all'`,
+  `agent.call()` could run a prototype's method. The path engine refuses
+  `__proto__` for reads now, as it did for writes.
+- **A contract validator that returned `false` enforced nothing**, 1.8.0 to
+  1.10.12. Register tosijs-schema's `validate` with `{ strict: true }`: bare,
+  it samples.
+- **Appending `=` to an id read a secret in cleartext through
+  `agent.read()`**, 1.8.0 to 1.10.12.
+
+Known and still open, so not news if you find them:
+
+- **A read through an inherited `constructor`** returns the built-in
+  constructor, and from it the prototype (`boxed.x.constructor.prototype.value`).
+  Writes through the proxy are refused; the hand-out is to code that mutates
+  what it read.
+- **The agent surface's gates compare the path as the caller spelled it.**
+  Under a manifest, `write('app[=checkout]', x)` overwrites a declared action,
+  `write('app.gate[=level]', x)` skips an inline contract, a write to a
+  parent path skips one too, and `read('app[=login].password')` returns a
+  secret the dotted spelling withholds. Same cause as tosijs#32 and #52.
+
+A respelling or a route NOT listed here is a bug worth reporting.
 
 ### Disclosed in 1.10.2
 

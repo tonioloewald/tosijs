@@ -249,6 +249,16 @@ nothing outside can bind into one either.
 > known gap is narrower: exotic spellings of a *direct* query that no
 > canonicalisation resolves. Treat the redaction as defence in depth beneath
 > manifest scoping, not as the boundary itself.
+>
+> **One of those spellings is not exotic: `[=key]`** (found in the 1.10.13
+> review, present in every release). `read('app[=login].password')` returns
+> what `read('app.login.password')` withholds. The same respelling gets a
+> `write()` past the guard on a declared action (`write('app[=checkout]', x)`
+> turns the action into data) and past an inline contract
+> (`write('app.gate[=level]', x)`), and a write to a PARENT path skips an
+> inline contract too. Every gate here compares the path as the caller
+> spelled it. Not fixed yet: the fix is one canonical form at this surface's
+> boundary.
 
 > **Scope withholds what tosijs can trace to a path — not text you wrote into
 > the page.** Under a manifest, `describe()`'s structural tier maps headings and

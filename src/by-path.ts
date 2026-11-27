@@ -74,14 +74,19 @@ interface IdPathMap {
 }
 
 function buildIdPathValueMap(array: TosiObject[], idPath: string): IdPathMap {
+  // NO PROTOTYPE on either map: their keys are ids and id paths, which are
+  // data. On a plain `{}` an id of `__proto__` could not be stored, so that
+  // row was not found by id, and an id of `constructor` or `valueOf` "found"
+  // the inherited function: an upsert stored its row under that function's
+  // source text, and a delete spliced row 0.
   if (idPathMaps.get(array) === undefined) {
-    idPathMaps.set(array, {})
+    idPathMaps.set(array, Object.create(null))
   }
   // Always rebuild into a FRESH map. Merging into the existing one preserves
   // stale keys for items removed outside setByPath (proxied splice/pop, direct
   // mutation + touch), and keyToIndex's validation fallback reads those stale
   // entries back — so a read returns, and a write clobbers, the wrong item.
-  const map: IdPathMap = {}
+  const map: IdPathMap = Object.create(null)
   idPathMaps.get(array)[idPath] = map
 
   if (idPath === '_auto_') {
@@ -97,20 +102,13 @@ function buildIdPathValueMap(array: TosiObject[], idPath: string): IdPathMap {
   return map
 }
 
-function getIdPathMap(array: TosiObject[], idPath: string): IdPathMap {
-  if (
-    idPathMaps.get(array) === undefined ||
-    idPathMaps.get(array)[idPath] === undefined
-  ) {
-    return buildIdPathValueMap(array, idPath)
-  } else {
-    return idPathMaps.get(array)[idPath]
-  }
-}
-
 function keyToIndex(array: TosiObject[], idPath: string, idValue: any): number {
   idValue = (idValue as string) + ''
-  let idx = getIdPathMap(array, idPath)[idValue]
+  const cached: IdPathMap | undefined = idPathMaps.get(array)?.[idPath]
+  let idx = cached?.[idValue]
+  // Build when there is no map, when the id is not in it (a row appended
+  // since), or when the row it names no longer has that id (rows moved). One
+  // build answers all three: a cold miss used to build the map twice.
   if (
     idx === undefined ||
     (getByPath(array[idx], idPath) as string) + '' !== idValue
@@ -209,11 +207,11 @@ function byIdPath(
     // Descending goes through byKey, which is where the dotted form is guarded.
     if (valueToInsert === _newObject_)
       return byKey(array as TosiObject, idValue, {})
-    // a READ is unguarded, like a dotted read: it cannot pollute, and refusing
-    // it made a [=constructor] data key writable but unreadable (so share and
-    // sync silently stopped sending it)
-    if (valueToInsert !== undefined && valueToInsert !== _delete_)
-      assertSafeLeafKey(idValue)
+    // `__proto__` is refused for a READ too (1.10.13), like every other use
+    // of it: see getByPath. `constructor` and `prototype` stay readable here,
+    // because refusing them made a [=constructor] data key writable but
+    // unreadable (so share and sync silently stopped sending it).
+    assertSafeLeafKey(idValue)
   } else {
     for (const key of idPath.split('.')) assertSafeKey(key)
   }
@@ -284,6 +282,17 @@ function getByPath(obj: TosiObject | TosiArray, path: string): any {
     if (Array.isArray(part)) {
       for (j = 0, jMax = part.length; found != null && j < jMax; j++) {
         const key = part[j]
+        // `__proto__` IS NEVER A SEGMENT, FOR A READ EITHER. Reads were
+        // unguarded on the reasoning that a read cannot pollute. It can hand
+        // out: this function is what a compound path, a boxed scalar's
+        // `.value` and an accessor's `.value` all resolve through, so
+        // `boxed['a.map.__proto__.value']` returned Object.prototype itself,
+        // and the app that changed what it had read changed every object.
+        // The proxy's own guard is on the key it is handed, which is three
+        // releases of spellings (1.10.10, 1.10.11, 1.10.13); this is the
+        // operation. `constructor` and `prototype` are not refused here:
+        // they are data keys in real apps, and an inherited one is #4271.
+        if (key === '__proto__') throw new UnsafePathError(key)
         found = (found as TosiObject)[key]
       }
     } else {

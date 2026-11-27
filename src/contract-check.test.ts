@@ -143,7 +143,7 @@ describe('setContractValidator — the plug is a security boundary (SEC-13)', ()
 // the reader to pass it in directly: doing so enforced nothing AND silenced
 // that warning. Present from 1.8.0.
 describe('the verdict protocol: anything but `true` is a violation', () => {
-  test("tosijs-schema's validate, passed in directly, enforces", async () => {
+  test("a boolean validator enforces (tosijs-schema's validate, bare)", async () => {
     const { contractViolation, setContractValidator } = await freshModule()
     setContractValidator(validate)
     const schema = { type: 'number', minimum: 5 }
@@ -191,6 +191,47 @@ describe('the verdict protocol: anything but `true` is a violation', () => {
       'schema violation'
     )
   })
+
+  // The wiring the docs and the runtime warning teach. Bare `validate`
+  // SAMPLES a large array or object and skips `maxProperties`, and the sample
+  // is predictable, so a writer can place the bad item where it is not
+  // looked at (1.10.13 review, M1: 900 of 1000 positions accepted). These
+  // three cases get through the bare call and must not get through this one.
+  const documentedWiring = (value: any, schema: any) =>
+    validate(value, schema, { strict: true })
+  const large = Array.from({ length: 1000 }, () => 1)
+  const sampledCases: Array<[string, any, any]> = [
+    [
+      'a 1000-item array with one bad item',
+      { type: 'array', items: { type: 'number', minimum: 0 } },
+      large.map((n, i) => (i === 2 ? -1 : n)),
+    ],
+    [
+      'a 1000-key map with one bad value',
+      { type: 'object', additionalProperties: { type: 'number' } },
+      Object.fromEntries(
+        large.map((n, i) => [`k${i}`, i === 2 ? 'not a number' : n])
+      ),
+    ],
+    [
+      'maxProperties: 1 on three keys',
+      { type: 'object', maxProperties: 1 },
+      { a: 1, b: 2, c: 3 },
+    ],
+  ]
+  for (const [label, schema, value] of sampledCases) {
+    test(`the documented strict wiring refuses ${label}`, async () => {
+      const { contractViolation, setContractValidator } = await freshModule()
+      setContractValidator(documentedWiring)
+      expect(contractViolation(value, schema)).toBe('schema violation')
+      // and the bare call lets it through, which is why the docs say strict.
+      // If this starts failing, tosijs-schema changed its default and the
+      // warning in the docs above can go.
+      const bare = await freshModule()
+      bare.setContractValidator(validate)
+      expect(bare.contractViolation(value, schema)).toBeNull()
+    })
+  }
 
   test('`true` is still the one way to say valid', async () => {
     const { contractViolation, setContractValidator } = await freshModule()

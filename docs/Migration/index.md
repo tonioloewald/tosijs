@@ -15,24 +15,30 @@ should be the module names.
 
 # Upgrading to 1.10.13
 
-Bug fixes, and five of them change what you get back. The
+Bug fixes, and six of them change what you get back or must write. The
 [changelog](https://github.com/tonioloewald/tosijs/blob/main/CHANGELOG.md) has
 the detail.
 
 - **A contract validator must return `true` to accept a value.** Anything else
   is a violation now, `false` included. If you call `setContractValidator()`,
-  check what your validator returns. A boolean one (tosijs-schema's `validate`,
-  passed in directly) used to enforce nothing and now enforces. One that
-  returned some other truthy value to mean "valid" now refuses every value.
+  check what your validator returns. A boolean one used to enforce nothing and
+  now enforces. One that returned some other truthy value to mean "valid" now
+  refuses every value. In TypeScript the type is `=> boolean | Error`, so code
+  that reads `.message` from a result needs an `instanceof Error` check.
+- **Register tosijs-schema's `validate` with `{ strict: true }`**:
+  `setContractValidator((value, schema) => validate(value, schema, { strict: true }))`.
+  Passed in bare, it checks only a sample of a large array or object. Earlier
+  docs showed it without `strict`.
 - **An object with no prototype is a proxy when you read it from state**, like
   any other object. `Object.groupBy()` results and a regex match's `groups` are
   the usual ones. If you compared what you read with the raw object using
   `===`, unwrap it first with `tosiValue()`.
 - **`null` inside an array reads as `null`** through a proxy. It used to throw.
-- **When two rows share an id, `list[id=x]` is the last of them**, as
-  `list[id=x].name` always was. It used to be the first.
-- **`proxy['[=__proto__]']` throws `UnsafePathError`**, as `proxy['__proto__']`
-  has since 1.10.11.
+- **When two rows share an id, `list[id=x]` and `list[id=x].name` are the same
+  row.** Which of the two is not specified; they used to be able to differ.
+- **A path read with `__proto__` anywhere in it throws `UnsafePathError`**,
+  whatever its spelling (`a.__proto__.b`, `a[=__proto__]`). Since 1.10.11 only
+  a final `__proto__` key did.
 
 # Upgrading to 1.10.2
 

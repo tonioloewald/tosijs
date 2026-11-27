@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=5491a3f7b00c" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=8854aada4616" data-tosi-doc-system />
   <title>Agent API Reference — tosijs</title>
   <meta name="description" content="EXPERIMENTAL agent interface: expose a tosijs app&#39;s state, wiring, and actions to AI agents (and test harnesses) as a described, observable, path-addressed surface." />
   <link rel="canonical" href="https://tosijs.net/agent/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=8c017ce28d62" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=0241794db3c6" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="agent.ts">
 <h1 id="agent-api-reference-experimental">Agent API Reference (EXPERIMENTAL)</h1>
 <p><code>enableAgentInterface()</code> turns a tosijs app&#39;s existing records — the state
@@ -301,6 +301,15 @@ nothing outside can bind into one either.</p>
 known gap is narrower: exotic spellings of a <em>direct</em> query that no
 canonicalisation resolves. Treat the redaction as defence in depth beneath
 manifest scoping, not as the boundary itself.</p>
+<p><strong>One of those spellings is not exotic: <code>[=key]</code></strong> (found in the 1.10.13
+review, present in every release). <code>read(&#39;app[=login].password&#39;)</code> returns
+what <code>read(&#39;app.login.password&#39;)</code> withholds. The same respelling gets a
+<code>write()</code> past the guard on a declared action (<code>write(&#39;app[=checkout]&#39;, x)</code>
+turns the action into data) and past an inline contract
+(<code>write(&#39;app.gate[=level]&#39;, x)</code>), and a write to a PARENT path skips an
+inline contract too. Every gate here compares the path as the caller
+spelled it. Not fixed yet: the fix is one canonical form at this surface&#39;s
+boundary.</p>
 </blockquote>
 <blockquote>
 <p><strong>Scope withholds what tosijs can trace to a path — not text you wrote into
@@ -421,6 +430,6 @@ auto-registration is a convenience over that adapter, not a dependency.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=5491a3f7b00c"></script>
+  <script src="../iife.js?v=8854aada4616"></script>
 </body>
 </html>

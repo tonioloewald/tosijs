@@ -43,7 +43,21 @@ const KEYS = ['a', 'b', 'name', 'id', 'items', 'value', 'path', 'length', '$d']
 const SCALARS = [null, null, 0, 17, 1.5, '', 'text', 'a=b', true, false]
 // ids that are ordinary in real data and awkward in a path: base64 padding,
 // an email address, a number, a space, an id that is a prefix of another
-const IDS = ['YWJj', 'YWJj=', 'x==', 'a=b', 'a', 'ada@example.com', 17, '4 2']
+// Also the names every object inherits: the id map was a plain `{}`, so an id
+// of `__proto__` could not be found and `constructor` "found" a function.
+const IDS = [
+  'YWJj',
+  'YWJj=',
+  'x==',
+  'a=b',
+  'a',
+  'ada@example.com',
+  17,
+  '4 2',
+  '__proto__',
+  'constructor',
+  'toString',
+]
 
 type Rand = () => number
 const pick = <T>(rand: Rand, list: T[]): T =>
@@ -315,6 +329,38 @@ describe('an id that contains "=" (#4241)', () => {
     expect((xin as any)['bracketIds.list[id=a]'].v).toBe('plain')
   })
 
+  test('an id that is a name every object inherits is an id like any other', async () => {
+    const { setByPath, deleteByPath } = await import('./by-path')
+    tosi({
+      inheritedIds: {
+        list: [
+          { id: '__proto__', v: 'proto' },
+          { id: 'constructor', v: 'ctor' },
+          { id: 'plain', v: 'plain' },
+        ],
+      },
+    })
+    await updates()
+    // undefined: the row could not be stored in a map that had a prototype
+    expect((xin as any)['inheritedIds.list[id=__proto__]'].v).toBe('proto')
+    expect((xin as any)['inheritedIds.list[id=constructor]'].v).toBe('ctor')
+    expect((xin as any)['inheritedIds.list[id=__proto__].v']).toBe('proto')
+    // no row has these ids, and the map must not find an inherited member
+    expect((xin as any)['inheritedIds.list[id=valueOf]']).toBe(undefined)
+    expect((xin as any)['inheritedIds.list[id=toString]']).toBe(undefined)
+    const list = getByPath(registry, 'inheritedIds.list')
+    // deleting an id nobody has spliced row 0
+    deleteByPath(registry, 'inheritedIds.list[id=hasOwnProperty]')
+    expect(list.length).toBe(3)
+    // an upsert by such an id stored the row under the function's source text
+    setByPath(registry, 'inheritedIds.list[id=valueOf]', {
+      id: 'valueOf',
+      v: 'new',
+    })
+    expect(list.length).toBe(4)
+    expect((xin as any)['inheritedIds.list[id=valueOf]'].v).toBe('new')
+  })
+
   test('a write through such a row lands on that row', async () => {
     ;(boxed as any)['eqIds.list[id=YWJj=]'].v = 'written'
     await updates()
@@ -323,9 +369,11 @@ describe('an id that contains "=" (#4241)', () => {
     expect(list[0].v).toBe('unpadded')
   })
 
-  test('when ids repeat, every id-path read names the same (last) row', async () => {
-    // the proxy searched from the front and the engine's map keeps the last,
-    // so `list[id=1]` and `list[id=1].v` used to be different rows
+  test('when ids repeat, every id-path read names the same row', async () => {
+    // the proxy searched from the front while the engine answered from its
+    // map, so `list[id=1]` and `list[id=1].v` could be different rows. WHICH
+    // duplicate they agree on is not specified: the map keeps the last one it
+    // saw when it was built, and a row appended later does not displace it.
     tosi({
       dupIds: {
         list: [
@@ -335,9 +383,13 @@ describe('an id that contains "=" (#4241)', () => {
       },
     })
     await updates()
-    expect(getByPath(registry, 'dupIds.list[id=1]').v).toBe('last')
-    expect((xin as any)['dupIds.list[id=1].v']).toBe('last')
-    expect((xin as any)['dupIds.list[id=1]'].v).toBe('last')
+    const viaEngine = getByPath(registry, 'dupIds.list[id=1]')
+    expect(tosiValue((xin as any)['dupIds.list[id=1]'])).toBe(viaEngine)
+    expect((xin as any)['dupIds.list[id=1].v']).toBe(viaEngine.v)
+    ;(xin as any).dupIds.list.push({ id: 1, v: 'appended' })
+    const afterPush = getByPath(registry, 'dupIds.list[id=1]')
+    expect(tosiValue((xin as any)['dupIds.list[id=1]'])).toBe(afterPush)
+    expect((xin as any)['dupIds.list[id=1].v']).toBe(afterPush.v)
   })
 })
 

@@ -16,26 +16,36 @@ layers:
     import { setContractValidator, getContractValidator } from 'tosijs'
     import { validate } from 'tosijs-schema'
 
-    setContractValidator(validate)
+    setContractValidator((value, schema) =>
+      validate(value, schema, { strict: true })
+    )
+
+**`{ strict: true }` is not optional here.** By default tosijs-schema's
+`validate` checks a SAMPLE of a large array or object and does not enforce
+`maxProperties`. That is a fair trade for checking your own data and the wrong
+one at a boundary: the sample is predictable, so a writer can put the bad item
+where it is not looked at. Do not pass `validate` in bare.
 
 A validator returns `true` for a valid value, and **anything else is a
-violation**. A plain `false`, which is what a boolean validator like the one
-above returns, is reported as "schema violation". Return an `Error` to say
-why, and its `message` becomes the reason:
+violation**. A plain `false`, which is what the call above returns, is
+reported as "schema violation". Return an `Error` to say why, and its
+`message` becomes the reason:
 
     setContractValidator((value, schema) => {
       const reasons = []
       const ok = validate(value, schema, {
+        strict: true,
         onError: (at, message) => reasons.push(`${at}: ${message}`),
       })
       return ok || new Error(reasons.join('; '))
     })
 
 > **Before 1.10.13 only an `Error` counted.** A validator that returned
-> `false` was read as "valid", so a boolean validator passed in directly, the
-> way the unenforced-keyword warning told you to, enforced nothing, and
-> installing it silenced that warning too. Affects 1.8.0 to 1.10.12; if you
-> registered a validator that returns a boolean, upgrade.
+> `false` was read as "valid", so a boolean validator enforced nothing, and
+> installing it silenced the unenforced-keyword warning too. That warning
+> told you to pass tosijs-schema's `validate` in directly, which is a boolean
+> validator. Affects 1.8.0 to 1.10.12; if you registered a validator that
+> returns a boolean, upgrade, and make it strict.
 
 ## The plug is a security boundary
 
@@ -47,7 +57,7 @@ the whole app — including code you did not write but did bundle. So:
   uninstalling enforcement is the same event wearing a different hat.
 - **`getContractValidator()`** reads back what is actually installed, so an
   app, a test, or an audit can assert on it rather than assume.
-- **`setContractValidator(validate, { final: true })`** locks it: any later
+- **`setContractValidator(yourValidator, { final: true })`** locks it: any later
   attempt to replace or remove it **throws** instead of warning. Lock in
   your own startup path and no dependency can downgrade you afterwards.
 
@@ -206,8 +216,9 @@ const warnIfFailsOpen = (schema: any): void => {
     } ` +
       'NOT enforced by the built-in checker, which understands only ' +
       'type/enum/const — those constraints are currently inert. Register a ' +
-      'full schema engine with setContractValidator(validate) (e.g. from ' +
-      'tosijs-schema) to enforce them. Warned once per keyword set.'
+      'full schema engine to enforce them, e.g. with tosijs-schema: ' +
+      'setContractValidator((value, schema) => validate(value, schema, ' +
+      '{ strict: true })). Warned once per keyword set.'
   )
 }
 

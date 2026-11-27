@@ -1296,11 +1296,18 @@ const regHandler = (
     // instanceof Object` is false, so it fell to the scalar branch and came
     // back unwrapped, and a boxed string's passthrough handed out
     // String.prototype the same way. Either was then writable directly
-    // (GitHub #56). The string-path spelling already refuses it (by-path).
-    // Checked here for the scalar branch, and again below on the key as
-    // NORMALISED (brackets stripped): '[__proto__]' and 'a.map[__proto__]'
-    // got past a check of the raw spelling alone. The compound branch
-    // re-enters this trap for each part, so every spelling reaches it.
+    // (GitHub #56). Checked here for the scalar branch, and again below on
+    // the key as NORMALISED (brackets stripped): '[__proto__]' and
+    // 'a.map[__proto__]' got past a check of the raw spelling alone.
+    //
+    // THIS IS NOT THE WHOLE GUARD, and a comment here once said it was ("the
+    // compound branch re-enters this trap for each part, so every spelling
+    // reaches it"). The compound branch re-enters the trap for the SUB-path;
+    // its BASE is resolved by getByPath, so 'map.__proto__.value' and
+    // 'map[=__proto__].value' never reached a check and returned the raw
+    // prototype (1.10.13 review, B1). The guard for every path read is in
+    // getByPath, the one function compound paths and `.value` resolve
+    // through. These checks cover the key this trap reads itself.
     if (typeof _prop === 'string') assertSafeLeafKey(_prop)
 
     // .tosi / TOSI_ACCESSOR — collision-free accessor API

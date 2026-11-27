@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=5491a3f7b00c" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=8854aada4616" data-tosi-doc-system />
   <title>Contract Validation — tosijs</title>
   <meta name="description" content="shared zero-dependency contract validation: the structural JSON-Schema subset (type/enum/const) plus the pluggable full-schema validator, used by component value contracts and inline element contracts alike." />
   <link rel="canonical" href="https://tosijs.net/contract-check/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=8c017ce28d62" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=0241794db3c6" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="contract-check.ts">
 <h1 id="contract-validation">Contract Validation</h1>
 <p>Contracts (a component&#39;s <code>static contract</code>, an element&#39;s inline <code>contract</code>)
@@ -46,16 +46,24 @@ plug one in — tosijs warns once per unenforceable keyword set so a
 contract never quietly means less than it says.</p>
 <p> import { setContractValidator, getContractValidator } from &#39;tosijs&#39;
  import { validate } from &#39;tosijs-schema&#39;</p>
-<p> setContractValidator(validate)</p>
+<p> setContractValidator((value, schema) =&gt;
+   validate(value, schema, { strict: true })
+ )</p>
 </li>
 </ol>
+<p><strong><code>{ strict: true }</code> is not optional here.</strong> By default tosijs-schema&#39;s
+<code>validate</code> checks a SAMPLE of a large array or object and does not enforce
+<code>maxProperties</code>. That is a fair trade for checking your own data and the wrong
+one at a boundary: the sample is predictable, so a writer can put the bad item
+where it is not looked at. Do not pass <code>validate</code> in bare.</p>
 <p>A validator returns <code>true</code> for a valid value, and <strong>anything else is a
-violation</strong>. A plain <code>false</code>, which is what a boolean validator like the one
-above returns, is reported as &quot;schema violation&quot;. Return an <code>Error</code> to say
-why, and its <code>message</code> becomes the reason:</p>
+violation</strong>. A plain <code>false</code>, which is what the call above returns, is
+reported as &quot;schema violation&quot;. Return an <code>Error</code> to say why, and its
+<code>message</code> becomes the reason:</p>
 <pre><code>setContractValidator((value, schema) =&gt; {
   const reasons = []
   const ok = validate(value, schema, {
+    strict: true,
     onError: (at, message) =&gt; reasons.push(`${at}: ${message}`),
   })
   return ok || new Error(reasons.join(&#39;; &#39;))
@@ -63,10 +71,11 @@ why, and its <code>message</code> becomes the reason:</p>
 </code></pre>
 <blockquote>
 <p><strong>Before 1.10.13 only an <code>Error</code> counted.</strong> A validator that returned
-<code>false</code> was read as &quot;valid&quot;, so a boolean validator passed in directly, the
-way the unenforced-keyword warning told you to, enforced nothing, and
-installing it silenced that warning too. Affects 1.8.0 to 1.10.12; if you
-registered a validator that returns a boolean, upgrade.</p>
+<code>false</code> was read as &quot;valid&quot;, so a boolean validator enforced nothing, and
+installing it silenced the unenforced-keyword warning too. That warning
+told you to pass tosijs-schema&#39;s <code>validate</code> in directly, which is a boolean
+validator. Affects 1.8.0 to 1.10.12; if you registered a validator that
+returns a boolean, upgrade, and make it strict.</p>
 </blockquote>
 <h2 id="the-plug-is-a-security-boundary">The plug is a security boundary</h2>
 <p>It is process-global: whoever calls it last decides what &quot;valid&quot; means for
@@ -77,7 +86,7 @@ swapped for what. Removing one (<code>setContractValidator(null)</code>) warns t
 uninstalling enforcement is the same event wearing a different hat.</li>
 <li><strong><code>getContractValidator()</code></strong> reads back what is actually installed, so an
 app, a test, or an audit can assert on it rather than assume.</li>
-<li><strong><code>setContractValidator(validate, { final: true })</code></strong> locks it: any later
+<li><strong><code>setContractValidator(yourValidator, { final: true })</code></strong> locks it: any later
 attempt to replace or remove it <strong>throws</strong> instead of warning. Lock in
 your own startup path and no dependency can downgrade you afterwards.</li>
 </ul>
@@ -172,6 +181,6 @@ hostile replacement can do is a downgrade, not a bypass.</p>
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=5491a3f7b00c"></script>
+  <script src="../iife.js?v=8854aada4616"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 For releases before 1.6.0, see the git history (`git log`) and tags.
 
-## [1.10.13] - 2026-11-25
+## [1.10.13] - 2026-11-27
 
 Four defects found by lining up duplicate code for the lean plan
 (`reviews/lean-plan-2026-11.md`), and the documentation that was wrong. None
@@ -18,38 +18,82 @@ is new in 1.10.12.
   `setContractValidator()` documented its verdict as `true` or an `Error`, and
   the check read `verdict.message`, which is `undefined` for `false`; both
   callers took "no reason" as "no violation". tosijs-schema's `validate`
-  returns a boolean, and the unenforced-keyword warning says to register it
-  directly (`setContractValidator(validate)`), as did the `{ final: true }`
-  example. Doing that enforced nothing beyond the built-in `type` / `enum` /
-  `const` subset, on component `value` contracts and on `agent.write()`
-  through an inline contract, and silenced the warning that would have said
-  so. **Anything but `true` is now a violation**: `false`, `undefined`, a
-  result object, a Promise. An `Error` still gives the reason; without one it
-  is "schema violation".
+  returns a boolean, and the unenforced-keyword warning said to register it
+  directly, as did the `{ final: true }` example. Doing that enforced nothing
+  beyond the built-in `type` / `enum` / `const` subset, on component `value`
+  contracts and on `agent.write()` through an inline contract, and silenced
+  the warning that would have said so. **Anything but `true` is now a
+  violation**: `false`, `undefined`, a result object, a Promise. An `Error`
+  still gives the reason; without one it is "schema violation".
   **Affected: 1.8.0 to 1.10.12**, if you registered a validator that returns a
   boolean. A validator that returns `true` or an `Error` was always enforced.
-  The `ContractValidator` type is now `=> boolean | Error`, so the documented
-  call compiles.
+  **Register it strict.** The docs and the warning now teach
+  `setContractValidator((value, schema) => validate(value, schema, { strict: true }))`.
+  Bare `validate` checks a sample of a large array or object and skips
+  `maxProperties`: with tosijs-schema 1.6.0, one bad item in a 1,000-item
+  array was accepted at 900 of the 1,000 positions, and the positions are
+  predictable. The wrapped example in earlier releases sampled the same way.
+  **What an inline contract covers on `agent.write()`:** the path as the
+  binding spells it. A respelling, or a write to a parent path, is not
+  checked (the last entry here, and board #4288).
   **Behaviour change:** a validator that returned some other truthy value to
   mean "valid" now refuses everything. Return `true`.
-- **`[=__proto__]`, read through a boxed proxy, handed out the raw prototype**
-  (found while fixing #4241). 1.10.11 made the proxy refuse `__proto__`,
-  checked on the key as the trap normalises it. `[=key]` is a key spelled as
-  an id segment, and that spelling was not normalised: `proxy['[=__proto__]']`
-  passed the check as `=__proto__` and came back as a boxed scalar, whose
-  `.value` (and `tosiValue()`, and `valueOf()`) was `Object.prototype` itself,
-  or `Array.prototype` on an array. Nothing wrote through the proxy, so no
-  guard ran: app code that changed the value it had read changed every
-  object. The proxy now refuses the key of a `[=key]` segment like any other
-  key, with the same `UnsafePathError`.
-  **Affects every version tested, 1.6.0 to 1.10.12.** It is reached only by
-  app code that indexes a proxy with an untrusted key or path and then
-  mutates what it read. `agent.read()` returned `undefined` for such a path,
-  and writes through the proxy, `agent.write()`, `share()` and `sync()` were
-  already refused.
+  **Type change:** `ContractValidator` returns `boolean | Error`; it was
+  `true | Error`. Code that reads `.message` from a validator's result after
+  checking only `!== true` needs an `instanceof Error` check to compile.
+- **A read could hand out the raw prototype through `__proto__`** (found
+  while fixing #4241, and by this release's review). 1.10.11 made the proxy
+  refuse `__proto__` as a key. Two ways round it were left:
+  - the `[=key]` spelling: `proxy['[=__proto__]']` passed the check as
+    `=__proto__` and came back as a boxed scalar, whose `.value` (and
+    `tosiValue()`, and `valueOf()`) was `Object.prototype` itself;
+  - any path where `__proto__` is not the last segment
+    (`boxed['map.__proto__.value']`, `boxed['map[=__proto__].value']`),
+    because the base of a compound path is resolved by the path engine, whose
+    reads were unguarded.
+
+  Nothing wrote through the proxy, so no guard ran: app code that changed
+  what it had read changed every object. And under `expose: 'all'`,
+  `agent.call('list[=__proto__].push', x)` ran `push` on `Array.prototype`
+  and left `[][0] === x` page-wide. The path engine now refuses `__proto__`
+  for a read, as it always has for a write: every compound path and every
+  `.value` resolves through it. The proxy also refuses the key of a `[=key]`
+  segment. `src/proto-corpus.test.ts` generates the spellings that earlier
+  releases listed by hand: 3,990 probes, none returns a built-in prototype,
+  and 463 do with the guard removed.
+  **Affects every version tested, 1.6.0 to 1.10.12.** It is reached by app
+  code that indexes a proxy with an untrusted key or path and then mutates
+  what it read, or by a caller-chosen path into `agent.call()` under
+  `expose: 'all'` (reproduced on 1.10.12; a manifest refuses it, and so do
+  the WebMCP tools, which are generated per declared action). Writes through
+  the proxy, `agent.write()`, `share()` and `sync()` were already refused.
+  **Behaviour change:** a path read with `__proto__` anywhere in it throws
+  `UnsafePathError`. Before, only a final `__proto__` key did.
   **Not closed here:** a path that goes through an inherited `constructor`
-  still reads the built-in constructor (board #4271). Do not mutate a value
-  you read with an untrusted key.
+  still reads the built-in constructor (board #4271; the same test pins it as
+  an expected failure). Do not mutate a value you read with an untrusted key.
+- **Appending `=` to an id read a secret in cleartext through the agent
+  surface** (#4241). The proxy split an id segment on every `=`, so
+  `agent.read('rows[id=r1=]')` returned the row whose id is `r1`, under a
+  spelling the redaction did not recognise: a `pw` that
+  `read('rows[id=r1]')` withheld came back in cleartext. Closed by the id
+  lookup fix below.
+  **Affected: 1.8.0 to 1.10.12**, every release with the agent surface
+  (reproduced on 1.10.12).
+- **Known, and not fixed here: the agent surface's gates compare the path as
+  the caller spelled it** (board #4312; same cause as tosijs#32 and #52).
+  Under a manifest, `write('app[=checkout]', x)` gets past the guard on a
+  declared action, `write('app.gate[=level]', x)` gets past an inline
+  contract, and `read('app[=login].password')` returns a secret that
+  `read('app.login.password')` withholds. All three are the same in 1.10.12.
+  A model host needs `write: true` and `allowWrites: true` to write. Until it
+  is fixed, treat redaction as defence in depth beneath the manifest's scope,
+  and do not count on an inline contract or a declared action to stop a
+  writer you gave `write: true`.
+- **npm notice, pending:** the notice on `>=1.8.0-0 <1.10.11` tells users to
+  upgrade to 1.10.11, which the entries above affect. It moves to
+  `<1.10.13`, pointing here, once this is published; this line is rewritten
+  when it has.
 
 ### Fixed
 
@@ -94,14 +138,21 @@ is new in 1.10.12.
   The proxy now asks the path engine, like every other id-path read. (Only
   for a real id segment: `[=text]` on an array is still the item whose text
   is `text`.)
-  **Behaviour change:** if two rows share an id, `xin['list[id=1]']` names the
-  last of them, as `xin['list[id=1].name']` and `getByPath` always have. It
-  used to name the first.
+  **Behaviour change:** if two rows share an id, `xin['list[id=1]']` and
+  `xin['list[id=1].name']` now name the same row. Which of the two rows is
+  not specified. The proxy used to name the first, while the path with a
+  property after it could name another.
   A by-id read that ends at the row is now a map lookup where it scanned the
-  array: on a 10,000-row list, about 0.2 ms became about 0.001 ms (Bun,
-  measured). One that finds nothing rebuilds the map, and costs about twice
-  what the scan did (0.2 ms to 0.47 ms), as the path with a property after it
-  already did.
+  array: on a 10,000-row list, about 0.2 ms became about 0.0003 ms (Bun,
+  measured). One that finds nothing, or that asks for a row appended since
+  the last lookup, rebuilds the map, at about twice the cost of the old scan
+  (0.2 ms to 0.4 ms).
+- **A row whose id is a name every object inherits** (`__proto__`,
+  `constructor`, `valueOf`) is an id like any other. The path engine's id map
+  was a plain object, so `list[id=__proto__].name` read `undefined`, an
+  upsert at `list[id=valueOf]` stored its row under the function's source
+  text and reported success, and deleting `list[id=constructor]` when no row
+  had that id removed the first row. Found by this release's review.
 
 ### Added
 
@@ -136,6 +187,12 @@ is new in 1.10.12.
   example with a comma for a colon, a live list example that called `touch`
   without importing it, and two hand-typed "15 kB" figures for the agent
   surface (README's figure is generated).
+
+### Sizes
+
+Gzipped, against 1.10.12, from the build's ledger: `index.js` +28 B, `core.js`
++32, `state.js` +3, `module.js` -24, `main.js` -24, `module.debug.js` -28,
+`module.safe.js` -42. No budget moved.
 
 ## [1.10.12] - 2026-11-18
 
