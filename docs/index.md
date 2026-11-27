@@ -100,7 +100,7 @@ What the principles buy you:
   the same ESM bundle built with and without it — including the schematic
   renderer, the accessibility audit and the contract harnesses. (The gap
   between `tosijs` and `tosijs/core` is a larger
-  <!--agentgz-->~20.8 kB<!--/agentgz-->, because `core` also drops blueprints,
+  <!--agentgz-->~20.7 kB<!--/agentgz-->, because `core` also drops blueprints,
   share/sync and hotReload.) Both figures are measured by the build.
   [Entry points](#entry-points) has the detail.
 
