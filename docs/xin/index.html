@@ -14,7 +14,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="../doc-system.css?v=63734c537afe" data-tosi-doc-system />
+  <link rel="stylesheet" href="../doc-system.css?v=d49c22762cf2" data-tosi-doc-system />
   <title>The Observer Proxy — tosijs</title>
   <meta name="description" content="How the tosi observer proxy works: an object wrapped in a proxy that surgically updates bound DOM elements when its properties change." />
   <link rel="canonical" href="https://tosijs.net/xin/" />
@@ -30,7 +30,7 @@
 <script>globalThis.__TJS_LOCAL_BASE="/tjs/"</script>
 </head>
 <body>
-  <tosi-doc-system docs="../docs.json?v=a64b2bc9c98b" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
+  <tosi-doc-system docs="../docs.json?v=c37c2e712290" config="{&quot;projectName&quot;:&quot;tosijs&quot;,&quot;projectLinks&quot;:{&quot;github&quot;:&quot;https://github.com/tonioloewald/tosijs&quot;},&quot;bookVolumes&quot;:&quot;/epub-volumes.json&quot;,&quot;ebooks&quot;:[{&quot;title&quot;:&quot;tosijs&quot;,&quot;url&quot;:&quot;/tosijs.epub&quot;}]}">
   <article class="doc-content" data-doc="xin.ts">
 <h1 id="the-observer-proxy-tosi">The Observer Proxy (tosi)</h1>
 <p><code>tosi()</code> assigns an object passed to it to a global state object,
@@ -180,6 +180,9 @@ preview.append(
 <ul>
 <li>a <strong>path</strong> typically resembles the way you&#39;d reference a value inside
 a javascript object: <code>tosiExample.string</code>.</li>
+<li>an <strong>index</strong> into an array is written <code>foo.array[3]</code>: digits, with no sign,
+space or leading zero. Anything else in the brackets with no <code>=</code> names no
+row, so <code>foo.array[03]</code> reads <code>undefined</code> and a write to it throws.</li>
 <li><strong>id-paths</strong> give you stable references to items in arrays, using a
 (hopefully unique) identifier. Instead of referring to an item as
 <code>foo.array[3]</code>, if it has an <code>id</code> of <code>abcd1234</code> its path can be
@@ -913,6 +916,6 @@ remove()
     <li><a href="https://www.npmjs.com/package/tosijs" data-icon="npm">npmjs</a></li>
   </ul>
   </tosi-doc-system>
-  <script src="../iife.js?v=63734c537afe"></script>
+  <script src="../iife.js?v=d49c22762cf2"></script>
 </body>
 </html>

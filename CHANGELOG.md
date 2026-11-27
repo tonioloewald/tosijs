@@ -9,10 +9,34 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 ## [Unreleased]
 
 <!-- When this is cut: Migration.md gets a section for the version, with the
-     tosijs/debug and tosijs/safe retirement (#4286) and the value-attribute
-     change (#4254). Neither is on that page yet, because the page is live. -->
+     tosijs/debug and tosijs/safe retirement (#4286), the value-attribute
+     change (#4254) and the array-index rule (#4338). None is on that page
+     yet, because the page is live. -->
+
+### Security
+
+- **A malformed array index named a row, and got past redaction** (#4312,
+  #4338). The path engine read a bracket segment with `parseInt`, which takes
+  the digits it finds and ignores the rest. So `rows[ 0]`, `rows[0x0]` and
+  `rows[0abc]` were all row 0, under spellings the agent surface's redaction
+  did not recognise: `agent.read('rows[ 0].pw')` returned a password that
+  `agent.read('rows[0].pw')` withholds. Reproduced on 1.10.13.
+  An index is now `0`, or digits with no sign, space or leading zero. Any
+  other spelling names no row: a read answers `undefined`, and a write or a
+  delete throws and changes nothing.
+  **Still open** on the same card: a selector on a field that is not the
+  list's `idPath` (`rows[label=work].pw`) and the `[=key]` respellings.
 
 ### Fixed
+
+- **A malformed array index could write or delete the wrong row** (#4338),
+  in any app, with or without the agent surface. `rows[0x2] = x` wrote row 0,
+  `rows[1abc] = x` wrote row 1, `rows[abc] = x` reported success and added a
+  property called `NaN`, deleting `rows[abc]` deleted row 0, and deleting
+  `rows[-1]` deleted the last row. All of these now throw and change nothing.
+  **Behaviour change:** a path that relied on the old reading (`rows[01]`,
+  `rows[ 1]`, `rows[-1]` for the last row) reads `undefined` and throws on a
+  write. Write the index as plain digits.
 
 - **`Component` no longer writes your component's private `_value`** (#4254).
   The base class wrote a property called `_value` on every instance:

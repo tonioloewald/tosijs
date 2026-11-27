@@ -178,6 +178,9 @@ preview.append(
 
 - a **path** typically resembles the way you'd reference a value inside
   a javascript object: `tosiExample.string`.
+- an **index** into an array is written `foo.array[3]`: digits, with no sign,
+  space or leading zero. Anything else in the brackets with no `=` names no
+  row, so `foo.array[03]` reads `undefined` and a write to it throws.
 - **id-paths** give you stable references to items in arrays, using a
   (hopefully unique) identifier. Instead of referring to an item as
   `foo.array[3]`, if it has an `id` of `abcd1234` its path can be

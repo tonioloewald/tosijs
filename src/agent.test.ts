@@ -2148,6 +2148,53 @@ describe('security pass (1.8.0): secrecy, scope, and the path sink', () => {
     expect(drained.length).toBeGreaterThan(0)
   })
 
+  test('SEC-2j: a malformed index is not another spelling of a row (#4312)', async () => {
+    /*
+     * The path engine read a bracket with parseInt, so `rows[ 0]`, `rows[0x0]`
+     * and `rows[0abc]` were all row 0, under spellings the redaction (which
+     * compares spellings) did not recognise: each returned the password that
+     * `rows[0].pw` withholds. The engine now takes digits only, so these name
+     * no row. Fixed where the segment is resolved, not here.
+     */
+    const { p4h } = tosi({
+      p4h: { rows: [{ id: 'r1', label: 'work', pw: 'hunter2' }] },
+    })
+    document.body.append(
+      elements.div(
+        ...p4h.rows.tosi.listBinding(
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.pw' })),
+          { idPath: 'id' }
+        )
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['p4h'], write: true },
+    }))
+    expect(agent.read('p4h.rows[0].pw')).toBe('⟨secret⟩')
+    for (const spelling of [
+      ' 0',
+      '0 ',
+      '00',
+      '+0',
+      '0x0',
+      '0b0',
+      '0.0',
+      '0e0',
+      '0abc',
+    ]) {
+      const path = `p4h.rows[${spelling}]`
+      expect(JSON.stringify(agent.read(`${path}.pw`) ?? null)).not.toContain(
+        'hunter2'
+      )
+      expect(JSON.stringify(agent.read(path) ?? null)).not.toContain('hunter2')
+      expect(() => agent.write(`${path}.label`, 'changed')).toThrow()
+    }
+    expect(p4h.rows.value[0].label).toBe('work')
+  })
+
   test('SEC-2i: secrecy is inherited by DESCENDANTS of a secret path', async () => {
     /*
      * The ancestor-walk case, pinned because the suite could not see it.

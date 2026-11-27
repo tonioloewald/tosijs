@@ -268,6 +268,26 @@ function expectObject(obj: any): void {
   }
 }
 
+/**
+ * The row a bracket segment names, or -1 if it names none.
+ *
+ * AN INDEX IS `0`, OR DIGITS WITH NO LEADING ZERO. This was `parseInt(part,
+ * 10)`, which takes the digits it finds and ignores the rest: `rows[1abc]`
+ * was row 1, `rows[0x2]` was row 0, `rows[ 0]` was row 0. A write to
+ * `rows[abc]` added a property called `NaN`, and a delete of it removed row 0
+ * (`splice(NaN, 1)`); `rows[-1]` deleted the last row. And each was a second
+ * spelling of a row, which the agent surface's redaction and contract gates
+ * (they compare spellings) did not recognise: `read('list[ 0].pw')` returned
+ * the password that `read('list[0].pw')` withholds (#4312).
+ *
+ * The test is that the number prints back as the text it came from, which is
+ * true of exactly one spelling per row.
+ */
+const arrayIndex = (part: string): number => {
+  const index = parseInt(part, 10)
+  return index >= 0 && String(index) === part ? index : -1
+}
+
 function getByPath(obj: TosiObject | TosiArray, path: string): any {
   const parts = pathParts(path)
   let found: TosiObject | TosiArray | TosiScalar = obj
@@ -306,8 +326,10 @@ function getByPath(obj: TosiObject | TosiArray, path: string): any {
       } else if (part.includes('=')) {
         found = byIdSegment(found as any[], part)
       } else {
-        j = parseInt(part, 10)
-        found = (found as TosiArray)[j]
+        // a malformed index names no row (see arrayIndex). Not `found[-1]`:
+        // that would read a property called "-1" if something had one
+        j = arrayIndex(part)
+        found = j === -1 ? undefined : (found as TosiArray)[j]
       }
     }
   }
@@ -347,7 +369,16 @@ function setByPath(
         }
       } else {
         expectArray(obj)
-        const idx = parseInt(part, 10)
+        const idx = arrayIndex(part)
+        if (idx === -1) {
+          // not a read: a write or a delete that names no row must not land
+          // on one, and must not report success
+          throw new Error(
+            `setByPath failed: [${part}] is not an array index. An index is ` +
+              `digits with no sign, space or leading zero; a row can also be ` +
+              `named [idPath=value].`
+          )
+        }
         if (parts.length > 0) {
           obj = (obj as TosiArray)[idx]
         } else {

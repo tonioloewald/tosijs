@@ -367,3 +367,114 @@ describe('the prototype guard covers EVERY segment syntax', () => {
     expect(getByPath(root, 'r[=a].b')).toBe(1)
   })
 })
+
+/*
+ * AN INDEX IS DIGITS, AND NOTHING ELSE (#4312).
+ *
+ * A bracket segment with no `=` was read with `parseInt(part, 10)`, which
+ * takes the digits it can find and ignores the rest. So `rows[1abc]` was row
+ * 1, `rows[0x2]` was row 0 (not 2), `rows[abc]` WROTE a property called `NaN`
+ * and DELETED row 0 (`splice(NaN, 1)`), and `rows[-1]` deleted the last row.
+ * Every one of them is also a second spelling of a row, which is what let
+ * `agent.read('list[ 0].pw')` past the redaction that `list[0].pw` gets.
+ *
+ * Now a bracket names a row only as `0` or digits with no leading zero. Any
+ * other spelling names nothing: a read answers undefined, a write or a delete
+ * throws and changes nothing.
+ */
+describe('a malformed array index names no row (#4312)', () => {
+  const MALFORMED = [
+    ' 0',
+    '0 ',
+    '00',
+    '01',
+    '+0',
+    '-0',
+    '-1',
+    '0x0',
+    '0x2',
+    '0b1',
+    '0.0',
+    '1.5',
+    '0e0',
+    '1e0',
+    '1abc',
+    '1 2',
+    'abc',
+    '99999999999999999999',
+  ]
+  const fresh = () => ({ rows: ['zero', 'one', 'two'] as any[] })
+
+  test('a read answers undefined', () => {
+    for (const spelling of MALFORMED) {
+      expect(getByPath(fresh(), `rows[${spelling}]`)).toBeUndefined()
+    }
+  })
+
+  test('a read through one answers undefined, however the path continues', () => {
+    const state = { rows: [{ pw: 'a', kids: [{ pw: 'b' }] }] }
+    for (const spelling of MALFORMED) {
+      expect(getByPath(state, `rows[${spelling}].pw`)).toBeUndefined()
+      expect(getByPath(state, `rows[0].kids[${spelling}].pw`)).toBeUndefined()
+    }
+  })
+
+  test('a write throws and changes nothing', () => {
+    for (const spelling of MALFORMED) {
+      const state = fresh()
+      expect(() => setByPath(state, `rows[${spelling}]`, 'X')).toThrow(
+        'is not an array index'
+      )
+      expect(state.rows).toEqual(['zero', 'one', 'two'])
+      // no junk property either: `rows[abc] = x` used to add one called NaN
+      expect(Object.keys(state.rows)).toEqual(['0', '1', '2'])
+    }
+  })
+
+  test('a write through one throws and changes nothing', () => {
+    for (const spelling of MALFORMED) {
+      const state = { rows: [{ pw: 'a' }, { pw: 'b' }] }
+      expect(() => setByPath(state, `rows[${spelling}].pw`, 'X')).toThrow(
+        'is not an array index'
+      )
+      expect(state.rows).toEqual([{ pw: 'a' }, { pw: 'b' }])
+    }
+  })
+
+  test('a delete throws and removes nothing', () => {
+    for (const spelling of MALFORMED) {
+      const state = fresh()
+      expect(() => deleteByPath(state as any, `rows[${spelling}]`)).toThrow(
+        'is not an array index'
+      )
+      expect(state.rows).toEqual(['zero', 'one', 'two'])
+    }
+  })
+
+  test('a real index is unchanged, at every position', () => {
+    const state = fresh()
+    expect(getByPath(state, 'rows[0]')).toBe('zero')
+    expect(getByPath(state, 'rows[2]')).toBe('two')
+    expect(getByPath(state, 'rows[3]')).toBeUndefined()
+    expect(setByPath(state, 'rows[1]', 'ONE')).toBe(true)
+    expect(setByPath(state, 'rows[3]', 'three')).toBe(true)
+    expect(state.rows).toEqual(['zero', 'ONE', 'two', 'three'])
+    deleteByPath(state as any, 'rows[0]')
+    expect(state.rows).toEqual(['ONE', 'two', 'three'])
+    const long = { rows: Array.from({ length: 120 }, (_, i) => i) }
+    expect(getByPath(long, 'rows[10]')).toBe(10)
+    expect(getByPath(long, 'rows[109]')).toBe(109)
+  })
+
+  test('the proxy agrees with the engine', () => {
+    const { badIndex } = tosi({ badIndex: { rows: ['zero', 'one', 'two'] } })
+    for (const spelling of MALFORMED) {
+      expect((xin as any)[`badIndex.rows[${spelling}]`]).toBeUndefined()
+      expect(() => {
+        ;(xin as any)[`badIndex.rows[${spelling}]`] = 'X'
+      }).toThrow()
+    }
+    expect(badIndex.rows.value).toEqual(['zero', 'one', 'two'])
+    expect((xin as any)['badIndex.rows[1]']).toBe('one')
+  })
+})
