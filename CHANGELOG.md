@@ -17,7 +17,7 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   ordinary library, the same module instance as `tosijs` (importing both used
   to give an app two state registries), and they warn once. Import `tosijs`
   instead; the subpaths are removed in 2.0.
-  The npm package is 2.34 MB unpacked, down from 2.85 MB.
+  The npm package is about 2.3 MB unpacked, down from 2.85 MB.
 
 ## [1.10.13] - 2026-11-27
 
