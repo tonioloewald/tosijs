@@ -11,7 +11,8 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 <!-- When this is cut: Migration.md gets a section for the version, with the
      tosijs/debug and tosijs/safe retirement (#4286), the value-attribute
      change (#4254), the array-index rule (#4338) and the agent surface's
-     canonical paths (#4312). None is on that page yet, because the page is
+     canonical paths (#4312) and the Color fix (#4382: derived colours
+     shift). None is on that page yet, because the page is
      live. SECURITY.md gets a "Disclosed in" section for the version, and its
      1.10.13 list of what is still open loses the spelling entry. -->
 
@@ -67,6 +68,25 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 ### Fixed
 
+- **`Color`'s RGB to HSL conversion was wrong for about a third of colours**
+  (#4382, reported by tosijs-ui). It chose its saturation formula by the
+  brightest channel where the formula is split by lightness, so any colour
+  with a channel above a half and a lightness below it came out less
+  saturated than it is: dark red `#800000` reported 34%, not 100%. Every
+  operation that goes through HSL (`brighten`, `darken`, `saturate`,
+  `desaturate`, `rotate`, `inverseLuminance`, `opacity`, the HSL blends, and
+  the `.hsl` / `.hsla` strings) started from that, so an operation that should
+  change nothing did: `Color.fromCss('#800000').rotate(0)` was `#552b2b`. And
+  a colour had two HSLs, the right one if an operation made it and the wrong
+  one if it was parsed from its own hex, which gave tosijs-ui two different
+  dark themes from one palette. `rotate(0)` now returns the same colour for
+  every colour sampled (140,608 of them; it changed 36% before).
+  **Behaviour change, and you will see it:** a colour derived from an
+  affected one comes out more saturated than it did, which is what was asked
+  for. `Color.fromCss('#d92270').darken(0.15)` is `#b81d5f`; it was
+  `#b61f60`. A theme built by darkening, brightening or inverting brand
+  colours will shift. Unchanged: greys, colours whose lightness is a half or
+  more, and colours with no channel above a half.
 - **A malformed array index could write or delete the wrong row** (#4338),
   in any app, with or without the agent surface. `rows[0x2] = x` wrote row 0,
   `rows[1abc] = x` wrote row 1, `rows[abc] = x` reported success and added a

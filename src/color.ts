@@ -257,9 +257,23 @@ class HslColor {
           : 4 + (r - g) / s
         : 0
 
+    // here `l` is the brightest channel and `s` the chroma (brightest minus
+    // dimmest); twice the lightness is their difference
+    const twiceLightness = 2 * l - s
     this.h = 60 * h < 0 ? 60 * h + 360 : 60 * h
-    this.s = s !== 0 ? (l <= 0.5 ? s / (2 * l - s) : s / (2 - (2 * l - s))) : 0
-    this.l = (2 * l - s) / 2
+    // The two cases are split by LIGHTNESS, at a half. This asked whether the
+    // brightest channel was at most a half, which is a different question for
+    // any colour with a channel above a half and a lightness below it: 36% of
+    // the cube. Dark red `#800000` came out 34% saturated, and every HSL
+    // operation rebuilt the colour from that, so `rotate(0)` changed it
+    // (#4382).
+    this.s =
+      s !== 0
+        ? twiceLightness <= 1
+          ? s / twiceLightness
+          : s / (2 - twiceLightness)
+        : 0
+    this.l = twiceLightness / 2
   }
 }
 

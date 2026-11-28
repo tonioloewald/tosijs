@@ -289,3 +289,88 @@ test('named CSS colors parse without a DOM (css-colors table wired in)', () => {
   )
   expect(Color.fromCss('  White  ').toString().toLowerCase()).toBe('#ffffff')
 })
+
+/*
+ * #4382. The RGB to HSL conversion chose its saturation formula by asking
+ * whether the BRIGHTEST CHANNEL was at most a half, where the formula's two
+ * cases are split by LIGHTNESS. They disagree for every colour with a channel
+ * above a half and a lightness below it (36% of the RGB cube, sampled): dark
+ * red `#800000` reported 34% saturation where it has 100%.
+ *
+ * Every operation that goes through HSL then rebuilt the colour from the
+ * wrong saturation, so an operation that should change nothing did:
+ * `Color.fromCss('#800000').rotate(0)` was `#552b2b`. And a colour had two
+ * HSLs, the right one if an operation made it (the result caches its inputs)
+ * and the wrong one if it was parsed from its own hex, which is how
+ * tosijs-ui met it: one theme, two dark variants.
+ */
+describe('RGB to HSL is the textbook conversion (#4382)', () => {
+  const reference = (r: number, g: number, b: number) => {
+    const [x, y, z] = [r / 255, g / 255, b / 255]
+    const max = Math.max(x, y, z)
+    const min = Math.min(x, y, z)
+    const chroma = max - min
+    const l = (max + min) / 2
+    return { s: chroma === 0 ? 0 : chroma / (1 - Math.abs(2 * l - 1)), l }
+  }
+
+  test('saturation and lightness, across the cube', () => {
+    let checked = 0
+    for (let r = 0; r < 256; r += 15) {
+      for (let g = 0; g < 256; g += 15) {
+        for (let b = 0; b < 256; b += 15) {
+          const { s, l } = (new Color(r, g, b) as any)._hsl
+          const want = reference(r, g, b)
+          expect(s).toBeCloseTo(want.s, 9)
+          expect(l).toBeCloseTo(want.l, 9)
+          checked += 1
+        }
+      }
+    }
+    expect(checked).toBe(18 * 18 * 18)
+  })
+
+  test('the colours it got wrong', () => {
+    expect((Color.fromCss('#800000') as any)._hsl.s).toBeCloseTo(1, 9)
+    expect((Color.fromCss('#cc0000') as any)._hsl.s).toBeCloseTo(1, 9)
+    expect((Color.fromCss('#b61f60') as any)._hsl.s).toBeCloseTo(0.709, 2)
+    expect(Color.fromCss('#800000').hsl).toBe('hsl(0deg 100% 25%)')
+  })
+
+  test('an operation that changes nothing returns the same colour', () => {
+    for (let r = 0; r < 256; r += 15) {
+      for (let g = 0; g < 256; g += 15) {
+        for (let b = 0; b < 256; b += 15) {
+          const color = new Color(r, g, b)
+          for (const same of [
+            color.rotate(0),
+            color.brighten(0),
+            color.darken(0),
+            color.saturate(0),
+            color.desaturate(0),
+            color.inverseLuminance.inverseLuminance,
+          ]) {
+            expect(same.html).toBe(color.html)
+          }
+        }
+      }
+    }
+  })
+
+  test("a result's HSL is the HSL of its own hex (what tosijs-ui asked for)", () => {
+    for (const hex of ['#d92270', '#800000', '#c08020', '#3366cc', '#99ccff']) {
+      for (const made of [
+        Color.fromCss(hex).darken(0.15),
+        Color.fromCss(hex).brighten(0.2),
+        Color.fromCss(hex).rotate(40),
+        Color.fromCss(hex).inverseLuminance,
+      ]) {
+        const parsed = (Color.fromCss(made.html) as any)._hsl
+        const cached = (made as any)._hsl
+        // the hex is rounded to 8 bits a channel, so they agree to about 1%
+        expect(Math.abs(parsed.s - cached.s)).toBeLessThan(0.02)
+        expect(Math.abs(parsed.l - cached.l)).toBeLessThan(0.01)
+      }
+    }
+  })
+})
