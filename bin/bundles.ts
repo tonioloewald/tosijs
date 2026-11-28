@@ -156,7 +156,12 @@ export const BUNDLES: BundleSpec[] = [
     // (#4285) took about 310 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
     // 51_250 -> 51_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
-    budget: 51_150,
+    // 51_150 -> 52_000, 2026-11-28: the agent surface resolves a path to one
+    // canonical spelling before any gate sees it (#4312; closes tosijs#32 and
+    // #52), about 670 gz on the two bundles that carry the agent surface.
+    // That left this one under the 1 kB floor. Owner approved the raise
+    // (2026-11-28).
+    budget: 52_000,
     probe: 'import',
     stage: 'main',
   },
@@ -211,7 +216,12 @@ export const BUNDLES: BundleSpec[] = [
     // (#4285) took about 310 gz out of this one. The budget follows the
     // saving down, so it cannot be spent by accident (#4022).
     // 51_250 -> 51_150, 2026-11-27: dead code deleted (#4274), about 100 gz.
-    budget: 51_150,
+    // 51_150 -> 52_000, 2026-11-28: the agent surface resolves a path to one
+    // canonical spelling before any gate sees it (#4312; closes tosijs#32 and
+    // #52), about 670 gz on the two bundles that carry the agent surface.
+    // That left this one under the 1 kB floor. Owner approved the raise
+    // (2026-11-28).
+    budget: 52_000,
     probe: 'require',
     stage: 'main',
   },

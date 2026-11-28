@@ -433,10 +433,114 @@ function setByPath(
   throw new Error(`setByPath(${orig}, ${path}, ${val}) failed`)
 }
 
+/**
+ * ONE SPELLING PER PLACE (#4312, and the canonicalisation tosijs#32 asked for).
+ *
+ * A place in the state tree has several valid spellings: a key is `a.b` or
+ * `a[=b]`; a row is `rows[0]`, `rows.0`, or `rows[prop=value]` for any
+ * property. The engine resolves every one of them correctly. Code that
+ * compares paths as strings does not: the agent surface's gates (scope,
+ * declared actions, contracts, secret redaction) each recognised the
+ * spelling a binding happened to use and let the others through.
+ *
+ * This walks the state like a read, and writes the path back one way:
+ *
+ *   - a key is dotted, unless it holds a `.` `[` or `]`, when it is `[=key]`
+ *     (the only spelling such a key has);
+ *   - a row is `[idPath=value]` if `idPathsOf` knows an idPath for that array
+ *     and the row has a value for it, and `[n]` otherwise. That is how a list
+ *     binding spells its rows, so it is what a gate has on file.
+ *
+ * What it cannot resolve it leaves as written and stops resolving: a selector
+ * that matches no row, a malformed index (which names nothing), `[=text]` on
+ * an array (board #4261), anything past a scalar. A path the engine would
+ * refuse is not made acceptable by being respelt here: the read or write that
+ * follows still refuses it.
+ *
+ * Resolved against LIVE state, so the answer is true at the moment of the
+ * call: `rows[0]` is whichever row is first now.
+ */
+const hasPathSyntax = /[.[\]]/
+function canonicalPath(
+  root: TosiObject | TosiArray,
+  path: string,
+  idPathsOf: (arrayPath: string) => Iterable<string> | undefined = () =>
+    undefined
+): string {
+  let out = ''
+  let node: any = root
+  const asWritten = (segment: string): void => {
+    out += `[${segment}]`
+    node = undefined
+  }
+  const key = (name: string): void => {
+    if (name === '' || hasPathSyntax.test(name)) out += `[=${name}]`
+    else out += out === '' ? name : `.${name}`
+    // step as a read steps (getByPath), so this resolves what the read that
+    // follows will resolve. `__proto__` is where that read refuses.
+    node = isContainer(node) && name !== '__proto__' ? node[name] : undefined
+  }
+  const row = (index: number): void => {
+    const rows = node
+    let spelled = `[${index}]`
+    if (Array.isArray(rows) && isContainer(rows[index])) {
+      for (const idPath of idPathsOf(out) ?? []) {
+        if (idPath === '' || idPath.split('.').some(isUnsafeKey)) continue
+        const id = getByPath(rows[index], idPath)
+        if (id == null || isContainer(id)) continue
+        const text = `${id}`
+        // only if that spelling comes back to THIS row: not when two rows
+        // share the id (it would name the other one), and not when the id
+        // cannot be written inside brackets
+        if (
+          text !== '' &&
+          !text.includes(']') &&
+          keyToIndex(rows, idPath, text) === index
+        ) {
+          spelled = `[${idPath}=${text}]`
+          break
+        }
+      }
+    }
+    out += spelled
+    node = isContainer(rows) ? rows[index] : undefined
+  }
+  for (const part of pathParts(path)) {
+    if (Array.isArray(part)) {
+      for (const name of part) {
+        const index = Array.isArray(node) ? arrayIndex(name) : -1
+        if (index === -1) key(name)
+        else row(index)
+      }
+      continue
+    }
+    const equals = part.indexOf('=')
+    if (equals === -1) {
+      const index = arrayIndex(part)
+      if (index === -1) asWritten(part)
+      else row(index)
+    } else if (equals === 0) {
+      if (Array.isArray(node)) asWritten(part)
+      else key(part.slice(1))
+    } else if (Array.isArray(node)) {
+      const idPath = part.slice(0, equals)
+      // the checks byIdPath makes before it reads, so this cannot be used to
+      // look where a read could not
+      for (const name of idPath.split('.')) assertSafeKey(name)
+      const index = keyToIndex(node, idPath, part.slice(equals + 1))
+      if (index === undefined) asWritten(part)
+      else row(index)
+    } else {
+      asWritten(part)
+    }
+  }
+  return out
+}
+
 function deleteByPath(orig: TosiObject, path: string): void {
   if (getByPath(orig, path) !== null) {
     setByPath(orig, path, _delete_)
   }
 }
 
-export { getByPath, setByPath, deleteByPath, pathParts }
+export { getByPath, setByPath, deleteByPath, pathParts, canonicalPath }

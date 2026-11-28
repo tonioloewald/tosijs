@@ -49,5 +49,6 @@ export declare function assertSafeLeafKey(key: string): void;
 export declare function byIdSegment(array: any[] | TosiObject, segment: string): any;
 declare function getByPath(obj: TosiObject | TosiArray, path: string): any;
 declare function setByPath(orig: TosiObject | TosiArray, path: string, val: any): boolean;
+declare function canonicalPath(root: TosiObject | TosiArray, path: string, idPathsOf?: (arrayPath: string) => Iterable<string> | undefined): string;
 declare function deleteByPath(orig: TosiObject, path: string): void;
-export { getByPath, setByPath, deleteByPath, pathParts };
+export { getByPath, setByPath, deleteByPath, pathParts, canonicalPath };

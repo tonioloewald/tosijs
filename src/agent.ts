@@ -245,22 +245,26 @@ a secret control marks the path bound on its own **host**, which is where such
 a binding actually lives. Closed shadow roots stay invisible, correctly:
 nothing outside can bind into one either.
 
-> **Matching is by spelling (tosijs#32).** A secret learned as
-> `rows[id=r1].pw` is withheld from `read('rows')`, `read('rows[0])`, and
-> `read('rows[0].pw')` — descent and index-aliasing are both covered. The
-> known gap is narrower: exotic spellings of a *direct* query that no
-> canonicalisation resolves. Treat the redaction as defence in depth beneath
-> manifest scoping, not as the boundary itself.
+> **A path is resolved to one spelling before any gate sees it** (tosijs#32,
+> #52). A place has several valid spellings: a key is `app.login` or
+> `app[=login]`; a row is `rows[0]`, `rows.0`, or `rows[label=work]` for any
+> property. All of them resolve to the same value, so all of them get the
+> same answer here: `read`, `write`, `call`, `observe` and `when` turn the
+> path they are given into its canonical spelling (dotted keys, and a row
+> spelled the way its list binding spells it) and use that for every check
+> and for the operation itself. A refusal quotes the canonical spelling.
+> Until this was done, each gate recognised the spelling a binding happened
+> to use: `read('app[=login].password')` returned what
+> `read('app.login.password')` withholds, `write('app[=checkout]', x)` turned
+> a declared action into data, and `write('app.gate[=level]', x)` skipped an
+> inline contract.
 >
-> **One of those spellings is not exotic: `[=key]`** (found in the 1.10.13
-> review, present in every release). `read('app[=login].password')` returns
-> what `read('app.login.password')` withholds. The same respelling gets a
-> `write()` past the guard on a declared action (`write('app[=checkout]', x)`
-> turns the action into data) and past an inline contract
-> (`write('app.gate[=level]', x)`), and a write to a PARENT path skips an
-> inline contract too. Every gate here compares the path as the caller
-> spelled it. Not fixed yet: the fix is one canonical form at this surface's
-> boundary.
+> A spelling that names nothing (a malformed index such as `rows[ 0]`) is not
+> resolved: it reads `undefined`, and a write to it throws.
+>
+> **Still open:** a write to a PARENT path skips an inline contract declared
+> on a field beneath it. Treat the redaction as defence in depth beneath
+> manifest scoping, not as the boundary itself.
 
 > **Scope withholds what tosijs can trace to a path — not text you wrote into
 > the page.** Under a manifest, `describe()`'s structural tier maps headings and
@@ -310,7 +314,7 @@ import {
   pendingUpdates,
 } from './path-listener'
 import { pendingRenders } from './component'
-import { getByPath, setByPath } from './by-path'
+import { getByPath, setByPath, canonicalPath } from './by-path'
 import { xin } from './xin'
 import {
   BOUND_CLASS,
@@ -860,10 +864,82 @@ export type AgentObserveRef =
  * error pointed at the reader: exactly the failure mode where you debug the
  * wrong end for an hour. Fail where the mistake is.
  */
+/**
+ * ONE SPELLING, BEFORE ANY GATE (#4312).
+ *
+ * A place has several valid spellings (`a.b` and `a[=b]`; `rows[0]`, `rows.0`
+ * and `rows[prop=value]`) and the engine resolves them all. Every gate on
+ * this surface compares strings, and each knew only the spelling a binding
+ * happened to use, so a respelling reached the same value past the
+ * declared-action guard, an inline contract and secret redaction.
+ *
+ * So a path is resolved to its canonical spelling HERE, where it enters, and
+ * that one string is what every gate sees and what the read or write then
+ * uses. The same is done to what the gates have on file (a learned secret, an
+ * inline contract's bound path, a manifest's roots and actions), because an
+ * author can spell a binding any way too. Resolved against live state: see
+ * `canonicalPath` in by-path.ts.
+ */
+const canonical = (path: string): string =>
+  isCanonicalSpelling(path)
+    ? path
+    : canonicalPath(registry, path, getArrayIdPaths)
+
+/**
+ * Is this path canonical AS WRITTEN? Answered from the text and the idPath
+ * registry, with no walk of the state.
+ *
+ * It exists for cost. Nearly every path this surface handles is canonical
+ * already (a binding's own path, a path taken from `describe()`), and
+ * resolving each one against live state made a read three times slower and a
+ * 1,000-row list read 3.6 times slower. So this recognises the spellings
+ * `canonicalPath` would hand back unchanged:
+ *
+ *   - dotted keys (but not all-digit ones, which may be a row);
+ *   - `[n]`, where the array has no registered idPath;
+ *   - `[idPath=value]`, where idPath is the array's first registered one.
+ *
+ * Anything else gets the walk. "Yes" must never be said of a path the walk
+ * would change, so every doubt is a "no".
+ */
+const PATH_SEGMENT = /\.([^.[\]]+)|\[([^\]]*)\]|^([^.[\]]+)/y
+const isCanonicalSpelling = (path: string): boolean => {
+  PATH_SEGMENT.lastIndex = 0
+  let at = 0
+  while (at < path.length) {
+    PATH_SEGMENT.lastIndex = at
+    const match = PATH_SEGMENT.exec(path)
+    if (match === null) return false
+    const [, dotted, bracket, first] = match
+    if (first === undefined) {
+      if (dotted !== undefined) {
+        if (/^\d+$/.test(dotted)) return false
+      } else {
+        const equals = bracket.indexOf('=')
+        // the idPaths of the array this segment indexes: `path` up to here
+        const idPaths = getArrayIdPaths(path.slice(0, at))
+        if (equals === -1) {
+          // a real index, into an array whose rows have no id spelling
+          if (!/^(?:0|[1-9]\d*)$/.test(bracket)) return false
+          if (idPaths !== undefined && idPaths.size > 0) return false
+        } else if (
+          equals === 0 ||
+          idPaths === undefined ||
+          idPaths.values().next().value !== bracket.slice(0, equals)
+        ) {
+          return false
+        }
+      }
+    }
+    at = PATH_SEGMENT.lastIndex
+  }
+  return true
+}
+
 const toPath = (ref: AgentPathRef, where: string): string => {
-  if (typeof ref === 'string') return ref
+  if (typeof ref === 'string') return canonical(ref)
   const path = tosiPath(ref)
-  if (typeof path === 'string' && path !== '') return path
+  if (typeof path === 'string' && path !== '') return canonical(path)
   const got =
     ref === null
       ? 'null'
@@ -1294,7 +1370,23 @@ const secretRestsByAncestor = new Map<string, Set<string>>()
 /** secrets whose remainder could not be computed; scanned the slow way */
 const unindexedSecrets = new Set<string>()
 
-const addSecretPath = (path: string): void => {
+const addSecretPath = (learned: string): void => {
+  // the scan that calls this runs before every read, over every secret
+  // control on the page: one already on file must cost a Set lookup
+  if (secretPaths.has(learned)) return
+  // under the spelling the binding used AND the canonical one, which is what
+  // a query arrives as. If it cannot be resolved, the binding's stands alone.
+  let resolved = learned
+  try {
+    resolved = canonical(learned)
+  } catch {
+    // an unresolvable spelling is still a secret under the one we were given
+  }
+  if (resolved !== learned) fileSecretPath(resolved)
+  fileSecretPath(learned)
+}
+
+const fileSecretPath = (path: string): void => {
   if (secretPaths.has(path)) return
   secretPaths.add(path)
   const ancestors = pathAncestors(path)
@@ -1408,6 +1500,35 @@ const indexSpellingAliasesSecret = (
   }
 }
 
+/**
+ * A secrecy question, asked of the path as spelled and then of its canonical
+ * spelling.
+ *
+ * THE QUERY IS CANONICALISED (tosijs#32, #4312). Matching below is by
+ * spelling, and for four releases this comment said so and called the gap
+ * "narrowed, not closed": a secret learned as `list[id=a1].pw` was matched
+ * under that spelling and (by the containment above) an index, and under no
+ * other. `list[label=work].pw`, `app[=login].password` and, for a list with
+ * no idPath, `list.0.pw` all read the value. Now a miss is asked again of the
+ * canonical spelling, which is also what a learned secret is filed under.
+ *
+ * IT FAILS CLOSED: if the path cannot be canonicalised, the answer is
+ * "possibly secret", never "not secret".
+ */
+const askCanonically = (
+  path: string,
+  ask: (spelling: string) => boolean
+): boolean => {
+  if (ask(path)) return true
+  let resolved: string
+  try {
+    resolved = canonical(path)
+  } catch {
+    return true
+  }
+  return resolved !== path && ask(resolved)
+}
+
 /** is this path, or an ancestor of it, bound to a secret-bearing control? */
 const isSecretPath = (path: string): boolean => {
   // THE OVERWHELMINGLY COMMON PAGE HAS NO SECRETS AT ALL. Every index here
@@ -1415,29 +1536,24 @@ const isSecretPath = (path: string): boolean => {
   // all of them are empty — and without this both predicates allocated an
   // ancestor array and ran regexes on every path of every read.
   if (secretPaths.size === 0) return false
+  return askCanonically(path, isSecretSpelling)
+}
+
+const isSecretSpelling = (path: string): boolean => {
   // an ancestor walk, not a scan of secretPaths — see `secretAncestors`
   for (const ancestor of pathAncestors(path)) {
     if (secretPaths.has(ancestor)) return true
   }
-  if (indexSpellingAliasesSecret(path, true)) return true
-  // ⚠️ NARROWED, NOT CLOSED — tosijs#32 (history: reviews/TODO-archive-2026-09-26.md
-  // "Agent surface — secret-path matching is spelling-sensitive"). Matching is by SPELLING and
-  // the rule above is a conservative containment, not canonicalisation. An
-  // earlier version of this comment claimed ancestor descent was fully
-  // covered; that was FALSE, and it was load-bearing — it was the stated
-  // reason the remaining gap was accepted. A secret learned as
-  // `list[id=a1].pw` is not matched by a DIRECT read spelled `list[0].pw`.
-  // Descending from an ancestor IS covered — redactWithin tries every
-  // spelling — so `read('list')` is safe; it is the direct index-spelled
-  // query that is not. Fixing it needs canonicalisation of the QUERY, which
-  // must fail closed: an error in the canonicaliser has to mean "possibly
-  // secret", never "not secret".
-  return false
+  return indexSpellingAliasesSecret(path, true)
 }
 
 /** would this read expose a secret nested anywhere beneath it? */
 const containsSecret = (path: string): boolean => {
   if (secretPaths.size === 0) return false // see isSecretPath
+  return askCanonically(path, containsSecretSpelling)
+}
+
+const containsSecretSpelling = (path: string): boolean => {
   if (secretAncestors.has(path)) return true
   // an index-spelled ANCESTOR — `rows[0]` — has no prefix relation to a secret
   // learned as `rows[id=r1].pw`, so without this the read returned the whole
@@ -1853,7 +1969,10 @@ const redactWithin = (paths: string[], value: any): any => {
         }
       }
     }
-    if (candidates.some((candidate) => isSecretPath(candidate))) {
+    // the SPELLING predicates: these candidates ARE every spelling of the
+    // child, built from a base that is canonical already (readScanned), so
+    // resolving each one again bought nothing and cost a walk per field
+    if (candidates.some((candidate) => isSecretSpelling(candidate))) {
       clone[key] = SECRET_SENTINEL
       continue
     }
@@ -1868,7 +1987,9 @@ const redactWithin = (paths: string[], value: any): any => {
     //
     // ONE recursion carrying all matching spellings — a loop of recursions
     // (the first version) covered the same ground quadratically.
-    const deeper = candidates.filter((candidate) => containsSecret(candidate))
+    const deeper = candidates.filter((candidate) =>
+      containsSecretSpelling(candidate)
+    )
     if (deeper.length > 0) clone[key] = redactWithin(deeper, clone[key])
   }
   return clone
@@ -2280,6 +2401,17 @@ const describeElement = (
   return record
 }
 
+// `path` is canonical already (toPath); the binding's may not be
+const sameCanonicalPath = (bound: unknown, path: string): boolean => {
+  if (bound === path) return true
+  if (typeof bound !== 'string') return false
+  try {
+    return canonical(bound) === path
+  } catch {
+    return false
+  }
+}
+
 // resolve the inline contract governing a path, if any element declares one:
 // scanned from the live bound elements at write time — deliberately NOT a
 // path→element index (virtual lists thrash those; the DOM is the registry)
@@ -2295,7 +2427,7 @@ const inlineSchemaFor = (path: string): Record<string, any> | undefined => {
     const schema = elementContract(el)
     if (schema == null) continue
     const { dataBindings } = getElementBindings(el)
-    if (dataBindings?.some((b: any) => b.path === path)) {
+    if (dataBindings?.some((b: any) => sameCanonicalPath(b.path, path))) {
       return schema
     }
   }
@@ -2663,7 +2795,12 @@ export function enableAgentInterface(
   const subscriptions = new Set<Listener>()
 
   // the read itself, once the secret-path set is known to be current
-  const readScanned = (path: string): any => {
+  // read() has resolved its path already (so this costs it a text check).
+  // changes() hands over paths as the app touched them, in any spelling, and
+  // the descent below spells every child from this base: it must be the
+  // canonical one.
+  const readScanned = (asGiven: string): any => {
+    const path = canonical(asGiven)
     assertScope(path)
     if (isSecretPath(path)) return SECRET_SENTINEL
     const value = serialize(xin[path])
@@ -3412,7 +3549,7 @@ export function enableAgentInterface(
       }
       const path = pattern
         ? (pathRef as unknown as string)
-        : resolved ?? toPath(pathRef as AgentPathRef, 'observe')
+        : toPath((resolved ?? pathRef) as AgentPathRef, 'observe')
       if (!pattern) assertScope(path)
       const listener = observe(path, callback)
       subscriptions.add(listener)

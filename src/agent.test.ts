@@ -4612,3 +4612,289 @@ test('a virtual-list row keeps its element and key while on screen; scrolled out
   expect(again).not.toBe(r5)
   expect(keyOf(again)).not.toBe(r5Key)
 })
+
+/*
+ * #4312. Every gate on this surface compared the path as the caller spelled
+ * it, and a place has several valid spellings: a key is `a.b` or `a[=b]`; a
+ * row is `rows[0]`, `rows.0` or `rows[prop=value]`. The engine resolves them
+ * all, so a respelling reached the same value past the declared-action guard,
+ * an inline contract, and secret redaction. The surface now resolves a path
+ * to one canonical spelling (canonicalPath in by-path.ts) before any gate
+ * sees it, and uses that one path for the operation too.
+ */
+describe('#4312: the gates see one spelling of a path', () => {
+  const mount = (...nodes: Node[]): HTMLElement => {
+    const host = elements.div(...nodes)
+    document.body.append(host)
+    return host
+  }
+
+  test('a respelled key does not get past the action guard, a contract or redaction', async () => {
+    tosi({
+      g12: {
+        checkout() {
+          return 'paid'
+        },
+        gate: { level: 3 },
+        login: { password: 'hunter2' },
+      },
+    })
+    const host = mount(
+      elements.input({
+        bindValue: 'g12.gate.level',
+        contract: { type: 'integer' },
+      }),
+      elements.input({ type: 'password', bindValue: 'g12.login.password' })
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['g12'], actions: ['g12.checkout'], write: true },
+    }))
+
+    // the dotted spellings, as before
+    expect(() => agent.write('g12.checkout', 'x')).toThrow('callable')
+    expect(() => agent.write('g12.gate.level', 'seven')).toThrow('contract')
+    expect(agent.read('g12.login.password')).toBe('⟨secret⟩')
+
+    // the same places, respelled
+    expect(() => agent.write('g12[=checkout]', 'x')).toThrow('callable')
+    expect(() => agent.write('[=g12][=checkout]', 'x')).toThrow('callable')
+    expect(typeof (xin as any).g12.checkout).toBe('function')
+    expect(() => agent.write('g12.gate[=level]', 'seven')).toThrow('contract')
+    expect(() => agent.write('g12[=gate][=level]', 'seven')).toThrow('contract')
+    expect((xin as any).g12.gate.level).toBe(3)
+    expect(agent.read('g12[=login].password')).toBe('⟨secret⟩')
+    expect(agent.read('g12.login[=password]')).toBe('⟨secret⟩')
+    expect(JSON.stringify(agent.read('g12[=login]'))).not.toContain('hunter2')
+
+    // and a respelling is not refused for being one: it does what the
+    // dotted spelling does
+    agent.write('g12[=gate][=level]', 4)
+    expect((xin as any).g12.gate.level).toBe(4)
+    expect(agent.call('g12[=checkout]')).toBe('paid')
+    host.remove()
+  })
+
+  test('a selector on any property is the row, so its secret is withheld', async () => {
+    const { l12 } = tosi({
+      l12: {
+        list: [
+          { id: 'a1', label: 'work', pw: 'hunter2' },
+          { id: 'a2', label: 'home', pw: 'swordfish' },
+        ],
+      },
+    })
+    const host = mount(
+      ...l12.list.tosi.listBinding(
+        ({ div, input }: any) =>
+          div(input({ type: 'password', bindValue: '^.pw' })),
+        { idPath: 'id' }
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['l12'] },
+    }))
+    for (const row of [
+      '[0]',
+      '.0',
+      '[id=a1]',
+      '[label=work]',
+      '[pw=hunter2]',
+    ]) {
+      expect(agent.read(`l12.list${row}.pw`)).toBe('⟨secret⟩')
+      const whole = agent.read(`l12.list${row}`) as any
+      expect(whole.pw).toBe('⟨secret⟩')
+      expect(whole.label).toBe('work') // the rest of the row is still there
+    }
+    expect(agent.read('l12.list[label=home].label')).toBe('home')
+
+    // an app write under a respelling does not put the value in changes()
+    ;(xin as any)['l12.list[label=work].pw'] = 'rotated'
+    await updates()
+    expect(JSON.stringify(agent.changes(0).changes)).not.toContain('rotated')
+    // nor does replacing the whole row under one
+    ;(xin as any)['l12.list[label=home]'] = {
+      id: 'a2',
+      label: 'home',
+      pw: 'replaced-secret',
+    }
+    await updates()
+    const drained = JSON.stringify(agent.changes(0).changes)
+    expect(drained).not.toContain('replaced-secret')
+    expect(drained).not.toContain('rotated')
+    host.remove()
+  })
+
+  test('an element bound to the ROW that holds a secret, under a selector, does not publish it', async () => {
+    const { m12 } = tosi({
+      m12: {
+        list: [{ id: 'a1', label: 'work', pw: 'hunter2' }],
+        open: [{ label: 'x', note: 'visible-note' }],
+      },
+    })
+    // renders whatever object it is bound to, as text
+    const asJson = {
+      toDOM(el: Element, value: any) {
+        el.textContent = JSON.stringify(value)
+      },
+    }
+    const host = mount(
+      elements.div(
+        ...m12.list.tosi.listBinding(
+          ({ div, input }: any) =>
+            div(input({ type: 'password', bindValue: '^.pw' })),
+          { idPath: 'id' }
+        )
+      ),
+      elements.div({
+        bind: { value: 'm12.list[label=work]', binding: asJson },
+      }),
+      elements.div({ bind: { value: 'm12.open[label=x]', binding: asJson } })
+    )
+    await updates()
+    // both bindings rendered: the secret IS in the DOM, as text
+    expect(host.textContent).toContain('hunter2')
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['m12'] },
+    }))
+    const described = JSON.stringify(agent.describe())
+    // the control: this fixture's text does reach describe() when nothing
+    // is secret, so the assertion below is not passing over an empty map
+    expect(described).toContain('visible-note')
+    expect(described).not.toContain('hunter2')
+    host.remove()
+  })
+
+  test('a secret is secret however the BINDING that carries it spelled its path', async () => {
+    tosi({ s12: { login: { password: 'hunter2' } } })
+    const host = mount(
+      // the password control itself is bound under a respelling
+      elements.input({ type: 'password', bindValue: 's12[=login].password' })
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['s12'] },
+    }))
+    expect(agent.read('s12.login.password')).toBe('⟨secret⟩')
+    expect(agent.read('s12[=login].password')).toBe('⟨secret⟩')
+    expect(agent.read('s12.login[=password]')).toBe('⟨secret⟩')
+    expect(JSON.stringify(agent.read('s12.login'))).not.toContain('hunter2')
+    expect(JSON.stringify(agent.read('s12'))).not.toContain('hunter2')
+    expect(JSON.stringify(agent.describe())).not.toContain('hunter2')
+    host.remove()
+  })
+
+  test('an inline contract governs its path however the BINDING spelled it', async () => {
+    tosi({ i12: { gate: { level: 3 } } })
+    const host = mount(
+      elements.input({
+        bindValue: 'i12.gate[=level]', // the author's respelling
+        contract: { type: 'integer' },
+      })
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['i12'], write: true },
+    }))
+    expect(() => agent.write('i12.gate.level', 'seven')).toThrow('contract')
+    expect(() => agent.write('i12[=gate].level', 'seven')).toThrow('contract')
+    expect((xin as any).i12.gate.level).toBe(3)
+    agent.write('i12.gate.level', 5)
+    expect((xin as any).i12.gate.level).toBe(5)
+    host.remove()
+  })
+
+  test('a list with no idPath: the dot index and a selector are the row too (tosijs#32)', async () => {
+    const { n12 } = tosi({
+      n12: { rows: [{ id: 'a1', label: 'work', pw: 'hunter2' }] },
+    })
+    const host = mount(
+      ...n12.rows.tosi.listBinding(({ div, input }: any) =>
+        div(input({ type: 'password', bindValue: '^.pw' }))
+      )
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['n12'] },
+    }))
+    for (const row of ['[0]', '.0', '[id=a1]', '[label=work]']) {
+      expect(agent.read(`n12.rows${row}.pw`)).toBe('⟨secret⟩')
+      expect(JSON.stringify(agent.read(`n12.rows${row}`))).not.toContain(
+        'hunter2'
+      )
+    }
+    host.remove()
+  })
+
+  test('describe() does not publish a secret through a second binding spelled another way', async () => {
+    tosi({ d12: { login: { password: 'hunter2' } } })
+    const host = mount(
+      elements.input({ type: 'password', bindValue: 'd12.login.password' }),
+      // the author's own respelling of the same path, on an ordinary element
+      elements.span({ bindText: 'd12[=login].password' }),
+      elements.input({ bindValue: 'd12.login[=password]' })
+    )
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['d12'] },
+    }))
+    expect(JSON.stringify(agent.describe())).not.toContain('hunter2')
+    host.remove()
+  })
+
+  test('a curated contract is asked about the root a respelled write lands in (tosijs#52)', async () => {
+    tosi({ c12: { billing: { rate: 1 }, free: { x: 1 } } })
+    await updates()
+    const calls: Array<{ path: string; root?: string }> = []
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: {
+        write: true,
+        roots: ['c12'],
+        contract: {
+          check(path: string, _value: any, proposal: any) {
+            calls.push({ path, root: proposal?.root })
+            return true
+          },
+          describe: () => ({ 'c12.billing': { type: 'object' } }),
+        },
+      },
+    }))
+    agent.write('c12.billing.rate', 2)
+    agent.write('c12[=billing].rate', 3)
+    agent.write('c12[=billing][=rate]', 4)
+    expect(calls).toEqual([
+      { path: 'c12.billing.rate', root: 'c12.billing' },
+      { path: 'c12.billing.rate', root: 'c12.billing' },
+      { path: 'c12.billing.rate', root: 'c12.billing' },
+    ])
+    expect((xin as any).c12.billing.rate).toBe(4)
+  })
+
+  test('observe, when and the manifest take any spelling', async () => {
+    tosi({ o12: { count: 0, nested: { flag: false } } })
+    await updates()
+    const agent = (current = enableAgentInterface({
+      quiet: true,
+      expose: { roots: ['[=o12]'], write: true },
+    }))
+    expect(agent.read('o12.count')).toBe(0)
+    const heard: string[] = []
+    const off = agent.observe('o12[=count]', (path) => heard.push(path))
+    const settled = agent.when('o12[=nested][=flag]', (v) => v === true)
+    ;(xin as any).o12.count = 1
+    agent.write('o12.nested[=flag]', true)
+    await updates()
+    expect(heard.length).toBeGreaterThan(0)
+    expect(await settled).toBe(true)
+    off()
+  })
+})

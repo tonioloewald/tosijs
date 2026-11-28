@@ -10,8 +10,10 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
 
 <!-- When this is cut: Migration.md gets a section for the version, with the
      tosijs/debug and tosijs/safe retirement (#4286), the value-attribute
-     change (#4254) and the array-index rule (#4338). None is on that page
-     yet, because the page is live. -->
+     change (#4254), the array-index rule (#4338) and the agent surface's
+     canonical paths (#4312). None is on that page yet, because the page is
+     live. SECURITY.md gets a "Disclosed in" section for the version, and its
+     1.10.13 list of what is still open loses the spelling entry. -->
 
 ### Security
 
@@ -24,8 +26,44 @@ For releases before 1.6.0, see the git history (`git log`) and tags.
   An index is now `0`, or digits with no sign, space or leading zero. Any
   other spelling names no row: a read answers `undefined`, and a write or a
   delete throws and changes nothing.
-  **Still open** on the same card: a selector on a field that is not the
-  list's `idPath` (`rows[label=work].pw`) and the `[=key]` respellings.
+- **The agent surface's gates compared the path as the caller spelled it**
+  (#4312; tosijs#32 and #52). A place has several valid spellings, and all of
+  them resolve: a key is `app.login` or `app[=login]`; a row is `rows[0]`,
+  `rows.0`, or `rows[label=work]` for any property. Each gate recognised the
+  spelling a binding happened to use and let the others through. Under a
+  manifest, all reproduced on 1.10.13:
+  - `read('app[=login].password')` returned a secret that
+    `read('app.login.password')` withholds;
+  - `read('list[label=work]')` returned a row with its password, where
+    `read('list[0]')` and `read('list[id=a1]')` withhold it;
+  - `describe()` published a secret through an element bound to that row
+    under a selector;
+  - `write('app[=checkout]', x)` replaced a declared action with data;
+  - `write('app.gate[=level]', x)` skipped an inline contract;
+  - for a list with no `idPath`, `read('rows.0.pw')` and
+    `read('rows[id=a1].pw')` returned the secret (the remainder of tosijs#32).
+
+  Now `read`, `write`, `call`, `observe` and `when` resolve the path they are
+  given to one canonical spelling before any check, and use that spelling
+  for the operation too. What the gates hold on file (a learned secret, an
+  inline contract's bound path, a manifest's roots and actions) is resolved
+  the same way, because a binding can be spelled any way too.
+  `src/agent-spellings.test.ts` generates every valid spelling of each place
+  (224 probes) and requires the canonical answer for each; with the change
+  removed, all of them fail.
+  **Affected: 1.8.0 to 1.10.13**, every release with the agent surface.
+  **Behaviour changes:**
+  - a respelling is no longer refused for being one: `call('app[=checkout]')`
+    calls the declared action, and a curated contract is asked about a
+    respelled write (it used to arrive "without a proposal");
+  - a refusal, and a `write rejected` entry in the ledger, quotes the
+    canonical spelling, not the one you passed;
+  - `observe('rows[0]', …)` and `when('rows[0].done', …)` on a list with an
+    `idPath` follow the row that was first when you called them, by its id.
+
+  **Still open:** a write to a parent path skips an inline contract on a
+  field beneath it (#4288), and a read through an inherited `constructor`
+  (#4271).
 
 ### Fixed
 

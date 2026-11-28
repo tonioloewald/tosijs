@@ -1,5 +1,11 @@
 import { test, expect, describe } from 'bun:test'
-import { getByPath, setByPath, deleteByPath, pathParts } from './by-path'
+import {
+  getByPath,
+  setByPath,
+  deleteByPath,
+  pathParts,
+  canonicalPath,
+} from './by-path'
 import { TosiObject } from './xin-types'
 import { tosi } from './xin-proxy'
 import { xin } from './xin'
@@ -476,5 +482,147 @@ describe('a malformed array index names no row (#4312)', () => {
     }
     expect(badIndex.rows.value).toEqual(['zero', 'one', 'two'])
     expect((xin as any)['badIndex.rows[1]']).toBe('one')
+  })
+})
+
+/*
+ * canonicalPath (#4312): every valid spelling of a place comes back as one.
+ */
+describe('canonicalPath: one spelling per place (#4312)', () => {
+  const state = (): any => ({
+    app: {
+      checkout: () => 'paid',
+      gate: { level: 3 },
+      'user.name': 'dotted key',
+      dict: { 7: 'seven' },
+    },
+    acct: {
+      list: [
+        { id: 'a1', label: 'work', pw: 'hunter2', kids: [{ id: 'k1', n: 1 }] },
+        { id: 'a2', label: 'home', pw: 'swordfish', kids: [] },
+      ],
+      plain: [
+        { label: 'x', pw: 'p0' },
+        { label: 'y', pw: 'p1' },
+      ],
+    },
+  })
+  // acct.list and its rows' kids are bound with idPath 'id'; acct.plain is not
+  const idPathsOf = (arrayPath: string): string[] | undefined =>
+    arrayPath === 'acct.list' || /^acct\.list\[id=a\d\]\.kids$/.test(arrayPath)
+      ? ['id']
+      : undefined
+  const canon = (path: string, root: any = state()): string =>
+    canonicalPath(root, path, idPathsOf)
+
+  test('a key is dotted, however it was written', () => {
+    expect(canon('app.checkout')).toBe('app.checkout')
+    expect(canon('app[=checkout]')).toBe('app.checkout')
+    expect(canon('[=app].gate[=level]')).toBe('app.gate.level')
+    expect(canon('[=app][=gate][=level]')).toBe('app.gate.level')
+  })
+
+  test('a key that cannot be dotted keeps the one spelling it has', () => {
+    expect(canon('app[=user.name]')).toBe('app[=user.name]')
+  })
+
+  test('a row of a list with an idPath is spelled by its id', () => {
+    for (const spelling of [
+      'acct.list[0].pw',
+      'acct.list.0.pw',
+      'acct.list[id=a1].pw',
+      'acct.list[label=work].pw',
+      'acct.list[pw=hunter2].pw',
+      'acct[=list][0][=pw]',
+    ]) {
+      expect(canon(spelling)).toBe('acct.list[id=a1].pw')
+    }
+    expect(canon('acct.list[1]')).toBe('acct.list[id=a2]')
+    expect(canon('acct.list[label=home]')).toBe('acct.list[id=a2]')
+  })
+
+  test('a row of a list with no idPath is spelled by its index', () => {
+    for (const spelling of [
+      'acct.plain[1].pw',
+      'acct.plain.1.pw',
+      'acct.plain[label=y].pw',
+    ]) {
+      expect(canon(spelling)).toBe('acct.plain[1].pw')
+    }
+  })
+
+  test('nested lists resolve at every level', () => {
+    expect(canon('acct.list[0].kids[0].n')).toBe(
+      'acct.list[id=a1].kids[id=k1].n'
+    )
+    expect(canon('acct.list[label=work].kids.0.n')).toBe(
+      'acct.list[id=a1].kids[id=k1].n'
+    )
+  })
+
+  test('a numeric key on an object is an index segment, as the proxy spells it', () => {
+    expect(canon('app.dict[7]')).toBe('app.dict[7]')
+    expect(canon('app.dict.7')).toBe('app.dict.7')
+  })
+
+  test('what it cannot resolve stays as written', () => {
+    expect(canon('acct.list[label=nobody].pw')).toBe(
+      'acct.list[label=nobody].pw'
+    )
+    expect(canon('acct.list[ 0].pw')).toBe('acct.list[ 0].pw')
+    expect(canon('acct.list[9].pw')).toBe('acct.list[9].pw')
+    expect(canon('nothing.here[0].x')).toBe('nothing.here[0].x')
+    expect(canon('app.gate.level.deeper[=k]')).toBe('app.gate.level.deeper.k')
+    expect(canon('')).toBe('')
+  })
+
+  test('two rows with the same id: each path still names its own row', () => {
+    // `[id=a1]` can only mean one of them (which is unspecified), so the
+    // other must keep its index or it would be redirected to its twin
+    const root = state()
+    root.acct.list[1].id = 'a1'
+    root.acct.list[1].pw = 'the-other-one'
+    const spelled = [0, 1].map((n) => canon(`acct.list[${n}].pw`, root))
+    expect(getByPath(root, spelled[0])).toBe('hunter2')
+    expect(getByPath(root, spelled[1])).toBe('the-other-one')
+    expect(spelled.filter((path) => path.includes('[id=a1]')).length).toBe(1)
+  })
+
+  test('an id that cannot be written in brackets falls back to the index', () => {
+    const root = state()
+    root.acct.list[0].id = 'a]1'
+    expect(canon('acct.list[0].pw', root)).toBe('acct.list[0].pw')
+  })
+
+  test('__proto__ is not resolved, and stays for the engine to refuse', () => {
+    expect(canon('app.__proto__.x')).toBe('app.__proto__.x')
+    expect(canon('app[=__proto__].x')).toBe('app.__proto__.x')
+    expect(() => canon('acct.list[__proto__=x]')).toThrow()
+  })
+
+  test('it is idempotent, and names the same value as the path it was given', () => {
+    const paths = [
+      'app.checkout',
+      'app[=checkout]',
+      'app.gate[=level]',
+      'app[=user.name]',
+      'app.dict[7]',
+      'acct.list[0]',
+      'acct.list[0].pw',
+      'acct.list.1.label',
+      'acct.list[label=work].kids[0].n',
+      'acct.list[id=a2].kids',
+      'acct.plain[label=y].pw',
+      'acct.plain.0',
+      'acct.list[label=nobody].pw',
+      'acct.list[9]',
+      'acct.list.length',
+    ]
+    for (const path of paths) {
+      const root = state()
+      const once = canon(path, root)
+      expect(canon(once, root)).toBe(once)
+      expect(getByPath(root, once)).toBe(getByPath(root, path))
+    }
   })
 })

@@ -243,22 +243,26 @@ a secret control marks the path bound on its own **host**, which is where such
 a binding actually lives. Closed shadow roots stay invisible, correctly:
 nothing outside can bind into one either.
 
-> **Matching is by spelling (tosijs#32).** A secret learned as
-> `rows[id=r1].pw` is withheld from `read('rows')`, `read('rows[0])`, and
-> `read('rows[0].pw')` — descent and index-aliasing are both covered. The
-> known gap is narrower: exotic spellings of a *direct* query that no
-> canonicalisation resolves. Treat the redaction as defence in depth beneath
-> manifest scoping, not as the boundary itself.
+> **A path is resolved to one spelling before any gate sees it** (tosijs#32,
+> #52). A place has several valid spellings: a key is `app.login` or
+> `app[=login]`; a row is `rows[0]`, `rows.0`, or `rows[label=work]` for any
+> property. All of them resolve to the same value, so all of them get the
+> same answer here: `read`, `write`, `call`, `observe` and `when` turn the
+> path they are given into its canonical spelling (dotted keys, and a row
+> spelled the way its list binding spells it) and use that for every check
+> and for the operation itself. A refusal quotes the canonical spelling.
+> Until this was done, each gate recognised the spelling a binding happened
+> to use: `read('app[=login].password')` returned what
+> `read('app.login.password')` withholds, `write('app[=checkout]', x)` turned
+> a declared action into data, and `write('app.gate[=level]', x)` skipped an
+> inline contract.
 >
-> **One of those spellings is not exotic: `[=key]`** (found in the 1.10.13
-> review, present in every release). `read('app[=login].password')` returns
-> what `read('app.login.password')` withholds. The same respelling gets a
-> `write()` past the guard on a declared action (`write('app[=checkout]', x)`
-> turns the action into data) and past an inline contract
-> (`write('app.gate[=level]', x)`), and a write to a PARENT path skips an
-> inline contract too. Every gate here compares the path as the caller
-> spelled it. Not fixed yet: the fix is one canonical form at this surface's
-> boundary.
+> A spelling that names nothing (a malformed index such as `rows[ 0]`) is not
+> resolved: it reads `undefined`, and a write to it throws.
+>
+> **Still open:** a write to a PARENT path skips an inline contract declared
+> on a field beneath it. Treat the redaction as defence in depth beneath
+> manifest scoping, not as the boundary itself.
 
 > **Scope withholds what tosijs can trace to a path — not text you wrote into
 > the page.** Under a manifest, `describe()`'s structural tier maps headings and
