@@ -442,8 +442,36 @@ came out of it:
   still talking to the library: `xin` returns raw strings, and
   `'Ada'['__proto__']` is JavaScript, not tosijs.
 
-Still open on this axis: a read through an inherited `constructor` (#4271),
-and the agent surface's gates comparing the caller's spelling (#4312).
+Still open on this axis: a read through an inherited `constructor` (#4271).
+
+**Refuse what is malformed; resolve what is valid** (#4312, #4338,
+2026-11-28). The agent surface's gates compared the caller's spelling, and
+the first plan was to refuse every non-canonical path. The owner's objection
+settled it: `rows[0]` and `rows[prop=value]` are both intended, documented
+spellings, so refusing one to cover for a string comparison removes a feature
+to hide a bug. What landed:
+
+- **A spelling that names nothing is refused where it is resolved.** The path
+  engine read an index with `parseInt`, so `rows[0x2]` wrote row 0 and
+  deleting `rows[abc]` deleted row 0. An index is digits now (`arrayIndex` in
+  `by-path.ts`); anything else reads `undefined` and throws on a write.
+- **Every valid spelling is resolved to one before a gate sees it.**
+  `canonicalPath()` in `by-path.ts` walks live state and writes the path back
+  one way (dotted keys; a row as its list binding spells it). The surface
+  calls it where a path enters (`toPath`) and on what the gates hold on file.
+- **`src/agent-spellings.test.ts` generates the spellings** of each place and
+  requires the canonical answer. A new verb, gate or path syntax goes into
+  that table.
+- **Measure before you ship a resolver on a hot path.** The first version
+  resolved paths that were already canonical: a read went from 0.26 ms to
+  0.79 ms, a 1,000-row read from 3.6 ms to 13 ms. `isCanonicalSpelling()`
+  answers from the text and the idPath registry for the common case, and it
+  must only ever say yes to a path the walk would leave unchanged.
+
+Known and not done: the ledger records a touch under the spelling the app
+used, and `describe()` treats a binding respelled at its root as out of scope
+(it fails closed). A write to a parent path still skips an inline contract
+(#4288).
 
 ### Two rules about redaction, both paid for in 1.10.2
 
